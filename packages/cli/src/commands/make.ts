@@ -1,0 +1,99 @@
+import { relative } from 'node:path'
+import { makeNames, type Names } from '../naming'
+import { join, renderStub, writeGenerated } from '../stub'
+
+interface Blueprint {
+  stub: string
+  suffix: string
+  dir: string
+  /** File name (without dir) for the generated artifact. */
+  filename: (names: Names) => string
+  /** Extra template variables beyond the standard name casings. */
+  vars?: (names: Names) => Record<string, string>
+}
+
+/** Naive singular→table pluralization (user → users, category → categories). */
+function tableName(snake: string): string {
+  if (/[^aeiou]y$/.test(snake)) return `${snake.slice(0, -1)}ies`
+  if (/(s|x|z|ch|sh)$/.test(snake)) return `${snake}es`
+  return `${snake}s`
+}
+
+/** Strip `create_`/`_table` to guess the table a migration targets. */
+function migrationTable(snake: string): string {
+  return snake.replace(/^create_/, '').replace(/_table$/, '') || 'table_name'
+}
+
+const timestamp = () =>
+  new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+
+const blueprints: Record<string, Blueprint> = {
+  controller: {
+    stub: 'controller',
+    suffix: 'Controller',
+    dir: 'app/controllers',
+    filename: (n) => `${n.class}.ts`,
+  },
+  middleware: {
+    stub: 'middleware',
+    suffix: 'Middleware',
+    dir: 'app/middleware',
+    filename: (n) => `${n.class}.ts`,
+  },
+  model: {
+    stub: 'model',
+    suffix: '',
+    dir: 'app/models',
+    filename: (n) => `${n.class}.ts`,
+    vars: (n) => ({ table: tableName(n.snake) }),
+  },
+  seeder: {
+    stub: 'seeder',
+    suffix: 'Seeder',
+    dir: 'database/seeders',
+    filename: (n) => `${n.class}.ts`,
+  },
+  policy: {
+    stub: 'policy',
+    suffix: 'Policy',
+    dir: 'app/policies',
+    filename: (n) => `${n.class}.ts`,
+    vars: (n) => ({ resource: n.snake.replace(/_policy$/, '') }),
+  },
+  migration: {
+    stub: 'migration',
+    suffix: '',
+    dir: 'database/migrations',
+    filename: (n) => `${timestamp()}_${n.snake}.ts`,
+    vars: (n) => ({ table: migrationTable(n.snake) }),
+  },
+}
+
+/** Handle `make:<type> <Name>`, returning an exit code. */
+export async function make(type: string, rawName?: string): Promise<number> {
+  const blueprint = blueprints[type]
+  if (!blueprint) {
+    console.error(
+      `Unknown generator "make:${type}". Available: ${Object.keys(blueprints).join(', ')}`,
+    )
+    return 1
+  }
+  if (!rawName) {
+    console.error(`Missing name. Usage: ravel make:${type} <Name>`)
+    return 1
+  }
+
+  const names = makeNames(rawName, blueprint.suffix)
+  const target = join(process.cwd(), blueprint.dir, blueprint.filename(names))
+  const vars = { ...names, ...blueprint.vars?.(names) }
+
+  try {
+    const contents = await renderStub(blueprint.stub, vars)
+    await writeGenerated(target, contents)
+    console.log(`✓ Created ${relative(process.cwd(), target)}`)
+    return 0
+  } catch (error) {
+    console.error(`✗ ${(error as Error).message}`)
+    return 1
+  }
+}

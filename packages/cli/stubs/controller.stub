@@ -1,0 +1,8 @@
+import { Elysia } from 'elysia'
+
+/**
+ * {{class}} — an Elysia plugin. Compose it from a route file with `.use()`,
+ * or auto-load it by placing route files under `routes/`.
+ */
+export default new Elysia({ name: '{{kebab}}', prefix: '/{{kebab}}' })
+  .get('/', () => ({ message: '{{class}} works' }))

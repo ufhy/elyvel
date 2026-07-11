@@ -1,0 +1,15 @@
+import { Elysia } from 'elysia'
+
+/**
+ * {{class}} — a reusable middleware plugin.
+ *
+ * `.derive` adds typed values to the request context; hooks like
+ * `.onBeforeHandle` run guard logic. Apply with `.use({{camel}})`.
+ */
+export const {{camel}} = new Elysia({ name: '{{kebab}}' })
+  .onBeforeHandle(({ request }) => {
+    // TODO: implement {{class}}
+    void request
+  })
+
+export default {{camel}}

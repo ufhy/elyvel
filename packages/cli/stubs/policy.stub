@@ -1,0 +1,12 @@
+import { createGate } from '@elysia-ravel/auth'
+
+/**
+ * {{class}} — authorization abilities for the `{{resource}}` resource.
+ * Check with `{{camel}}.authorize('{{resource}}.update', user, resource)`.
+ */
+export const {{camel}} = createGate()
+  .define('{{resource}}.view', (_user) => true)
+  .define('{{resource}}.update', (_user) => false)
+  .define('{{resource}}.delete', (_user) => false)
+
+export default {{camel}}

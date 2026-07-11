@@ -1,0 +1,20 @@
+import { type Migration, sql } from '@elysia-ravel/orm'
+
+export default {
+  async up(db) {
+    // Raw SQL is dialect-specific; use db.dialect to stay portable.
+    const pk = db.dialect === 'pg' ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    await db.execute(
+      sql.raw(`
+        CREATE TABLE {{table}} (
+          id ${pk},
+          created_at TEXT NOT NULL
+        )
+      `),
+    )
+  },
+
+  async down(db) {
+    await db.execute(sql.raw('DROP TABLE IF EXISTS {{table}}'))
+  },
+} satisfies Migration

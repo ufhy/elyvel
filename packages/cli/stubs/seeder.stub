@@ -1,0 +1,10 @@
+import { Seeder } from '@elysia-ravel/orm'
+
+export class {{class}} extends Seeder {
+  override async run(): Promise<void> {
+    // Seed data using your models, e.g.:
+    // User.create({ name: 'Ada Lovelace', email: 'ada@example.com' })
+  }
+}
+
+export default {{class}}
