@@ -5,6 +5,15 @@ import type { Relation } from './relations'
 
 type Row = Record<string, unknown>
 
+/** A page of results plus pagination metadata. */
+export interface Paginator<M extends Model> {
+  data: EloquentCollection<M>
+  total: number
+  perPage: number
+  currentPage: number
+  lastPage: number
+}
+
 /**
  * Wraps a {@link QueryBuilder}, forwarding the fluent chain and hydrating result
  * rows into model instances wrapped in a {@link EloquentCollection}. Also applies
@@ -115,6 +124,20 @@ export class EloquentBuilder<M extends Model> {
   count(): Promise<number> {
     this.prepare()
     return this.qb.count()
+  }
+
+  /** Fetch one page plus totals. Runs a COUNT then a limited/offset SELECT. */
+  async paginate(perPage = 15, page = 1): Promise<Paginator<M>> {
+    const total = await this.count()
+    this.offset((page - 1) * perPage).limit(perPage)
+    const data = await this.get()
+    return {
+      data,
+      total,
+      perPage,
+      currentPage: page,
+      lastPage: Math.max(1, Math.ceil(total / perPage)),
+    }
   }
   exists(): Promise<boolean> {
     this.prepare()

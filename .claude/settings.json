@@ -27,7 +27,8 @@
       "Bash(git rm *)",
       "Bash(python3 -)",
       "Bash(git commit -q -m 'feat\\(eloquent\\): relationships + eager loading \\(Cut-2, part 1\\)' -m 'hasMany / hasOne / belongsTo with constraints, plus with\\(\\) eager loading *)",
-      "Bash(git commit -q -m 'feat\\(eloquent\\): global scopes, soft deletes, belongsToMany \\(Cut-2, part 2\\)' -m '- Global scopes: addGlobalScope\\(name, fn\\), auto-applied, withoutGlobalScope\\(s\\) *)"
+      "Bash(git commit -q -m 'feat\\(eloquent\\): global scopes, soft deletes, belongsToMany \\(Cut-2, part 2\\)' -m '- Global scopes: addGlobalScope\\(name, fn\\), auto-applied, withoutGlobalScope\\(s\\) *)",
+      "Bash(git commit -q -m 'feat\\(eloquent\\): pagination \\(Cut-3, part 2\\)' -m 'EloquentBuilder.paginate\\(perPage, page\\) → { data, total, perPage, currentPage, *)"
     ]
   }
 }

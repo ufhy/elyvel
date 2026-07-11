@@ -12,7 +12,7 @@ export {
 } from './connection'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export { EloquentServiceProvider } from './database-provider'
-export { EloquentBuilder } from './eloquent-builder'
+export { EloquentBuilder, type Paginator } from './eloquent-builder'
 export type { ColumnDefinition, Dialect, Grammar } from './grammar'
 export { type Attributes, type CastType, Model } from './model'
 export { freshMigrate, loadMigrations, type Migration, migrate } from './migrator'
