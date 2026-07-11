@@ -57,6 +57,19 @@
         "elysia": ">=1.3.0",
       },
     },
+    "packages/eloquent": {
+      "name": "@elysia-ravel/eloquent",
+      "version": "0.0.0",
+      "dependencies": {
+        "@electric-sql/pglite": "^0.5.4",
+      },
+      "devDependencies": {
+        "postgres": "^3.4.9",
+      },
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+      },
+    },
     "packages/orm": {
       "name": "@elysia-ravel/orm",
       "version": "0.0.0",
@@ -98,6 +111,8 @@
     "@elysia-ravel/cli": ["@elysia-ravel/cli@workspace:packages/cli"],
 
     "@elysia-ravel/core": ["@elysia-ravel/core@workspace:packages/core"],
+
+    "@elysia-ravel/eloquent": ["@elysia-ravel/eloquent@workspace:packages/eloquent"],
 
     "@elysia-ravel/orm": ["@elysia-ravel/orm@workspace:packages/orm"],
 
