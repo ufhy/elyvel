@@ -24,7 +24,9 @@
       "WebSearch",
       "Bash(git add *)",
       "Bash(git commit -q -m 'feat\\(eloquent\\): Laravel Eloquent-style Active Record ORM \\(Cut-1\\)' -m 'Custom query-builder + schema-builder + grammar + Active Record Model + *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(python3 -)",
+      "Bash(git commit -q -m 'feat\\(eloquent\\): relationships + eager loading \\(Cut-2, part 1\\)' -m 'hasMany / hasOne / belongsTo with constraints, plus with\\(\\) eager loading *)"
     ]
   }
 }

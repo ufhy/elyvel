@@ -2,13 +2,14 @@ import { useConnection } from './connection'
 import { EloquentBuilder } from './eloquent-builder'
 import type { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
+import { BelongsTo, HasMany, HasOne } from './relations'
 
 export type Attributes = Record<string, unknown>
 
 /** Constructor + statics view of a Model subclass, for typing static helpers. */
-type ModelClass<M extends Model> = { new (attributes?: Attributes): M } & typeof Model
+export type ModelClass<M extends Model> = { new (attributes?: Attributes): M } & typeof Model
 
-const RESERVED = new Set(['attributes', 'original', 'exists'])
+const RESERVED = new Set(['attributes', 'original', 'exists', 'relations'])
 
 // A Proxy gives Eloquent's `$model->attribute` ergonomics: unknown property
 // reads/writes fall through to the attribute bag (with dirty tracking on write).
@@ -24,6 +25,14 @@ const proxyHandler: ProxyHandler<Model> = {
     target.setAttribute(prop, value)
     return true
   },
+}
+
+function serializeRelation(value: unknown): unknown {
+  if (value == null) return value
+  const v = value as { toArray?: () => unknown; toObject?: () => unknown }
+  if (typeof v.toArray === 'function') return v.toArray() // Collection
+  if (typeof v.toObject === 'function') return v.toObject() // Model
+  return value
 }
 
 /**
@@ -42,6 +51,8 @@ export class Model {
   attributes: Attributes = {}
   original: Attributes = {}
   exists = false
+  /** Loaded relations (populated by eager loading via `with()`). */
+  relations: Record<string, unknown> = {}
 
   constructor(attributes: Attributes = {}) {
     for (const [key, value] of Object.entries(attributes)) this.attributes[key] = value
@@ -144,6 +155,40 @@ export class Model {
     return this.attributes[this.self().primaryKey]
   }
 
+  // ── relationships ─────────────────────────────────────────────────────────
+  /** Parent has many related rows (FK defaults to `<thisClass>_id`). */
+  hasMany<R extends Model>(
+    related: ModelClass<R>,
+    foreignKey = `${this.constructor.name.toLowerCase()}_id`,
+    localKey = this.self().primaryKey,
+  ): HasMany<R> {
+    return new HasMany<R>(this, related, foreignKey, localKey)
+  }
+  /** Parent has one related row. */
+  hasOne<R extends Model>(
+    related: ModelClass<R>,
+    foreignKey = `${this.constructor.name.toLowerCase()}_id`,
+    localKey = this.self().primaryKey,
+  ): HasOne<R> {
+    return new HasOne<R>(this, related, foreignKey, localKey)
+  }
+  /** Parent belongs to a related row (FK on this model, defaults `<related>_id`). */
+  belongsTo<R extends Model>(
+    related: ModelClass<R>,
+    foreignKey = `${related.name.toLowerCase()}_id`,
+    ownerKey = related.primaryKey,
+  ): BelongsTo<R> {
+    return new BelongsTo<R>(this, related, foreignKey, ownerKey)
+  }
+
+  setRelation(name: string, value: unknown): this {
+    this.relations[name] = value
+    return this
+  }
+  getRelation<T = unknown>(name: string): T {
+    return this.relations[name] as T
+  }
+
   getDirty(): Attributes {
     const dirty: Attributes = {}
     for (const [key, value] of Object.entries(this.attributes)) {
@@ -202,7 +247,12 @@ export class Model {
     for (const key of this.self().hidden) delete out[key]
     return out
   }
+  /** Serialized attributes plus any loaded relations. */
   toJSON(): Attributes {
-    return this.toObject()
+    const out = this.toObject()
+    for (const [name, value] of Object.entries(this.relations)) {
+      out[name] = serializeRelation(value)
+    }
+    return out
   }
 }

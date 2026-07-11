@@ -1,6 +1,7 @@
 import { EloquentCollection } from './eloquent-collection'
 import type { Model } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
+import type { Relation } from './relations'
 
 type Row = Record<string, unknown>
 
@@ -10,10 +11,18 @@ type Row = Record<string, unknown>
  * query builder returned by `Model.query()`.
  */
 export class EloquentBuilder<M extends Model> {
+  private readonly eagerLoads: string[] = []
+
   constructor(
     private readonly qb: QueryBuilder,
     private readonly hydrate: (row: Row) => M,
   ) {}
+
+  /** Eager-load the named relations (one query each, no N+1). */
+  with(...names: string[]): this {
+    this.eagerLoads.push(...names)
+    return this
+  }
 
   where(column: string, operatorOrValue?: unknown, value?: unknown): this {
     this.qb.where(column, operatorOrValue, value)
@@ -50,7 +59,13 @@ export class EloquentBuilder<M extends Model> {
 
   async get(): Promise<EloquentCollection<M>> {
     const rows = await this.qb.get()
-    return new EloquentCollection(rows.map((r) => this.hydrate(r)))
+    const models = rows.map((r) => this.hydrate(r))
+    for (const name of this.eagerLoads) {
+      if (models.length === 0) break
+      const relation = (models[0] as unknown as Record<string, () => Relation<Model>>)[name]?.()
+      if (relation) await relation.eager(models, name)
+    }
+    return new EloquentCollection(models)
   }
   async first(): Promise<M | undefined> {
     const row = await this.qb.first()
