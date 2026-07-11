@@ -1,0 +1,19 @@
+{
+  "name": "basic-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ravel serve",
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "@elysia-ravel/auth": "workspace:*",
+    "@elysia-ravel/core": "workspace:*",
+    "@elysia-ravel/orm": "workspace:*",
+    "elysia": "^1.3.0"
+  },
+  "devDependencies": {
+    "@elysia-ravel/cli": "workspace:*"
+  }
+}
