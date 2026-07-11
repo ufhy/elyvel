@@ -106,9 +106,8 @@ class PostgresGrammar extends Grammar {
         return `VARCHAR(${c.length ?? 255})`
       case 'text':
       case 'timestamp': // stored as ISO string for identical behavior across dialects
+      case 'json': // stored as text (JSON string) for identical behavior across dialects
         return 'TEXT'
-      case 'json':
-        return 'JSONB'
       case 'integer':
         return 'INTEGER'
       case 'bigInteger':

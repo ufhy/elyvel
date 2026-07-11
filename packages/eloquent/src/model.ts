@@ -9,6 +9,52 @@ export type Attributes = Record<string, unknown>
 /** Constructor + statics view of a Model subclass, for typing static helpers. */
 export type ModelClass<M extends Model> = { new (attributes?: Attributes): M } & typeof Model
 
+export type CastType =
+  | 'int'
+  | 'integer'
+  | 'float'
+  | 'double'
+  | 'boolean'
+  | 'bool'
+  | 'string'
+  | 'json'
+  | 'array'
+
+/** Cast a raw (DB or user-set) value to its JS representation for reads. */
+function castGet(type: CastType, value: unknown): unknown {
+  if (value === null || value === undefined) return value
+  switch (type) {
+    case 'int':
+    case 'integer':
+    case 'float':
+    case 'double':
+      return Number(value)
+    case 'boolean':
+    case 'bool':
+      return value === true || value === 1 || value === '1' || value === 't'
+    case 'string':
+      return String(value)
+    case 'json':
+    case 'array':
+      return typeof value === 'string' ? JSON.parse(value) : value
+  }
+}
+
+/** Cast a JS value to its storage representation for writes (dialect-aware). */
+function castStore(type: CastType, value: unknown, dialect: string): unknown {
+  if (value === null || value === undefined) return value
+  switch (type) {
+    case 'boolean':
+    case 'bool':
+      return dialect === 'pg' ? Boolean(value) : value ? 1 : 0
+    case 'json':
+    case 'array':
+      return typeof value === 'string' ? value : JSON.stringify(value)
+    default:
+      return value
+  }
+}
+
 type ScopeFn = (qb: QueryBuilder) => void
 
 // Per-class global scope registries (WeakMap keyed by the class constructor).
@@ -29,7 +75,7 @@ const RESERVED = new Set(['attributes', 'original', 'exists', 'relations'])
 const proxyHandler: ProxyHandler<Model> = {
   get(target, prop, receiver) {
     if (typeof prop !== 'string' || prop in target) return Reflect.get(target, prop, receiver)
-    return target.attributes[prop]
+    return target.getAttribute(prop) // applies casts
   },
   set(target, prop, value, receiver) {
     if (typeof prop !== 'string' || RESERVED.has(prop) || prop in target) {
@@ -60,6 +106,8 @@ export class Model {
   static timestamps = true
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
   static hidden: string[] = []
+  /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
+  static casts: Record<string, CastType> = {}
   /** Enable soft deletes (requires a `deleted_at` column). */
   static softDeletes = false
   static deletedAtColumn = 'deleted_at'
@@ -182,7 +230,20 @@ export class Model {
     this.attributes[key] = value
   }
   getAttribute(key: string): unknown {
-    return this.attributes[key]
+    const type = this.self().casts[key]
+    const value = this.attributes[key]
+    return type ? castGet(type, value) : value
+  }
+
+  /** Attributes in DB-storage form (casts applied for the active dialect). */
+  private toStorage(attributes: Attributes): Attributes {
+    const casts = this.self().casts
+    const dialect = useConnection().dialect
+    const out: Attributes = { ...attributes }
+    for (const key of Object.keys(out)) {
+      if (casts[key]) out[key] = castStore(casts[key], out[key], dialect)
+    }
+    return out
   }
   fill(attributes: Attributes): this {
     for (const [key, value] of Object.entries(attributes)) this.setAttribute(key, value)
@@ -272,14 +333,14 @@ export class Model {
       if (self.timestamps) this.attributes.updated_at = now
       const dirty = this.getDirty()
       if (Object.keys(dirty).length > 0) {
-        await qb().where(self.primaryKey, this.getKey()).update(dirty)
+        await qb().where(self.primaryKey, this.getKey()).update(this.toStorage(dirty))
       }
     } else {
       if (self.timestamps) {
         this.attributes.created_at ??= now
         this.attributes.updated_at ??= now
       }
-      const row = await qb().insert(this.attributes)
+      const row = await qb().insert(this.toStorage(this.attributes))
       this.attributes = { ...this.attributes, ...row } // pick up generated id/defaults
       this.exists = true
     }
@@ -323,10 +384,13 @@ export class Model {
     return this.getAttribute(this.self().deletedAtColumn) != null
   }
 
-  /** Attributes minus hidden — used by serialization. */
+  /** Casted attributes minus hidden — used by serialization. */
   toObject(): Attributes {
-    const out = { ...this.attributes }
-    for (const key of this.self().hidden) delete out[key]
+    const hidden = new Set(this.self().hidden)
+    const out: Attributes = {}
+    for (const key of Object.keys(this.attributes)) {
+      if (!hidden.has(key)) out[key] = this.getAttribute(key)
+    }
     return out
   }
   /** Serialized attributes plus any loaded relations. */
