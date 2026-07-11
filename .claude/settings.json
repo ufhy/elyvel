@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(git init *)",
+      "Bash(mkdir -p packages/core/src packages/cli/src/commands packages/cli/stubs examples/basic-app)",
+      "Bash(bun install *)",
+      "Bash(./node_modules/.bin/ravel help *)",
+      "Bash(./node_modules/.bin/ravel make:controller Product)",
+      "Bash(./node_modules/.bin/ravel make:middleware Auth)",
+      "Bash(rtk ls *)",
+      "Bash(rm -f packages/core/*.tsbuildinfo packages/cli/*.tsbuildinfo)",
+      "Bash(bun run *)",
+      "Bash(echo \"=== EXIT $? ===\")",
+      "Bash(rtk read *)",
+      "Bash(rm -f database/database.sqlite*)",
+      "Bash(./node_modules/.bin/ravel migrate *)",
+      "Bash(./node_modules/.bin/ravel db:seed)",
+      "Bash(bun test *)",
+      "Bash(bun x *)",
+      "Bash(./node_modules/.bin/ravel make:policy Post)",
+      "Bash(rtk grep *)",
+      "Bash(git mv *)",
+      "WebSearch",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'feat\\(eloquent\\): Laravel Eloquent-style Active Record ORM \\(Cut-1\\)' -m 'Custom query-builder + schema-builder + grammar + Active Record Model + *)",
+      "Bash(git rm *)"
+    ]
+  }
+}

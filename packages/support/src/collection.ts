@@ -1,17 +1,17 @@
 /**
- * A lean, Laravel-flavored collection over an array. Deliberately NOT a 180-
- * method clone: native array methods already cover most needs, so this adds the
- * high-value, chainable helpers (pluck/groupBy/keyBy/sortBy/sum/chunk/…) plus
- * model-aware serialization. Every transform returns a new Collection.
+ * A lean, Laravel-flavored collection over an array — a foundational primitive
+ * (mirrors `Illuminate\Support\Collection`), usable anywhere, not tied to the
+ * ORM. Deliberately NOT a 180-method clone: native array methods cover most
+ * needs, so this adds the high-value chainable helpers plus model-aware
+ * serialization. Every transform returns a new Collection.
  */
 export class Collection<T> implements Iterable<T> {
-  constructor(private readonly items: T[] = []) {}
+  constructor(protected readonly items: T[] = []) {}
 
   static make<T>(items: T[] = []): Collection<T> {
     return new Collection(items)
   }
 
-  /** The underlying array. */
   all(): T[] {
     return this.items
   }
@@ -48,7 +48,6 @@ export class Collection<T> implements Iterable<T> {
     this.items.forEach(fn)
     return this
   }
-  /** Run a side effect on the whole collection, return it (for chaining). */
   tap(fn: (collection: this) => void): this {
     fn(this)
     return this
@@ -57,7 +56,6 @@ export class Collection<T> implements Iterable<T> {
     return this.items.some(fn)
   }
 
-  /** Extract a single column's values. */
   pluck<K extends keyof T>(key: K): Collection<T[K]> {
     return new Collection(this.items.map((item) => item[key]))
   }
@@ -69,14 +67,12 @@ export class Collection<T> implements Iterable<T> {
     return this.first((item) => item[key] === value)
   }
 
-  /** Re-key by a column (last wins on duplicates). */
   keyBy<K extends keyof T>(key: K): Record<string, T> {
     const out: Record<string, T> = {}
     for (const item of this.items) out[String(item[key])] = item
     return out
   }
 
-  /** Group items into a Collection per distinct key value. */
   groupBy<K extends keyof T>(key: K): Record<string, Collection<T>> {
     const out: Record<string, T[]> = {}
     for (const item of this.items) {
@@ -86,7 +82,6 @@ export class Collection<T> implements Iterable<T> {
     return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, new Collection(v)]))
   }
 
-  /** Non-mutating sort by a column or a selector. */
   sortBy(by: keyof T | ((item: T) => number | string)): Collection<T> {
     const select = typeof by === 'function' ? by : (item: T) => item[by] as number | string
     return new Collection(

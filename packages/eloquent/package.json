@@ -16,7 +16,8 @@
     "@elysia-ravel/core": "workspace:*"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.4"
+    "@electric-sql/pglite": "^0.5.4",
+    "@elysia-ravel/support": "workspace:*"
   },
   "peerDependenciesMeta": {
     "postgres": { "optional": true }

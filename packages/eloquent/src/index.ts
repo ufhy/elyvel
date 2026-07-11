@@ -1,4 +1,4 @@
-export { Collection } from './collection'
+export { EloquentCollection } from './eloquent-collection'
 export {
   type Connection,
   type ConnectionConfig,

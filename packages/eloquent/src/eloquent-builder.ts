@@ -1,4 +1,5 @@
-import { Collection } from './collection'
+import { EloquentCollection } from './eloquent-collection'
+import type { Model } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
 
 type Row = Record<string, unknown>
@@ -8,7 +9,7 @@ type Row = Record<string, unknown>
  * rows into model instances wrapped in a {@link Collection} — the Eloquent
  * query builder returned by `Model.query()`.
  */
-export class EloquentBuilder<M> {
+export class EloquentBuilder<M extends Model> {
   constructor(
     private readonly qb: QueryBuilder,
     private readonly hydrate: (row: Row) => M,
@@ -47,9 +48,9 @@ export class EloquentBuilder<M> {
     return this
   }
 
-  async get(): Promise<Collection<M>> {
+  async get(): Promise<EloquentCollection<M>> {
     const rows = await this.qb.get()
-    return new Collection(rows.map((r) => this.hydrate(r)))
+    return new EloquentCollection(rows.map((r) => this.hydrate(r)))
   }
   async first(): Promise<M | undefined> {
     const row = await this.qb.first()

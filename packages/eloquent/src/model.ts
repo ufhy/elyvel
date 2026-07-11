@@ -1,5 +1,6 @@
 import { useConnection } from './connection'
 import { EloquentBuilder } from './eloquent-builder'
+import type { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
 
 export type Attributes = Record<string, unknown>
@@ -58,7 +59,7 @@ export class Model {
     return new EloquentBuilder<M>(qb, (row) => this.hydrate(row))
   }
 
-  static all<M extends Model>(this: ModelClass<M>): Promise<import('./collection').Collection<M>> {
+  static all<M extends Model>(this: ModelClass<M>): Promise<EloquentCollection<M>> {
     return this.query().get()
   }
 

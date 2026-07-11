@@ -1,5 +1,5 @@
+import { Collection } from '@elysia-ravel/support'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { Collection } from '../src/collection'
 import { createConnection, setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
