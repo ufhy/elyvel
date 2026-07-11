@@ -75,6 +75,10 @@ export class Blueprint {
     this.push({ name: 'created_at', type: 'timestamp', nullable: true })
     this.push({ name: 'updated_at', type: 'timestamp', nullable: true })
   }
+  /** `deleted_at` nullable timestamp for soft deletes. */
+  softDeletes(): ColumnBuilder {
+    return this.push({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  }
 }
 
 /** Dialect-agnostic schema builder used inside migrations. */

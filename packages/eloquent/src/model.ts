@@ -2,12 +2,25 @@ import { useConnection } from './connection'
 import { EloquentBuilder } from './eloquent-builder'
 import type { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
-import { BelongsTo, HasMany, HasOne } from './relations'
+import { BelongsTo, BelongsToMany, HasMany, HasOne } from './relations'
 
 export type Attributes = Record<string, unknown>
 
 /** Constructor + statics view of a Model subclass, for typing static helpers. */
 export type ModelClass<M extends Model> = { new (attributes?: Attributes): M } & typeof Model
+
+type ScopeFn = (qb: QueryBuilder) => void
+
+// Per-class global scope registries (WeakMap keyed by the class constructor).
+const GLOBAL_SCOPES = new WeakMap<Function, Map<string, ScopeFn>>()
+function ownScopes(cls: Function): Map<string, ScopeFn> {
+  let map = GLOBAL_SCOPES.get(cls)
+  if (!map) {
+    map = new Map()
+    GLOBAL_SCOPES.set(cls, map)
+  }
+  return map
+}
 
 const RESERVED = new Set(['attributes', 'original', 'exists', 'relations'])
 
@@ -47,6 +60,30 @@ export class Model {
   static timestamps = true
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
   static hidden: string[] = []
+  /** Enable soft deletes (requires a `deleted_at` column). */
+  static softDeletes = false
+  static deletedAtColumn = 'deleted_at'
+
+  /** Register a named global scope applied to every query for this model. */
+  static addGlobalScope(name: string, scope: ScopeFn): void {
+    ownScopes(this).set(name, scope)
+  }
+
+  /** Collect global scopes from this class and its ancestors. */
+  static globalScopeEntries(): [string, ScopeFn][] {
+    const merged = new Map<string, ScopeFn>()
+    const chain: Function[] = []
+    let cursor: unknown = this
+    while (typeof cursor === 'function' && cursor !== Model) {
+      chain.unshift(cursor)
+      cursor = Object.getPrototypeOf(cursor)
+    }
+    for (const cls of chain) {
+      const map = GLOBAL_SCOPES.get(cls)
+      if (map) for (const [name, fn] of map) merged.set(name, fn)
+    }
+    return [...merged]
+  }
 
   attributes: Attributes = {}
   original: Attributes = {}
@@ -67,7 +104,7 @@ export class Model {
   // ── static query API ──────────────────────────────────────────────────────
   static query<M extends Model>(this: ModelClass<M>): EloquentBuilder<M> {
     const qb = new QueryBuilder(useConnection(), this.getTableName())
-    return new EloquentBuilder<M>(qb, (row) => this.hydrate(row))
+    return new EloquentBuilder<M>(qb, (row) => this.hydrate(row), this)
   }
 
   static all<M extends Model>(this: ModelClass<M>): Promise<EloquentCollection<M>> {
@@ -181,6 +218,28 @@ export class Model {
     return new BelongsTo<R>(this, related, foreignKey, ownerKey)
   }
 
+  /** Many-to-many through a pivot table (defaults: sorted `a_b` table, `<class>_id` keys). */
+  belongsToMany<R extends Model>(
+    related: ModelClass<R>,
+    pivotTable?: string,
+    foreignPivotKey?: string,
+    relatedPivotKey?: string,
+    parentKey?: string,
+    relatedKey?: string,
+  ): BelongsToMany<R> {
+    const a = this.constructor.name.toLowerCase()
+    const b = related.name.toLowerCase()
+    return new BelongsToMany<R>(
+      this,
+      related,
+      pivotTable ?? [a, b].sort().join('_'),
+      foreignPivotKey ?? `${a}_id`,
+      relatedPivotKey ?? `${b}_id`,
+      parentKey ?? this.self().primaryKey,
+      relatedKey ?? related.primaryKey,
+    )
+  }
+
   setRelation(name: string, value: unknown): this {
     this.relations[name] = value
     return this
@@ -233,12 +292,35 @@ export class Model {
     return this.save()
   }
 
+  /** Delete the row — soft (sets `deleted_at`) when soft deletes are enabled. */
   async delete(): Promise<void> {
+    const self = this.self()
+    if (self.softDeletes) {
+      this.setAttribute(self.deletedAtColumn, new Date().toISOString())
+      await this.save()
+      return
+    }
+    await this.forceDelete()
+  }
+
+  /** Permanently delete the row, ignoring soft deletes. */
+  async forceDelete(): Promise<void> {
     const self = this.self()
     await new QueryBuilder(useConnection(), self.getTableName())
       .where(self.primaryKey, this.getKey())
       .delete()
     this.exists = false
+  }
+
+  /** Restore a soft-deleted row. */
+  async restore(): Promise<void> {
+    this.setAttribute(this.self().deletedAtColumn, null)
+    await this.save()
+  }
+
+  /** Whether the row is soft-deleted. */
+  trashed(): boolean {
+    return this.getAttribute(this.self().deletedAtColumn) != null
   }
 
   /** Attributes minus hidden — used by serialization. */

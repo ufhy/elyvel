@@ -1,6 +1,8 @@
+import { useConnection } from './connection'
 import { EloquentCollection } from './eloquent-collection'
 import type { EloquentBuilder } from './eloquent-builder'
 import type { Model, ModelClass } from './model'
+import { QueryBuilder } from './query-builder'
 
 /**
  * Base relationship. Holds a related-model query constrained to the parent, is
@@ -132,6 +134,92 @@ export class BelongsTo<R extends Model> extends Relation<R> {
     const keyed = results.keyBy(this.ownerKey as keyof R)
     for (const parent of parents) {
       parent.setRelation(name, keyed[String(parent.getAttribute(this.foreignKey))])
+    }
+  }
+}
+
+/**
+ * Many-to-many via a pivot table. Uses two queries (pivot → related) rather
+ * than a JOIN, keeping the query builder simple; `attach`/`detach`/`sync`
+ * manage pivot rows.
+ */
+export class BelongsToMany<R extends Model> extends Relation<R> {
+  constructor(
+    parent: Model,
+    related: ModelClass<R>,
+    private readonly pivotTable: string,
+    private readonly foreignPivotKey: string,
+    private readonly relatedPivotKey: string,
+    private readonly parentKey: string,
+    private readonly relatedKey: string,
+  ) {
+    super(parent, related)
+  }
+
+  protected addConstraints(): void {
+    // Constraints are resolved through the pivot table in get()/eager().
+  }
+
+  private pivot(): QueryBuilder {
+    return new QueryBuilder(useConnection(), this.pivotTable)
+  }
+
+  override async get(): Promise<EloquentCollection<R>> {
+    const rows = await this.pivot()
+      .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
+      .get()
+    const ids = rows.map((r) => r[this.relatedPivotKey])
+    if (ids.length === 0) return new EloquentCollection<R>([])
+    return this.related.query().whereIn(this.relatedKey, ids).get()
+  }
+
+  override async first(): Promise<R | undefined> {
+    return (await this.get()).first()
+  }
+
+  /** Insert pivot rows linking the parent to the given related ids. */
+  async attach(ids: unknown | unknown[]): Promise<void> {
+    const list = Array.isArray(ids) ? ids : [ids]
+    const parentId = this.parent.getAttribute(this.parentKey)
+    for (const id of list) {
+      await this.pivot().insert({ [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id })
+    }
+  }
+
+  /** Remove pivot rows (all for this parent when no ids given). */
+  async detach(ids?: unknown | unknown[]): Promise<void> {
+    const query = this.pivot().where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
+    if (ids !== undefined) query.whereIn(this.relatedPivotKey, Array.isArray(ids) ? ids : [ids])
+    await query.delete()
+  }
+
+  /** Make the pivot exactly match the given related ids. */
+  async sync(ids: unknown[]): Promise<void> {
+    await this.detach()
+    await this.attach(ids)
+  }
+
+  async eager(parents: Model[], name: string): Promise<void> {
+    const parentKeys = parents.map((p) => p.getAttribute(this.parentKey))
+    const pivotRows = await this.pivot().whereIn(this.foreignPivotKey, parentKeys).get()
+    const relatedIds = [...new Set(pivotRows.map((r) => r[this.relatedPivotKey]))]
+    const related = relatedIds.length
+      ? await this.related.query().whereIn(this.relatedKey, relatedIds).get()
+      : new EloquentCollection<R>([])
+    const relatedById = related.keyBy(this.relatedKey as keyof R)
+
+    const byParent = new Map<string, R[]>()
+    for (const row of pivotRows) {
+      const model = relatedById[String(row[this.relatedPivotKey])]
+      if (!model) continue
+      const key = String(row[this.foreignPivotKey])
+      const bucket = byParent.get(key) ?? []
+      bucket.push(model)
+      byParent.set(key, bucket)
+    }
+    for (const parent of parents) {
+      const bucket = byParent.get(String(parent.getAttribute(this.parentKey))) ?? []
+      parent.setRelation(name, new EloquentCollection(bucket))
     }
   }
 }

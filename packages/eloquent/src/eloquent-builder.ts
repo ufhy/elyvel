@@ -7,23 +7,25 @@ type Row = Record<string, unknown>
 
 /**
  * Wraps a {@link QueryBuilder}, forwarding the fluent chain and hydrating result
- * rows into model instances wrapped in a {@link Collection} — the Eloquent
- * query builder returned by `Model.query()`.
+ * rows into model instances wrapped in a {@link EloquentCollection}. Also applies
+ * the model's global scopes and soft-delete filtering at execution time.
  */
 export class EloquentBuilder<M extends Model> {
   private readonly eagerLoads: string[] = []
+  private trashed: 'default' | 'with' | 'only' = 'default'
+  private readonly removedScopes = new Set<string>()
+  private prepared = false
 
   constructor(
     private readonly qb: QueryBuilder,
     private readonly hydrate: (row: Row) => M,
+    private readonly model: typeof Model,
   ) {}
 
-  /** Eager-load the named relations (one query each, no N+1). */
   with(...names: string[]): this {
     this.eagerLoads.push(...names)
     return this
   }
-
   where(column: string, operatorOrValue?: unknown, value?: unknown): this {
     this.qb.where(column, operatorOrValue, value)
     return this
@@ -57,7 +59,45 @@ export class EloquentBuilder<M extends Model> {
     return this
   }
 
+  /** Include soft-deleted rows in the results. */
+  withTrashed(): this {
+    this.trashed = 'with'
+    return this
+  }
+  /** Return only soft-deleted rows. */
+  onlyTrashed(): this {
+    this.trashed = 'only'
+    return this
+  }
+  /** Skip a named global scope for this query. */
+  withoutGlobalScope(name: string): this {
+    this.removedScopes.add(name)
+    return this
+  }
+  /** Skip all global scopes for this query. */
+  withoutGlobalScopes(): this {
+    this.removedScopes.add('*')
+    return this
+  }
+
+  private prepare(): void {
+    if (this.prepared) return
+    this.prepared = true
+
+    if (this.model.softDeletes) {
+      const column = this.model.deletedAtColumn
+      if (this.trashed === 'default') this.qb.whereNull(column)
+      else if (this.trashed === 'only') this.qb.whereNotNull(column)
+    }
+    if (!this.removedScopes.has('*')) {
+      for (const [name, fn] of this.model.globalScopeEntries()) {
+        if (!this.removedScopes.has(name)) fn(this.qb)
+      }
+    }
+  }
+
   async get(): Promise<EloquentCollection<M>> {
+    this.prepare()
     const rows = await this.qb.get()
     const models = rows.map((r) => this.hydrate(r))
     for (const name of this.eagerLoads) {
@@ -68,13 +108,16 @@ export class EloquentBuilder<M extends Model> {
     return new EloquentCollection(models)
   }
   async first(): Promise<M | undefined> {
-    const row = await this.qb.first()
-    return row ? this.hydrate(row) : undefined
+    this.prepare()
+    const row = await this.qb.limit(1).get()
+    return row[0] ? this.hydrate(row[0]) : undefined
   }
   count(): Promise<number> {
+    this.prepare()
     return this.qb.count()
   }
   exists(): Promise<boolean> {
+    this.prepare()
     return this.qb.exists()
   }
 }
