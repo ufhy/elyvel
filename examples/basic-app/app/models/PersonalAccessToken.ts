@@ -1,15 +1,14 @@
-import { defineModel, integer, sqliteTable, text } from '@elysia-ravel/orm'
+import { Model } from '@elysia-ravel/eloquent'
 
 /** Sanctum-style API tokens. Only the SHA-256 hash of a token is stored. */
-export const personalAccessTokens = sqliteTable('personal_access_tokens', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  userId: integer('user_id').notNull(),
-  token: text('token').notNull().unique(),
-  createdAt: text('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-})
+export class PersonalAccessToken extends Model {
+  static override table = 'personal_access_tokens'
+  static override timestamps = false
+  static override casts = { id: 'int', user_id: 'int' } as const
 
-export const PersonalAccessToken = defineModel(personalAccessTokens)
+  declare id: number
+  declare user_id: number
+  declare token: string
+}
 
 export default PersonalAccessToken

@@ -1,5 +1,5 @@
 import { defineAppConfig } from '@elysia-ravel/core'
-import { DatabaseServiceProvider } from '@elysia-ravel/orm'
+import { EloquentServiceProvider } from '@elysia-ravel/eloquent'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 
 /**
@@ -11,5 +11,5 @@ export default defineAppConfig({
   env: process.env.APP_ENV ?? 'local',
   port: Number(process.env.PORT ?? 3000),
 
-  providers: [DatabaseServiceProvider, AppServiceProvider],
+  providers: [EloquentServiceProvider, AppServiceProvider],
 })

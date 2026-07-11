@@ -1,4 +1,4 @@
-import { defineDatabaseConfig } from '@elysia-ravel/orm'
+import { defineDatabaseConfig } from '@elysia-ravel/eloquent'
 
 /**
  * Database config. Switch databases by changing `default` (or `DB_CONNECTION`)

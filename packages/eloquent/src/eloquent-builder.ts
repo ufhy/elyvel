@@ -117,9 +117,8 @@ export class EloquentBuilder<M extends Model> {
     return new EloquentCollection(models)
   }
   async first(): Promise<M | undefined> {
-    this.prepare()
-    const row = await this.qb.limit(1).get()
-    return row[0] ? this.hydrate(row[0]) : undefined
+    this.qb.limit(1)
+    return (await this.get()).first() // get() applies scopes + eager loading
   }
   count(): Promise<number> {
     this.prepare()

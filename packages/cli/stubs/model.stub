@@ -1,13 +1,10 @@
-import { defineModel, integer, sqliteTable, text } from '@elysia-ravel/orm'
+import { Model } from '@elysia-ravel/eloquent'
 
-/** The `{{table}}` table schema. Add columns here — types flow to the model. */
-export const {{table}} = sqliteTable('{{table}}', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  // name: text('name').notNull(),
-  createdAt: text('created_at').notNull().default('CURRENT_TIMESTAMP'),
-})
-
-/** {{class}} model — typed CRUD + query helpers over the table above. */
-export const {{class}} = defineModel({{table}})
+/** {{class}} model — an Eloquent-style Active Record over the `{{table}}` table. */
+export class {{class}} extends Model {
+  static override table = '{{table}}'
+  // static override hidden = ['password']
+  // static override casts = { id: 'int' }
+}
 
 export default {{class}}

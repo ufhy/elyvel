@@ -1,17 +1,14 @@
 import { Elysia, t } from 'elysia'
 import { User } from '../models/User'
 
-/** Hide the password hash from API responses. */
-const publicUser = ({ password: _pw, ...rest }: Awaited<ReturnType<typeof User.all>>[number]) => rest
-
-/** UserController — a DB-backed resource, fully typed end to end. */
+/** UserController — DB-backed resource. Passwords are hidden by the model. */
 export default new Elysia({ name: 'users', prefix: '/users' })
-  .get('/', async () => (await User.all()).map(publicUser))
+  .get('/', async () => (await User.all()).toArray())
   .get(
     '/:id',
     async ({ params, status }) => {
       const user = await User.find(params.id)
-      return user ? publicUser(user) : status(404, { message: 'User not found' })
+      return user ? user.toJSON() : status(404, { message: 'User not found' })
     },
     { params: t.Object({ id: t.Number() }) },
   )

@@ -13,8 +13,8 @@ export default new Elysia({ prefix: '/auth' })
       const result = await auth.attempt(body)
       if (!result) return status(401, { message: 'Invalid credentials' })
 
-      const { password: _pw, ...user } = result.user
-      return { user, token: result.token }
+      // result.user is an Eloquent model; toJSON() drops hidden fields (password).
+      return { user: result.user.toJSON(), token: result.token }
     },
     { body: t.Object({ email: t.String({ format: 'email' }), password: t.String() }) },
   )
@@ -22,8 +22,7 @@ export default new Elysia({ prefix: '/auth' })
     '/me',
     ({ user, status }) => {
       if (!user) return status(401, { message: 'Unauthenticated' })
-      const { password: _pw, ...rest } = user
-      return rest
+      return user.toJSON()
     },
     { auth: true },
   )

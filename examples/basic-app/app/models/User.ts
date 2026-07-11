@@ -1,17 +1,14 @@
-import { defineModel, integer, sqliteTable, text } from '@elysia-ravel/orm'
+import { Model } from '@elysia-ravel/eloquent'
 
-/** The `users` table schema. Column types flow straight into the model API. */
-export const users = sqliteTable('users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  password: text('password').notNull(),
-  createdAt: text('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-})
+export class User extends Model {
+  static override table = 'users'
+  static override hidden = ['password'] // never serialized
+  static override casts = { id: 'int' } as const
 
-/** User model — `User.all()`, `User.find(id)`, `User.create({...})`, all typed. */
-export const User = defineModel(users)
+  declare id: number
+  declare name: string
+  declare email: string
+  declare password: string
+}
 
 export default User

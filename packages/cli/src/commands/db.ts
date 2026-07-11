@@ -1,6 +1,12 @@
 import { existsSync } from 'node:fs'
 import { createApp } from '@elysia-ravel/core'
-import { DatabaseToken, freshMigrate, migrate, runSeeders, type SeederClass } from '@elysia-ravel/orm'
+import {
+  DatabaseToken,
+  freshMigrate,
+  migrate,
+  runSeeders,
+  type SeederClass,
+} from '@elysia-ravel/eloquent'
 
 /** Boot the framework without HTTP routes — just enough to reach the DB. */
 async function boot() {
