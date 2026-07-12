@@ -29,14 +29,24 @@ export interface Connection {
 export interface SqliteConnectionConfig {
   driver: 'sqlite'
   database: string
+  /** Read replica(s). Reads route here; writes to {@link write}. */
+  read?: { database: string }
+  /** Write host. Falls back to the base config when omitted. */
+  write?: { database: string }
 }
 export interface PostgresConnectionConfig {
   driver: 'pg'
   url: string
+  /** Read replica(s). Reads route here (round-robin if several); writes to {@link write}. */
+  read?: { url: string } | { url: string }[]
+  /** Write host. Falls back to the base config when omitted. */
+  write?: { url: string }
 }
 export interface PgliteConnectionConfig {
   driver: 'pglite'
   dataDir?: string
+  read?: { dataDir?: string }
+  write?: { dataDir?: string }
 }
 export type ConnectionConfig =
   | SqliteConnectionConfig
@@ -47,13 +57,65 @@ export type ConnectionConfig =
 const opened: Connection[] = []
 
 export async function createConnection(config: ConnectionConfig): Promise<Connection> {
-  const base = await buildConnection(config)
+  const base = hasReadWrite(config)
+    ? composeReadWrite(
+        await buildConnection(mergeConfig(config, pickRead(config.read))),
+        await buildConnection(mergeConfig(config, config.write)),
+      )
+    : await buildConnection(config)
   const connection = withQueryLog(base)
   opened.push(connection)
   return connection
 }
 
 type RawConnection = Pick<Connection, 'dialect' | 'grammar' | 'select' | 'statement' | 'close'>
+
+type ConfigOverride = Record<string, unknown> | undefined
+
+function hasReadWrite(config: ConnectionConfig): config is ConnectionConfig & {
+  read?: ConfigOverride | ConfigOverride[]
+  write?: ConfigOverride
+} {
+  return Boolean((config as { read?: unknown }).read ?? (config as { write?: unknown }).write)
+}
+
+/** Round-robin a read override across replicas (or pass a single one through). */
+function pickRead(read: ConfigOverride | ConfigOverride[]): ConfigOverride {
+  if (!Array.isArray(read)) return read
+  if (read.length === 0) return undefined
+  return read[Math.floor(Math.random() * read.length)]
+}
+
+/** Base config minus read/write keys, with the given override merged on top. */
+function mergeConfig(config: ConnectionConfig, override: ConfigOverride): ConnectionConfig {
+  const { read: _r, write: _w, ...base } = config as unknown as Record<string, unknown>
+  return { ...base, ...(override ?? {}) } as unknown as ConnectionConfig
+}
+
+const firstKeyword = (sql: string) => sql.trimStart().split(/\s+/, 1)[0]?.toUpperCase() ?? ''
+
+/**
+ * Compose a read replica and a write host into one connection: `select` uses the
+ * read host, `statement` (writes, DDL) uses the write host. Inside a transaction
+ * reads route to the write host too, so a query sees its own uncommitted writes.
+ */
+function composeReadWrite(read: RawConnection, write: RawConnection): RawConnection {
+  let sticky = false
+  return {
+    dialect: write.dialect,
+    grammar: write.grammar,
+    select: (sql, bindings) => (sticky ? write : read).select(sql, bindings),
+    statement: async (sql, bindings) => {
+      const kw = firstKeyword(sql)
+      if (kw === 'BEGIN') sticky = true
+      await write.statement(sql, bindings)
+      if (kw === 'COMMIT' || kw === 'ROLLBACK') sticky = false
+    },
+    close: async () => {
+      await Promise.all([read.close(), write.close()])
+    },
+  }
+}
 
 /** Wrap select/statement to optionally record a query log. */
 function withQueryLog(base: RawConnection): Connection {
