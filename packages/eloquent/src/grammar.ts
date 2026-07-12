@@ -28,6 +28,7 @@ export type ColumnType =
   | 'macaddr'
   | 'interval'
   | 'enum'
+  | 'array'
 
 export interface ColumnDefinition {
   name: string
@@ -36,6 +37,8 @@ export interface ColumnDefinition {
   precision?: number
   scale?: number
   enumValues?: string[]
+  /** Element type for `array` columns (Postgres `<type>[]`). */
+  arrayOf?: ColumnType
   nullable?: boolean
   unique?: boolean
   default?: unknown
@@ -138,7 +141,7 @@ class SqliteGrammar extends Grammar {
         return 'NUMERIC'
       case 'binary':
         return 'BLOB'
-      // Everything else stores as TEXT under SQLite's flexible typing.
+      // array + everything else stores as TEXT (JSON) under SQLite.
       default:
         return 'TEXT'
     }
@@ -203,6 +206,8 @@ class PostgresGrammar extends Grammar {
         return 'MACADDR'
       case 'interval':
         return 'INTERVAL'
+      case 'array':
+        return `${this.columnType({ name: '', type: c.arrayOf ?? 'text' })}[]`
     }
   }
 }

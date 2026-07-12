@@ -1,5 +1,5 @@
 import type { Connection } from './connection'
-import type { ColumnDefinition, IndexDefinition } from './grammar'
+import type { ColumnDefinition, ColumnType, IndexDefinition } from './grammar'
 
 /** Fluent modifiers returned by each column method. */
 class ColumnBuilder {
@@ -116,6 +116,10 @@ export class Blueprint {
   }
   interval(name: string): ColumnBuilder {
     return this.push({ name, type: 'interval' })
+  }
+  /** Postgres array column, e.g. `array('tags', 'text')` → `TEXT[]` (TEXT/JSON on SQLite). */
+  array(name: string, of: ColumnType = 'text'): ColumnBuilder {
+    return this.push({ name, type: 'array', arrayOf: of })
   }
   foreignId(name: string): ColumnBuilder {
     return this.push({ name, type: 'bigInteger' })
