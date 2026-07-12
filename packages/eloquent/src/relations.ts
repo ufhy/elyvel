@@ -257,9 +257,25 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
   ) {
     super(parent, related)
   }
+  private pivotTimestamps = false
   protected addConstraints(): void {}
   private pivot(): QueryBuilder {
     return new QueryBuilder(useConnection(), this.pivotTable)
+  }
+  /** Attach the pivot row (all its columns) onto each related model as `pivot`. */
+  withPivot(): this {
+    return this // pivot columns are always attached; kept for API familiarity
+  }
+  /** Set created_at/updated_at on the pivot when attaching. */
+  withTimestamps(): this {
+    this.pivotTimestamps = true
+    return this
+  }
+  private attachPivot(models: R[], pivotRows: Record<string, unknown>[]): void {
+    const byRelated = new Map(pivotRows.map((r) => [String(r[this.relatedPivotKey]), r]))
+    for (const model of models) {
+      model.setRelation('pivot', byRelated.get(String(model.getAttribute(this.relatedKey))))
+    }
   }
   override async get(): Promise<EloquentCollection<R>> {
     const rows = await this.pivot()
@@ -267,7 +283,9 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
       .get()
     const ids = rows.map((r) => r[this.relatedPivotKey])
     if (ids.length === 0) return new EloquentCollection<R>([])
-    return this.related.query().whereIn(this.relatedKey, ids).get()
+    const related = await this.related.query().whereIn(this.relatedKey, ids).get()
+    this.attachPivot(related.all(), rows)
+    return related
   }
   override async first(): Promise<R | undefined> {
     return (await this.get()).first()
@@ -275,8 +293,17 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
   async attach(ids: unknown | unknown[]): Promise<void> {
     const list = Array.isArray(ids) ? ids : [ids]
     const parentId = this.parent.getAttribute(this.parentKey)
+    const now = new Date().toISOString()
     for (const id of list) {
-      await this.pivot().insert({ [this.foreignPivotKey]: parentId, [this.relatedPivotKey]: id })
+      const row: Record<string, unknown> = {
+        [this.foreignPivotKey]: parentId,
+        [this.relatedPivotKey]: id,
+      }
+      if (this.pivotTimestamps) {
+        row.created_at = now
+        row.updated_at = now
+      }
+      await this.pivot().insert(row)
     }
   }
   async detach(ids?: unknown | unknown[]): Promise<void> {
@@ -298,6 +325,7 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
       constrain?.(query)
       related = await query.get()
     }
+    this.attachPivot(related.all(), pivotRows)
     const relatedById = related.keyBy(this.relatedKey as keyof R)
     const byParent = new Map<string, R[]>()
     for (const row of pivotRows) {
