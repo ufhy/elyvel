@@ -268,6 +268,12 @@ export class Application {
         cookie: cfg.cookie ?? 'ravel_session',
         lifetime: cfg.lifetime ?? 7200,
         secret: secret ?? '',
+        path: cfg.path ?? '/',
+        domain: cfg.domain,
+        secure: cfg.secure ?? false,
+        httpOnly: cfg.httpOnly ?? true,
+        sameSite: cfg.sameSite ?? 'lax',
+        expireOnClose: cfg.expireOnClose ?? false,
       } satisfies ResolvedSessionConfig),
     )
   }

@@ -32,17 +32,65 @@ export class Session {
     this.data[TOKEN_KEY] = randomBytes(20).toString('hex')
   }
 
-  get<T = unknown>(key: string, fallback?: T): T {
-    return (key in this.data ? this.data[key] : fallback) as T
+  get<T = unknown>(key: string): T | undefined
+  get<T = unknown>(key: string, fallback: T): T
+  get(key: string, fallback?: unknown): unknown {
+    return key in this.data ? this.data[key] : fallback
   }
   put(key: string, value: unknown): void {
     this.data[key] = value
   }
+  /** Present AND not null. */
   has(key: string): boolean {
     return this.data[key] !== undefined && this.data[key] !== null
   }
+  /** Present, even if null. */
+  exists(key: string): boolean {
+    return key in this.data
+  }
+  missing(key: string): boolean {
+    return !this.exists(key)
+  }
   forget(key: string): void {
     delete this.data[key]
+  }
+  /** Append a value onto an array session value. */
+  push(key: string, value: unknown): void {
+    const arr = Array.isArray(this.data[key]) ? (this.data[key] as unknown[]) : []
+    arr.push(value)
+    this.data[key] = arr
+  }
+  /** Retrieve and remove a value in one step. */
+  pull<T = unknown>(key: string): T | undefined
+  pull<T = unknown>(key: string, fallback: T): T
+  pull(key: string, fallback?: unknown): unknown {
+    const value = key in this.data ? this.data[key] : fallback
+    this.forget(key)
+    return value
+  }
+  increment(key: string, amount = 1): number {
+    const value = Number(this.get(key, 0)) + amount
+    this.put(key, value)
+    return value
+  }
+  decrement(key: string, amount = 1): number {
+    return this.increment(key, -amount)
+  }
+  /** Get the value, or store and return the result of `factory` if absent. */
+  remember<T>(key: string, factory: () => T): T {
+    if (this.exists(key)) return this.get<T>(key) as T
+    const value = factory()
+    this.put(key, value)
+    return value
+  }
+  /** Rotate the CSRF token, keeping session data (anti session-fixation). */
+  regenerate(): void {
+    this.regenerateToken()
+  }
+  /** Clear all data and rotate the token. */
+  invalidate(): void {
+    this.flush()
+    this.regenerateToken()
   }
   /** Clear everything except the CSRF token. */
   flush(): void {
@@ -120,6 +168,13 @@ export interface ResolvedSessionConfig {
   cookie: string
   lifetime: number
   secret: string
+  path: string
+  domain?: string
+  secure: boolean
+  httpOnly: boolean
+  sameSite: 'lax' | 'strict' | 'none'
+  /** Drop `maxAge` so the cookie expires when the browser closes. */
+  expireOnClose: boolean
 }
 
 /**
@@ -161,11 +216,18 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
         memory.set(sid, session.toData())
         value = sid
       }
+      const base = {
+        path: config.path,
+        domain: config.domain,
+        secure: config.secure,
+        sameSite: config.sameSite,
+        ...(config.expireOnClose ? {} : { maxAge: config.lifetime }),
+      }
       cookie[config.cookie].value = value
-      cookie[config.cookie].set({ httpOnly: true, sameSite: 'lax', path: '/', maxAge: config.lifetime })
+      cookie[config.cookie].set({ ...base, httpOnly: config.httpOnly })
       // Readable token cookie for SPA double-submit (Axios reads XSRF-TOKEN).
       cookie['XSRF-TOKEN'].value = session.token()
-      cookie['XSRF-TOKEN'].set({ httpOnly: false, sameSite: 'lax', path: '/', maxAge: config.lifetime })
+      cookie['XSRF-TOKEN'].set({ ...base, httpOnly: false })
     })
 
   return plugin as Elysia

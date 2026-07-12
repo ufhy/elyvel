@@ -72,6 +72,18 @@ export interface SessionConfig {
   lifetime?: number
   /** Encryption/signing secret. Defaults to `app.key`. */
   secret?: string
+  /** Cookie path. Default `/`. */
+  path?: string
+  /** Cookie domain. */
+  domain?: string
+  /** Send the cookie over HTTPS only. Default false (set true in production). */
+  secure?: boolean
+  /** `HttpOnly` flag on the session cookie. Default true. */
+  httpOnly?: boolean
+  /** SameSite policy. Default `lax`. */
+  sameSite?: 'lax' | 'strict' | 'none'
+  /** Expire the cookie when the browser closes (drops max-age). Default false. */
+  expireOnClose?: boolean
 }
 
 /** Identity helper that pins the type of `config/session.ts` for autocomplete. */

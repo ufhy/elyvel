@@ -8,6 +8,11 @@ const cfg: ResolvedSessionConfig = {
   cookie: 'ravel_session',
   lifetime: 7200,
   secret: 'test-secret',
+  path: '/',
+  secure: false,
+  httpOnly: true,
+  sameSite: 'lax',
+  expireOnClose: false,
 }
 
 /** Build a Cookie request header from a response's Set-Cookie list. */
@@ -49,6 +54,42 @@ describe('session (cookie driver)', () => {
     expect(await r2.json()).toEqual({ msg: 'saved!' }) // available once
     const r3 = await app.handle(new Request('http://localhost/msg', { headers: { cookie: jar(r2) } }))
     expect(await r3.json()).toEqual({ msg: null }) // expired
+  })
+})
+
+describe('session convenience methods', () => {
+  test('push/pull/increment/decrement/remember/exists/missing', () => {
+    const { Session } = require('../src/session') as typeof import('../src/session')
+    const s = new Session()
+    s.push('list', 'a')
+    s.push('list', 'b')
+    expect(s.get<string[]>('list')).toEqual(['a', 'b'])
+
+    s.put('n', 5)
+    expect(s.increment('n')).toBe(6)
+    expect(s.decrement('n', 2)).toBe(4)
+
+    s.put('temp', 'x')
+    expect(s.pull<string>('temp')).toBe('x')
+    expect(s.exists('temp')).toBe(false)
+
+    expect(s.remember('cached', () => 42)).toBe(42)
+    expect(s.remember('cached', () => 99)).toBe(42) // already stored
+
+    s.put('nullable', null)
+    expect(s.exists('nullable')).toBe(true) // present even if null
+    expect(s.has('nullable')).toBe(false) // but null → not "has"
+    expect(s.missing('nope')).toBe(true)
+  })
+
+  test('invalidate clears data but rotates token', () => {
+    const { Session } = require('../src/session') as typeof import('../src/session')
+    const s = new Session({ a: 1 })
+    s.ensureToken()
+    const before = s.token()
+    s.invalidate()
+    expect(s.get('a')).toBeUndefined()
+    expect(s.token()).not.toBe(before)
   })
 })
 
