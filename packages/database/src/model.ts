@@ -1,7 +1,7 @@
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
-import type { EloquentCollection } from './eloquent-collection'
+import { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
 import type { EagerConstraint } from './eloquent-builder'
 import {
@@ -100,6 +100,8 @@ export type ModelEvent =
   | 'updated'
   | 'deleting'
   | 'deleted'
+  | 'restoring'
+  | 'restored'
   | 'pruning'
 
 type EventListener = (model: Model) => void | Promise<void>
@@ -178,14 +180,26 @@ export class Model {
   /** Guarded attributes (blacklist). `['*']` guards everything. */
   static guarded: string[] = []
 
+  /** When true, mass-assignment protection is bypassed globally. */
+  static unguarded = false
+
   static isGuarded(key: string): boolean {
     return this.guarded.includes('*') || this.guarded.includes(key)
   }
   /** Whether `key` may be mass-assigned (via `fill`/`create`/`update`). */
   static isFillable(key: string): boolean {
+    if (this.unguarded) return true
     if (this.fillable.includes(key)) return true
     if (this.isGuarded(key)) return false
     return this.fillable.length === 0
+  }
+  /** Disable mass-assignment protection (globally). */
+  static unguard(): void {
+    this.unguarded = true
+  }
+  /** Re-enable mass-assignment protection. */
+  static reguard(): void {
+    this.unguarded = false
   }
   /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
   static casts: Record<string, Cast> = {}
@@ -207,6 +221,9 @@ export class Model {
   /** Enable soft deletes (requires a `deleted_at` column). */
   static softDeletes = false
   static deletedAtColumn = 'deleted_at'
+  /** Timestamp column names (override for non-default schemas). */
+  static createdAtColumn = 'created_at'
+  static updatedAtColumn = 'updated_at'
 
   /** Register a named global scope applied to every query for this model. */
   static addGlobalScope(name: string, scope: ScopeFn): void {
@@ -231,11 +248,14 @@ export class Model {
 
   attributes: Attributes = {}
   original: Attributes = {}
+  /** Attributes changed during the most recent save (for `wasChanged`/`getChanges`). */
+  private changes: Attributes = {}
   exists = false
   /** Loaded relations (populated by eager loading via `with()`). */
   relations: Record<string, unknown> = {}
   private readonly makeHiddenSet = new Set<string>()
   private readonly makeVisibleSet = new Set<string>()
+  private readonly makeAppendSet = new Set<string>()
 
   constructor(attributes: Attributes = {}) {
     this.fill(attributes) // respects $fillable/$guarded
@@ -354,6 +374,78 @@ export class Model {
       return existing
     }
     return this.create({ ...attributes, ...values })
+  }
+
+  /** First row matching a simple where — shorthand for `where(...).first()`. */
+  static firstWhere<M extends Model>(
+    this: ModelClass<M>,
+    column: string,
+    operatorOrValue?: unknown,
+    value?: unknown,
+  ): Promise<M | undefined> {
+    return this.where(column, operatorOrValue, value).first()
+  }
+
+  /** Find by key, or return `fallback()` if not found. */
+  static async findOr<M extends Model, T>(
+    this: ModelClass<M>,
+    id: unknown,
+    fallback: () => T,
+  ): Promise<M | T> {
+    return (await this.find(id)) ?? fallback()
+  }
+
+  /** Find by key, or return a new unsaved instance (optionally pre-filled). */
+  static async findOrNew<M extends Model>(this: ModelClass<M>, id: unknown): Promise<M> {
+    return (await this.find(id)) ?? new this()
+  }
+
+  /** Find by attributes, or return a new unsaved instance filled with them. */
+  static async firstOrNew<M extends Model>(
+    this: ModelClass<M>,
+    attributes: Attributes,
+    values: Attributes = {},
+  ): Promise<M> {
+    let query = this.query()
+    for (const [key, value] of Object.entries(attributes)) query = query.where(key, value)
+    const existing = await query.first()
+    if (existing) return existing
+    const model = new this()
+    model.fill({ ...attributes, ...values })
+    return model
+  }
+
+  static whereKeyNot<M extends Model>(this: ModelClass<M>, id: unknown): EloquentBuilder<M> {
+    return Array.isArray(id)
+      ? this.query().whereNotIn(this.primaryKey, id)
+      : this.query().where(this.primaryKey, '!=', id)
+  }
+
+  /** Insert several rows as models. */
+  static async createMany<M extends Model>(
+    this: ModelClass<M>,
+    records: Attributes[],
+  ): Promise<EloquentCollection<M>> {
+    const models: M[] = []
+    for (const attrs of records) models.push(await this.create(attrs))
+    return new EloquentCollection(models)
+  }
+
+  /** Delete rows by primary key(s). Returns the number deleted. */
+  static async destroy<M extends Model>(
+    this: ModelClass<M>,
+    ...ids: unknown[]
+  ): Promise<number> {
+    const flat = ids.flat()
+    let deleted = 0
+    for (const id of flat) {
+      const model = await this.find(id)
+      if (model) {
+        await model.delete()
+        deleted++
+      }
+    }
+    return deleted
   }
 
   /**
@@ -596,6 +688,34 @@ export class Model {
   isClean(key?: string): boolean {
     return !this.isDirty(key)
   }
+  /** Original (pre-modification) attribute value(s). */
+  getOriginal(key?: string): unknown {
+    return key ? this.original[key] : { ...this.original }
+  }
+  /** Attributes changed during the most recent save. */
+  getChanges(): Attributes {
+    return { ...this.changes }
+  }
+  wasChanged(key?: string): boolean {
+    return key ? key in this.changes : Object.keys(this.changes).length > 0
+  }
+  /** Whether this and `other` are the same model (same class + primary key). */
+  is(other: Model | null | undefined): boolean {
+    return (
+      other != null &&
+      this.constructor === other.constructor &&
+      this.getKey() === other.getKey() &&
+      this.getKey() !== undefined
+    )
+  }
+  isNot(other: Model | null | undefined): boolean {
+    return !this.is(other)
+  }
+  /** Append computed attributes to serialization for this instance only. */
+  append(...keys: string[]): this {
+    for (const key of keys) this.makeAppendSet.add(key)
+    return this
+  }
 
   /** Fire a model event to listeners registered on this class and its ancestors. */
   private async fireEvent(event: ModelEvent): Promise<void> {
@@ -618,8 +738,9 @@ export class Model {
     await this.fireEvent('saving')
     if (this.exists) {
       await this.fireEvent('updating')
-      if (self.timestamps) this.attributes.updated_at = now
+      if (self.timestamps) this.attributes[self.updatedAtColumn] = now
       const dirty = this.getDirty()
+      this.changes = { ...dirty }
       if (Object.keys(dirty).length > 0) {
         await qb().where(self.primaryKey, this.getKey()).update(this.toStorage(dirty))
       }
@@ -629,11 +750,12 @@ export class Model {
       await this.fireEvent('creating')
       if (self.usesUniqueIds) this.attributes[self.primaryKey] ??= self.newUniqueId()
       if (self.timestamps) {
-        this.attributes.created_at ??= now
-        this.attributes.updated_at ??= now
+        this.attributes[self.createdAtColumn] ??= now
+        this.attributes[self.updatedAtColumn] ??= now
       }
       const row = await qb().insert(this.toStorage(this.attributes))
       this.attributes = { ...this.attributes, ...row } // pick up generated id/defaults
+      this.changes = { ...this.attributes }
       this.exists = true
       this.original = { ...this.attributes }
       await this.fireEvent('created')
@@ -709,8 +831,10 @@ export class Model {
 
   /** Restore a soft-deleted row. */
   async restore(): Promise<void> {
+    await this.fireEvent('restoring')
     this.setAttribute(this.self().deletedAtColumn, null)
     await this.save()
+    await this.fireEvent('restored')
   }
 
   /** Whether the row is soft-deleted. */
@@ -726,12 +850,16 @@ export class Model {
     for (const key of this.makeVisibleSet) hidden.delete(key)
     const useVisible = self.visible.length > 0
     const out: Attributes = {}
-    for (const key of [...Object.keys(this.attributes), ...self.appends]) {
+    for (const key of [...Object.keys(this.attributes), ...self.appends, ...this.makeAppendSet]) {
       if (hidden.has(key)) continue
       if (useVisible && !self.visible.includes(key) && !this.makeVisibleSet.has(key)) continue
       out[key] = this.getAttribute(key)
     }
     return out
+  }
+  /** Alias of {@link toObject} (Laravel naming). */
+  toArray(): Attributes {
+    return this.toObject()
   }
   /** Serialized attributes plus any loaded relations. */
   toJSON(): Attributes {
