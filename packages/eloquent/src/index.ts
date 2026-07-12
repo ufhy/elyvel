@@ -52,7 +52,15 @@ export {
   tableColumns,
 } from './inspect'
 export { freshMigrate, loadMigrations, type Migration, migrate, rollback, status } from './migrator'
-export { QueryBuilder, table } from './query-builder'
+export {
+  type CursorRowPaginator,
+  JoinClauseBuilder,
+  type Operator,
+  QueryBuilder,
+  type RowPaginator,
+  type SimpleRowPaginator,
+  table,
+} from './query-builder'
 export {
   BelongsTo,
   BelongsToMany,

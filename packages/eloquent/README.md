@@ -113,13 +113,42 @@ await User.updateOrCreate({ email: 'a@b.c' }, { name: 'A2' })
 ## Query builder
 
 Use it through a model (`User.query()`) or standalone without a model, à la
-Laravel's `DB::table()` — the standalone form returns raw rows:
+Laravel's `DB::table()` — the standalone form returns raw rows and can target any
+named connection:
 
 ```ts
 import { table } from '@elysia-ravel/eloquent'
 
 const rows = await table('users').where('active', true).orderByDesc('id').get()
-await table('logs', 'pgReplica').count() // target a named connection
+await table('logs', 'analytics').count() // second arg = named connection
+
+// pagination on the raw builder too
+const page = await table('users').orderBy('id').paginate(15, 1)
+await table('users').cursorPaginate(15, cursor)
+
+// lazy / keyset iteration
+for await (const row of table('users').cursor()) { /* ... */ }
+await table('users').chunkById(1000, (rows) => { /* ... */ })
+```
+
+The full method set is available on both `table()` and `Model.query()`: `whereNot`,
+`orWhereNull`, `whereLike`, `whereDate`/`whereYear`/`whereMonth`/`whereDay`/`whereTime`,
+`whereBetweenColumns`, `whereJsonContains`, `rightJoin`/`crossJoin`/join-closures,
+`inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`, `unionAll`, `skip`/`take`,
+`addSelect`, `truncate`, `incrementEach`, `doesntExist`, `find`.
+
+**Subqueries** are supported throughout — select, from, join, and where:
+
+```ts
+const teamB = table('teams').select('id').where('title', 'B')
+await table('users').whereIn('team_id', teamB).get()          // where … in (subquery)
+
+await table('users')
+  .selectSub(table('orders').selectRaw('count(*)'), 'orders')  // scalar select subquery
+  .get()
+
+await table('t').fromSub(table('users').where('score', '>', 60), 't').get() // from (subquery)
+await table('users').joinSub(teamB, 'tb', 'tb.id', '=', 'users.team_id').get()
 ```
 
 ```ts
