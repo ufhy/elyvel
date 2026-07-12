@@ -32,10 +32,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/i
 const IPV4 = /^(\d{1,3}\.){3}\d{1,3}$/
 const IPV6 = /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i
+const MAC = /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i
+const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
+function isFile(value: unknown): value is Blob {
+  return typeof Blob !== 'undefined' && value instanceof Blob
+}
 
 function size(value: unknown, kind: SizeKind): number {
   if (kind === 'numeric') return Number(value)
   if (kind === 'array') return Array.isArray(value) ? value.length : 0
+  if (kind === 'file') return isFile(value) ? value.size / 1024 : 0 // KB
   return String(value).length
 }
 
@@ -44,19 +51,126 @@ function isNumeric(value: unknown): boolean {
   return typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))
 }
 
+function compareTo(arg: string | undefined, data: Data): number {
+  if (arg !== undefined && arg in data) return Number(data[arg])
+  return Number(arg)
+}
+
+/** Value of another field for date comparisons (a field name resolves to its value). */
+function dateArg(arg: string | undefined, data: Data): number {
+  if (arg !== undefined && arg in data) return Date.parse(String(data[arg]))
+  return Date.parse(String(arg))
+}
+
+const MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
+}
+
+/** Build a regex from a PHP-style date format (subset: Y m d H i s). */
+function dateFormatRegex(format: string): RegExp {
+  const map: Record<string, string> = {
+    Y: '\\d{4}',
+    m: '\\d{2}',
+    d: '\\d{2}',
+    H: '\\d{2}',
+    i: '\\d{2}',
+    s: '\\d{2}',
+  }
+  let out = ''
+  for (const ch of format) {
+    out += map[ch] ?? ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+  return new RegExp(`^${out}$`)
+}
+
 export const RULES: Record<string, Rule> = {
+  // presence
   required: { implicit: true, validate: (v) => !isEmpty(v) },
   present: { implicit: true, validate: (_v, _a, data, attr) => attr in data },
   filled: { implicit: true, validate: (v, _a, data, attr) => !(attr in data) || !isEmpty(v) },
   nullable: { implicit: true, validate: () => true },
   sometimes: { implicit: true, validate: () => true },
 
+  // conditional presence
+  required_if: {
+    implicit: true,
+    validate: (v, args, data) => (String(data[args[0] as string]) === args[1] ? !isEmpty(v) : true),
+  },
+  required_unless: {
+    implicit: true,
+    validate: (v, args, data) => (String(data[args[0] as string]) !== args[1] ? !isEmpty(v) : true),
+  },
+  required_with: {
+    implicit: true,
+    validate: (v, args, data) => (args.some((f) => !isEmpty(data[f])) ? !isEmpty(v) : true),
+  },
+  required_with_all: {
+    implicit: true,
+    validate: (v, args, data) => (args.every((f) => !isEmpty(data[f])) ? !isEmpty(v) : true),
+  },
+  required_without: {
+    implicit: true,
+    validate: (v, args, data) => (args.some((f) => isEmpty(data[f])) ? !isEmpty(v) : true),
+  },
+  required_without_all: {
+    implicit: true,
+    validate: (v, args, data) => (args.every((f) => isEmpty(data[f])) ? !isEmpty(v) : true),
+  },
+  prohibited: { implicit: true, validate: (v) => isEmpty(v) },
+  prohibited_if: {
+    implicit: true,
+    validate: (v, args, data) => (String(data[args[0] as string]) === args[1] ? isEmpty(v) : true),
+  },
+  prohibited_unless: {
+    implicit: true,
+    validate: (v, args, data) => (String(data[args[0] as string]) !== args[1] ? isEmpty(v) : true),
+  },
+  missing: { implicit: true, validate: (_v, _a, data, attr) => !(attr in data) },
+  missing_if: {
+    implicit: true,
+    validate: (_v, args, data, attr) =>
+      String(data[args[0] as string]) === args[1] ? !(attr in data) : true,
+  },
+  missing_with: {
+    implicit: true,
+    validate: (_v, args, data, attr) => (args.some((f) => f in data) ? !(attr in data) : true),
+  },
+  accepted: { implicit: true, validate: (v) => TRUTHY.has(v as never) },
+  accepted_if: {
+    implicit: true,
+    validate: (v, args, data) =>
+      String(data[args[0] as string]) === args[1] ? TRUTHY.has(v as never) : true,
+  },
+  declined: { implicit: true, validate: (v) => FALSY.has(v as never) },
+  declined_if: {
+    implicit: true,
+    validate: (v, args, data) =>
+      String(data[args[0] as string]) === args[1] ? FALSY.has(v as never) : true,
+  },
+
+  // types
   string: { validate: (v) => typeof v === 'string' },
   integer: { validate: (v) => isNumeric(v) && Number.isInteger(Number(v)) },
   numeric: { validate: (v) => isNumeric(v) },
   boolean: { validate: (v) => TRUTHY.has(v as never) || FALSY.has(v as never) },
-  array: { validate: (v) => Array.isArray(v) },
+  array: {
+    validate: (v, args) => {
+      if (args.length === 0) return Array.isArray(v)
+      if (v === null || typeof v !== 'object' || Array.isArray(v)) return false
+      return Object.keys(v).every((k) => args.includes(k))
+    },
+  },
 
+  // formats
   email: { validate: (v) => EMAIL.test(String(v)) },
   url: {
     validate: (v) => {
@@ -71,6 +185,8 @@ export const RULES: Record<string, Rule> = {
   uuid: { validate: (v) => UUID.test(String(v)) },
   ulid: { validate: (v) => ULID.test(String(v)) },
   ip: { validate: (v) => IPV4.test(String(v)) || IPV6.test(String(v)) },
+  mac_address: { validate: (v) => MAC.test(String(v)) },
+  hex_color: { validate: (v) => HEX_COLOR.test(String(v)) },
   json: {
     validate: (v) => {
       try {
@@ -81,21 +197,56 @@ export const RULES: Record<string, Rule> = {
       }
     },
   },
+  timezone: {
+    validate: (v) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: String(v) })
+        return true
+      } catch {
+        return false
+      }
+    },
+  },
   alpha: { validate: (v) => /^[A-Za-z]+$/.test(String(v)) },
   alpha_num: { validate: (v) => /^[A-Za-z0-9]+$/.test(String(v)) },
   alpha_dash: { validate: (v) => /^[A-Za-z0-9_-]+$/.test(String(v)) },
+  ascii: { validate: (v) => /^[\x00-\x7F]*$/.test(String(v)) },
+  uppercase: { validate: (v) => String(v) === String(v).toUpperCase() },
+  lowercase: { validate: (v) => String(v) === String(v).toLowerCase() },
 
+  // membership / string content
   in: { validate: (v, args) => args.includes(String(v)) },
   not_in: { validate: (v, args) => !args.includes(String(v)) },
+  in_array: {
+    validate: (v, args, data) => {
+      const other = data[(args[0] ?? '').replace(/\.\*$/, '')]
+      return Array.isArray(other) && other.map(String).includes(String(v))
+    },
+  },
   regex: { validate: (v, args) => new RegExp(args[0] ?? '').test(String(v)) },
   starts_with: { validate: (v, args) => args.some((a) => String(v).startsWith(a)) },
   ends_with: { validate: (v, args) => args.some((a) => String(v).endsWith(a)) },
+  doesnt_start_with: { validate: (v, args) => !args.some((a) => String(v).startsWith(a)) },
+  doesnt_end_with: { validate: (v, args) => !args.some((a) => String(v).endsWith(a)) },
+
+  // numbers
   digits: { validate: (v, args) => /^\d+$/.test(String(v)) && String(v).length === Number(args[0]) },
+  digits_between: {
+    validate: (v, args) => {
+      const s = String(v)
+      return /^\d+$/.test(s) && s.length >= Number(args[0]) && s.length <= Number(args[1])
+    },
+  },
+  decimal: {
+    validate: (v, args) => {
+      const dp = String(v).split('.')[1]?.length ?? 0
+      if (args[1] !== undefined) return dp >= Number(args[0]) && dp <= Number(args[1])
+      return dp === Number(args[0])
+    },
+  },
+  multiple_of: { validate: (v, args) => Number(v) % Number(args[0]) === 0 },
 
-  accepted: { implicit: true, validate: (v) => TRUTHY.has(v as never) },
-  declined: { implicit: true, validate: (v) => FALSY.has(v as never) },
-
-  // size-based
+  // size-based (numeric | string | array | file)
   min: { validate: (v, args, _d, _a, kind) => size(v, kind) >= Number(args[0]) },
   max: { validate: (v, args, _d, _a, kind) => size(v, kind) <= Number(args[0]) },
   size: { validate: (v, args, _d, _a, kind) => size(v, kind) === Number(args[0]) },
@@ -104,39 +255,36 @@ export const RULES: Record<string, Rule> = {
       size(v, kind) >= Number(args[0]) && size(v, kind) <= Number(args[1]),
   },
 
-  // comparison (vs another field if the arg names one, else vs a number)
+  // comparison (vs another field if named, else vs a number)
   gt: { validate: (v, args, data) => Number(v) > compareTo(args[0], data) },
   gte: { validate: (v, args, data) => Number(v) >= compareTo(args[0], data) },
   lt: { validate: (v, args, data) => Number(v) < compareTo(args[0], data) },
   lte: { validate: (v, args, data) => Number(v) <= compareTo(args[0], data) },
 
-  // cross-field
-  confirmed: {
-    validate: (v, _a, data, attr) => data[`${attr}_confirmation`] === v,
-  },
+  // cross-field equality
+  confirmed: { validate: (v, _a, data, attr) => data[`${attr}_confirmation`] === v },
   same: { validate: (v, args, data) => data[args[0] as string] === v },
   different: { validate: (v, args, data) => data[args[0] as string] !== v },
 
-  // date
+  // dates
   date: { validate: (v) => !Number.isNaN(Date.parse(String(v))) },
-  before: { validate: (v, args) => Date.parse(String(v)) < Date.parse(args[0] ?? '') },
-  after: { validate: (v, args) => Date.parse(String(v)) > Date.parse(args[0] ?? '') },
+  date_format: { validate: (v, args) => dateFormatRegex(args[0] ?? '').test(String(v)) },
+  before: { validate: (v, args, data) => Date.parse(String(v)) < dateArg(args[0], data) },
+  before_or_equal: { validate: (v, args, data) => Date.parse(String(v)) <= dateArg(args[0], data) },
+  after: { validate: (v, args, data) => Date.parse(String(v)) > dateArg(args[0], data) },
+  after_or_equal: { validate: (v, args, data) => Date.parse(String(v)) >= dateArg(args[0], data) },
+  date_equals: { validate: (v, args, data) => Date.parse(String(v)) === dateArg(args[0], data) },
 
-  // conditional presence (implicit)
-  required_if: {
-    implicit: true,
-    validate: (v, args, data) =>
-      String(data[args[0] as string]) === args[1] ? !isEmpty(v) : true,
-  },
-  required_with: {
-    implicit: true,
-    validate: (v, args, data) =>
-      args.some((f) => !isEmpty(data[f])) ? !isEmpty(v) : true,
-  },
-  required_without: {
-    implicit: true,
-    validate: (v, args, data) =>
-      args.some((f) => isEmpty(data[f])) ? !isEmpty(v) : true,
+  // files
+  file: { validate: (v) => isFile(v) },
+  image: { validate: (v) => isFile(v) && v.type.startsWith('image/') },
+  mimetypes: { validate: (v, args) => isFile(v) && args.includes(v.type) },
+  mimes: {
+    validate: (v, args) => {
+      if (!isFile(v)) return false
+      const name = (v as File).name ?? ''
+      return args.some((ext) => v.type === MIME[ext] || name.toLowerCase().endsWith(`.${ext}`))
+    },
   },
 
   // DB (async)
@@ -152,9 +300,4 @@ export const RULES: Record<string, Rule> = {
       return (await getDbResolver().count(table as string, column, v)) > 0
     },
   },
-}
-
-function compareTo(arg: string | undefined, data: Data): number {
-  if (arg !== undefined && arg in data) return Number(data[arg])
-  return Number(arg)
 }

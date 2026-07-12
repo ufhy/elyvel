@@ -3,4 +3,15 @@ export { AuthorizationException, FormRequest, type RequestLike } from './form-re
 export { DEFAULT_MESSAGES, humanizeAttribute } from './messages'
 export { isEmpty, type Rule, RULES } from './rules'
 export { type ErrorBag, ValidationException } from './validation-exception'
-export { type Data, type Rules, validate, Validator, type ValidatorOptions } from './validator'
+export {
+  type ClosureRule,
+  type CustomRuleContext,
+  type Data,
+  type FailFn,
+  type RuleEntry,
+  type RuleObject,
+  type Rules,
+  validate,
+  Validator,
+  type ValidatorOptions,
+} from './validator'
