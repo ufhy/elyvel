@@ -139,7 +139,8 @@ export class QueryBuilder {
         return `${prefix}${g.wrap(w.column)} BETWEEN ${a} AND ${b}`
       }
       if (w.kind === 'in') {
-        const phs = (w.values ?? []).map((v) => {
+        if (!w.values?.length) return `${prefix}1 = 0` // empty IN () matches nothing
+        const phs = w.values.map((v) => {
           const ph = g.placeholder(bindings.length)
           bindings.push(v)
           return ph

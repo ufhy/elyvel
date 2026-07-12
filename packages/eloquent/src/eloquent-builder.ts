@@ -4,6 +4,9 @@ import type { Operator, QueryBuilder } from './query-builder'
 import type { Relation } from './relations'
 
 type Row = Record<string, unknown>
+/** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */
+// biome-ignore lint/suspicious/noExplicitAny: constraint receives the related model's builder
+export type EagerConstraint = (query: any) => void
 
 /** A page of results plus pagination metadata. */
 export interface Paginator<M extends Model> {
@@ -20,7 +23,9 @@ export interface Paginator<M extends Model> {
  * the model's global scopes and soft-delete filtering at execution time.
  */
 export class EloquentBuilder<M extends Model> {
-  private readonly eagerLoads: string[] = []
+  private readonly eagerLoads: { path: string; constrain?: EagerConstraint }[] = []
+  private readonly countLoads: string[] = []
+  private readonly hasSpecs: { name: string; constrain?: EagerConstraint }[] = []
   private trashed: 'default' | 'with' | 'only' = 'default'
   private readonly removedScopes = new Set<string>()
   private prepared = false
@@ -31,8 +36,27 @@ export class EloquentBuilder<M extends Model> {
     private readonly model: typeof Model,
   ) {}
 
-  with(...names: string[]): this {
-    this.eagerLoads.push(...names)
+  /** Eager-load relations: `with('posts')`, `with('posts.comments')`, or
+   *  `with({ posts: (q) => q.where('published', 1) })`. */
+  with(...specs: (string | Record<string, EagerConstraint>)[]): this {
+    for (const spec of specs) {
+      if (typeof spec === 'string') this.eagerLoads.push({ path: spec })
+      else for (const [path, constrain] of Object.entries(spec)) this.eagerLoads.push({ path, constrain })
+    }
+    return this
+  }
+  /** Add a `<relation>_count` attribute per row. */
+  withCount(...names: string[]): this {
+    this.countLoads.push(...names)
+    return this
+  }
+  /** Restrict to rows that HAVE the relation (optionally constrained). */
+  has(name: string): this {
+    this.hasSpecs.push({ name })
+    return this
+  }
+  whereHas(name: string, constrain?: EagerConstraint): this {
+    this.hasSpecs.push({ name, constrain })
     return this
   }
   where(column: string, operatorOrValue?: unknown, value?: unknown): this {
@@ -149,14 +173,50 @@ export class EloquentBuilder<M extends Model> {
     }
   }
 
+  /** Resolve a relation object from a source model instance (or a template). */
+  private relationOf(name: string, source?: Model): Relation<Model> | undefined {
+    const on = source ?? new this.model()
+    const fn = (on as unknown as Record<string, () => Relation<Model>>)[name]
+    return typeof fn === 'function' ? fn.call(on) : undefined
+  }
+
+  /** Recursively eager-load a dot-path (`posts.comments`) with an optional leaf constraint. */
+  private async eagerLoadPath(models: Model[], path: string, constrain?: EagerConstraint): Promise<void> {
+    if (models.length === 0) return
+    const [head, ...rest] = path.split('.')
+    const relation = this.relationOf(head as string, models[0])
+    if (!relation) return
+    await relation.eager(models, head as string, rest.length ? undefined : constrain)
+    if (rest.length === 0) return
+
+    const children: Model[] = []
+    for (const model of models) {
+      const loaded = model.getRelation(head as string)
+      if (loaded instanceof EloquentCollection) children.push(...loaded.all())
+      else if (loaded) children.push(loaded as Model)
+    }
+    await this.eagerLoadPath(children, rest.join('.'), constrain)
+  }
+
   async get(): Promise<EloquentCollection<M>> {
     this.prepare()
+    // whereHas / has — resolve existence into the main query before executing.
+    for (const spec of this.hasSpecs) {
+      const relation = this.relationOf(spec.name)
+      if (!relation) continue
+      const { column, values } = await relation.existenceKeys(spec.constrain)
+      this.qb.whereIn(column, values)
+    }
+
     const rows = await this.qb.get()
     const models = rows.map((r) => this.hydrate(r))
-    for (const name of this.eagerLoads) {
+
+    for (const name of this.countLoads) {
       if (models.length === 0) break
-      const relation = (models[0] as unknown as Record<string, () => Relation<Model>>)[name]?.()
-      if (relation) await relation.eager(models, name)
+      await this.relationOf(name, models[0])?.eagerCount(models, name)
+    }
+    for (const { path, constrain } of this.eagerLoads) {
+      await this.eagerLoadPath(models, path, constrain)
     }
     return new EloquentCollection(models)
   }
