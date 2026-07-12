@@ -268,6 +268,7 @@ export class Application {
         cookie: cfg.cookie ?? 'ravel_session',
         lifetime: cfg.lifetime ?? 7200,
         secret: secret ?? '',
+        files: this.path(cfg.files ?? 'storage/framework/sessions'),
         path: cfg.path ?? '/',
         domain: cfg.domain,
         secure: cfg.secure ?? false,

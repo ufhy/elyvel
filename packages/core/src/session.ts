@@ -1,4 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { Elysia } from 'elysia'
 import { Middleware, type MiddlewareContext } from './middleware'
 
@@ -164,10 +166,12 @@ function decrypt(payload: string, secret: string): Record<string, unknown> | nul
 }
 
 export interface ResolvedSessionConfig {
-  driver: 'cookie' | 'memory'
+  driver: 'cookie' | 'memory' | 'file' | 'database'
   cookie: string
   lifetime: number
   secret: string
+  /** Filesystem directory for the `file` driver (resolved by the Application). */
+  files: string
   path: string
   domain?: string
   secure: boolean
@@ -177,31 +181,123 @@ export interface ResolvedSessionConfig {
   expireOnClose: boolean
 }
 
+/** Server-side session store, keyed by session id (for memory/file/database drivers). */
+export interface SessionStore {
+  read(id: string): Promise<Record<string, unknown>>
+  write(id: string, data: Record<string, unknown>, lifetimeSeconds: number): Promise<void>
+}
+
+class MemorySessionStore implements SessionStore {
+  private readonly map = new Map<string, { data: Record<string, unknown>; expiresAt: number }>()
+  async read(id: string): Promise<Record<string, unknown>> {
+    const entry = this.map.get(id)
+    if (!entry) return {}
+    if (Date.now() >= entry.expiresAt) {
+      this.map.delete(id)
+      return {}
+    }
+    return entry.data
+  }
+  async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
+    this.map.set(id, { data, expiresAt: Date.now() + lifetime * 1000 })
+  }
+}
+
+class FileSessionStore implements SessionStore {
+  constructor(private readonly dir: string) {
+    mkdirSync(dir, { recursive: true })
+  }
+  private path(id: string): string {
+    return join(this.dir, `${createHash('sha256').update(id).digest('hex')}.json`)
+  }
+  async read(id: string): Promise<Record<string, unknown>> {
+    const file = this.path(id)
+    if (!existsSync(file)) return {}
+    try {
+      const entry = JSON.parse(readFileSync(file, 'utf8')) as {
+        data: Record<string, unknown>
+        expiresAt: number
+      }
+      if (Date.now() >= entry.expiresAt) {
+        unlinkSync(file)
+        return {}
+      }
+      return entry.data
+    } catch {
+      return {}
+    }
+  }
+  async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
+    writeFileSync(this.path(id), JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }))
+  }
+}
+
+/** DB adapter for the `database` session driver (kept DB-agnostic, wired by the app). */
+export interface SessionDbAdapter {
+  read(id: string): Promise<string | undefined>
+  write(id: string, payload: string, lastActivity: number): Promise<void>
+}
+let sessionDbAdapter: SessionDbAdapter | null = null
+export function configureDatabaseSession(adapter: SessionDbAdapter): void {
+  sessionDbAdapter = adapter
+}
+
+class DatabaseSessionStore implements SessionStore {
+  private adapter(): SessionDbAdapter {
+    if (!sessionDbAdapter) {
+      throw new Error('[elysia-ravel] database session driver needs configureDatabaseSession(...).')
+    }
+    return sessionDbAdapter
+  }
+  async read(id: string): Promise<Record<string, unknown>> {
+    const payload = await this.adapter().read(id)
+    if (!payload) return {}
+    try {
+      const entry = JSON.parse(payload) as { data: Record<string, unknown>; expiresAt: number }
+      if (Date.now() >= entry.expiresAt) return {}
+      return entry.data
+    } catch {
+      return {}
+    }
+  }
+  async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
+    const payload = JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 })
+    await this.adapter().write(id, payload, Math.floor(Date.now() / 1000))
+  }
+}
+
+function makeStore(driver: ResolvedSessionConfig['driver'], files: string): SessionStore | null {
+  if (driver === 'file') return new FileSessionStore(files)
+  if (driver === 'database') return new DatabaseSessionStore()
+  if (driver === 'memory') return new MemorySessionStore()
+  return null // cookie driver has no server-side store
+}
+
 /**
  * Elysia plugin: load the session from the cookie (or memory store) into
  * `ctx.session`, and persist it (aging flash) on the way out. Mounted by the
  * Application before routes when `config/session.ts` is present.
  */
 export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
-  const memory = new Map<string, Record<string, unknown>>()
+  const store = makeStore(config.driver, config.files)
 
   // biome-ignore lint/suspicious/noExplicitAny: Elysia generics vary with derive/hooks
   const plugin: any = new Elysia({ name: 'ravel-session' })
-    .derive({ as: 'global' }, ({ cookie }) => {
+    .derive({ as: 'global' }, async ({ cookie }) => {
       const raw = cookie[config.cookie]?.value as string | undefined
       let sid: string | undefined
       let data: Record<string, unknown> = {}
-      if (config.driver === 'cookie') {
-        data = raw ? (decrypt(raw, config.secret) ?? {}) : {}
-      } else {
+      if (store) {
         sid = raw
-        data = (sid && memory.get(sid)) || {}
+        data = sid ? await store.read(sid) : {}
+      } else {
+        data = raw ? (decrypt(raw, config.secret) ?? {}) : {} // cookie driver
       }
       const session = new Session(data)
       session.ensureToken()
       return { session, __sid: sid }
     })
-    .onAfterHandle({ as: 'global' }, (ctx: Record<string, unknown>) => {
+    .onAfterHandle({ as: 'global' }, async (ctx: Record<string, unknown>) => {
       const session = ctx.session as Session | undefined
       if (!session) return
       // biome-ignore lint/suspicious/noExplicitAny: Elysia cookie proxy
@@ -209,12 +305,12 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       session.ageFlashData()
 
       let value: string
-      if (config.driver === 'cookie') {
-        value = encrypt(session.toData(), config.secret)
-      } else {
+      if (store) {
         const sid = (ctx.__sid as string) || randomBytes(16).toString('hex')
-        memory.set(sid, session.toData())
+        await store.write(sid, session.toData(), config.lifetime)
         value = sid
+      } else {
+        value = encrypt(session.toData(), config.secret) // cookie driver
       }
       const base = {
         path: config.path,

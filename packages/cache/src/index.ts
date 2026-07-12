@@ -2,4 +2,11 @@ export { type CacheConfig, type CacheStoreConfig, defineCacheConfig } from './co
 export { cache, CacheManager, setDefaultCache } from './manager'
 export { CacheServiceProvider, CacheToken } from './provider'
 export { Repository } from './repository'
-export { type CacheStore, FileStore, MemoryStore } from './store'
+export {
+  type CacheDbAdapter,
+  type CacheStore,
+  configureDatabaseCache,
+  DatabaseStore,
+  FileStore,
+  MemoryStore,
+} from './store'

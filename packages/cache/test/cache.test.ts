@@ -77,6 +77,27 @@ for (const s of stores) {
   })
 }
 
+describe('database cache store (via adapter)', () => {
+  test('get/put/remember/increment through an injected adapter', async () => {
+    const { DatabaseStore, configureDatabaseCache } =
+      require('../src/store') as typeof import('../src/store')
+    const rows = new Map<string, { value: string; expiresAt: number | null }>()
+    configureDatabaseCache({
+      read: async (key) => rows.get(key),
+      write: async (key, value, expiresAt) => void rows.set(key, { value, expiresAt }),
+      forget: async (key) => void rows.delete(key),
+      flush: async () => rows.clear(),
+    })
+    const c = new Repository(new DatabaseStore())
+    await c.put('a', { n: 1 })
+    expect(await c.get('a')).toEqual({ n: 1 })
+    expect(await c.remember('b', 60, () => 'v')).toBe('v')
+    expect(await c.increment('hits', 3)).toBe(3)
+    await c.forget('a')
+    expect(await c.has('a')).toBe(false)
+  })
+})
+
 describe('CacheManager + cache() helper', () => {
   test('resolves stores; cache() uses the default', async () => {
     const manager = new CacheManager({ default: 'memory', stores: { memory: { driver: 'memory' } } })

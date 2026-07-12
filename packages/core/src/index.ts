@@ -12,7 +12,15 @@ export {
   type LoggingConfig,
   type SessionConfig,
 } from './config-schema'
-export { CsrfMiddleware, type ResolvedSessionConfig, Session, sessionPlugin } from './session'
+export {
+  configureDatabaseSession,
+  CsrfMiddleware,
+  type ResolvedSessionConfig,
+  Session,
+  type SessionDbAdapter,
+  sessionPlugin,
+  type SessionStore,
+} from './session'
 export { dateParts, formatDate, getAppTimezone, setAppTimezone } from './datetime'
 export { defineEnv } from './env'
 export {

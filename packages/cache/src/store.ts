@@ -109,3 +109,61 @@ export class FileStore implements CacheStore {
     return this.increment(key, -by)
   }
 }
+
+/**
+ * DB-backed cache. The `cache` package stays DB-agnostic: the app injects an
+ * adapter (wired to `@elysia-ravel/database`) via {@link configureDatabaseCache}.
+ * `expiresAt` is epoch-ms or null (forever).
+ */
+export interface CacheDbAdapter {
+  read(key: string): Promise<{ value: string; expiresAt: number | null } | undefined>
+  write(key: string, value: string, expiresAt: number | null): Promise<void>
+  forget(key: string): Promise<void>
+  flush(): Promise<void>
+}
+
+let dbAdapter: CacheDbAdapter | null = null
+/** Wire the DB adapter used by the `database` cache store (call once at boot). */
+export function configureDatabaseCache(adapter: CacheDbAdapter): void {
+  dbAdapter = adapter
+}
+function requireAdapter(): CacheDbAdapter {
+  if (!dbAdapter) {
+    throw new Error('[elysia-ravel] database cache store needs configureDatabaseCache(...) at boot.')
+  }
+  return dbAdapter
+}
+
+export class DatabaseStore implements CacheStore {
+  async get<T = unknown>(key: string): Promise<T | undefined> {
+    const row = await requireAdapter().read(key)
+    if (!row) return undefined
+    if (row.expiresAt !== null && Date.now() >= row.expiresAt) {
+      await requireAdapter().forget(key)
+      return undefined
+    }
+    return JSON.parse(row.value) as T
+  }
+  async put(key: string, value: unknown, seconds?: number): Promise<void> {
+    await requireAdapter().write(
+      key,
+      JSON.stringify(value),
+      seconds !== undefined ? Date.now() + seconds * 1000 : null,
+    )
+  }
+  async forget(key: string): Promise<void> {
+    await requireAdapter().forget(key)
+  }
+  async flush(): Promise<void> {
+    await requireAdapter().flush()
+  }
+  async increment(key: string, by = 1): Promise<number> {
+    const current = Number((await this.get<number>(key)) ?? 0)
+    const next = current + by
+    await this.put(key, next)
+    return next
+  }
+  async decrement(key: string, by = 1): Promise<number> {
+    return this.increment(key, -by)
+  }
+}

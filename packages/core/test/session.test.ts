@@ -8,6 +8,7 @@ const cfg: ResolvedSessionConfig = {
   cookie: 'ravel_session',
   lifetime: 7200,
   secret: 'test-secret',
+  files: '/tmp/ravel-test-sessions',
   path: '/',
   secure: false,
   httpOnly: true,
@@ -55,6 +56,41 @@ describe('session (cookie driver)', () => {
     const r3 = await app.handle(new Request('http://localhost/msg', { headers: { cookie: jar(r2) } }))
     expect(await r3.json()).toEqual({ msg: null }) // expired
   })
+})
+
+describe('server-side session drivers (memory / file / database)', () => {
+  const { mkdtempSync } = require('node:fs') as typeof import('node:fs')
+  const { tmpdir } = require('node:os') as typeof import('node:os')
+  const dir = mkdtempSync(`${tmpdir()}/ravel-sess-`)
+
+  // in-memory adapter for the database driver
+  const dbRows = new Map<string, string>()
+  const {
+    configureDatabaseSession,
+  } = require('../src/session') as typeof import('../src/session')
+  configureDatabaseSession({
+    read: async (id) => dbRows.get(id),
+    write: async (id, payload) => void dbRows.set(id, payload),
+  })
+
+  const drivers = ['memory', 'file', 'database'] as const
+  for (const driver of drivers) {
+    test(`${driver}: persists across requests via session id`, async () => {
+      const app = new Elysia().use(sessionPlugin({ ...cfg, driver, files: dir })).use(
+        route()
+          // biome-ignore lint/suspicious/noExplicitAny: derived session
+          .get('/set', ({ session }: any) => {
+            session.put('who', driver)
+            return 'ok'
+          })
+          // biome-ignore lint/suspicious/noExplicitAny: derived session
+          .get('/get', ({ session }: any) => ({ who: session.get('who') ?? null })),
+      )
+      const r1 = await app.handle(new Request('http://localhost/set'))
+      const r2 = await app.handle(new Request('http://localhost/get', { headers: { cookie: jar(r1) } }))
+      expect(await r2.json()).toEqual({ who: driver })
+    })
+  }
 })
 
 describe('session convenience methods', () => {

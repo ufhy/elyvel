@@ -1,6 +1,6 @@
 import type { CacheConfig, CacheStoreConfig } from './config-schema'
 import { Repository } from './repository'
-import { FileStore, MemoryStore } from './store'
+import { DatabaseStore, FileStore, MemoryStore } from './store'
 
 /** Resolves named cache stores into {@link Repository} instances, à la Laravel's CacheManager. */
 export class CacheManager {
@@ -30,6 +30,9 @@ export class CacheManager {
     }
     if (cfg.driver === 'file') {
       return new Repository(new FileStore(cfg.path ?? 'storage/cache'))
+    }
+    if (cfg.driver === 'database') {
+      return new Repository(new DatabaseStore())
     }
     return new Repository(new MemoryStore())
   }

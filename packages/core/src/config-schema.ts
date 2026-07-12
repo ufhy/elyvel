@@ -64,8 +64,13 @@ export function defineLoggingConfig(config: LoggingConfig): LoggingConfig {
 
 /** Shape of `config/session.ts`. Author it with {@link defineSessionConfig}. */
 export interface SessionConfig {
-  /** `cookie` (signed+encrypted in the cookie, stateless) or `memory` (dev/test). Default `cookie`. */
-  driver?: 'cookie' | 'memory'
+  /**
+   * `cookie` (encrypted in the cookie, stateless), `memory` (dev/test), `file`
+   * (server-side files), or `database`. Default `cookie`.
+   */
+  driver?: 'cookie' | 'memory' | 'file' | 'database'
+  /** Directory for the `file` driver (relative to app root; default `storage/framework/sessions`). */
+  files?: string
   /** Session cookie name. Default `ravel_session`. */
   cookie?: string
   /** Cookie lifetime in seconds. Default 7200 (2h). */

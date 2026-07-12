@@ -9,5 +9,6 @@ export default defineCacheConfig({
   stores: {
     memory: { driver: 'memory' },
     file: { driver: 'file', path: 'storage/cache' },
+    database: { driver: 'database' }, // uses the `cache` table (wired in AppServiceProvider)
   },
 })
