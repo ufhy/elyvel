@@ -84,7 +84,12 @@ export class User extends Model {
 
 Overridable statics: `table`, `primaryKey`, `timestamps`, `connection`, `hidden`,
 `visible`, `appends`, `casts`, `accessors`, `scopes`, `fillable`, `guarded`,
-`softDeletes`, `deletedAtColumn`.
+`softDeletes`, `deletedAtColumn`, `usesUniqueIds`.
+
+Conveniences: `Model.findMany(ids)`, `Model.whereKey(id)`, `Model.withoutTimestamps(fn)`,
+`query.sole()`, `instance.replicate()`, `instance.touch()`. Set
+`static usesUniqueIds = true` to auto-generate a UUID primary key on create
+(override `static newUniqueId()` for ULIDs).
 
 ---
 
@@ -323,6 +328,25 @@ All Postgres types are supported: `smallInteger`/`integer`/`bigInteger`,
 `boolean`, `uuid`, `json`/`jsonb`, `binary`, `date`/`time`/`timestamp`/
 `timestampTz`/`datetime`, `inet`/`cidr`/`macaddr`/`interval`, `enum`, plus
 array columns (`t.array('tags', 'text')`) and `t.morphs()`.
+
+Alter existing tables (add / change / rename / drop). `change()` and
+`dropForeign()` are Postgres-only (SQLite can't ALTER a column type in place):
+
+```ts
+export default {
+  up: (schema) =>
+    schema.table('posts', (t) => {
+      t.string('slug').nullable()      // add
+      t.text('body').nullable().change() // modify type (pg)
+      t.renameColumn('title', 'headline')
+      t.dropColumn('legacy')
+      t.dropIndex('idx_posts_title')
+    }),
+  down: (schema) => schema.table('posts', (t) => t.dropColumn('slug')),
+} satisfies Migration
+
+// also: schema.rename('old_table', 'new_table')
+```
 
 Run them with the CLI:
 

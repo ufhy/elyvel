@@ -154,6 +154,15 @@ export class Model {
   static table?: string
   static primaryKey = 'id'
   static timestamps = true
+  /**
+   * Auto-generate a unique string id for the primary key on create (à la Laravel's
+   * `HasUuids`). Override {@link newUniqueId} to control the format (e.g. ULID).
+   */
+  static usesUniqueIds = false
+  /** Generate a unique id when {@link usesUniqueIds} is enabled. Defaults to a UUID v4. */
+  static newUniqueId(): string {
+    return crypto.randomUUID()
+  }
   /** Named connection (from config/database.ts) this model uses; default when unset. */
   static connection?: string
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
@@ -261,10 +270,36 @@ export class Model {
     return this.query().where(this.primaryKey, id).first()
   }
 
+  /** Find several rows by primary key. */
+  static findMany<M extends Model>(
+    this: ModelClass<M>,
+    ids: unknown[],
+  ): Promise<EloquentCollection<M>> {
+    return this.query().whereIn(this.primaryKey, ids).get()
+  }
+
+  /** Constrain by primary key (`whereKey(id)` / `whereKey([id1, id2])`). */
+  static whereKey<M extends Model>(this: ModelClass<M>, id: unknown): EloquentBuilder<M> {
+    return Array.isArray(id)
+      ? this.query().whereIn(this.primaryKey, id)
+      : this.query().where(this.primaryKey, id)
+  }
+
   static async findOrFail<M extends Model>(this: ModelClass<M>, id: unknown): Promise<M> {
     const model = await this.find(id)
     if (!model) throw new Error(`[eloquent] No ${this.name} found for ${this.primaryKey}=${id}`)
     return model
+  }
+
+  /** Run `callback` with timestamp management disabled, then restore it. */
+  static async withoutTimestamps<T>(this: typeof Model, callback: () => Promise<T>): Promise<T> {
+    const previous = this.timestamps
+    this.timestamps = false
+    try {
+      return await callback()
+    } finally {
+      this.timestamps = previous
+    }
   }
 
   static first<M extends Model>(this: ModelClass<M>): Promise<M | undefined> {
@@ -592,6 +627,7 @@ export class Model {
       await this.fireEvent('updated')
     } else {
       await this.fireEvent('creating')
+      if (self.usesUniqueIds) this.attributes[self.primaryKey] ??= self.newUniqueId()
       if (self.timestamps) {
         this.attributes.created_at ??= now
         this.attributes.updated_at ??= now
@@ -627,6 +663,25 @@ export class Model {
 
   async update(attributes: Attributes): Promise<this> {
     this.fill(attributes)
+    return this.save()
+  }
+
+  /** A new, unsaved copy of this model without its key/timestamps (à la Laravel `replicate`). */
+  replicate(except: string[] = []): this {
+    const self = this.self()
+    const skip = new Set([self.primaryKey, 'created_at', 'updated_at', ...except])
+    const attributes: Attributes = {}
+    for (const [key, value] of Object.entries(this.attributes)) {
+      if (!skip.has(key)) attributes[key] = value
+    }
+    const clone = new (this.constructor as ModelClass<this>)()
+    clone.forceFill(attributes)
+    return clone
+  }
+
+  /** Bump `updated_at` to now and persist. */
+  async touch(): Promise<this> {
+    this.setAttribute('updated_at', new Date().toISOString())
     return this.save()
   }
 

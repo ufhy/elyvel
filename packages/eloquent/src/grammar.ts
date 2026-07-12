@@ -43,6 +43,8 @@ export interface ColumnDefinition {
   unique?: boolean
   default?: unknown
   references?: { table: string; column: string; onDelete?: 'cascade' | 'set null' | 'restrict' }
+  /** Marks this column definition as a modification (`->change()`) rather than an add. */
+  change?: boolean
 }
 
 /** A standalone index (created after the table). */
@@ -97,6 +99,41 @@ export abstract class Grammar {
     const unique = index.unique ? 'UNIQUE ' : ''
     const cols = index.columns.map((c) => this.wrap(c)).join(', ')
     return `CREATE ${unique}INDEX ${this.wrap(index.name)} ON ${this.wrap(table)} (${cols})`
+  }
+
+  compileDropColumn(table: string, name: string): string {
+    return `ALTER TABLE ${this.wrap(table)} DROP COLUMN ${this.wrap(name)}`
+  }
+  compileRenameColumn(table: string, from: string, to: string): string {
+    return `ALTER TABLE ${this.wrap(table)} RENAME COLUMN ${this.wrap(from)} TO ${this.wrap(to)}`
+  }
+  compileRenameTable(from: string, to: string): string {
+    return `ALTER TABLE ${this.wrap(from)} RENAME TO ${this.wrap(to)}`
+  }
+  compileDropIndex(name: string): string {
+    return `DROP INDEX ${this.wrap(name)}`
+  }
+  compileDropForeign(table: string, name: string): string {
+    if (this.dialect !== 'pg') {
+      throw new Error('[eloquent] dropForeign is not supported on SQLite (rebuild the table instead).')
+    }
+    return `ALTER TABLE ${this.wrap(table)} DROP CONSTRAINT ${this.wrap(name)}`
+  }
+  /** Modify a column's type/nullability/default. Postgres only (SQLite can't ALTER type). */
+  compileChangeColumn(table: string, column: ColumnDefinition): string[] {
+    if (this.dialect !== 'pg') {
+      throw new Error('[eloquent] Column change() is not supported on SQLite (rebuild the table instead).')
+    }
+    const t = this.wrap(table)
+    const col = this.wrap(column.name)
+    const stmts = [`ALTER TABLE ${t} ALTER COLUMN ${col} TYPE ${this.columnType(column)}`]
+    stmts.push(
+      `ALTER TABLE ${t} ALTER COLUMN ${col} ${column.nullable ? 'DROP NOT NULL' : 'SET NOT NULL'}`,
+    )
+    if (column.default !== undefined) {
+      stmts.push(`ALTER TABLE ${t} ALTER COLUMN ${col} SET DEFAULT ${this.literal(column.default)}`)
+    }
+    return stmts
   }
 
   protected compileColumn(column: ColumnDefinition): string {

@@ -384,6 +384,14 @@ export class EloquentBuilder<M extends Model> {
     this.qb.limit(1)
     return (await this.get()).first() // get() applies scopes + eager loading
   }
+  /** The single matching row; throws if zero or more than one match. */
+  async sole(): Promise<M> {
+    this.qb.limit(2)
+    const rows = (await this.get()).all()
+    if (rows.length === 0) throw new Error('[eloquent] sole(): no records found.')
+    if (rows.length > 1) throw new Error('[eloquent] sole(): multiple records found.')
+    return rows[0] as M
+  }
 
   /** Stream rows lazily in chunks (memory-bounded) as a LazyCollection. */
   cursor(chunkSize = 100): LazyCollection<M> {

@@ -29,6 +29,11 @@ class ColumnBuilder {
     if (this.def.references) this.def.references.onDelete = 'set null'
     return this
   }
+  /** Mark this column as a modification of an existing one (Postgres only). */
+  change(): this {
+    this.def.change = true
+    return this
+  }
 }
 
 /**
@@ -38,6 +43,10 @@ class ColumnBuilder {
 export class Blueprint {
   readonly columns: ColumnDefinition[] = []
   readonly indexes: IndexDefinition[] = []
+  readonly dropColumns: string[] = []
+  readonly renameColumns: { from: string; to: string }[] = []
+  readonly dropIndexes: string[] = []
+  readonly dropForeigns: string[] = []
 
   private push(def: ColumnDefinition): ColumnBuilder {
     this.columns.push(def)
@@ -146,6 +155,22 @@ export class Blueprint {
     const cols = Array.isArray(columns) ? columns : [columns]
     this.indexes.push({ columns: cols, unique: false, name: name ?? `idx_${cols.join('_')}` })
   }
+  /** Drop one or more columns. */
+  dropColumn(...names: string[]): void {
+    this.dropColumns.push(...names)
+  }
+  /** Rename a column. */
+  renameColumn(from: string, to: string): void {
+    this.renameColumns.push({ from, to })
+  }
+  /** Drop an index by name. */
+  dropIndex(name: string): void {
+    this.dropIndexes.push(name)
+  }
+  /** Drop a foreign-key constraint by name (Postgres only). */
+  dropForeign(name: string): void {
+    this.dropForeigns.push(name)
+  }
   /** `created_at` + `updated_at` (nullable timestamps managed by the model). */
   timestamps(): void {
     this.push({ name: 'created_at', type: 'timestamp', nullable: true })
@@ -171,17 +196,33 @@ export class SchemaBuilder {
     }
   }
 
-  /** Alter a table: add columns / indexes (`ADD COLUMN`, `CREATE INDEX`). */
+  /**
+   * Alter a table: add / change / rename / drop columns, add / drop indexes,
+   * drop foreign keys. `change()` and `dropForeign()` are Postgres-only.
+   */
   async table(table: string, build: (table: Blueprint) => void): Promise<void> {
     const blueprint = new Blueprint()
     build(blueprint)
     const g = this.connection.grammar
+    const run = (sql: string) => this.connection.statement(sql)
+
     for (const column of blueprint.columns) {
-      await this.connection.statement(g.compileAddColumn(table, column))
+      if (column.change) {
+        for (const sql of g.compileChangeColumn(table, column)) await run(sql)
+      } else {
+        await run(g.compileAddColumn(table, column))
+      }
     }
-    for (const index of blueprint.indexes) {
-      await this.connection.statement(g.compileCreateIndex(table, index))
-    }
+    for (const { from, to } of blueprint.renameColumns) await run(g.compileRenameColumn(table, from, to))
+    for (const name of blueprint.dropColumns) await run(g.compileDropColumn(table, name))
+    for (const index of blueprint.indexes) await run(g.compileCreateIndex(table, index))
+    for (const name of blueprint.dropIndexes) await run(g.compileDropIndex(name))
+    for (const name of blueprint.dropForeigns) await run(g.compileDropForeign(table, name))
+  }
+
+  /** Rename a table. */
+  async rename(from: string, to: string): Promise<void> {
+    await this.connection.statement(this.connection.grammar.compileRenameTable(from, to))
   }
 
   async dropIfExists(table: string): Promise<void> {
