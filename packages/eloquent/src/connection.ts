@@ -31,7 +31,29 @@ export type ConnectionConfig =
   | PostgresConnectionConfig
   | PgliteConnectionConfig
 
+/** Connections opened via createConnection, tracked so tests can close them all. */
+const opened: Connection[] = []
+
 export async function createConnection(config: ConnectionConfig): Promise<Connection> {
+  const connection = await buildConnection(config)
+  opened.push(connection)
+  return connection
+}
+
+/** Close every connection opened via {@link createConnection} and reset state. */
+export async function closeAllConnections(): Promise<void> {
+  for (const connection of opened.splice(0)) {
+    try {
+      await connection.close()
+    } catch {
+      // ignore — best-effort cleanup
+    }
+  }
+  connections.clear()
+  current = null
+}
+
+async function buildConnection(config: ConnectionConfig): Promise<Connection> {
   switch (config.driver) {
     case 'sqlite': {
       const db = new Database(config.database, { create: true })
