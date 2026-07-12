@@ -28,14 +28,10 @@ for (const d of dialects) {
         t.string('email')
         t.index('email')
       })
-      await new QueryBuilder(conn, 'items').insert({
-        uid: 'abc-123',
-        price: 9.99,
-        due: '2026-01-01',
-        email: 'a@b.com',
-      })
+      const uid = '11111111-1111-1111-1111-111111111111'
+      await new QueryBuilder(conn, 'items').insert({ uid, price: 9.99, due: '2026-01-01', email: 'a@b.com' })
       const row = await new QueryBuilder(conn, 'items').where('email', 'a@b.com').first()
-      expect(row?.uid).toBe('abc-123')
+      expect(String(row?.uid)).toBe(uid)
       expect(Number(row?.price)).toBeCloseTo(9.99, 2)
     })
 

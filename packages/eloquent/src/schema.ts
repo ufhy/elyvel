@@ -53,11 +53,29 @@ export class Blueprint {
   text(name: string): ColumnBuilder {
     return this.push({ name, type: 'text' })
   }
+  char(name: string, length = 255): ColumnBuilder {
+    return this.push({ name, type: 'char', length })
+  }
+  mediumText(name: string): ColumnBuilder {
+    return this.push({ name, type: 'mediumText' })
+  }
+  longText(name: string): ColumnBuilder {
+    return this.push({ name, type: 'longText' })
+  }
+  smallInteger(name: string): ColumnBuilder {
+    return this.push({ name, type: 'smallInteger' })
+  }
   integer(name: string): ColumnBuilder {
     return this.push({ name, type: 'integer' })
   }
   bigInteger(name: string): ColumnBuilder {
     return this.push({ name, type: 'bigInteger' })
+  }
+  float(name: string): ColumnBuilder {
+    return this.push({ name, type: 'float' })
+  }
+  double(name: string): ColumnBuilder {
+    return this.push({ name, type: 'double' })
   }
   boolean(name: string): ColumnBuilder {
     return this.push({ name, type: 'boolean' })
@@ -65,8 +83,39 @@ export class Blueprint {
   timestamp(name: string): ColumnBuilder {
     return this.push({ name, type: 'timestamp' })
   }
+  /** Timezone-aware timestamp (native `TIMESTAMPTZ` on Postgres). */
+  timestampTz(name: string): ColumnBuilder {
+    return this.push({ name, type: 'timestampTz' })
+  }
+  time(name: string): ColumnBuilder {
+    return this.push({ name, type: 'time' })
+  }
   json(name: string): ColumnBuilder {
     return this.push({ name, type: 'json' })
+  }
+  /** Native JSONB on Postgres (indexable / queryable). */
+  jsonb(name: string): ColumnBuilder {
+    return this.push({ name, type: 'jsonb' })
+  }
+  /** Binary blob — `BYTEA` on Postgres, `BLOB` on SQLite (e.g. raw bytes). */
+  binary(name: string): ColumnBuilder {
+    return this.push({ name, type: 'binary' })
+  }
+  /** Enum stored as a checked string (`CHECK (col IN (...))`). */
+  enum(name: string, values: string[]): ColumnBuilder {
+    return this.push({ name, type: 'enum', enumValues: values })
+  }
+  inet(name: string): ColumnBuilder {
+    return this.push({ name, type: 'inet' })
+  }
+  cidr(name: string): ColumnBuilder {
+    return this.push({ name, type: 'cidr' })
+  }
+  macaddr(name: string): ColumnBuilder {
+    return this.push({ name, type: 'macaddr' })
+  }
+  interval(name: string): ColumnBuilder {
+    return this.push({ name, type: 'interval' })
   }
   foreignId(name: string): ColumnBuilder {
     return this.push({ name, type: 'bigInteger' })

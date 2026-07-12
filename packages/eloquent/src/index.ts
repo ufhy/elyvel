@@ -17,7 +17,7 @@ export {
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export { EloquentServiceProvider } from './database-provider'
 export { type EagerConstraint, EloquentBuilder, type Paginator } from './eloquent-builder'
-export type { ColumnDefinition, Dialect, Grammar } from './grammar'
+export type { ColumnDefinition, ColumnType, Dialect, Grammar } from './grammar'
 export {
   type Attributes,
   type Cast,

@@ -1,24 +1,41 @@
 export type Dialect = 'sqlite' | 'pg'
 
-/** A column definition collected by the schema {@link Blueprint}. */
+export type ColumnType =
+  | 'id'
+  | 'smallInteger'
+  | 'integer'
+  | 'bigInteger'
+  | 'float'
+  | 'double'
+  | 'decimal'
+  | 'boolean'
+  | 'char'
+  | 'string'
+  | 'text'
+  | 'mediumText'
+  | 'longText'
+  | 'uuid'
+  | 'json'
+  | 'jsonb'
+  | 'binary'
+  | 'date'
+  | 'time'
+  | 'timestamp'
+  | 'timestampTz'
+  | 'datetime'
+  | 'inet'
+  | 'cidr'
+  | 'macaddr'
+  | 'interval'
+  | 'enum'
+
 export interface ColumnDefinition {
   name: string
-  type:
-    | 'id'
-    | 'string'
-    | 'text'
-    | 'integer'
-    | 'bigInteger'
-    | 'boolean'
-    | 'timestamp'
-    | 'json'
-    | 'uuid'
-    | 'decimal'
-    | 'date'
-    | 'datetime'
+  type: ColumnType
   length?: number
   precision?: number
   scale?: number
+  enumValues?: string[]
   nullable?: boolean
   unique?: boolean
   default?: unknown
@@ -33,19 +50,15 @@ export interface IndexDefinition {
 }
 
 /**
- * Renders dialect-specific SQL from dialect-neutral input — the same idea as
- * Laravel's query/schema "grammars". This is what lets one model/migration run
- * on SQLite and Postgres unchanged.
+ * Renders dialect-specific SQL from dialect-neutral input — Laravel's grammar
+ * pattern. Postgres uses its native types; SQLite falls back to the closest
+ * affinity so the same migration runs on both.
  */
 export abstract class Grammar {
   abstract readonly dialect: Dialect
-
-  /** Positional placeholder for the i-th binding (0-based): `?` or `$n`. */
   abstract placeholder(index: number): string
-
   protected abstract columnType(column: ColumnDefinition): string
 
-  /** Quote an identifier. Both dialects accept double quotes. */
   wrap(identifier: string): string {
     return identifier
       .split('.')
@@ -74,11 +87,9 @@ export abstract class Grammar {
     const cascade = this.dialect === 'pg' ? ' CASCADE' : ''
     return `DROP TABLE IF EXISTS ${this.wrap(table)}${cascade}`
   }
-
   compileAddColumn(table: string, column: ColumnDefinition): string {
     return `ALTER TABLE ${this.wrap(table)} ADD COLUMN ${this.compileColumn(column)}`
   }
-
   compileCreateIndex(table: string, index: IndexDefinition): string {
     const unique = index.unique ? 'UNIQUE ' : ''
     const cols = index.columns.map((c) => this.wrap(c)).join(', ')
@@ -90,6 +101,10 @@ export abstract class Grammar {
     if (column.type !== 'id') {
       parts.push(column.nullable ? 'NULL' : 'NOT NULL')
       if (column.default !== undefined) parts.push(`DEFAULT ${this.literal(column.default)}`)
+    }
+    if (column.enumValues?.length) {
+      const list = column.enumValues.map((v) => this.literal(v)).join(', ')
+      parts.push(`CHECK (${this.wrap(column.name)} IN (${list}))`)
     }
     return parts.join(' ')
   }
@@ -111,20 +126,21 @@ class SqliteGrammar extends Grammar {
     switch (c.type) {
       case 'id':
         return 'INTEGER PRIMARY KEY AUTOINCREMENT'
-      case 'string':
-      case 'text':
-      case 'timestamp':
-      case 'json':
-      case 'uuid':
-      case 'date':
-      case 'datetime':
-        return 'TEXT'
-      case 'decimal':
-        return 'NUMERIC'
+      case 'smallInteger':
       case 'integer':
       case 'bigInteger':
       case 'boolean':
         return 'INTEGER'
+      case 'float':
+      case 'double':
+        return 'REAL'
+      case 'decimal':
+        return 'NUMERIC'
+      case 'binary':
+        return 'BLOB'
+      // Everything else stores as TEXT under SQLite's flexible typing.
+      default:
+        return 'TEXT'
     }
   }
 }
@@ -138,24 +154,55 @@ class PostgresGrammar extends Grammar {
     switch (c.type) {
       case 'id':
         return 'SERIAL PRIMARY KEY'
-      case 'string':
-        return `VARCHAR(${c.length ?? 255})`
-      case 'text':
-      case 'timestamp': // stored as ISO string for identical behavior across dialects
-      case 'json': // stored as text (JSON string) for identical behavior across dialects
-      case 'date':
-      case 'datetime':
-        return 'TEXT'
-      case 'uuid':
-        return 'VARCHAR(36)'
-      case 'decimal':
-        return `NUMERIC(${c.precision ?? 10}, ${c.scale ?? 2})`
+      case 'smallInteger':
+        return 'SMALLINT'
       case 'integer':
         return 'INTEGER'
       case 'bigInteger':
         return 'BIGINT'
+      case 'float':
+        return 'REAL'
+      case 'double':
+        return 'DOUBLE PRECISION'
+      case 'decimal':
+        return `NUMERIC(${c.precision ?? 10}, ${c.scale ?? 2})`
       case 'boolean':
         return 'BOOLEAN'
+      case 'char':
+        return `CHAR(${c.length ?? 255})`
+      case 'string':
+      case 'enum':
+        return `VARCHAR(${c.length ?? 255})`
+      case 'text':
+      case 'mediumText':
+      case 'longText':
+        return 'TEXT'
+      case 'uuid':
+        return 'UUID'
+      // json/date/timestamp/datetime stay TEXT so values are ISO strings and
+      // identical across dialects (model casts handle them). Use jsonb /
+      // timestampTz for the native, timezone-aware/indexable Postgres types.
+      case 'json':
+      case 'date':
+      case 'timestamp':
+      case 'datetime':
+        return 'TEXT'
+      case 'jsonb':
+        return 'JSONB'
+      case 'binary':
+        return 'BYTEA'
+      case 'time':
+        return 'TIME'
+      case 'timestampTz':
+        return 'TIMESTAMPTZ'
+      case 'inet':
+        return 'INET'
+      case 'cidr':
+        return 'CIDR'
+      case 'macaddr':
+        return 'MACADDR'
+      case 'interval':
+        return 'INTERVAL'
     }
   }
 }
