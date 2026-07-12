@@ -12,6 +12,10 @@ export interface QueryLogEntry {
   ms: number
 }
 
+/** A query that finished executing — the payload passed to {@link Connection.onQuery}. */
+export type QueryExecuted = QueryLogEntry
+export type QueryListener = (event: QueryExecuted) => void
+
 export interface Connection {
   readonly dialect: Dialect
   readonly grammar: Grammar
@@ -24,6 +28,21 @@ export interface Connection {
   /** Recorded queries (sql, bindings, elapsed ms) since logging was enabled. */
   getQueryLog(): QueryLogEntry[]
   flushQueryLog(): void
+  /**
+   * Register a listener fired after each successful query (à la Laravel's
+   * `DB::listen`). Returns an unsubscribe function.
+   */
+  onQuery(listener: QueryListener): () => void
+  /**
+   * Fire `callback` once the cumulative query time (ms) since the last reset
+   * crosses `threshold` — for slow-request alerts (à la Laravel's
+   * `DB::whenQueryingForLongerThan`). Returns an unsubscribe function.
+   */
+  whenQueryingForLongerThan(threshold: number, callback: QueryListener): () => void
+  /** Total accumulated query time (ms) since the last reset. */
+  getTotalQueryDuration(): number
+  /** Reset the cumulative query-time counter (typically per request). */
+  resetTotalQueryDuration(): void
 }
 
 export interface SqliteConnectionConfig {
@@ -117,17 +136,35 @@ function composeReadWrite(read: RawConnection, write: RawConnection): RawConnect
   }
 }
 
-/** Wrap select/statement to optionally record a query log. */
+/** Wrap select/statement to time queries, record a log, and notify listeners. */
 function withQueryLog(base: RawConnection): Connection {
   let logging = false
   const log: QueryLogEntry[] = []
+  const listeners = new Set<QueryListener>()
+  const slow: { threshold: number; callback: QueryListener; fired: boolean }[] = []
+  let totalDuration = 0
+
+  const round = (n: number) => Math.round(n * 100) / 100
+
   const record = async <T>(sql: string, bindings: unknown[], run: () => Promise<T>): Promise<T> => {
-    if (!logging) return run()
     const start = performance.now()
     const result = await run()
-    log.push({ sql, bindings, ms: Math.round((performance.now() - start) * 100) / 100 })
+    const ms = round(performance.now() - start)
+    const event: QueryExecuted = { sql, bindings, ms }
+
+    if (logging) log.push(event)
+    for (const listener of listeners) listener(event)
+
+    totalDuration = round(totalDuration + ms)
+    for (const s of slow) {
+      if (!s.fired && totalDuration >= s.threshold) {
+        s.fired = true
+        s.callback(event)
+      }
+    }
     return result
   }
+
   return {
     dialect: base.dialect,
     grammar: base.grammar,
@@ -143,6 +180,23 @@ function withQueryLog(base: RawConnection): Connection {
     getQueryLog: () => [...log],
     flushQueryLog: () => {
       log.length = 0
+    },
+    onQuery: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    whenQueryingForLongerThan: (threshold, callback) => {
+      const entry = { threshold, callback, fired: false }
+      slow.push(entry)
+      return () => {
+        const i = slow.indexOf(entry)
+        if (i >= 0) slow.splice(i, 1)
+      }
+    },
+    getTotalQueryDuration: () => totalDuration,
+    resetTotalQueryDuration: () => {
+      totalDuration = 0
+      for (const s of slow) s.fired = false
     },
   }
 }
