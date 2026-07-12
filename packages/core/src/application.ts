@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Elysia } from 'elysia'
 import { type ConfigData, ConfigRepository, ConfigToken } from './config'
+import type { SessionConfig } from './config-schema'
 import { Container, type Token } from './container'
 import {
   BufferedFileTransport,
@@ -25,6 +26,7 @@ import {
 import { ThrottleMiddleware } from './throttle'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
+import { CsrfMiddleware, type ResolvedSessionConfig, sessionPlugin } from './session'
 
 type ChannelConfig = LogChannelConfig
 
@@ -117,6 +119,7 @@ export class Application {
     app.registerCoreBindings()
     app.registerHttpLogger()
     app.registerMiddleware()
+    app.registerSession()
 
     const configured = app.config.get<ServiceProviderClass[]>('app.providers', [])
     const providerClasses = [...configured, ...(options.providers ?? [])]
@@ -241,11 +244,32 @@ export class Application {
     // Seed built-in aliases (user config can override them).
     registerMiddlewareRegistry({
       ...config,
-      aliases: { throttle: ThrottleMiddleware, ...config.aliases },
+      aliases: { throttle: ThrottleMiddleware, csrf: CsrfMiddleware, ...config.aliases },
     })
     if (config.global?.length) {
       this.elysia.use(globalMiddlewarePlugin(config.global))
     }
+  }
+
+  /** Mount the session plugin (before routes) when `config/session.ts` is present. */
+  private registerSession(): void {
+    const cfg = this.config.get<SessionConfig | undefined>('session')
+    if (!cfg) return
+    const driver = cfg.driver ?? 'cookie'
+    const secret = cfg.secret ?? this.config.get<string | undefined>('app.key')
+    if (driver === 'cookie' && !secret) {
+      throw new Error(
+        '[elysia-ravel] Session cookie driver needs a secret — set `app.key` or `session.secret`.',
+      )
+    }
+    this.elysia.use(
+      sessionPlugin({
+        driver,
+        cookie: cfg.cookie ?? 'ravel_session',
+        lifetime: cfg.lifetime ?? 7200,
+        secret: secret ?? '',
+      } satisfies ResolvedSessionConfig),
+    )
   }
 
   /**

@@ -8,8 +8,11 @@ export {
   type AppConfig,
   defineAppConfig,
   defineLoggingConfig,
+  defineSessionConfig,
   type LoggingConfig,
+  type SessionConfig,
 } from './config-schema'
+export { CsrfMiddleware, type ResolvedSessionConfig, Session, sessionPlugin } from './session'
 export { dateParts, formatDate, getAppTimezone, setAppTimezone } from './datetime'
 export { defineEnv } from './env'
 export {

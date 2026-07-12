@@ -61,3 +61,20 @@ export function defineAppConfig(config: AppConfig): AppConfig {
 export function defineLoggingConfig(config: LoggingConfig): LoggingConfig {
   return config
 }
+
+/** Shape of `config/session.ts`. Author it with {@link defineSessionConfig}. */
+export interface SessionConfig {
+  /** `cookie` (signed+encrypted in the cookie, stateless) or `memory` (dev/test). Default `cookie`. */
+  driver?: 'cookie' | 'memory'
+  /** Session cookie name. Default `ravel_session`. */
+  cookie?: string
+  /** Cookie lifetime in seconds. Default 7200 (2h). */
+  lifetime?: number
+  /** Encryption/signing secret. Defaults to `app.key`. */
+  secret?: string
+}
+
+/** Identity helper that pins the type of `config/session.ts` for autocomplete. */
+export function defineSessionConfig(config: SessionConfig): SessionConfig {
+  return config
+}

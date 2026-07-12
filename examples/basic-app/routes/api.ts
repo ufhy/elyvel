@@ -25,5 +25,15 @@ export default route('/api')
     log.info('health check')
     return { status: 'ok' }
   })
+  // Session demo: a per-visitor counter persisted in the (cookie) session.
+  // biome-ignore lint/suspicious/noExplicitAny: derived session
+  .get('/visits', ({ session }: any) => {
+    const count = (session.get('visits') ?? 0) + 1
+    session.put('visits', count)
+    return { visits: count, csrfToken: session.token() }
+  })
   // Route-level aliases — `json` rejects non-JSON writes; `throttle` rate-limits (built-in).
   .post('/echo', ({ body }) => ({ echoed: body }), { middleware: ['json', 'throttle:5,1'] })
+  // `csrf` (built-in) protects this write — needs a valid session token.
+  // biome-ignore lint/suspicious/noExplicitAny: derived session
+  .post('/secure', ({ body }: any) => ({ ok: true, body }), { middleware: ['json', 'csrf'] })
