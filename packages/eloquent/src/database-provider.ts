@@ -1,7 +1,13 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { ServiceProvider } from '@elysia-ravel/core'
-import { type Connection, type ConnectionConfig, createConnection, setConnection } from './connection'
+import {
+  type Connection,
+  type ConnectionConfig,
+  createConnection,
+  setConnection,
+  startRequestScope,
+} from './connection'
 import { setEncryptionKey } from './crypto'
 import { DatabaseToken } from './tokens'
 
@@ -31,6 +37,11 @@ export class EloquentServiceProvider extends ServiceProvider {
     if (appKey) setEncryptionKey(appKey)
 
     this.wireLogging(connection)
+
+    // Open a per-request scope so read/write `sticky` routing is isolated per request.
+    if ((config as { sticky?: boolean }).sticky) {
+      this.app.elysia.onRequest(() => startRequestScope())
+    }
   }
 
   /** Bridge the connection's query hooks into the app logger (à la `DB::listen`). */

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { Database } from 'bun:sqlite'
 import { type Dialect, type Grammar, grammarFor } from './grammar'
 
@@ -77,6 +78,8 @@ export interface SqliteConnectionConfig {
   read?: { database: string }
   /** Write host. Falls back to the base config when omitted. */
   write?: { database: string }
+  /** After a write in a request, route that request's reads to the write host. */
+  sticky?: boolean
 }
 export interface PostgresConnectionConfig {
   driver: 'pg'
@@ -85,12 +88,15 @@ export interface PostgresConnectionConfig {
   read?: { url: string } | { url: string }[]
   /** Write host. Falls back to the base config when omitted. */
   write?: { url: string }
+  /** After a write in a request, route that request's reads to the write host. */
+  sticky?: boolean
 }
 export interface PgliteConnectionConfig {
   driver: 'pglite'
   dataDir?: string
   read?: { dataDir?: string }
   write?: { dataDir?: string }
+  sticky?: boolean
 }
 export type ConnectionConfig =
   | SqliteConnectionConfig
@@ -100,11 +106,24 @@ export type ConnectionConfig =
 /** Connections opened via createConnection, tracked so tests can close them all. */
 const opened: Connection[] = []
 
+/** Per-request state for read/write `sticky` routing. */
+const requestStore = new AsyncLocalStorage<{ hadWrite: boolean }>()
+
+/**
+ * Open a fresh per-request scope for `sticky` read/write routing. Call once at
+ * the start of each request (the `EloquentServiceProvider` wires this into the
+ * HTTP lifecycle when a connection is configured `sticky`).
+ */
+export function startRequestScope(): void {
+  requestStore.enterWith({ hadWrite: false })
+}
+
 export async function createConnection(config: ConnectionConfig): Promise<Connection> {
   const base = hasReadWrite(config)
     ? composeReadWrite(
         await buildConnection(mergeConfig(config, pickRead(config.read))),
         await buildConnection(mergeConfig(config, config.write)),
+        Boolean(config.sticky),
       )
     : await buildConnection(config)
   const connection = withQueryLog(base)
@@ -165,23 +184,38 @@ function bindNamed(
  * read host, `statement` (writes, DDL) uses the write host. Inside a transaction
  * reads route to the write host too, so a query sees its own uncommitted writes.
  */
-function composeReadWrite(read: RawConnection, write: RawConnection): RawConnection {
-  let sticky = false
+function composeReadWrite(
+  read: RawConnection,
+  write: RawConnection,
+  sticky: boolean,
+): RawConnection {
+  let txSticky = false // reads route to write for the duration of a transaction
+  const markWrite = () => {
+    if (sticky) {
+      const store = requestStore.getStore()
+      if (store) store.hadWrite = true
+    }
+  }
+  const useWrite = () => txSticky || (sticky && requestStore.getStore()?.hadWrite === true)
   return {
     dialect: write.dialect,
     grammar: write.grammar,
-    select: (sql, bindings) => (sticky ? write : read).select(sql, bindings),
+    select: (sql, bindings) => (useWrite() ? write : read).select(sql, bindings),
     statement: async (sql, bindings) => {
       const kw = firstKeyword(sql)
-      if (kw === 'BEGIN') sticky = true
+      if (kw === 'BEGIN') txSticky = true
+      markWrite()
       await write.statement(sql, bindings)
       // A `ROLLBACK TO SAVEPOINT` unwinds a nested level — the transaction is
       // still open, so keep routing reads to the write host.
       const endsTransaction =
         kw === 'COMMIT' || (kw === 'ROLLBACK' && !/^ROLLBACK\s+TO\b/i.test(sql.trimStart()))
-      if (endsTransaction) sticky = false
+      if (endsTransaction) txSticky = false
     },
-    unprepared: (sql) => write.unprepared(sql),
+    unprepared: (sql) => {
+      markWrite()
+      return write.unprepared(sql)
+    },
     close: async () => {
       await Promise.all([read.close(), write.close()])
     },

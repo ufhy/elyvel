@@ -20,6 +20,7 @@ export {
   rollBack,
   setConnection,
   type SqliteConnectionConfig,
+  startRequestScope,
   transaction,
   unprepared,
   useConnection,
