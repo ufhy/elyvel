@@ -377,7 +377,9 @@ pgSplit: {
 
 ---
 
-## Query logging
+## Query logging & monitoring
+
+Manual, in-memory log (à la Laravel `DB::enableQueryLog`):
 
 ```ts
 const conn = useConnection()
@@ -385,6 +387,22 @@ conn.enableQueryLog()
 await User.all()
 conn.getQueryLog() // [{ sql, bindings, ms }]
 ```
+
+Event hooks (à la Laravel `DB::listen`), usable standalone or wired to the logger:
+
+```ts
+const off = conn.onQuery(({ sql, bindings, ms }) => { /* ... */ })
+conn.onQueryError(({ sql, bindings, error }) => { /* ... */ })
+conn.whenQueryingForLongerThan(500, ({ ms }) => { /* slow request */ })
+```
+
+In a framework app the `EloquentServiceProvider` bridges these to the logger's
+`sql` channel automatically:
+
+- **Query errors** are always logged (`sql`, `bindings`, `error`, `stack`) — the
+  context you need to trace a failure.
+- Set `log: true` in `config/database.ts` to also log every query at `debug`.
+- Set `slowMs: <ms>` to warn when cumulative per-request query time is exceeded.
 
 ---
 

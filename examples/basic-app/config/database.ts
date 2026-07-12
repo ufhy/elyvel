@@ -6,6 +6,11 @@ import { defineDatabaseConfig } from '@elysia-ravel/eloquent'
  */
 export default defineDatabaseConfig({
   default: process.env.DB_CONNECTION ?? 'sqlite',
+  // Log every query to the `sql` channel (debug). Query *errors* are always
+  // logged with their SQL/bindings regardless of this flag.
+  log: process.env.DB_LOG === 'true',
+  // Warn when cumulative query time in a request exceeds this (ms). Omit to disable.
+  slowMs: process.env.DB_SLOW_MS ? Number(process.env.DB_SLOW_MS) : undefined,
   connections: {
     sqlite: { driver: 'sqlite', database: 'database/database.sqlite' },
     // Embedded Postgres (WASM) — real PG, zero server:

@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { ServiceProvider } from '@elysia-ravel/core'
-import { type ConnectionConfig, createConnection, setConnection } from './connection'
+import { type Connection, type ConnectionConfig, createConnection, setConnection } from './connection'
 import { setEncryptionKey } from './crypto'
 import { DatabaseToken } from './tokens'
 
@@ -29,6 +29,43 @@ export class EloquentServiceProvider extends ServiceProvider {
 
     const appKey = this.app.config.get<string | undefined>('app.key')
     if (appKey) setEncryptionKey(appKey)
+
+    this.wireLogging(connection)
+  }
+
+  /** Bridge the connection's query hooks into the app logger (à la `DB::listen`). */
+  private wireLogging(connection: Connection): void {
+    const sql = this.app.logger.child('sql')
+
+    // Query errors are always logged with their SQL/bindings — the context you
+    // need to trace a failure. The error is still re-thrown by the connection.
+    connection.onQueryError(({ sql: query, bindings, ms, error }) => {
+      sql.error('query failed', {
+        sql: query,
+        bindings,
+        ms,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    })
+
+    // Per-query debug logging is opt-in (noisy).
+    if (this.app.config.get<boolean>('database.log', false)) {
+      connection.onQuery(({ sql: query, bindings, ms }) => {
+        sql.debug(query, { bindings, ms })
+      })
+    }
+
+    // Slow-request monitoring: warn when cumulative query time crosses the
+    // threshold, reset per HTTP request. (Cumulative time is connection-wide,
+    // so under heavy concurrency the figure is approximate.)
+    const slowMs = this.app.config.get<number | undefined>('database.slowMs')
+    if (slowMs && slowMs > 0) {
+      connection.whenQueryingForLongerThan(slowMs, ({ ms }) => {
+        sql.warn('slow request query time', { totalMs: connection.getTotalQueryDuration(), lastMs: ms })
+      })
+      this.app.elysia.onRequest(() => connection.resetTotalQueryDuration())
+    }
   }
 
   private resolvePaths(config: ConnectionConfig): ConnectionConfig {
