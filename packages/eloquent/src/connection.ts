@@ -6,12 +6,24 @@ import { type Dialect, type Grammar, grammarFor } from './grammar'
  * `select`/`statement` with parameter bindings; the {@link Grammar} renders
  * dialect-correct SQL. Swapping databases is a config change, not a rewrite.
  */
+export interface QueryLogEntry {
+  sql: string
+  bindings: unknown[]
+  ms: number
+}
+
 export interface Connection {
   readonly dialect: Dialect
   readonly grammar: Grammar
   select<T = Record<string, unknown>>(sql: string, bindings?: unknown[]): Promise<T[]>
   statement(sql: string, bindings?: unknown[]): Promise<void>
   close(): Promise<void>
+  /** Start recording executed queries. */
+  enableQueryLog(): void
+  disableQueryLog(): void
+  /** Recorded queries (sql, bindings, elapsed ms) since logging was enabled. */
+  getQueryLog(): QueryLogEntry[]
+  flushQueryLog(): void
 }
 
 export interface SqliteConnectionConfig {
@@ -35,9 +47,42 @@ export type ConnectionConfig =
 const opened: Connection[] = []
 
 export async function createConnection(config: ConnectionConfig): Promise<Connection> {
-  const connection = await buildConnection(config)
+  const base = await buildConnection(config)
+  const connection = withQueryLog(base)
   opened.push(connection)
   return connection
+}
+
+type RawConnection = Pick<Connection, 'dialect' | 'grammar' | 'select' | 'statement' | 'close'>
+
+/** Wrap select/statement to optionally record a query log. */
+function withQueryLog(base: RawConnection): Connection {
+  let logging = false
+  const log: QueryLogEntry[] = []
+  const record = async <T>(sql: string, bindings: unknown[], run: () => Promise<T>): Promise<T> => {
+    if (!logging) return run()
+    const start = performance.now()
+    const result = await run()
+    log.push({ sql, bindings, ms: Math.round((performance.now() - start) * 100) / 100 })
+    return result
+  }
+  return {
+    dialect: base.dialect,
+    grammar: base.grammar,
+    select: (sql, bindings = []) => record(sql, bindings, () => base.select(sql, bindings)),
+    statement: (sql, bindings = []) => record(sql, bindings, () => base.statement(sql, bindings)),
+    close: () => base.close(),
+    enableQueryLog: () => {
+      logging = true
+    },
+    disableQueryLog: () => {
+      logging = false
+    },
+    getQueryLog: () => [...log],
+    flushQueryLog: () => {
+      log.length = 0
+    },
+  }
 }
 
 /** Close every connection opened via {@link createConnection} and reset state. */
@@ -53,7 +98,7 @@ export async function closeAllConnections(): Promise<void> {
   current = null
 }
 
-async function buildConnection(config: ConnectionConfig): Promise<Connection> {
+async function buildConnection(config: ConnectionConfig): Promise<RawConnection> {
   switch (config.driver) {
     case 'sqlite': {
       const db = new Database(config.database, { create: true })

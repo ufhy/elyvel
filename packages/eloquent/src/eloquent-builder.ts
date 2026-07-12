@@ -172,6 +172,18 @@ export class EloquentBuilder<M extends Model> {
     this.qb.orderByDesc(column)
     return this
   }
+  union(other: EloquentBuilder<Model> | QueryBuilder): this {
+    this.qb.union('getQuery' in other ? other.getQuery() : other)
+    return this
+  }
+  lockForUpdate(): this {
+    this.qb.lockForUpdate()
+    return this
+  }
+  sharedLock(): this {
+    this.qb.sharedLock()
+    return this
+  }
   latest(column = 'created_at'): this {
     this.qb.latest(column)
     return this

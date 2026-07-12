@@ -52,6 +52,8 @@ export class QueryBuilder {
   private rawOrders: string[] = []
   private limitValue?: number
   private offsetValue?: number
+  private unions: QueryBuilder[] = []
+  private lock?: string
 
   constructor(
     private readonly connection: Connection,
@@ -191,6 +193,21 @@ export class QueryBuilder {
     this.offsetValue = n
     return this
   }
+  /** Append `UNION <other select>`. */
+  union(other: QueryBuilder): this {
+    this.unions.push(other)
+    return this
+  }
+  /** `FOR UPDATE` (Postgres; no-op on SQLite). */
+  lockForUpdate(): this {
+    this.lock = 'FOR UPDATE'
+    return this
+  }
+  /** `FOR SHARE` (Postgres; no-op on SQLite). */
+  sharedLock(): this {
+    this.lock = 'FOR SHARE'
+    return this
+  }
 
   private addWhere(boolean: 'AND' | 'OR', column: string, operatorOrValue: unknown, value?: unknown): this {
     const [operator, val] =
@@ -305,6 +322,8 @@ export class QueryBuilder {
     if (orderParts.length) sql += ` ORDER BY ${orderParts.join(', ')}`
     if (this.limitValue !== undefined) sql += ` LIMIT ${this.limitValue}`
     if (this.offsetValue !== undefined) sql += ` OFFSET ${this.offsetValue}`
+    for (const other of this.unions) sql += ` UNION ${other.compileSelect(bindings)}`
+    if (this.lock && this.connection.dialect === 'pg') sql += ` ${this.lock}`
     return sql
   }
 
