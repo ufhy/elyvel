@@ -56,11 +56,16 @@ export {
   Controller,
   type ControllerClass,
   fallback,
+  type InvokableClass,
+  invoke,
   type ModelBinder,
   resource,
   type ResourceAction,
   type ResourceOptions,
   type RouteHandler,
+  singleton,
+  type SingletonAction,
+  type SingletonOptions,
 } from './routing'
 export { type CorsOptions, cors } from './cors'
 export { RateLimiter, rateLimiter, ThrottleMiddleware } from './throttle'

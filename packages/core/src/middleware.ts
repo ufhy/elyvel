@@ -9,7 +9,7 @@ import { Elysia } from 'elysia'
 export interface MiddlewareContext {
   request: Request
   status: (code: number, body?: unknown) => unknown
-  set: { status?: number | string; headers: Record<string, string> }
+  set: { status?: number | string; headers: Record<string, string | number> }
   /** Route params (e.g. `:id`). */
   params: Record<string, string | undefined>
   /** Parsed query string. */

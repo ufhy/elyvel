@@ -46,6 +46,11 @@ export interface ResourceOptions {
    * are relative to `path`, so include any parent prefix in `path` for full URLs.
    */
   name?: string
+  /**
+   * Handler run when route model binding finds nothing (instead of the default
+   * 404). Return a response.
+   */
+  onMissing?: RouteHandler
 }
 
 type ControllerInstance = Partial<Record<ResourceAction, RouteHandler>>
@@ -110,7 +115,7 @@ export function resource(
     return async (ctx) => {
       const model = await resolveModel(ctx)
       if (model === null || model === undefined) {
-        return ctx.status(404, { message: `${label} not found` })
+        return options.onMissing ? options.onMissing(ctx) : ctx.status(404, { message: `${label} not found` })
       }
       ctx.model = model
       return handler(ctx)
@@ -159,6 +164,102 @@ export function resource(
 
 /** Alias for {@link resource} — mirrors Laravel's `apiResource` naming. */
 export const apiResource = resource
+
+/** Singleton resource actions (no `:id` — one instance per context, e.g. `/profile`). */
+export type SingletonAction = 'show' | 'update' | 'destroy' | 'store'
+
+export interface SingletonOptions {
+  only?: SingletonAction[]
+  except?: SingletonAction[]
+  /** Add a `store` route (POST /) — a "creatable" singleton. */
+  creatable?: boolean
+  middleware?: string[] | Partial<Record<SingletonAction, string[]>>
+  name?: string
+}
+
+/**
+ * Register a singleton resource, à la Laravel's `Route::singleton` — a resource
+ * with no id (one instance per context, like `/profile` or `/settings`):
+ *
+ * | Verb        | Path | Action    |
+ * |-------------|------|-----------|
+ * | GET         | `/`  | `show`    |
+ * | PUT / PATCH | `/`  | `update`  |
+ * | DELETE      | `/`  | `destroy` |
+ * | POST        | `/`  | `store`   | (only when `creatable`)
+ *
+ * The controller resolves the single instance itself (e.g. from `ctx.user`).
+ */
+export function singleton(
+  path: string,
+  Controller: ControllerClass,
+  options: SingletonOptions = {},
+): Elysia {
+  const instance = new Controller()
+  const all: SingletonAction[] = options.creatable
+    ? ['store', 'show', 'update', 'destroy']
+    : ['show', 'update', 'destroy']
+  const actions = options.only
+    ? all.filter((a) => options.only?.includes(a))
+    : options.except
+      ? all.filter((a) => !options.except?.includes(a))
+      : all
+
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia route generics vary per call
+  let r: any = route(path)
+  const mwOf = (action: SingletonAction) => {
+    const mw = options.middleware
+    const list = !mw ? [] : Array.isArray(mw) ? mw : (mw[action] ?? [])
+    return list.length ? { middleware: list } : undefined
+  }
+  const bind = (action: SingletonAction): RouteHandler | undefined => {
+    const fn = (instance as Record<string, unknown>)[action]
+    return typeof fn === 'function' ? (fn as RouteHandler).bind(instance) : undefined
+  }
+  const nameRoute = (action: SingletonAction) => {
+    if (options.name) named(`${options.name}.${action}`, path.replace(/\/$/, '') || '/')
+  }
+
+  for (const action of actions) {
+    const handler = bind(action)
+    if (!handler) continue
+    switch (action) {
+      case 'store':
+        r = r.post('/', handler, mwOf(action))
+        break
+      case 'show':
+        r = r.get('/', handler, mwOf(action))
+        break
+      case 'update':
+        r = r.put('/', handler, mwOf(action)).patch('/', handler, mwOf(action))
+        break
+      case 'destroy':
+        r = r.delete('/', handler, mwOf(action))
+        break
+    }
+    nameRoute(action)
+  }
+  return r as Elysia
+}
+
+/** A single-action (invokable) controller: defines `handle` (or `__invoke`). */
+export type InvokableClass = new () => {
+  handle?: RouteHandler
+  __invoke?: RouteHandler
+}
+
+/**
+ * Turn an invokable controller into a route handler, à la Laravel's single-action
+ * controllers: `route().post('/provision', invoke(ProvisionServer))`.
+ */
+export function invoke(Controller: InvokableClass): RouteHandler {
+  const instance = new Controller()
+  const fn = instance.handle ?? instance.__invoke
+  if (typeof fn !== 'function') {
+    throw new Error(`[elysia-ravel] ${Controller.name} must define handle() or __invoke().`)
+  }
+  return (ctx) => fn.call(instance, ctx)
+}
 
 /**
  * A fallback handler for unmatched routes, à la Laravel's `Route::fallback`.
