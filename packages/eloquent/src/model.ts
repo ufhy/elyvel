@@ -325,7 +325,7 @@ export class Model {
    * Query identifying stale records to prune. Return `null` (default) to mark a
    * model non-prunable; override to return e.g. `this.where('created_at', '<', cutoff)`.
    */
-  static prunable<M extends Model>(this: ModelClass<M>): EloquentBuilder<M> | null {
+  static prunable(): EloquentBuilder<Model> | null {
     return null
   }
 
@@ -334,14 +334,14 @@ export class Model {
    * `pruning` event per record (a hook to clean up related resources). Soft-deleted
    * rows are included so they are fully removed. Returns the number pruned.
    */
-  static async prune<M extends Model>(this: ModelClass<M>, chunkSize = 1000): Promise<number> {
+  static async prune(chunkSize = 1000): Promise<number> {
     if (!this.prunable()) {
       throw new Error(`[eloquent] ${this.name} is not prunable. Override static prunable().`)
     }
     let total = 0
     while (true) {
       // Fresh query each round — deleted rows vanish, so no offset drift.
-      const query = this.prunable() as EloquentBuilder<M>
+      const query = this.prunable() as EloquentBuilder<Model>
       if (this.softDeletes) query.withTrashed()
       const models = await query.limit(chunkSize).get()
       const count = models.count()

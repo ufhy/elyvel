@@ -9,7 +9,7 @@ class Log extends Model {
   declare id: number
   declare level: string
 
-  static override prunable(): EloquentBuilder<Log> | null {
+  static override prunable(): EloquentBuilder<Model> | null {
     return this.query<Log>().where('level', 'debug')
   }
 }
