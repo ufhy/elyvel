@@ -32,6 +32,13 @@ export abstract class Relation<R extends Model> {
   abstract eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void>
   abstract existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys>
 
+  /** Per-parent-key related-row counts (for `has(rel, '>', n)`). */
+  async existenceCounts(
+    _constrain?: RelationConstraint<R>,
+  ): Promise<{ column: string; counts: Map<unknown, number> }> {
+    throw new Error('[eloquent] has() with a count is not supported on this relation')
+  }
+
   private ready(): EloquentBuilder<R> {
     if (!this.constrained) {
       this.addConstraints()
@@ -154,6 +161,16 @@ export class HasMany<R extends Model> extends Relation<R> {
       column: this.localKey,
       values: [...new Set(rows.all().map((m) => m.getAttribute(this.foreignKey)))],
     }
+  }
+  override async existenceCounts(constrain?: RelationConstraint<R>) {
+    const query = this.related.query().select(this.foreignKey)
+    constrain?.(query)
+    const counts = new Map<unknown, number>()
+    for (const m of (await query.get()).all()) {
+      const k = m.getAttribute(this.foreignKey)
+      counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+    return { column: this.localKey, counts }
   }
 }
 
@@ -307,6 +324,20 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
       values: [...new Set(pivotRows.map((r) => r[this.foreignPivotKey]))],
     }
   }
+  override async existenceCounts(constrain?: RelationConstraint<R>) {
+    const query = this.related.query().select(this.relatedKey)
+    constrain?.(query)
+    const relatedIds = (await query.get()).all().map((m) => m.getAttribute(this.relatedKey))
+    const counts = new Map<unknown, number>()
+    if (relatedIds.length) {
+      const pivotRows = await this.pivot().whereIn(this.relatedPivotKey, relatedIds).get()
+      for (const row of pivotRows) {
+        const k = row[this.foreignPivotKey]
+        counts.set(k, (counts.get(k) ?? 0) + 1)
+      }
+    }
+    return { column: this.parentKey, counts }
+  }
 }
 
 /** Polymorphic one-to-many: related.<name>_id = parent.id AND <name>_type = parent class. */
@@ -344,6 +375,19 @@ export class MorphMany<R extends Model> extends Relation<R> {
     constrain?.(query)
     const rows = await query.get()
     return { column: this.localKey, values: [...new Set(rows.all().map((m) => m.getAttribute(this.idField)))] }
+  }
+  override async existenceCounts(constrain?: RelationConstraint<R>) {
+    const query = this.related
+      .query()
+      .select(this.idField)
+      .where(this.typeField, this.parent.constructor.name)
+    constrain?.(query)
+    const counts = new Map<unknown, number>()
+    for (const m of (await query.get()).all()) {
+      const k = m.getAttribute(this.idField)
+      counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+    return { column: this.localKey, counts }
   }
 }
 

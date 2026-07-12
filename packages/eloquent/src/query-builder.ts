@@ -98,6 +98,10 @@ export class QueryBuilder {
     this.wheres.push({ boolean: 'OR', column, operator: 'IN', value: null, kind: 'in', values })
     return this
   }
+  orWhereNotIn(column: string, values: unknown[]): this {
+    this.wheres.push({ boolean: 'OR', column, operator: 'NOT IN', value: null, kind: 'notIn', values })
+    return this
+  }
   whereNotBetween(column: string, range: [unknown, unknown]): this {
     this.wheres.push({ boolean: 'AND', column, operator: 'NOT BETWEEN', value: null, kind: 'notBetween', values: range })
     return this

@@ -9,6 +9,25 @@ type Row = Record<string, unknown>
 // biome-ignore lint/suspicious/noExplicitAny: constraint receives the related model's builder
 export type EagerConstraint = (query: any) => void
 
+function compareCount(value: number, operator: string, target: number): boolean {
+  switch (operator) {
+    case '=':
+      return value === target
+    case '!=':
+      return value !== target
+    case '<':
+      return value < target
+    case '<=':
+      return value <= target
+    case '>':
+      return value > target
+    case '>=':
+      return value >= target
+    default:
+      return false
+  }
+}
+
 /** A page of results plus pagination metadata. */
 export interface Paginator<M extends Model> {
   data: EloquentCollection<M>
@@ -27,10 +46,18 @@ export class EloquentBuilder<M extends Model> {
   private readonly eagerLoads: { path: string; constrain?: EagerConstraint }[] = []
   private readonly countLoads: string[] = []
   private readonly aggLoads: { name: string; fn: 'sum' | 'avg' | 'min' | 'max'; column: string }[] = []
-  private readonly hasSpecs: { name: string; constrain?: EagerConstraint }[] = []
+  private readonly hasSpecs: {
+    name: string
+    constrain?: EagerConstraint
+    boolean: 'AND' | 'OR'
+    negate: boolean
+    operator?: string
+    count?: number
+  }[] = []
   private trashed: 'default' | 'with' | 'only' = 'default'
   private readonly removedScopes = new Set<string>()
   private prepared = false
+  private existenceResolved = false
 
   constructor(
     private readonly qb: QueryBuilder,
@@ -68,13 +95,29 @@ export class EloquentBuilder<M extends Model> {
     this.aggLoads.push({ name, fn: 'min', column })
     return this
   }
-  /** Restrict to rows that HAVE the relation (optionally constrained). */
-  has(name: string): this {
-    this.hasSpecs.push({ name })
+  /** Rows that HAVE the relation — optionally `has('posts', '>', 3)`. */
+  has(name: string, operator?: string, count?: number): this {
+    this.hasSpecs.push({ name, boolean: 'AND', negate: false, operator, count })
+    return this
+  }
+  doesntHave(name: string): this {
+    this.hasSpecs.push({ name, boolean: 'AND', negate: true })
     return this
   }
   whereHas(name: string, constrain?: EagerConstraint): this {
-    this.hasSpecs.push({ name, constrain })
+    this.hasSpecs.push({ name, constrain, boolean: 'AND', negate: false })
+    return this
+  }
+  orWhereHas(name: string, constrain?: EagerConstraint): this {
+    this.hasSpecs.push({ name, constrain, boolean: 'OR', negate: false })
+    return this
+  }
+  whereDoesntHave(name: string, constrain?: EagerConstraint): this {
+    this.hasSpecs.push({ name, constrain, boolean: 'AND', negate: true })
+    return this
+  }
+  orWhereDoesntHave(name: string, constrain?: EagerConstraint): this {
+    this.hasSpecs.push({ name, constrain, boolean: 'OR', negate: true })
     return this
   }
   /** Apply a named local scope declared in `static scopes`. */
@@ -192,20 +235,24 @@ export class EloquentBuilder<M extends Model> {
     this.qb.orderBy(column, direction)
     return this
   }
-  sum(column: string): Promise<number> {
+  async sum(column: string): Promise<number> {
     this.prepare()
+    await this.resolveExistence()
     return this.qb.sum(column)
   }
-  avg(column: string): Promise<number> {
+  async avg(column: string): Promise<number> {
     this.prepare()
+    await this.resolveExistence()
     return this.qb.avg(column)
   }
-  min(column: string): Promise<number> {
+  async min(column: string): Promise<number> {
     this.prepare()
+    await this.resolveExistence()
     return this.qb.min(column)
   }
-  max(column: string): Promise<number> {
+  async max(column: string): Promise<number> {
     this.prepare()
+    await this.resolveExistence()
     return this.qb.max(column)
   }
   limit(n: number): this {
@@ -261,16 +308,37 @@ export class EloquentBuilder<M extends Model> {
     return typeof fn === 'function' ? fn.call(on) : undefined
   }
 
-  async get(): Promise<EloquentCollection<M>> {
-    this.prepare()
-    // whereHas / has — resolve existence into the main query before executing.
+  /** Resolve whereHas/has/doesntHave into the underlying query (once). */
+  private async resolveExistence(): Promise<void> {
+    if (this.existenceResolved) return
+    this.existenceResolved = true
     for (const spec of this.hasSpecs) {
       const relation = this.relationOf(spec.name)
       if (!relation) continue
-      const { column, values } = await relation.existenceKeys(spec.constrain)
-      this.qb.whereIn(column, values)
+      if (spec.operator && spec.count !== undefined) {
+        const { column, counts } = await relation.existenceCounts(spec.constrain)
+        const keys = [...counts.entries()]
+          .filter(([, c]) => compareCount(c, spec.operator as string, spec.count as number))
+          .map(([k]) => k)
+        if (spec.boolean === 'OR') this.qb.orWhereIn(column, keys)
+        else this.qb.whereIn(column, keys)
+      } else {
+        const { column, values } = await relation.existenceKeys(spec.constrain)
+        if (spec.negate) {
+          if (spec.boolean === 'OR') this.qb.orWhereNotIn(column, values)
+          else this.qb.whereNotIn(column, values)
+        } else if (spec.boolean === 'OR') {
+          this.qb.orWhereIn(column, values)
+        } else {
+          this.qb.whereIn(column, values)
+        }
+      }
     }
+  }
 
+  async get(): Promise<EloquentCollection<M>> {
+    this.prepare()
+    await this.resolveExistence()
     const rows = await this.qb.get()
     const models = rows.map((r) => this.hydrate(r))
 
@@ -297,7 +365,9 @@ export class EloquentBuilder<M extends Model> {
     this.prepare()
     const qb = this.qb
     const hydrate = this.hydrate
+    const resolve = () => this.resolveExistence()
     return new LazyCollection<M>(async function* () {
+      await resolve()
       let page = 0
       while (true) {
         const rows = await qb.offset(page * chunkSize).limit(chunkSize).get()
@@ -308,8 +378,9 @@ export class EloquentBuilder<M extends Model> {
       }
     })
   }
-  count(): Promise<number> {
+  async count(): Promise<number> {
     this.prepare()
+    await this.resolveExistence()
     return this.qb.count()
   }
   async update(values: Row): Promise<void> {
@@ -342,8 +413,9 @@ export class EloquentBuilder<M extends Model> {
       lastPage: Math.max(1, Math.ceil(total / perPage)),
     }
   }
-  exists(): Promise<boolean> {
+  async exists(): Promise<boolean> {
     this.prepare()
+    await this.resolveExistence()
     return this.qb.exists()
   }
 }
