@@ -150,6 +150,12 @@ export class Model {
   static connection?: string
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
   static hidden: string[] = []
+  /** If non-empty, ONLY these attributes are serialized (whitelist). */
+  static visible: string[] = []
+  /** Computed attributes appended to serialization (resolved via `accessors`). */
+  static appends: string[] = []
+  /** Computed read accessors: `{ full_name: (m) => `${m.first} ${m.last}` }`. */
+  static accessors: Record<string, (model: Model) => unknown> = {}
   /** Mass-assignable attributes (whitelist). Empty = allow all not guarded. */
   static fillable: string[] = []
   /** Guarded attributes (blacklist). `['*']` guards everything. */
@@ -211,6 +217,8 @@ export class Model {
   exists = false
   /** Loaded relations (populated by eager loading via `with()`). */
   relations: Record<string, unknown> = {}
+  private readonly makeHiddenSet = new Set<string>()
+  private readonly makeVisibleSet = new Set<string>()
 
   constructor(attributes: Attributes = {}) {
     this.fill(attributes) // respects $fillable/$guarded
@@ -314,9 +322,23 @@ export class Model {
     this.attributes[key] = value
   }
   getAttribute(key: string): unknown {
-    const type = this.self().casts[key]
+    const self = this.self()
+    const accessor = self.accessors[key]
+    if (accessor) return accessor(this)
+    const type = self.casts[key]
     const value = this.attributes[key]
     return type ? castGet(type, value) : value
+  }
+
+  /** Hide attributes for this instance only (chainable). */
+  makeHidden(...keys: string[]): this {
+    for (const key of keys) this.makeHiddenSet.add(key)
+    return this
+  }
+  /** Reveal hidden attributes for this instance only (chainable). */
+  makeVisible(...keys: string[]): this {
+    for (const key of keys) this.makeVisibleSet.add(key)
+    return this
   }
 
   /** Attributes in DB-storage form (casts applied for the active dialect). */
@@ -558,12 +580,18 @@ export class Model {
     return this.getAttribute(this.self().deletedAtColumn) != null
   }
 
-  /** Casted attributes minus hidden — used by serialization. */
+  /** Casted attributes (+ appends) minus hidden, honoring visible/per-instance overrides. */
   toObject(): Attributes {
-    const hidden = new Set(this.self().hidden)
+    const self = this.self()
+    const hidden = new Set(self.hidden)
+    for (const key of this.makeHiddenSet) hidden.add(key)
+    for (const key of this.makeVisibleSet) hidden.delete(key)
+    const useVisible = self.visible.length > 0
     const out: Attributes = {}
-    for (const key of Object.keys(this.attributes)) {
-      if (!hidden.has(key)) out[key] = this.getAttribute(key)
+    for (const key of [...Object.keys(this.attributes), ...self.appends]) {
+      if (hidden.has(key)) continue
+      if (useVisible && !self.visible.includes(key) && !this.makeVisibleSet.has(key)) continue
+      out[key] = this.getAttribute(key)
     }
     return out
   }
