@@ -54,9 +54,38 @@ export class Container {
     return this
   }
 
+  /** Register a factory only if the token isn't already bound. */
+  bindIf<T>(token: Token<T>, factory: Factory<T>): this {
+    if (!this.has(token)) this.bind(token, factory)
+    return this
+  }
+
+  /** Register a lazy singleton only if the token isn't already bound. */
+  singletonIf<T>(token: Token<T>, factory: Factory<T>): this {
+    if (!this.has(token)) this.singleton(token, factory)
+    return this
+  }
+
   /** Whether a token has been bound (as factory or instance). */
   has(token: Token<unknown>): boolean {
     return this.instances.has(token.key) || this.bindings.has(token.key)
+  }
+  /** Alias of {@link has} (Laravel naming). */
+  bound(token: Token<unknown>): boolean {
+    return this.has(token)
+  }
+
+  /** Remove a token's binding and cached instance. */
+  forget(token: Token<unknown>): this {
+    this.bindings.delete(token.key)
+    this.instances.delete(token.key)
+    return this
+  }
+  /** Clear all bindings and instances. */
+  flush(): this {
+    this.bindings.clear()
+    this.instances.clear()
+    return this
   }
 
   /** Resolve a token to its value. Throws if the token was never bound. */

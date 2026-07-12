@@ -382,6 +382,10 @@ export class Logger {
   withBindings(bindings: Record<string, unknown>): Logger {
     return this.clone({ bindings: { ...this.bindings, ...bindings } })
   }
+  /** Alias of {@link withBindings} (Laravel naming: contextual info on every entry). */
+  withContext(context: Record<string, unknown>): Logger {
+    return this.withBindings(context)
+  }
 
   debug(message: string, context?: Record<string, unknown>): void {
     this.write('debug', message, context)
@@ -394,6 +398,10 @@ export class Logger {
   }
   error(message: string, context?: Record<string, unknown>): void {
     this.write('error', message, context)
+  }
+  /** Log at a level chosen at runtime. */
+  log(level: LeveledLevel, message: string, context?: Record<string, unknown>): void {
+    this.write(level, message, context)
   }
 
   private write(level: LeveledLevel, message: string, context?: Record<string, unknown>): void {
