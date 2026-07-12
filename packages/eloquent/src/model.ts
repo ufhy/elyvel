@@ -2,9 +2,11 @@ import { useConnection } from './connection'
 import { EloquentBuilder } from './eloquent-builder'
 import type { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
+import type { EagerConstraint } from './eloquent-builder'
 import {
   BelongsTo,
   BelongsToMany,
+  eagerLoad,
   HasMany,
   HasManyThrough,
   HasOne,
@@ -421,6 +423,23 @@ export class Model {
   }
   getRelation<T = unknown>(name: string): T {
     return this.relations[name] as T
+  }
+
+  /** Eager-load relations onto this instance (supports `'posts.comments'` and constraints). */
+  async load(...paths: (string | Record<string, EagerConstraint>)[]): Promise<this> {
+    for (const spec of paths) {
+      if (typeof spec === 'string') await eagerLoad([this], spec)
+      else for (const [path, constrain] of Object.entries(spec)) await eagerLoad([this], path, constrain)
+    }
+    return this
+  }
+  /** Like `load`, but skips relations already loaded. */
+  async loadMissing(...names: string[]): Promise<this> {
+    for (const name of names) {
+      const head = name.split('.')[0] as string
+      if (!(head in this.relations)) await eagerLoad([this], name)
+    }
+    return this
   }
 
   getDirty(): Attributes {

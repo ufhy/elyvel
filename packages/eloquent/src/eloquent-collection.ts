@@ -1,5 +1,6 @@
 import { Collection } from '@elysia-ravel/support'
 import type { Model } from './model'
+import { eagerLoad } from './relations'
 
 /**
  * The collection returned by Eloquent queries. Extends the foundational
@@ -16,5 +17,11 @@ export class EloquentCollection<M extends Model> extends Collection<M> {
   /** Find a contained model by primary key. */
   find(id: unknown): M | undefined {
     return this.first((model) => model.getKey() === id)
+  }
+
+  /** Eager-load relations onto every model in the collection. */
+  async load(...paths: string[]): Promise<this> {
+    for (const path of paths) await eagerLoad(this.all() as unknown as Model[], path)
+    return this
   }
 }

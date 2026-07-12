@@ -69,6 +69,59 @@ export abstract class Relation<R extends Model> {
       delete parent.relations[name] // keep withCount lightweight
     }
   }
+
+  /** Set `<name>_<fn>_<column>` on each parent (withSum/withAvg/withMax/withMin). */
+  async eagerAggregate(
+    parents: Model[],
+    name: string,
+    fn: 'sum' | 'avg' | 'min' | 'max',
+    column: string,
+  ): Promise<void> {
+    await this.eager(parents, name)
+    for (const parent of parents) {
+      const loaded = parent.getRelation(name)
+      const rows = (
+        loaded instanceof EloquentCollection ? loaded.all() : loaded ? [loaded] : []
+      ) as Model[]
+      const values = rows.map((m) => Number(m.getAttribute(column)))
+      let agg = 0
+      if (values.length) {
+        if (fn === 'sum') agg = values.reduce((a, b) => a + b, 0)
+        else if (fn === 'avg') agg = values.reduce((a, b) => a + b, 0) / values.length
+        else if (fn === 'min') agg = Math.min(...values)
+        else agg = Math.max(...values)
+      }
+      parent.setAttribute(`${name}_${fn}_${column}`, agg)
+      delete parent.relations[name]
+    }
+  }
+}
+
+/**
+ * Eager-load a dot-path (`posts.comments`) onto a set of already-fetched models,
+ * with an optional constraint on the leaf. Shared by the query builder,
+ * `Model.load`, and `EloquentCollection.load`.
+ */
+export async function eagerLoad(
+  models: Model[],
+  path: string,
+  constrain?: RelationConstraint<Model>,
+): Promise<void> {
+  if (models.length === 0) return
+  const [head, ...rest] = path.split('.')
+  const source = models[0] as unknown as Record<string, () => Relation<Model>>
+  const relation = source[head as string]?.()
+  if (!relation) return
+  await relation.eager(models, head as string, rest.length ? undefined : constrain)
+  if (rest.length === 0) return
+
+  const children: Model[] = []
+  for (const model of models) {
+    const loaded = model.getRelation(head as string)
+    if (loaded instanceof EloquentCollection) children.push(...loaded.all())
+    else if (loaded) children.push(loaded as Model)
+  }
+  await eagerLoad(children, rest.join('.'), constrain)
 }
 
 export class HasMany<R extends Model> extends Relation<R> {

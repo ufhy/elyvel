@@ -2,7 +2,7 @@ import { LazyCollection } from '@elysia-ravel/support'
 import { EloquentCollection } from './eloquent-collection'
 import type { Model } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
-import type { Relation } from './relations'
+import { eagerLoad, type Relation } from './relations'
 
 type Row = Record<string, unknown>
 /** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */
@@ -26,6 +26,7 @@ export interface Paginator<M extends Model> {
 export class EloquentBuilder<M extends Model> {
   private readonly eagerLoads: { path: string; constrain?: EagerConstraint }[] = []
   private readonly countLoads: string[] = []
+  private readonly aggLoads: { name: string; fn: 'sum' | 'avg' | 'min' | 'max'; column: string }[] = []
   private readonly hasSpecs: { name: string; constrain?: EagerConstraint }[] = []
   private trashed: 'default' | 'with' | 'only' = 'default'
   private readonly removedScopes = new Set<string>()
@@ -49,6 +50,22 @@ export class EloquentBuilder<M extends Model> {
   /** Add a `<relation>_count` attribute per row. */
   withCount(...names: string[]): this {
     this.countLoads.push(...names)
+    return this
+  }
+  withSum(name: string, column: string): this {
+    this.aggLoads.push({ name, fn: 'sum', column })
+    return this
+  }
+  withAvg(name: string, column: string): this {
+    this.aggLoads.push({ name, fn: 'avg', column })
+    return this
+  }
+  withMax(name: string, column: string): this {
+    this.aggLoads.push({ name, fn: 'max', column })
+    return this
+  }
+  withMin(name: string, column: string): this {
+    this.aggLoads.push({ name, fn: 'min', column })
     return this
   }
   /** Restrict to rows that HAVE the relation (optionally constrained). */
@@ -244,24 +261,6 @@ export class EloquentBuilder<M extends Model> {
     return typeof fn === 'function' ? fn.call(on) : undefined
   }
 
-  /** Recursively eager-load a dot-path (`posts.comments`) with an optional leaf constraint. */
-  private async eagerLoadPath(models: Model[], path: string, constrain?: EagerConstraint): Promise<void> {
-    if (models.length === 0) return
-    const [head, ...rest] = path.split('.')
-    const relation = this.relationOf(head as string, models[0])
-    if (!relation) return
-    await relation.eager(models, head as string, rest.length ? undefined : constrain)
-    if (rest.length === 0) return
-
-    const children: Model[] = []
-    for (const model of models) {
-      const loaded = model.getRelation(head as string)
-      if (loaded instanceof EloquentCollection) children.push(...loaded.all())
-      else if (loaded) children.push(loaded as Model)
-    }
-    await this.eagerLoadPath(children, rest.join('.'), constrain)
-  }
-
   async get(): Promise<EloquentCollection<M>> {
     this.prepare()
     // whereHas / has — resolve existence into the main query before executing.
@@ -279,8 +278,12 @@ export class EloquentBuilder<M extends Model> {
       if (models.length === 0) break
       await this.relationOf(name, models[0])?.eagerCount(models, name)
     }
+    for (const { name, fn, column } of this.aggLoads) {
+      if (models.length === 0) break
+      await this.relationOf(name, models[0])?.eagerAggregate(models, name, fn, column)
+    }
     for (const { path, constrain } of this.eagerLoads) {
-      await this.eagerLoadPath(models, path, constrain)
+      await eagerLoad(models, path, constrain)
     }
     return new EloquentCollection(models)
   }
