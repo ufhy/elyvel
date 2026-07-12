@@ -1,3 +1,4 @@
+import { CacheServiceProvider } from '@elysia-ravel/cache'
 import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
@@ -14,5 +15,5 @@ export default defineAppConfig({
 
   port: Number(process.env.PORT ?? 3000),
 
-  providers: [EloquentServiceProvider, AppServiceProvider],
+  providers: [EloquentServiceProvider, CacheServiceProvider, AppServiceProvider],
 })

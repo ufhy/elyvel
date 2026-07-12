@@ -1,3 +1,4 @@
+import { cache } from '@elysia-ravel/cache'
 import { requestContext, resource, route } from '@elysia-ravel/core'
 import HelloController from '../app/controllers/HelloController'
 import { UserController } from '../app/controllers/UserController'
@@ -24,6 +25,11 @@ export default route('/api')
   .get('/health', ({ log }) => {
     log.info('health check')
     return { status: 'ok' }
+  })
+  // Cache demo: the user count is computed once, then served from cache for 60s.
+  .get('/stats', async () => {
+    const users = await cache().remember('stats.users', 60, () => User.query().count())
+    return { users }
   })
   // Session demo: a per-visitor counter persisted in the (cookie) session.
   // biome-ignore lint/suspicious/noExplicitAny: derived session

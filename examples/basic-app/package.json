@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@elysia-ravel/auth": "workspace:*",
+    "@elysia-ravel/cache": "workspace:*",
     "@elysia-ravel/core": "workspace:*",
     "@elysia-ravel/database": "workspace:*",
     "@elysia-ravel/validation": "workspace:*",
