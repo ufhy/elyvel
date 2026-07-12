@@ -1,6 +1,6 @@
-import { requestContext, route } from '@elysia-ravel/core'
+import { requestContext, resource, route } from '@elysia-ravel/core'
 import HelloController from '../app/controllers/HelloController'
-import UserController from '../app/controllers/UserController'
+import { UserController } from '../app/controllers/UserController'
 
 /**
  * Route file. Anything default-exported here is auto-mounted by the framework.
@@ -11,7 +11,8 @@ export default route('/api')
   // .use(requestContext()) gives handlers a typed, request-correlated `log`.
   .use(requestContext())
   .use(HelloController)
-  .use(UserController)
+  // RESTful resource routes → UserController methods; `json` guards writes.
+  .use(resource('/users', UserController, { middleware: { store: ['json'] } }))
   .get('/health', ({ log }) => {
     log.info('health check')
     return { status: 'ok' }

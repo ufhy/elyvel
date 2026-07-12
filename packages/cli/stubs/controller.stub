@@ -1,8 +1,41 @@
-import { Elysia } from 'elysia'
+import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
 
 /**
- * {{class}} — an Elysia plugin. Compose it from a route file with `.use()`,
- * or auto-load it by placing route files under `routes/`.
+ * {{class}} — a RESTful controller. Wire it up in a `routes/` file:
+ *
+ *   import { resource } from '@elysia-ravel/core'
+ *   import { {{class}} } from '../app/controllers/{{class}}'
+ *   export default resource('/{{kebab}}', {{class}})
+ *
+ * Only the methods you define are routed (index/store/show/update/destroy).
  */
-export default new Elysia({ name: '{{kebab}}', prefix: '/{{kebab}}' })
-  .get('/', () => ({ message: '{{class}} works' }))
+export class {{class}} extends Controller {
+  /** GET /{{kebab}} */
+  async index(ctx: MiddlewareContext) {
+    void ctx
+    return []
+  }
+
+  /** GET /{{kebab}}/:id */
+  async show(ctx: MiddlewareContext) {
+    return { id: ctx.params.id }
+  }
+
+  /** POST /{{kebab}} */
+  async store(ctx: MiddlewareContext) {
+    return ctx.body
+  }
+
+  /** PUT|PATCH /{{kebab}}/:id */
+  async update(ctx: MiddlewareContext) {
+    return { id: ctx.params.id, ...(ctx.body as object) }
+  }
+
+  /** DELETE /{{kebab}}/:id */
+  async destroy(ctx: MiddlewareContext) {
+    void ctx
+    return { deleted: true }
+  }
+}
+
+export default {{class}}

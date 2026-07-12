@@ -50,6 +50,15 @@ export { ServiceProvider } from './service-provider'
 export type { ServiceProviderClass } from './service-provider'
 export { loadRoutes } from './router'
 export type { RouteModule } from './router'
+export {
+  apiResource,
+  Controller,
+  type ControllerClass,
+  resource,
+  type ResourceAction,
+  type ResourceOptions,
+  type RouteHandler,
+} from './routing'
 
 // Re-export Elysia's schema builder so apps have one import for env/validation.
 export { t } from 'elysia'

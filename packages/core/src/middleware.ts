@@ -10,6 +10,12 @@ export interface MiddlewareContext {
   request: Request
   status: (code: number, body?: unknown) => unknown
   set: { status?: number | string; headers: Record<string, string> }
+  /** Route params (e.g. `:id`). */
+  params: Record<string, string | undefined>
+  /** Parsed query string. */
+  query: Record<string, string | undefined>
+  /** Parsed request body (validated shape when a schema is set). */
+  body: unknown
   [key: string]: unknown
 }
 
