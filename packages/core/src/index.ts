@@ -55,12 +55,16 @@ export {
   type Binder,
   Controller,
   type ControllerClass,
+  fallback,
   type ModelBinder,
   resource,
   type ResourceAction,
   type ResourceOptions,
   type RouteHandler,
 } from './routing'
+export { type CorsOptions, cors } from './cors'
+export { RateLimiter, rateLimiter, ThrottleMiddleware } from './throttle'
+export { named, registerRouteNames, routeNameEntries, urlFor } from './url'
 
 // Re-export Elysia's schema builder so apps have one import for env/validation.
 export { t } from 'elysia'

@@ -1,5 +1,6 @@
-import type { Elysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { type MiddlewareContext, route } from './middleware'
+import { named } from './url'
 
 /** A controller action handler — receives the Elysia context, returns a response. */
 export type RouteHandler = (context: MiddlewareContext) => unknown
@@ -40,6 +41,11 @@ export interface ResourceOptions {
    * `find(id)` (like an Eloquent model) or a resolver function.
    */
   bind?: Binder
+  /**
+   * Register named routes (`<name>.index`, `.show`, …) for {@link urlFor}. Templates
+   * are relative to `path`, so include any parent prefix in `path` for full URLs.
+   */
+  name?: string
 }
 
 type ControllerInstance = Partial<Record<ResourceAction, RouteHandler>>
@@ -117,24 +123,34 @@ export function resource(
     return bindAction(action, (fn as RouteHandler).bind(instance))
   }
 
+  const fullPath = (suffix: string) => `${path}${suffix}`.replace(/\/$/, '') || '/'
+  const nameRoute = (action: ResourceAction, suffix: string) => {
+    if (options.name) named(`${options.name}.${action}`, fullPath(suffix))
+  }
+
   for (const action of selectedActions(options)) {
     const handler = bind(action)
     if (!handler) continue
     switch (action) {
       case 'index':
         r = r.get('/', handler, opts(action))
+        nameRoute(action, '')
         break
       case 'store':
         r = r.post('/', handler, opts(action))
+        nameRoute(action, '')
         break
       case 'show':
         r = r.get(idPath, handler, opts(action))
+        nameRoute(action, idPath)
         break
       case 'update':
         r = r.put(idPath, handler, opts(action)).patch(idPath, handler, opts(action))
+        nameRoute(action, idPath)
         break
       case 'destroy':
         r = r.delete(idPath, handler, opts(action))
+        nameRoute(action, idPath)
         break
     }
   }
@@ -143,3 +159,16 @@ export function resource(
 
 /** Alias for {@link resource} — mirrors Laravel's `apiResource` naming. */
 export const apiResource = resource
+
+/**
+ * A fallback handler for unmatched routes, à la Laravel's `Route::fallback`.
+ * Default-export it from a `routes/` file (loaded last) or `.use()` it on the
+ * root. Runs whenever no other route matches.
+ */
+export function fallback(handler: RouteHandler): Elysia {
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia's response generic varies with the hook
+  const plugin: any = new Elysia({ name: 'ravel-fallback' }).onError({ as: 'global' }, (ctx) => {
+    if (ctx.code === 'NOT_FOUND') return handler(ctx as unknown as MiddlewareContext)
+  })
+  return plugin as Elysia
+}

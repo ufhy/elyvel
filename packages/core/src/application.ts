@@ -22,6 +22,7 @@ import {
   type MiddlewareConfig,
   registerMiddlewareRegistry,
 } from './middleware'
+import { ThrottleMiddleware } from './throttle'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
 
@@ -237,7 +238,11 @@ export class Application {
    */
   private registerMiddleware(): void {
     const config = this.config.get<MiddlewareConfig | undefined>('middleware') ?? {}
-    registerMiddlewareRegistry(config)
+    // Seed built-in aliases (user config can override them).
+    registerMiddlewareRegistry({
+      ...config,
+      aliases: { throttle: ThrottleMiddleware, ...config.aliases },
+    })
     if (config.global?.length) {
       this.elysia.use(globalMiddlewarePlugin(config.global))
     }

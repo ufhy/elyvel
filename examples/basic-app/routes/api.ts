@@ -12,11 +12,18 @@ export default route('/api')
   // .use(requestContext()) gives handlers a typed, request-correlated `log`.
   .use(requestContext())
   .use(HelloController)
-  // RESTful resource → UserController; `json` guards writes; `bind` resolves :id → User.
-  .use(resource('/users', UserController, { middleware: { store: ['json'] }, bind: User }))
+  // RESTful resource → UserController; `json` guards writes; `bind` resolves :id → User;
+  // `name` registers `users.index`/`users.show`/… for urlFor().
+  .use(
+    resource('/users', UserController, {
+      middleware: { store: ['json'] },
+      bind: User,
+      name: 'users',
+    }),
+  )
   .get('/health', ({ log }) => {
     log.info('health check')
     return { status: 'ok' }
   })
-  // Route-level middleware alias — `json` rejects non-JSON writes (config/middleware.ts).
-  .post('/echo', ({ body }) => ({ echoed: body }), { middleware: 'json' })
+  // Route-level aliases — `json` rejects non-JSON writes; `throttle` rate-limits (built-in).
+  .post('/echo', ({ body }) => ({ echoed: body }), { middleware: ['json', 'throttle:5,1'] })

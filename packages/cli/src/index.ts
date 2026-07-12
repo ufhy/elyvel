@@ -11,6 +11,7 @@ import {
   statusCommand,
 } from './commands/db'
 import { make } from './commands/make'
+import { routeListCommand } from './commands/route'
 import { serve } from './commands/serve'
 
 const BANNER = `
@@ -30,6 +31,7 @@ Usage:
   ravel db:show                               List tables with row counts
   ravel db:table <name>                       Describe a table's columns
   ravel db:monitor [--max=N]                  Report open connections (Postgres)
+  ravel route:list                            List all registered HTTP routes
 
   ravel make:controller <Name>                Generate a controller plugin
   ravel make:middleware <Name>                Generate a middleware plugin
@@ -108,6 +110,10 @@ async function main(): Promise<number> {
 
   if (command === 'db:monitor') {
     return dbMonitorCommand(flags.max ? Number(flags.max) : undefined)
+  }
+
+  if (command === 'route:list') {
+    return routeListCommand()
   }
 
   if (command.startsWith('make:')) {
