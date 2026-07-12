@@ -1,14 +1,13 @@
-import { requestContext } from '@elysia-ravel/core'
-import { Elysia } from 'elysia'
+import { requestContext, route } from '@elysia-ravel/core'
 import HelloController from '../app/controllers/HelloController'
 import UserController from '../app/controllers/UserController'
 
 /**
  * Route file. Anything default-exported here is auto-mounted by the framework.
- * Compose controllers with `.use()` — this is the Elysia-first replacement for
- * Laravel's route files + controller binding.
+ * Use `route()` instead of `new Elysia()` to get the `middleware` macro, then
+ * apply named middleware per-route with `{ middleware: '...' }`.
  */
-export default new Elysia({ prefix: '/api' })
+export default route('/api')
   // .use(requestContext()) gives handlers a typed, request-correlated `log`.
   .use(requestContext())
   .use(HelloController)
@@ -17,3 +16,5 @@ export default new Elysia({ prefix: '/api' })
     log.info('health check')
     return { status: 'ok' }
   })
+  // Route-level middleware alias — `json` rejects non-JSON writes (config/middleware.ts).
+  .post('/echo', ({ body }) => ({ echoed: body }), { middleware: 'json' })

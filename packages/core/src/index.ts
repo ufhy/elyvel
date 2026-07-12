@@ -34,6 +34,17 @@ export {
   REDACT_PATTERNS,
   type Transport,
 } from './logger'
+export {
+  defineMiddlewareConfig,
+  type GroupItem,
+  group,
+  Middleware,
+  type MiddlewareClass,
+  type MiddlewareConfig,
+  type MiddlewareContext,
+  type MiddlewareItem,
+  route,
+} from './middleware'
 export { requestContext, setRequestLogger } from './request-context'
 export { ServiceProvider } from './service-provider'
 export type { ServiceProviderClass } from './service-provider'

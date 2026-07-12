@@ -1,15 +1,17 @@
-import { Elysia } from 'elysia'
+import { Middleware, type MiddlewareContext } from '@elysia-ravel/core'
 
 /**
- * {{class}} — a reusable middleware plugin.
+ * {{class}} — register it in `config/middleware.ts` under `aliases`, then apply
+ * it to a route with `{ middleware: '{{alias}}' }` (or add it to a group).
  *
- * `.derive` adds typed values to the request context; hooks like
- * `.onBeforeHandle` run guard logic. Apply with `.use({{camel}})`.
+ * Return a response (e.g. `ctx.status(403, ...)`) to stop the request, or
+ * return nothing to let it continue — like Laravel's `handle`.
  */
-export const {{camel}} = new Elysia({ name: '{{kebab}}' })
-  .onBeforeHandle(({ request }) => {
+export class {{class}} extends Middleware {
+  handle(ctx: MiddlewareContext) {
     // TODO: implement {{class}}
-    void request
-  })
+    void ctx
+  }
+}
 
-export default {{camel}}
+export default {{class}}

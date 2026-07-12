@@ -17,6 +17,11 @@ import {
   type Transport,
 } from './logger'
 import { setAppTimezone } from './datetime'
+import {
+  globalMiddlewarePlugin,
+  type MiddlewareConfig,
+  registerMiddlewareRegistry,
+} from './middleware'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
 
@@ -110,6 +115,7 @@ export class Application {
     app.registerLogger()
     app.registerCoreBindings()
     app.registerHttpLogger()
+    app.registerMiddleware()
 
     const configured = app.config.get<ServiceProviderClass[]>('app.providers', [])
     const providerClasses = [...configured, ...(options.providers ?? [])]
@@ -222,6 +228,19 @@ export class Application {
   private registerHttpLogger(): void {
     if (this.config.get<boolean>('logging.http') === false) return
     this.elysia.use(requestContext(this.logger))
+  }
+
+  /**
+   * Wire `config/middleware.ts`: register alias/group registries (used by the
+   * `route()`/`group()` helpers) and mount global middleware on the root
+   * instance — before routes load, so every route is covered.
+   */
+  private registerMiddleware(): void {
+    const config = this.config.get<MiddlewareConfig | undefined>('middleware') ?? {}
+    registerMiddlewareRegistry(config)
+    if (config.global?.length) {
+      this.elysia.use(globalMiddlewarePlugin(config.global))
+    }
   }
 
   /**

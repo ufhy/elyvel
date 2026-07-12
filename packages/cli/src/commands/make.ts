@@ -39,6 +39,7 @@ const blueprints: Record<string, Blueprint> = {
     suffix: 'Middleware',
     dir: 'app/middleware',
     filename: (n) => `${n.class}.ts`,
+    vars: (n) => ({ alias: n.snake.replace(/_middleware$/, '') }),
   },
   model: {
     stub: 'model',
