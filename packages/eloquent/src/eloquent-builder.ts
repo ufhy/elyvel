@@ -36,6 +36,19 @@ export interface Paginator<M extends Model> {
   currentPage: number
   lastPage: number
 }
+/** A page without a total COUNT (cheaper) — just "is there more?". */
+export interface SimplePaginator<M extends Model> {
+  data: EloquentCollection<M>
+  perPage: number
+  currentPage: number
+  hasMore: boolean
+}
+/** Keyset (cursor) pagination — scales to large offsets. */
+export interface CursorPaginator<M extends Model> {
+  data: EloquentCollection<M>
+  perPage: number
+  nextCursor: unknown
+}
 
 /**
  * Wraps a {@link QueryBuilder}, forwarding the fluent chain and hydrating result
@@ -412,6 +425,46 @@ export class EloquentBuilder<M extends Model> {
       currentPage: page,
       lastPage: Math.max(1, Math.ceil(total / perPage)),
     }
+  }
+
+  /** Page without a COUNT — fetches perPage+1 to detect a next page. */
+  async simplePaginate(perPage = 15, page = 1): Promise<SimplePaginator<M>> {
+    this.offset((page - 1) * perPage).limit(perPage + 1)
+    const items = (await this.get()).all()
+    const hasMore = items.length > perPage
+    return {
+      data: new EloquentCollection(items.slice(0, perPage)),
+      perPage,
+      currentPage: page,
+      hasMore,
+    }
+  }
+
+  /** Keyset pagination on `column` (default `id`), ascending. */
+  async cursorPaginate(
+    perPage = 15,
+    cursor?: number | string,
+    column = 'id',
+  ): Promise<CursorPaginator<M>> {
+    if (cursor !== undefined) this.qb.where(column, '>', cursor)
+    this.qb.orderBy(column, 'asc')
+    this.qb.limit(perPage + 1)
+    const items = (await this.get()).all()
+    const hasMore = items.length > perPage
+    const data = items.slice(0, perPage)
+    const nextCursor = hasMore ? (data[data.length - 1]?.getAttribute(column) ?? null) : null
+    return { data: new EloquentCollection(data), perPage, nextCursor }
+  }
+
+  async value<T = unknown>(column: string): Promise<T | undefined> {
+    this.prepare()
+    await this.resolveExistence()
+    return this.qb.value<T>(column)
+  }
+  async pluck<T = unknown>(column: string): Promise<T[]> {
+    this.prepare()
+    await this.resolveExistence()
+    return this.qb.pluck<T>(column)
   }
   async exists(): Promise<boolean> {
     this.prepare()

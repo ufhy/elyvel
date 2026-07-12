@@ -16,7 +16,13 @@ export {
 } from './connection'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export { EloquentServiceProvider } from './database-provider'
-export { type EagerConstraint, EloquentBuilder, type Paginator } from './eloquent-builder'
+export {
+  type CursorPaginator,
+  type EagerConstraint,
+  EloquentBuilder,
+  type Paginator,
+  type SimplePaginator,
+} from './eloquent-builder'
 export type { ColumnDefinition, ColumnType, Dialect, Grammar } from './grammar'
 export {
   type Attributes,

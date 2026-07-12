@@ -425,6 +425,71 @@ export class QueryBuilder {
     await this.connection.statement(sql, bindings)
   }
 
+  /** First row's single column value. */
+  async value<T = unknown>(column: string): Promise<T | undefined> {
+    const row = await this.select(column).first()
+    return row?.[column] as T | undefined
+  }
+  /** Array of a single column's values. */
+  async pluck<T = unknown>(column: string): Promise<T[]> {
+    const rows = await this.select(column).get()
+    return rows.map((r) => r[column] as T)
+  }
+
+  private valueTuples(rows: Row[], columns: string[], bindings: unknown[]): string {
+    const g = this.connection.grammar
+    return rows
+      .map(
+        (row) =>
+          `(${columns
+            .map((c) => {
+              const ph = g.placeholder(bindings.length)
+              bindings.push(row[c])
+              return ph
+            })
+            .join(', ')})`,
+      )
+      .join(', ')
+  }
+
+  /** Insert multiple rows in one statement. */
+  async insertMany(rows: Row[]): Promise<void> {
+    if (rows.length === 0) return
+    const g = this.connection.grammar
+    const columns = Object.keys(rows[0] as Row)
+    const bindings: unknown[] = []
+    const values = this.valueTuples(rows, columns, bindings)
+    const cols = columns.map((c) => g.wrap(c)).join(', ')
+    await this.connection.statement(`INSERT INTO ${g.wrap(this.table)} (${cols}) VALUES ${values}`, bindings)
+  }
+
+  /** Insert rows, silently skipping ones that violate a unique constraint. */
+  async insertOrIgnore(rows: Row[]): Promise<void> {
+    if (rows.length === 0) return
+    const g = this.connection.grammar
+    const columns = Object.keys(rows[0] as Row)
+    const bindings: unknown[] = []
+    const values = this.valueTuples(rows, columns, bindings)
+    const cols = columns.map((c) => g.wrap(c)).join(', ')
+    const prefix = this.connection.dialect === 'sqlite' ? 'INSERT OR IGNORE INTO' : 'INSERT INTO'
+    const suffix = this.connection.dialect === 'pg' ? ' ON CONFLICT DO NOTHING' : ''
+    await this.connection.statement(
+      `${prefix} ${g.wrap(this.table)} (${cols}) VALUES ${values}${suffix}`,
+      bindings,
+    )
+  }
+
+  /** Update rows matching `attributes`, or insert `{...attributes, ...values}`. */
+  async updateOrInsert(attributes: Row, values: Row = {}): Promise<void> {
+    const match = () => {
+      const q = new QueryBuilder(this.connection, this.table)
+      for (const [k, v] of Object.entries(attributes)) q.where(k, v)
+      return q
+    }
+    if (await match().exists()) await match().update(values)
+    else await this.insertMany([{ ...attributes, ...values }])
+  }
+
   async chunk(size: number, callback: (rows: Row[]) => void | Promise<void>): Promise<void> {
     let page = 0
     while (true) {
