@@ -375,6 +375,13 @@ export class QueryBuilder {
   async insert(values: Row): Promise<Row> {
     const g = this.connection.grammar
     const columns = Object.keys(values)
+    // No columns → let the DB fill every column with its default.
+    if (columns.length === 0) {
+      const rows = await this.connection.select<Row>(
+        `INSERT INTO ${g.wrap(this.table)} DEFAULT VALUES RETURNING *`,
+      )
+      return rows[0] as Row
+    }
     const bindings = Object.values(values)
     const cols = columns.map((c) => g.wrap(c)).join(', ')
     const phs = columns.map((_, i) => g.placeholder(i)).join(', ')

@@ -10,6 +10,7 @@ import {
   HasMany,
   HasManyThrough,
   HasOne,
+  HasOneThrough,
   MorphMany,
   MorphOne,
   MorphTo,
@@ -437,6 +438,46 @@ export class Model {
     secondLocalKey = through.primaryKey,
   ): HasManyThrough<R> {
     return new HasManyThrough<R>(this, far, through, firstKey, secondKey, localKey, secondLocalKey)
+  }
+  /** Distant one-to-one through an intermediate model. */
+  hasOneThrough<R extends Model>(
+    far: ModelClass<R>,
+    through: ModelClass<Model>,
+    firstKey = `${this.constructor.name.toLowerCase()}_id`,
+    secondKey = `${through.name.toLowerCase()}_id`,
+    localKey = this.self().primaryKey,
+    secondLocalKey = through.primaryKey,
+  ): HasOneThrough<R> {
+    return new HasOneThrough<R>(this, far, through, firstKey, secondKey, localKey, secondLocalKey)
+  }
+
+  /** Polymorphic many-to-many (this model owns the morph pivot). */
+  morphToMany<R extends Model>(related: ModelClass<R>, morphName: string): BelongsToMany<R> {
+    return new BelongsToMany<R>(
+      this,
+      related,
+      `${morphName}s`,
+      `${morphName}_id`,
+      `${related.name.toLowerCase()}_id`,
+      this.self().primaryKey,
+      related.primaryKey,
+      `${morphName}_type`,
+      this.constructor.name,
+    )
+  }
+  /** Inverse polymorphic many-to-many. */
+  morphedByMany<R extends Model>(related: ModelClass<R>, morphName: string): BelongsToMany<R> {
+    return new BelongsToMany<R>(
+      this,
+      related,
+      `${morphName}s`,
+      `${this.constructor.name.toLowerCase()}_id`,
+      `${morphName}_id`,
+      this.self().primaryKey,
+      related.primaryKey,
+      `${morphName}_type`,
+      related.name,
+    )
   }
 
   setRelation(name: string, value: unknown): this {

@@ -254,13 +254,18 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     private readonly relatedPivotKey: string,
     private readonly parentKey: string,
     private readonly relatedKey: string,
+    /** For polymorphic pivots: the `*_type` column and the constant it holds. */
+    private readonly morphType?: string,
+    private readonly morphClass?: string,
   ) {
     super(parent, related)
   }
   private pivotTimestamps = false
   protected addConstraints(): void {}
   private pivot(): QueryBuilder {
-    return new QueryBuilder(useConnection(), this.pivotTable)
+    const q = new QueryBuilder(useConnection(), this.pivotTable)
+    if (this.morphType) q.where(this.morphType, this.morphClass)
+    return q
   }
   /** Attach the pivot row (all its columns) onto each related model as `pivot`. */
   withPivot(): this {
@@ -299,6 +304,7 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
         [this.foreignPivotKey]: parentId,
         [this.relatedPivotKey]: id,
       }
+      if (this.morphType) row[this.morphType] = this.morphClass
       if (this.pivotTimestamps) {
         row.created_at = now
         row.updated_at = now
@@ -523,7 +529,24 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
       parent.setRelation(name, new EloquentCollection(bucket))
     }
   }
+  override async first(): Promise<R | undefined> {
+    return (await this.get()).first()
+  }
   async existenceKeys(): Promise<ExistenceKeys> {
     throw new Error('[eloquent] whereHas is not supported on hasManyThrough relations')
+  }
+}
+
+/** Distant one-to-one through an intermediate model. */
+export class HasOneThrough<R extends Model> extends HasManyThrough<R> {
+  async getResults(): Promise<R | undefined> {
+    return this.first()
+  }
+  override async eager(parents: Model[], name: string): Promise<void> {
+    await super.eager(parents, name)
+    for (const parent of parents) {
+      const loaded = parent.getRelation(name)
+      parent.setRelation(name, loaded instanceof EloquentCollection ? loaded.first() : loaded)
+    }
   }
 }

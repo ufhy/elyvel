@@ -41,6 +41,7 @@ export {
   HasMany,
   HasManyThrough,
   HasOne,
+  HasOneThrough,
   MorphMany,
   MorphOne,
   MorphTo,
