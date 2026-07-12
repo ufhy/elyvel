@@ -59,6 +59,12 @@ export class EloquentBuilder<M extends Model> {
     this.hasSpecs.push({ name, constrain })
     return this
   }
+  /** Apply a named local scope declared in `static scopes`. */
+  scope(name: string, ...args: unknown[]): this {
+    const fn = this.model.scopes[name]
+    if (fn) fn(this as unknown as EloquentBuilder<Model>, ...args)
+    return this
+  }
   where(column: string, operatorOrValue?: unknown, value?: unknown): this {
     this.qb.where(column, operatorOrValue, value)
     return this
@@ -227,6 +233,22 @@ export class EloquentBuilder<M extends Model> {
   count(): Promise<number> {
     this.prepare()
     return this.qb.count()
+  }
+  async update(values: Row): Promise<void> {
+    this.prepare()
+    await this.qb.update(values)
+  }
+  async delete(): Promise<void> {
+    this.prepare()
+    await this.qb.delete()
+  }
+  increment(column: string, amount = 1, extra: Row = {}): Promise<void> {
+    this.prepare()
+    return this.qb.increment(column, amount, extra)
+  }
+  decrement(column: string, amount = 1, extra: Row = {}): Promise<void> {
+    this.prepare()
+    return this.qb.decrement(column, amount, extra)
   }
 
   /** Fetch one page plus totals. Runs a COUNT then a limited/offset SELECT. */

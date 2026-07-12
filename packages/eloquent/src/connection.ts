@@ -103,3 +103,20 @@ export function useConnection(): Connection {
   }
   return current
 }
+
+/**
+ * Run `callback` inside a transaction on the default connection: BEGIN, then
+ * COMMIT on success or ROLLBACK on any thrown error.
+ */
+export async function transaction<T>(callback: () => Promise<T>): Promise<T> {
+  const connection = useConnection()
+  await connection.statement('BEGIN')
+  try {
+    const result = await callback()
+    await connection.statement('COMMIT')
+    return result
+  } catch (error) {
+    await connection.statement('ROLLBACK')
+    throw error
+  }
+}

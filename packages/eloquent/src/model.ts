@@ -19,11 +19,22 @@ export type CastType =
   | 'string'
   | 'json'
   | 'array'
+  | 'date'
+  | 'datetime'
+
+/** A custom cast / accessor-mutator: transform on read (`get`) and write (`set`). */
+export interface CustomCast {
+  get?: (value: unknown) => unknown
+  set?: (value: unknown) => unknown
+}
+
+export type Cast = CastType | CustomCast
 
 /** Cast a raw (DB or user-set) value to its JS representation for reads. */
-function castGet(type: CastType, value: unknown): unknown {
+function castGet(cast: Cast, value: unknown): unknown {
+  if (typeof cast === 'object') return cast.get ? cast.get(value) : value
   if (value === null || value === undefined) return value
-  switch (type) {
+  switch (cast) {
     case 'int':
     case 'integer':
     case 'float':
@@ -37,23 +48,43 @@ function castGet(type: CastType, value: unknown): unknown {
     case 'json':
     case 'array':
       return typeof value === 'string' ? JSON.parse(value) : value
+    case 'date':
+    case 'datetime':
+      return value instanceof Date ? value : new Date(String(value))
   }
 }
 
 /** Cast a JS value to its storage representation for writes (dialect-aware). */
-function castStore(type: CastType, value: unknown, dialect: string): unknown {
+function castStore(cast: Cast, value: unknown, dialect: string): unknown {
+  if (typeof cast === 'object') return cast.set ? cast.set(value) : value
   if (value === null || value === undefined) return value
-  switch (type) {
+  switch (cast) {
     case 'boolean':
     case 'bool':
       return dialect === 'pg' ? Boolean(value) : value ? 1 : 0
     case 'json':
     case 'array':
       return typeof value === 'string' ? value : JSON.stringify(value)
+    case 'date':
+    case 'datetime':
+      return value instanceof Date ? value.toISOString() : String(value)
     default:
       return value
   }
 }
+
+export type ModelEvent =
+  | 'saving'
+  | 'saved'
+  | 'creating'
+  | 'created'
+  | 'updating'
+  | 'updated'
+  | 'deleting'
+  | 'deleted'
+
+type EventListener = (model: Model) => void | Promise<void>
+const MODEL_EVENTS = new WeakMap<Function, Map<ModelEvent, EventListener[]>>()
 
 type ScopeFn = (qb: QueryBuilder) => void
 
@@ -107,7 +138,22 @@ export class Model {
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
   static hidden: string[] = []
   /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
-  static casts: Record<string, CastType> = {}
+  static casts: Record<string, Cast> = {}
+  /** Named local scopes: `{ active: (q) => q.where('active', 1) }`. */
+  // biome-ignore lint/suspicious/noExplicitAny: scope callbacks receive the model's own builder
+  static scopes: Record<string, (query: EloquentBuilder<any>, ...args: unknown[]) => void> = {}
+
+  /** Register a model event listener (creating/created/updating/…/deleted). */
+  static on(event: ModelEvent, listener: (model: Model) => void | Promise<void>): void {
+    let map = MODEL_EVENTS.get(this)
+    if (!map) {
+      map = new Map()
+      MODEL_EVENTS.set(this, map)
+    }
+    const list = map.get(event) ?? []
+    list.push(listener)
+    map.set(event, list)
+  }
   /** Enable soft deletes (requires a `deleted_at` column). */
   static softDeletes = false
   static deletedAtColumn = 'deleted_at'
@@ -324,18 +370,36 @@ export class Model {
     return !this.isDirty(key)
   }
 
+  /** Fire a model event to listeners registered on this class and its ancestors. */
+  private async fireEvent(event: ModelEvent): Promise<void> {
+    let cls: unknown = this.constructor
+    const chain: Function[] = []
+    while (typeof cls === 'function' && cls !== Model) {
+      chain.unshift(cls)
+      cls = Object.getPrototypeOf(cls)
+    }
+    for (const c of chain) {
+      for (const listener of MODEL_EVENTS.get(c)?.get(event) ?? []) await listener(this)
+    }
+  }
+
   async save(): Promise<this> {
     const self = this.self()
     const now = new Date().toISOString()
     const qb = () => new QueryBuilder(useConnection(), self.getTableName())
 
+    await this.fireEvent('saving')
     if (this.exists) {
+      await this.fireEvent('updating')
       if (self.timestamps) this.attributes.updated_at = now
       const dirty = this.getDirty()
       if (Object.keys(dirty).length > 0) {
         await qb().where(self.primaryKey, this.getKey()).update(this.toStorage(dirty))
       }
+      this.original = { ...this.attributes }
+      await this.fireEvent('updated')
     } else {
+      await this.fireEvent('creating')
       if (self.timestamps) {
         this.attributes.created_at ??= now
         this.attributes.updated_at ??= now
@@ -343,9 +407,30 @@ export class Model {
       const row = await qb().insert(this.toStorage(this.attributes))
       this.attributes = { ...this.attributes, ...row } // pick up generated id/defaults
       this.exists = true
+      this.original = { ...this.attributes }
+      await this.fireEvent('created')
     }
-    this.original = { ...this.attributes }
+    await this.fireEvent('saved')
     return this
+  }
+
+  /** Reload this instance's attributes from the database (mutates in place). */
+  async refresh(): Promise<this> {
+    const self = this.self()
+    const row = await new QueryBuilder(useConnection(), self.getTableName())
+      .where(self.primaryKey, this.getKey())
+      .first()
+    if (row) {
+      this.attributes = { ...row }
+      this.original = { ...row }
+    }
+    return this
+  }
+
+  /** Return a fresh instance from the database (does not mutate this one). */
+  async fresh(): Promise<this | undefined> {
+    const model = await (this.constructor as ModelClass<Model>).find(this.getKey())
+    return (model as this | undefined) ?? undefined
   }
 
   async update(attributes: Attributes): Promise<this> {
@@ -355,13 +440,15 @@ export class Model {
 
   /** Delete the row — soft (sets `deleted_at`) when soft deletes are enabled. */
   async delete(): Promise<void> {
+    await this.fireEvent('deleting')
     const self = this.self()
     if (self.softDeletes) {
       this.setAttribute(self.deletedAtColumn, new Date().toISOString())
       await this.save()
-      return
+    } else {
+      await this.forceDelete()
     }
-    await this.forceDelete()
+    await this.fireEvent('deleted')
   }
 
   /** Permanently delete the row, ignoring soft deletes. */

@@ -8,13 +8,21 @@ export {
   type PostgresConnectionConfig,
   setConnection,
   type SqliteConnectionConfig,
+  transaction,
   useConnection,
 } from './connection'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export { EloquentServiceProvider } from './database-provider'
-export { EloquentBuilder, type Paginator } from './eloquent-builder'
+export { type EagerConstraint, EloquentBuilder, type Paginator } from './eloquent-builder'
 export type { ColumnDefinition, Dialect, Grammar } from './grammar'
-export { type Attributes, type CastType, Model } from './model'
+export {
+  type Attributes,
+  type Cast,
+  type CastType,
+  type CustomCast,
+  Model,
+  type ModelEvent,
+} from './model'
 export { freshMigrate, loadMigrations, type Migration, migrate } from './migrator'
 export { QueryBuilder } from './query-builder'
 export { BelongsTo, BelongsToMany, HasMany, HasOne, Relation } from './relations'
