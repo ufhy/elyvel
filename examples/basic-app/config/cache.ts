@@ -8,7 +8,7 @@ export default defineCacheConfig({
   default: process.env.CACHE_STORE ?? 'memory',
   stores: {
     memory: { driver: 'memory' },
-    file: { driver: 'file', path: 'storage/cache' },
+    file: { driver: 'file', path: 'storage/framework/cache' },
     database: { driver: 'database' }, // uses the `cache` table (wired in AppServiceProvider)
   },
 })

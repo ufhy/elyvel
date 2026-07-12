@@ -29,7 +29,7 @@ export class CacheManager {
       throw new Error(`[elysia-ravel] Cache store "${name}" is not defined in config/cache.ts.`)
     }
     if (cfg.driver === 'file') {
-      return new Repository(new FileStore(cfg.path ?? 'storage/cache'))
+      return new Repository(new FileStore(cfg.path ?? 'storage/framework/cache'))
     }
     if (cfg.driver === 'database') {
       return new Repository(new DatabaseStore())

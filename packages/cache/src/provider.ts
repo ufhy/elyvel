@@ -16,7 +16,7 @@ export class CacheServiceProvider extends ServiceProvider {
     for (const [name, store] of Object.entries(config.stores ?? {})) {
       stores[name] =
         store.driver === 'file'
-          ? { ...store, path: this.app.path(store.path ?? 'storage/cache') }
+          ? { ...store, path: this.app.path(store.path ?? 'storage/framework/cache') }
           : store
     }
     const manager = new CacheManager({ ...config, stores })

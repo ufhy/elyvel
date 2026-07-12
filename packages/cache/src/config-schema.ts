@@ -1,6 +1,6 @@
 export interface CacheStoreConfig {
   driver: 'memory' | 'file' | 'database'
-  /** Directory for the `file` driver (relative to app root; default `storage/cache`). */
+  /** Directory for the `file` driver (relative to app root; default `storage/framework/cache`). */
   path?: string
 }
 
