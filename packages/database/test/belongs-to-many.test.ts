@@ -61,6 +61,24 @@ for (const d of dialects) {
       expect((await user.roles().get()).count()).toBe(0)
     })
 
+    test('toggle / syncWithoutDetaching', async () => {
+      const user = await User.create({ name: 'Ada' })
+      const a = await Role.create({ name: 'a' })
+      const b = await Role.create({ name: 'b' })
+      await user.roles().attach([a.id])
+
+      await user.roles().toggle([a.id, b.id]) // a present → detached, b absent → attached
+      expect(
+        (await user.roles().get())
+          .all()
+          .map((r) => r.id)
+          .sort(),
+      ).toEqual([b.id])
+
+      await user.roles().syncWithoutDetaching([a.id, b.id]) // re-add a, keep b
+      expect((await user.roles().get()).count()).toBe(2)
+    })
+
     test('eager loading with() populates the pivot relation', async () => {
       const ada = await User.create({ name: 'Ada' })
       const alan = await User.create({ name: 'Alan' })

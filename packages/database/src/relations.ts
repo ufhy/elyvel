@@ -321,6 +321,37 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     await this.detach()
     await this.attach(ids)
   }
+  /** Current related ids linked to the parent in the pivot table. */
+  private async currentPivotIds(): Promise<unknown[]> {
+    const rows = await this.pivot()
+      .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
+      .get()
+    return rows.map((r) => r[this.relatedPivotKey])
+  }
+  /** Attach the given ids without detaching existing ones. */
+  async syncWithoutDetaching(ids: unknown[]): Promise<void> {
+    const current = new Set((await this.currentPivotIds()).map(String))
+    const toAttach = ids.filter((id) => !current.has(String(id)))
+    if (toAttach.length) await this.attach(toAttach)
+  }
+  /** Attach ids not present, detach ids that are — flipping each. */
+  async toggle(ids: unknown[]): Promise<void> {
+    const current = new Set((await this.currentPivotIds()).map(String))
+    const attach: unknown[] = []
+    const detach: unknown[] = []
+    for (const id of ids) (current.has(String(id)) ? detach : attach).push(id)
+    if (attach.length) await this.attach(attach)
+    if (detach.length) await this.detach(detach)
+  }
+  /** Update pivot columns for one already-attached related id. */
+  async updateExistingPivot(id: unknown, attributes: Record<string, unknown>): Promise<void> {
+    const values = { ...attributes }
+    if (this.pivotTimestamps) values.updated_at = new Date().toISOString()
+    await this.pivot()
+      .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
+      .where(this.relatedPivotKey, id)
+      .update(values)
+  }
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
     const parentKeys = parents.map((p) => p.getAttribute(this.parentKey))
     const pivotRows = await this.pivot().whereIn(this.foreignPivotKey, parentKeys).get()
