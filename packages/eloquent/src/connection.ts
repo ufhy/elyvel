@@ -22,11 +22,16 @@ export interface QueryErrored extends QueryExecuted {
 }
 export type QueryErrorListener = (event: QueryErrored) => void
 
+/** Positional (`?`/`$n`) or named (`:name`) bindings. */
+export type Bindings = unknown[] | Record<string, unknown>
+
 export interface Connection {
   readonly dialect: Dialect
   readonly grammar: Grammar
-  select<T = Record<string, unknown>>(sql: string, bindings?: unknown[]): Promise<T[]>
-  statement(sql: string, bindings?: unknown[]): Promise<void>
+  select<T = Record<string, unknown>>(sql: string, bindings?: Bindings): Promise<T[]>
+  statement(sql: string, bindings?: Bindings): Promise<void>
+  /** Run raw SQL with no bindings (e.g. multi-statement DDL), à la `DB::unprepared`. */
+  unprepared(sql: string): Promise<void>
   close(): Promise<void>
   /** Start recording executed queries. */
   enableQueryLog(): void
@@ -107,7 +112,10 @@ export async function createConnection(config: ConnectionConfig): Promise<Connec
   return connection
 }
 
-type RawConnection = Pick<Connection, 'dialect' | 'grammar' | 'select' | 'statement' | 'close'>
+type RawConnection = Pick<
+  Connection,
+  'dialect' | 'grammar' | 'select' | 'statement' | 'unprepared' | 'close'
+>
 
 type ConfigOverride = Record<string, unknown> | undefined
 
@@ -134,6 +142,25 @@ function mergeConfig(config: ConnectionConfig, override: ConfigOverride): Connec
 const firstKeyword = (sql: string) => sql.trimStart().split(/\s+/, 1)[0]?.toUpperCase() ?? ''
 
 /**
+ * Normalize bindings to positional form. Array bindings pass through; a plain
+ * object rewrites `:name` placeholders to the grammar's positional placeholder
+ * (`?` / `$n`) in order of appearance.
+ */
+function bindNamed(
+  sql: string,
+  bindings: Bindings,
+  grammar: Grammar,
+): { sql: string; bindings: unknown[] } {
+  if (Array.isArray(bindings)) return { sql, bindings }
+  const positional: unknown[] = []
+  const rewritten = sql.replace(/:(\w+)/g, (_match, name: string) => {
+    positional.push(bindings[name])
+    return grammar.placeholder(positional.length - 1)
+  })
+  return { sql: rewritten, bindings: positional }
+}
+
+/**
  * Compose a read replica and a write host into one connection: `select` uses the
  * read host, `statement` (writes, DDL) uses the write host. Inside a transaction
  * reads route to the write host too, so a query sees its own uncommitted writes.
@@ -154,6 +181,7 @@ function composeReadWrite(read: RawConnection, write: RawConnection): RawConnect
         kw === 'COMMIT' || (kw === 'ROLLBACK' && !/^ROLLBACK\s+TO\b/i.test(sql.trimStart()))
       if (endsTransaction) sticky = false
     },
+    unprepared: (sql) => write.unprepared(sql),
     close: async () => {
       await Promise.all([read.close(), write.close()])
     },
@@ -205,8 +233,15 @@ function withQueryLog(base: RawConnection): Connection {
   return {
     dialect: base.dialect,
     grammar: base.grammar,
-    select: (sql, bindings = []) => record(sql, bindings, () => base.select(sql, bindings)),
-    statement: (sql, bindings = []) => stmt(sql, bindings),
+    select: (sql, bindings = []) => {
+      const b = bindNamed(sql, bindings, base.grammar)
+      return record(b.sql, b.bindings, () => base.select(b.sql, b.bindings))
+    },
+    statement: (sql, bindings = []) => {
+      const b = bindNamed(sql, bindings, base.grammar)
+      return stmt(b.sql, b.bindings)
+    },
+    unprepared: (sql) => record(sql, [], () => base.unprepared(sql)),
     close: () => base.close(),
     enableQueryLog: () => {
       logging = true
@@ -288,6 +323,9 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         statement: async (sql, bindings = []) => {
           db.query(sql).run(...(bindings as never[]))
         },
+        unprepared: async (sql) => {
+          db.exec(sql)
+        },
         close: async () => {
           db.close()
         },
@@ -300,9 +338,13 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
       return {
         dialect: 'pg',
         grammar: grammarFor('pg'),
-        select: async (sql, bindings = []) => (await client.query(sql, bindings)).rows as never[],
+        select: async (sql, bindings = []) =>
+          (await client.query(sql, bindings as unknown[])).rows as never[],
         statement: async (sql, bindings = []) => {
-          await client.query(sql, bindings)
+          await client.query(sql, bindings as unknown[])
+        },
+        unprepared: async (sql) => {
+          await client.exec(sql)
         },
         close: async () => {
           await client.close()
@@ -320,6 +362,9 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         select: async (sql, bindings = []) => client.unsafe(sql, bindings as never[]) as never,
         statement: async (sql, bindings = []) => {
           await client.unsafe(sql, bindings as never[])
+        },
+        unprepared: async (sql) => {
+          await client.unsafe(sql)
         },
         close: async () => {
           await client.end()
@@ -395,12 +440,17 @@ export function rollBack(): Promise<void> {
 /** Run a raw SQL query on the default connection and return rows. */
 export async function raw<T = Record<string, unknown>>(
   sql: string,
-  bindings: unknown[] = [],
+  bindings: Bindings = [],
 ): Promise<T[]> {
   return useConnection().select<T>(sql, bindings)
 }
 
 /** Run a raw SQL statement (no result set) on the default connection. */
-export async function rawStatement(sql: string, bindings: unknown[] = []): Promise<void> {
+export async function rawStatement(sql: string, bindings: Bindings = []): Promise<void> {
   return useConnection().statement(sql, bindings)
+}
+
+/** Run raw SQL with no bindings (e.g. multi-statement DDL) on the default connection. */
+export async function unprepared(sql: string): Promise<void> {
+  return useConnection().unprepared(sql)
 }

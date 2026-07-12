@@ -2,6 +2,7 @@ export { EloquentCollection } from './eloquent-collection'
 export { Factory, type FactoryDefinition, defineFactory } from './factory'
 export {
   beginTransaction,
+  type Bindings,
   commit,
   type Connection,
   type ConnectionConfig,
@@ -20,6 +21,7 @@ export {
   setConnection,
   type SqliteConnectionConfig,
   transaction,
+  unprepared,
   useConnection,
 } from './connection'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
