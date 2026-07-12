@@ -7,6 +7,7 @@ export default {
       t.string('name')
       t.string('email').unique()
       t.string('password')
+      t.text('phone').nullable() // stores AES-256-GCM ciphertext (see User.casts)
       t.timestamps()
     }),
   down: (schema) => schema.dropIfExists('users'),
