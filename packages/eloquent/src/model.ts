@@ -148,6 +148,20 @@ export class Model {
   static connection?: string
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
   static hidden: string[] = []
+  /** Mass-assignable attributes (whitelist). Empty = allow all not guarded. */
+  static fillable: string[] = []
+  /** Guarded attributes (blacklist). `['*']` guards everything. */
+  static guarded: string[] = []
+
+  static isGuarded(key: string): boolean {
+    return this.guarded.includes('*') || this.guarded.includes(key)
+  }
+  /** Whether `key` may be mass-assigned (via `fill`/`create`/`update`). */
+  static isFillable(key: string): boolean {
+    if (this.fillable.includes(key)) return true
+    if (this.isGuarded(key)) return false
+    return this.fillable.length === 0
+  }
   /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
   static casts: Record<string, Cast> = {}
   /** Named local scopes: `{ active: (q) => q.where('active', 1) }`. */
@@ -197,7 +211,7 @@ export class Model {
   relations: Record<string, unknown> = {}
 
   constructor(attributes: Attributes = {}) {
-    for (const [key, value] of Object.entries(attributes)) this.attributes[key] = value
+    this.fill(attributes) // respects $fillable/$guarded
     return new Proxy(this, proxyHandler)
   }
 
@@ -241,6 +255,17 @@ export class Model {
 
   static async create<M extends Model>(this: ModelClass<M>, attributes: Attributes): Promise<M> {
     const model = new this(attributes)
+    await model.save()
+    return model
+  }
+
+  /** Create bypassing $fillable/$guarded. */
+  static async forceCreate<M extends Model>(
+    this: ModelClass<M>,
+    attributes: Attributes,
+  ): Promise<M> {
+    const model = new this()
+    model.forceFill(attributes)
     await model.save()
     return model
   }
@@ -302,7 +327,16 @@ export class Model {
     }
     return out
   }
+  /** Mass-assign only fillable attributes. */
   fill(attributes: Attributes): this {
+    const self = this.self()
+    for (const [key, value] of Object.entries(attributes)) {
+      if (self.isFillable(key)) this.setAttribute(key, value)
+    }
+    return this
+  }
+  /** Assign all attributes, bypassing $fillable/$guarded. */
+  forceFill(attributes: Attributes): this {
     for (const [key, value] of Object.entries(attributes)) this.setAttribute(key, value)
     return this
   }
