@@ -8,8 +8,10 @@ interface WhereClause {
   column: string
   operator: string
   value: unknown
-  kind: 'basic' | 'in' | 'null' | 'notNull' | 'between'
+  kind: 'basic' | 'in' | 'null' | 'notNull' | 'between' | 'raw' | 'inSub' | 'exists'
   values?: unknown[]
+  rawSql?: string
+  sub?: QueryBuilder
 }
 interface JoinClause {
   type: 'INNER' | 'LEFT'
@@ -18,24 +20,23 @@ interface JoinClause {
   operator: string
   second: string
 }
-interface HavingClause {
-  column: string
-  operator: string
-  value: unknown
-}
 
 /**
  * Fluent, dialect-agnostic query builder. Accumulates clauses; the connection's
  * grammar renders SQL + bindings, so the same chain runs on SQLite or Postgres.
+ * Supports raw fragments (`whereRaw`/`selectRaw`) and subqueries
+ * (`whereIn(col, subquery)`, `whereExists`).
  */
 export class QueryBuilder {
   private columns = '*'
+  private rawSelect?: { sql: string; bindings: unknown[] }
   private distinctFlag = false
   private wheres: WhereClause[] = []
   private joins: JoinClause[] = []
   private groups: string[] = []
-  private havings: HavingClause[] = []
+  private havings: { sql?: string; column?: string; operator?: string; value?: unknown; bindings?: unknown[] }[] = []
   private orders: { column: string; direction: 'ASC' | 'DESC' }[] = []
+  private rawOrders: string[] = []
   private limitValue?: number
   private offsetValue?: number
 
@@ -46,6 +47,11 @@ export class QueryBuilder {
 
   select(...columns: string[]): this {
     this.columns = columns.length ? columns.map((c) => this.connection.grammar.wrap(c)).join(', ') : '*'
+    return this
+  }
+  /** Raw SELECT expression (use `?` placeholders for bindings). */
+  selectRaw(sql: string, bindings: unknown[] = []): this {
+    this.rawSelect = { sql, bindings }
     return this
   }
   distinct(): this {
@@ -59,8 +65,13 @@ export class QueryBuilder {
   orWhere(column: string, operatorOrValue: unknown, value?: unknown): this {
     return this.addWhere('OR', column, operatorOrValue, value)
   }
-  whereIn(column: string, values: unknown[]): this {
-    this.wheres.push({ boolean: 'AND', column, operator: 'IN', value: null, kind: 'in', values })
+  /** `whereIn('col', [...])` or `whereIn('col', subquery)`. */
+  whereIn(column: string, values: unknown[] | QueryBuilder): this {
+    if (values instanceof QueryBuilder) {
+      this.wheres.push({ boolean: 'AND', column, operator: 'IN', value: null, kind: 'inSub', sub: values })
+    } else {
+      this.wheres.push({ boolean: 'AND', column, operator: 'IN', value: null, kind: 'in', values })
+    }
     return this
   }
   whereNull(column: string): this {
@@ -68,17 +79,21 @@ export class QueryBuilder {
     return this
   }
   whereNotNull(column: string): this {
-    this.wheres.push({
-      boolean: 'AND',
-      column,
-      operator: 'IS NOT NULL',
-      value: null,
-      kind: 'notNull',
-    })
+    this.wheres.push({ boolean: 'AND', column, operator: 'IS NOT NULL', value: null, kind: 'notNull' })
     return this
   }
   whereBetween(column: string, range: [unknown, unknown]): this {
     this.wheres.push({ boolean: 'AND', column, operator: 'BETWEEN', value: null, kind: 'between', values: range })
+    return this
+  }
+  /** Raw WHERE fragment with `?` placeholders. */
+  whereRaw(sql: string, bindings: unknown[] = []): this {
+    this.wheres.push({ boolean: 'AND', column: '', operator: '', value: null, kind: 'raw', rawSql: sql, values: bindings })
+    return this
+  }
+  /** `WHERE EXISTS (<subquery>)`. */
+  whereExists(sub: QueryBuilder): this {
+    this.wheres.push({ boolean: 'AND', column: '', operator: '', value: null, kind: 'exists', sub })
     return this
   }
 
@@ -99,9 +114,17 @@ export class QueryBuilder {
     this.havings.push({ column, operator, value })
     return this
   }
+  havingRaw(sql: string, bindings: unknown[] = []): this {
+    this.havings.push({ sql, bindings })
+    return this
+  }
 
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
     this.orders.push({ column, direction: direction.toUpperCase() as 'ASC' | 'DESC' })
+    return this
+  }
+  orderByRaw(sql: string): this {
+    this.rawOrders.push(sql)
     return this
   }
   limit(n: number): this {
@@ -113,16 +136,21 @@ export class QueryBuilder {
     return this
   }
 
-  private addWhere(
-    boolean: 'AND' | 'OR',
-    column: string,
-    operatorOrValue: unknown,
-    value?: unknown,
-  ): this {
+  private addWhere(boolean: 'AND' | 'OR', column: string, operatorOrValue: unknown, value?: unknown): this {
     const [operator, val] =
       value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
     this.wheres.push({ boolean, column, operator, value: val, kind: 'basic' })
     return this
+  }
+
+  /** Substitute `?` in a raw fragment with dialect placeholders, pushing bindings. */
+  private applyRaw(sql: string, rawBindings: unknown[], bindings: unknown[]): string {
+    let i = 0
+    return sql.replace(/\?/g, () => {
+      const ph = this.connection.grammar.placeholder(bindings.length)
+      bindings.push(rawBindings[i++])
+      return ph
+    })
   }
 
   private compileWheres(bindings: unknown[]): string {
@@ -130,26 +158,38 @@ export class QueryBuilder {
     const g = this.connection.grammar
     const parts = this.wheres.map((w, i) => {
       const prefix = i === 0 ? '' : `${w.boolean} `
-      if (w.kind === 'null' || w.kind === 'notNull') return `${prefix}${g.wrap(w.column)} ${w.operator}`
-      if (w.kind === 'between') {
-        const a = g.placeholder(bindings.length)
-        bindings.push(w.values?.[0])
-        const b = g.placeholder(bindings.length)
-        bindings.push(w.values?.[1])
-        return `${prefix}${g.wrap(w.column)} BETWEEN ${a} AND ${b}`
-      }
-      if (w.kind === 'in') {
-        if (!w.values?.length) return `${prefix}1 = 0` // empty IN () matches nothing
-        const phs = w.values.map((v) => {
+      switch (w.kind) {
+        case 'null':
+        case 'notNull':
+          return `${prefix}${g.wrap(w.column)} ${w.operator}`
+        case 'between': {
+          const a = g.placeholder(bindings.length)
+          bindings.push(w.values?.[0])
+          const b = g.placeholder(bindings.length)
+          bindings.push(w.values?.[1])
+          return `${prefix}${g.wrap(w.column)} BETWEEN ${a} AND ${b}`
+        }
+        case 'in': {
+          if (!w.values?.length) return `${prefix}1 = 0`
+          const phs = w.values.map((v) => {
+            const ph = g.placeholder(bindings.length)
+            bindings.push(v)
+            return ph
+          })
+          return `${prefix}${g.wrap(w.column)} IN (${phs.join(', ')})`
+        }
+        case 'inSub':
+          return `${prefix}${g.wrap(w.column)} IN (${(w.sub as QueryBuilder).compileSelect(bindings)})`
+        case 'exists':
+          return `${prefix}EXISTS (${(w.sub as QueryBuilder).compileSelect(bindings)})`
+        case 'raw':
+          return `${prefix}${this.applyRaw(w.rawSql as string, w.values ?? [], bindings)}`
+        default: {
           const ph = g.placeholder(bindings.length)
-          bindings.push(v)
-          return ph
-        })
-        return `${prefix}${g.wrap(w.column)} IN (${phs.join(', ')})`
+          bindings.push(w.value)
+          return `${prefix}${g.wrap(w.column)} ${w.operator} ${ph}`
+        }
       }
-      const ph = g.placeholder(bindings.length)
-      bindings.push(w.value)
-      return `${prefix}${g.wrap(w.column)} ${w.operator} ${ph}`
     })
     return ` WHERE ${parts.join(' ')}`
   }
@@ -166,28 +206,39 @@ export class QueryBuilder {
     if (this.groups.length) sql += ` GROUP BY ${this.groups.map((c) => g.wrap(c)).join(', ')}`
     if (this.havings.length) {
       const parts = this.havings.map((h) => {
+        if (h.sql) return this.applyRaw(h.sql, h.bindings ?? [], bindings)
         const ph = g.placeholder(bindings.length)
         bindings.push(h.value)
-        return `${g.wrap(h.column)} ${h.operator} ${ph}`
+        return `${g.wrap(h.column as string)} ${h.operator} ${ph}`
       })
       sql += ` HAVING ${parts.join(' AND ')}`
     }
     return sql
   }
 
-  toSql(): { sql: string; bindings: unknown[] } {
+  /** Compile the SELECT into the shared `bindings` array (enables subqueries). */
+  compileSelect(bindings: unknown[]): string {
     const g = this.connection.grammar
-    const bindings: unknown[] = []
-    let sql = `SELECT ${this.distinctFlag ? 'DISTINCT ' : ''}${this.columns} FROM ${g.wrap(this.table)}`
+    const cols = this.rawSelect
+      ? this.applyRaw(this.rawSelect.sql, this.rawSelect.bindings, bindings)
+      : this.columns
+    let sql = `SELECT ${this.distinctFlag ? 'DISTINCT ' : ''}${cols} FROM ${g.wrap(this.table)}`
     sql += this.compileJoins()
     sql += this.compileWheres(bindings)
     sql += this.compileGroupsHavings(bindings)
-    if (this.orders.length) {
-      sql += ` ORDER BY ${this.orders.map((o) => `${g.wrap(o.column)} ${o.direction}`).join(', ')}`
-    }
+    const orderParts = [
+      ...this.orders.map((o) => `${g.wrap(o.column)} ${o.direction}`),
+      ...this.rawOrders,
+    ]
+    if (orderParts.length) sql += ` ORDER BY ${orderParts.join(', ')}`
     if (this.limitValue !== undefined) sql += ` LIMIT ${this.limitValue}`
     if (this.offsetValue !== undefined) sql += ` OFFSET ${this.offsetValue}`
-    return { sql, bindings }
+    return sql
+  }
+
+  toSql(): { sql: string; bindings: unknown[] } {
+    const bindings: unknown[] = []
+    return { sql: this.compileSelect(bindings), bindings }
   }
 
   async get(): Promise<Row[]> {
@@ -253,7 +304,6 @@ export class QueryBuilder {
     await this.connection.statement(sql, bindings)
   }
 
-  /** `col = col ± amount` plus optional extra column assignments. */
   private async crement(sign: '+' | '-', column: string, amount: number, extra: Row): Promise<void> {
     const g = this.connection.grammar
     const bindings: unknown[] = []
@@ -282,7 +332,6 @@ export class QueryBuilder {
     await this.connection.statement(sql, bindings)
   }
 
-  /** Insert-or-update on conflict of `uniqueBy`, updating `update` columns. */
   async upsert(rows: Row[], uniqueBy: string[], update: string[]): Promise<void> {
     if (rows.length === 0) return
     const g = this.connection.grammar
@@ -304,7 +353,6 @@ export class QueryBuilder {
     await this.connection.statement(sql, bindings)
   }
 
-  /** Process rows in fixed-size batches (keeps memory bounded). */
   async chunk(size: number, callback: (rows: Row[]) => void | Promise<void>): Promise<void> {
     let page = 0
     while (true) {

@@ -125,3 +125,16 @@ export async function transaction<T>(callback: () => Promise<T>): Promise<T> {
     throw error
   }
 }
+
+/** Run a raw SQL query on the default connection and return rows. */
+export async function raw<T = Record<string, unknown>>(
+  sql: string,
+  bindings: unknown[] = [],
+): Promise<T[]> {
+  return useConnection().select<T>(sql, bindings)
+}
+
+/** Run a raw SQL statement (no result set) on the default connection. */
+export async function rawStatement(sql: string, bindings: unknown[] = []): Promise<void> {
+  return useConnection().statement(sql, bindings)
+}

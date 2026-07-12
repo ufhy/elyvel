@@ -74,9 +74,33 @@ export class EloquentBuilder<M extends Model> {
     this.qb.orWhere(column, operatorOrValue, value)
     return this
   }
-  whereIn(column: string, values: unknown[]): this {
+  whereIn(column: string, values: unknown[] | QueryBuilder): this {
     this.qb.whereIn(column, values)
     return this
+  }
+  whereRaw(sql: string, bindings: unknown[] = []): this {
+    this.qb.whereRaw(sql, bindings)
+    return this
+  }
+  selectRaw(sql: string, bindings: unknown[] = []): this {
+    this.qb.selectRaw(sql, bindings)
+    return this
+  }
+  orderByRaw(sql: string): this {
+    this.qb.orderByRaw(sql)
+    return this
+  }
+  havingRaw(sql: string, bindings: unknown[] = []): this {
+    this.qb.havingRaw(sql, bindings)
+    return this
+  }
+  whereExists(sub: QueryBuilder): this {
+    this.qb.whereExists(sub)
+    return this
+  }
+  /** The underlying query builder (e.g. to use this query as a subquery). */
+  getQuery(): QueryBuilder {
+    return this.qb
   }
   whereNull(column: string): this {
     this.qb.whereNull(column)
