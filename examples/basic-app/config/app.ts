@@ -9,6 +9,8 @@ import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 export default defineAppConfig({
   name: process.env.APP_NAME ?? 'elysia-ravel',
   env: process.env.APP_ENV ?? 'local',
+  timezone: process.env.APP_TIMEZONE ?? 'Asia/Makassar', // display tz; storage stays UTC
+
   port: Number(process.env.PORT ?? 3000),
 
   providers: [EloquentServiceProvider, AppServiceProvider],

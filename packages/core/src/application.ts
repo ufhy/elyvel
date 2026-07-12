@@ -16,6 +16,7 @@ import {
   LoggerToken,
   type Transport,
 } from './logger'
+import { setAppTimezone } from './datetime'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
 
@@ -105,6 +106,7 @@ export class Application {
     const app = new Application(basePath)
 
     await app.loadConfig()
+    setAppTimezone(app.config.get<string>('app.timezone') ?? 'UTC')
     app.registerLogger()
     app.registerCoreBindings()
     app.registerHttpLogger()

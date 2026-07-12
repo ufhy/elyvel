@@ -10,6 +10,8 @@ export interface AppConfig {
   name?: string
   /** Environment, e.g. `local` | `production`. Drives logging defaults. */
   env?: string
+  /** App timezone for date *display* (e.g. `Asia/Makassar`). Storage stays UTC. Default `UTC`. */
+  timezone?: string
   /** Port to listen on (overridable by `PORT` env or `listen(port)`). */
   port?: number
   /** Service providers to register at boot, in order. */
