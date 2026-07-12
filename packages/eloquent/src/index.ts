@@ -1,6 +1,8 @@
 export { EloquentCollection } from './eloquent-collection'
 export { Factory, type FactoryDefinition, defineFactory } from './factory'
 export {
+  beginTransaction,
+  commit,
   type Connection,
   type ConnectionConfig,
   createConnection,
@@ -14,6 +16,7 @@ export {
   type QueryLogEntry,
   raw,
   rawStatement,
+  rollBack,
   setConnection,
   type SqliteConnectionConfig,
   transaction,
@@ -39,7 +42,7 @@ export {
   type ModelEvent,
 } from './model'
 export { freshMigrate, loadMigrations, type Migration, migrate, rollback, status } from './migrator'
-export { QueryBuilder } from './query-builder'
+export { QueryBuilder, table } from './query-builder'
 export {
   BelongsTo,
   BelongsToMany,

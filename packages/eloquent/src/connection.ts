@@ -55,6 +55,14 @@ export interface Connection {
   getTotalQueryDuration(): number
   /** Reset the cumulative query-time counter (typically per request). */
   resetTotalQueryDuration(): void
+  /** Begin a transaction, or a nested SAVEPOINT if one is already open. */
+  beginTransaction(): Promise<void>
+  /** Commit the current transaction level (COMMIT at the outermost). */
+  commit(): Promise<void>
+  /** Roll back the current level (to the SAVEPOINT when nested, else full ROLLBACK). */
+  rollBack(): Promise<void>
+  /** Current transaction nesting depth (0 = no open transaction). */
+  transactionLevel(): number
 }
 
 export interface SqliteConnectionConfig {
@@ -140,7 +148,11 @@ function composeReadWrite(read: RawConnection, write: RawConnection): RawConnect
       const kw = firstKeyword(sql)
       if (kw === 'BEGIN') sticky = true
       await write.statement(sql, bindings)
-      if (kw === 'COMMIT' || kw === 'ROLLBACK') sticky = false
+      // A `ROLLBACK TO SAVEPOINT` unwinds a nested level — the transaction is
+      // still open, so keep routing reads to the write host.
+      const endsTransaction =
+        kw === 'COMMIT' || (kw === 'ROLLBACK' && !/^ROLLBACK\s+TO\b/i.test(sql.trimStart()))
+      if (endsTransaction) sticky = false
     },
     close: async () => {
       await Promise.all([read.close(), write.close()])
@@ -185,11 +197,16 @@ function withQueryLog(base: RawConnection): Connection {
     return result
   }
 
+  const stmt = (sql: string, bindings: unknown[] = []) =>
+    record(sql, bindings, () => base.statement(sql, bindings))
+
+  let level = 0
+
   return {
     dialect: base.dialect,
     grammar: base.grammar,
     select: (sql, bindings = []) => record(sql, bindings, () => base.select(sql, bindings)),
-    statement: (sql, bindings = []) => record(sql, bindings, () => base.statement(sql, bindings)),
+    statement: (sql, bindings = []) => stmt(sql, bindings),
     close: () => base.close(),
     enableQueryLog: () => {
       logging = true
@@ -222,6 +239,25 @@ function withQueryLog(base: RawConnection): Connection {
       totalDuration = 0
       for (const s of slow) s.fired = false
     },
+    beginTransaction: async () => {
+      if (level === 0) await stmt('BEGIN')
+      else await stmt(`SAVEPOINT trans${level + 1}`)
+      level++
+    },
+    commit: async () => {
+      if (level <= 1) await stmt('COMMIT') // nested commits fold into the outermost
+      level = Math.max(0, level - 1)
+    },
+    rollBack: async () => {
+      if (level <= 1) {
+        await stmt('ROLLBACK')
+        level = 0
+      } else {
+        await stmt(`ROLLBACK TO SAVEPOINT trans${level}`)
+        level--
+      }
+    },
+    transactionLevel: () => level,
   }
 }
 
@@ -316,21 +352,44 @@ export function useConnection(name?: string): Connection {
   return connection
 }
 
+/** Postgres/SQLite deadlock or serialization failures worth retrying. */
+function causedByConcurrencyError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /deadlock|serializ|database is locked|SQLITE_BUSY|40001|40P01/i.test(message)
+}
+
 /**
- * Run `callback` inside a transaction on the default connection: BEGIN, then
- * COMMIT on success or ROLLBACK on any thrown error.
+ * Run `callback` inside a transaction on the default connection: COMMIT on
+ * success, ROLLBACK on any thrown error. Nested calls use SAVEPOINTs. Set
+ * `attempts > 1` to retry the whole transaction on deadlock/serialization errors.
  */
-export async function transaction<T>(callback: () => Promise<T>): Promise<T> {
+export async function transaction<T>(callback: () => Promise<T>, attempts = 1): Promise<T> {
   const connection = useConnection()
-  await connection.statement('BEGIN')
-  try {
-    const result = await callback()
-    await connection.statement('COMMIT')
-    return result
-  } catch (error) {
-    await connection.statement('ROLLBACK')
-    throw error
+  for (let attempt = 1; ; attempt++) {
+    await connection.beginTransaction()
+    try {
+      const result = await callback()
+      await connection.commit()
+      return result
+    } catch (error) {
+      await connection.rollBack()
+      if (attempt < attempts && causedByConcurrencyError(error)) continue
+      throw error
+    }
   }
+}
+
+/** Manually begin a transaction (or nested SAVEPOINT) on the default connection. */
+export function beginTransaction(): Promise<void> {
+  return useConnection().beginTransaction()
+}
+/** Commit the current transaction level on the default connection. */
+export function commit(): Promise<void> {
+  return useConnection().commit()
+}
+/** Roll back the current transaction level on the default connection. */
+export function rollBack(): Promise<void> {
+  return useConnection().rollBack()
 }
 
 /** Run a raw SQL query on the default connection and return rows. */

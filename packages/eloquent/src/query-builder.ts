@@ -1,4 +1,4 @@
-import type { Connection } from './connection'
+import { type Connection, useConnection } from './connection'
 
 export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like'
 type Row = Record<string, unknown>
@@ -526,4 +526,13 @@ export class QueryBuilder {
       page++
     }
   }
+}
+
+/**
+ * Start a query builder on `table` without a model, à la Laravel's `DB::table()`.
+ * Returns raw rows (not model instances). Pass a connection name to target a
+ * non-default connection.
+ */
+export function table(name: string, connection?: string): QueryBuilder {
+  return new QueryBuilder(useConnection(connection), name)
 }

@@ -112,6 +112,16 @@ await User.updateOrCreate({ email: 'a@b.c' }, { name: 'A2' })
 
 ## Query builder
 
+Use it through a model (`User.query()`) or standalone without a model, à la
+Laravel's `DB::table()` — the standalone form returns raw rows:
+
+```ts
+import { table } from '@elysia-ravel/eloquent'
+
+const rows = await table('users').where('active', true).orderByDesc('id').get()
+await table('logs', 'pgReplica').count() // target a named connection
+```
+
 ```ts
 const rows = await User.query()
   .select('id', 'name')
@@ -296,6 +306,28 @@ await transaction(async () => {
   await Post.create({ user_id: user.id, title: 'Hello' })
   // COMMIT on success, ROLLBACK on any thrown error
 })
+
+// Retry on deadlock / serialization failures
+await transaction(async () => { /* ... */ }, 3)
+
+// Nested transactions use SAVEPOINTs — an inner rollback keeps the outer work
+await transaction(async () => {
+  await User.create({ name: 'outer' })
+  await transaction(async () => {
+    await User.create({ name: 'inner' }) // rolled back to its savepoint on throw
+  })
+})
+
+// Manual control
+import { beginTransaction, commit, rollBack } from '@elysia-ravel/eloquent'
+await beginTransaction()
+try {
+  // ...
+  await commit()
+} catch (e) {
+  await rollBack()
+  throw e
+}
 ```
 
 ---
