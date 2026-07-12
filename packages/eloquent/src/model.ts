@@ -100,6 +100,7 @@ export type ModelEvent =
   | 'updated'
   | 'deleting'
   | 'deleted'
+  | 'pruning'
 
 type EventListener = (model: Model) => void | Promise<void>
 const MODEL_EVENTS = new WeakMap<Function, Map<ModelEvent, EventListener[]>>()
@@ -318,6 +319,41 @@ export class Model {
       return existing
     }
     return this.create({ ...attributes, ...values })
+  }
+
+  /**
+   * Query identifying stale records to prune. Return `null` (default) to mark a
+   * model non-prunable; override to return e.g. `this.where('created_at', '<', cutoff)`.
+   */
+  static prunable<M extends Model>(this: ModelClass<M>): EloquentBuilder<M> | null {
+    return null
+  }
+
+  /**
+   * Permanently delete records matched by {@link prunable}, in batches. Fires the
+   * `pruning` event per record (a hook to clean up related resources). Soft-deleted
+   * rows are included so they are fully removed. Returns the number pruned.
+   */
+  static async prune<M extends Model>(this: ModelClass<M>, chunkSize = 1000): Promise<number> {
+    if (!this.prunable()) {
+      throw new Error(`[eloquent] ${this.name} is not prunable. Override static prunable().`)
+    }
+    let total = 0
+    while (true) {
+      // Fresh query each round — deleted rows vanish, so no offset drift.
+      const query = this.prunable() as EloquentBuilder<M>
+      if (this.softDeletes) query.withTrashed()
+      const models = await query.limit(chunkSize).get()
+      const count = models.count()
+      if (count === 0) break
+      for (const model of models) {
+        await model.fireEvent('pruning')
+        await model.forceDelete()
+        total++
+      }
+      if (count < chunkSize) break
+    }
+    return total
   }
 
   // ── instance API ────────────────────────────────────────────────────────
