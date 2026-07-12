@@ -1,5 +1,11 @@
 #!/usr/bin/env bun
-import { migrateCommand, rollbackCommand, seedCommand, statusCommand } from './commands/db'
+import {
+  migrateCommand,
+  pruneCommand,
+  rollbackCommand,
+  seedCommand,
+  statusCommand,
+} from './commands/db'
 import { make } from './commands/make'
 import { serve } from './commands/serve'
 
@@ -14,13 +20,14 @@ Usage:
   ravel migrate:rollback                      Roll back the last migration batch
   ravel migrate:status                        Show applied/pending migrations
   ravel db:seed                               Run database/seeders/DatabaseSeeder
+  ravel model:prune [Name]                    Prune stale records (all prunable models, or one)
 
   ravel make:controller <Name>                Generate a controller plugin
   ravel make:middleware <Name>                Generate a middleware plugin
   ravel make:model <Name>                     Generate a model + table schema
   ravel make:migration <name>                 Generate a migration
   ravel make:seeder <Name>                    Generate a seeder
-  ravel make:policy <Name>                     Generate an authorization policy
+  ravel make:policy <Name>                    Generate an authorization policy
 `
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
@@ -72,6 +79,10 @@ async function main(): Promise<number> {
 
   if (command === 'db:seed') {
     return seedCommand()
+  }
+
+  if (command === 'model:prune') {
+    return pruneCommand(rest[0])
   }
 
   if (command.startsWith('make:')) {

@@ -1,14 +1,19 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { createApp } from '@elysia-ravel/core'
 import {
   DatabaseToken,
   freshMigrate,
   migrate,
+  type Model,
   rollback,
   runSeeders,
   type SeederClass,
   status,
 } from '@elysia-ravel/eloquent'
+
+/** A model constructor with the static pruning API. */
+type PrunableClass = typeof Model & { prune(chunkSize?: number): Promise<number> }
 
 /** Boot the framework without HTTP routes — just enough to reach the DB. */
 async function boot() {
@@ -67,5 +72,49 @@ export async function seedCommand(): Promise<number> {
 
   await runSeeders([module.default])
   console.log('✓ Database seeded.')
+  return 0
+}
+
+/**
+ * `ravel model:prune [Name]` — permanently delete records matched by each model's
+ * `prunable()`. With a name, prunes just `app/models/<Name>.ts`; otherwise scans
+ * `app/models/` and prunes every model that overrides `prunable()`.
+ */
+export async function pruneCommand(name?: string): Promise<number> {
+  const { app } = await boot()
+  const dir = app.path('app/models')
+
+  let files: string[]
+  if (name) {
+    const file = join(dir, `${name}.ts`)
+    if (!existsSync(file)) {
+      console.error(`No model found at app/models/${name}.ts`)
+      return 1
+    }
+    files = [file]
+  } else {
+    if (!existsSync(dir)) {
+      console.error('No app/models directory found.')
+      return 1
+    }
+    files = readdirSync(dir)
+      .filter((f) => f.endsWith('.ts'))
+      .map((f) => join(dir, f))
+  }
+
+  let anyPruned = false
+  for (const file of files) {
+    const module = (await import(file)) as { default?: unknown }
+    const cls = module.default as PrunableClass | undefined
+    if (typeof cls?.prune !== 'function' || cls.prunable() === null) {
+      if (name) console.log(`${name} is not prunable (override static prunable()).`)
+      continue
+    }
+    const count = await cls.prune()
+    console.log(`✓ pruned ${count} ${cls.name} record${count === 1 ? '' : 's'}`)
+    anyPruned = true
+  }
+
+  if (!anyPruned && !name) console.log('Nothing to prune.')
   return 0
 }
