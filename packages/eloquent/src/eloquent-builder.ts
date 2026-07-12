@@ -55,9 +55,53 @@ export class EloquentBuilder<M extends Model> {
     this.qb.whereNotNull(column)
     return this
   }
+  whereBetween(column: string, range: [unknown, unknown]): this {
+    this.qb.whereBetween(column, range)
+    return this
+  }
+  select(...columns: string[]): this {
+    this.qb.select(...columns)
+    return this
+  }
+  distinct(): this {
+    this.qb.distinct()
+    return this
+  }
+  join(table: string, first: string, operator: string, second: string): this {
+    this.qb.join(table, first, operator, second)
+    return this
+  }
+  leftJoin(table: string, first: string, operator: string, second: string): this {
+    this.qb.leftJoin(table, first, operator, second)
+    return this
+  }
+  groupBy(...columns: string[]): this {
+    this.qb.groupBy(...columns)
+    return this
+  }
+  having(column: string, operator: string, value: unknown): this {
+    this.qb.having(column, operator, value)
+    return this
+  }
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
     this.qb.orderBy(column, direction)
     return this
+  }
+  sum(column: string): Promise<number> {
+    this.prepare()
+    return this.qb.sum(column)
+  }
+  avg(column: string): Promise<number> {
+    this.prepare()
+    return this.qb.avg(column)
+  }
+  min(column: string): Promise<number> {
+    this.prepare()
+    return this.qb.min(column)
+  }
+  max(column: string): Promise<number> {
+    this.prepare()
+    return this.qb.max(column)
   }
   limit(n: number): this {
     this.qb.limit(n)
