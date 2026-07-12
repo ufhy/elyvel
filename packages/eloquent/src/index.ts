@@ -25,7 +25,17 @@ export {
 } from './model'
 export { freshMigrate, loadMigrations, type Migration, migrate, rollback, status } from './migrator'
 export { QueryBuilder } from './query-builder'
-export { BelongsTo, BelongsToMany, HasMany, HasOne, Relation } from './relations'
+export {
+  BelongsTo,
+  BelongsToMany,
+  HasMany,
+  HasManyThrough,
+  HasOne,
+  MorphMany,
+  MorphOne,
+  MorphTo,
+  Relation,
+} from './relations'
 export { Blueprint, SchemaBuilder } from './schema'
 export { runSeeders, Seeder, type SeederClass } from './seeder'
 export { DatabaseToken } from './tokens'

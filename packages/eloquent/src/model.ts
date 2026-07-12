@@ -2,7 +2,16 @@ import { useConnection } from './connection'
 import { EloquentBuilder } from './eloquent-builder'
 import type { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
-import { BelongsTo, BelongsToMany, HasMany, HasOne } from './relations'
+import {
+  BelongsTo,
+  BelongsToMany,
+  HasMany,
+  HasManyThrough,
+  HasOne,
+  MorphMany,
+  MorphOne,
+  MorphTo,
+} from './relations'
 
 export type Attributes = Record<string, unknown>
 
@@ -345,6 +354,29 @@ export class Model {
       parentKey ?? this.self().primaryKey,
       relatedKey ?? related.primaryKey,
     )
+  }
+
+  /** Polymorphic one-to-many (related.<morph>_id/_type point back here). */
+  morphMany<R extends Model>(related: ModelClass<R>, morphName: string, localKey = 'id'): MorphMany<R> {
+    return new MorphMany<R>(this, related, morphName, localKey)
+  }
+  morphOne<R extends Model>(related: ModelClass<R>, morphName: string, localKey = 'id'): MorphOne<R> {
+    return new MorphOne<R>(this, related, morphName, localKey)
+  }
+  /** Inverse polymorphic relation; `typeMap` resolves `<morph>_type` → model. */
+  morphTo(morphName: string, typeMap: Record<string, ModelClass<Model>>): MorphTo {
+    return new MorphTo(this, morphName, typeMap)
+  }
+  /** Distant relation through an intermediate model. */
+  hasManyThrough<R extends Model>(
+    far: ModelClass<R>,
+    through: ModelClass<Model>,
+    firstKey = `${this.constructor.name.toLowerCase()}_id`,
+    secondKey = `${through.name.toLowerCase()}_id`,
+    localKey = this.self().primaryKey,
+    secondLocalKey = through.primaryKey,
+  ): HasManyThrough<R> {
+    return new HasManyThrough<R>(this, far, through, firstKey, secondKey, localKey, secondLocalKey)
   }
 
   setRelation(name: string, value: unknown): this {

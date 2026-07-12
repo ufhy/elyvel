@@ -255,3 +255,150 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     }
   }
 }
+
+/** Polymorphic one-to-many: related.<name>_id = parent.id AND <name>_type = parent class. */
+export class MorphMany<R extends Model> extends Relation<R> {
+  private readonly idField: string
+  private readonly typeField: string
+  constructor(
+    parent: Model,
+    related: ModelClass<R>,
+    morphName: string,
+    private readonly localKey = 'id',
+  ) {
+    super(parent, related)
+    this.idField = `${morphName}_id`
+    this.typeField = `${morphName}_type`
+  }
+  protected addConstraints(): void {
+    this.builder
+      .where(this.idField, this.parent.getAttribute(this.localKey))
+      .where(this.typeField, this.parent.constructor.name)
+  }
+  async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
+    const type = parents[0]?.constructor.name
+    const keys = parents.map((p) => p.getAttribute(this.localKey))
+    const query = this.related.query().whereIn(this.idField, keys).where(this.typeField, type)
+    constrain?.(query)
+    const grouped = (await query.get()).groupBy(this.idField as keyof R)
+    for (const parent of parents) {
+      const items = grouped[String(parent.getAttribute(this.localKey))]?.all() ?? []
+      parent.setRelation(name, new EloquentCollection(items))
+    }
+  }
+  async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
+    const query = this.related.query().select(this.idField).where(this.typeField, this.parent.constructor.name)
+    constrain?.(query)
+    const rows = await query.get()
+    return { column: this.localKey, values: [...new Set(rows.all().map((m) => m.getAttribute(this.idField)))] }
+  }
+}
+
+/** Polymorphic one-to-one. */
+export class MorphOne<R extends Model> extends MorphMany<R> {
+  async getResults(): Promise<R | undefined> {
+    return (await this.get()).first()
+  }
+}
+
+/** The inverse polymorphic relation: resolves the owner via a type map. */
+export class MorphTo extends Relation<Model> {
+  private readonly idField: string
+  private readonly typeField: string
+  constructor(
+    parent: Model,
+    morphName: string,
+    private readonly typeMap: Record<string, ModelClass<Model>>,
+  ) {
+    super(parent, parent.constructor as ModelClass<Model>)
+    this.idField = `${morphName}_id`
+    this.typeField = `${morphName}_type`
+  }
+  protected addConstraints(): void {}
+  override async first(): Promise<Model | undefined> {
+    const cls = this.typeMap[String(this.parent.getAttribute(this.typeField))]
+    if (!cls) return undefined
+    return cls.query().where(cls.primaryKey, this.parent.getAttribute(this.idField)).first()
+  }
+  override async get(): Promise<EloquentCollection<Model>> {
+    const model = await this.first()
+    return new EloquentCollection(model ? [model] : [])
+  }
+  async eager(parents: Model[], name: string): Promise<void> {
+    const byType = new Map<string, Model[]>()
+    for (const parent of parents) {
+      const type = String(parent.getAttribute(this.typeField))
+      const bucket = byType.get(type) ?? []
+      bucket.push(parent)
+      byType.set(type, bucket)
+    }
+    for (const [type, group] of byType) {
+      const cls = this.typeMap[type]
+      if (!cls) {
+        for (const parent of group) parent.setRelation(name, undefined)
+        continue
+      }
+      const ids = group.map((p) => p.getAttribute(this.idField))
+      const keyed = (await cls.query().whereIn(cls.primaryKey, ids).get()).keyBy(
+        cls.primaryKey as keyof Model,
+      )
+      for (const parent of group) {
+        parent.setRelation(name, keyed[String(parent.getAttribute(this.idField))])
+      }
+    }
+  }
+  async existenceKeys(): Promise<ExistenceKeys> {
+    throw new Error('[eloquent] whereHas is not supported on morphTo relations')
+  }
+}
+
+/** Has-many-through: parent → through → far (two hops, two queries). */
+export class HasManyThrough<R extends Model> extends Relation<R> {
+  constructor(
+    parent: Model,
+    far: ModelClass<R>,
+    private readonly through: ModelClass<Model>,
+    private readonly firstKey: string, // through.<firstKey> = parent.<localKey>
+    private readonly secondKey: string, // far.<secondKey> = through.<secondLocalKey>
+    private readonly localKey: string,
+    private readonly secondLocalKey: string,
+  ) {
+    super(parent, far)
+  }
+  protected addConstraints(): void {}
+  private async throughRows(parentKeys: unknown[]) {
+    return (await this.through.query().whereIn(this.firstKey, parentKeys).get()).all()
+  }
+  override async get(): Promise<EloquentCollection<R>> {
+    const rows = await this.throughRows([this.parent.getAttribute(this.localKey)])
+    const throughIds = rows.map((t) => t.getAttribute(this.secondLocalKey))
+    if (throughIds.length === 0) return new EloquentCollection<R>([])
+    return this.related.query().whereIn(this.secondKey, throughIds).get()
+  }
+  async eager(parents: Model[], name: string): Promise<void> {
+    const rows = await this.throughRows(parents.map((p) => p.getAttribute(this.localKey)))
+    const throughToParent = new Map<string, string>()
+    for (const t of rows) {
+      throughToParent.set(String(t.getAttribute(this.secondLocalKey)), String(t.getAttribute(this.firstKey)))
+    }
+    const throughIds = rows.map((t) => t.getAttribute(this.secondLocalKey))
+    const far = throughIds.length
+      ? await this.related.query().whereIn(this.secondKey, throughIds).get()
+      : new EloquentCollection<R>([])
+    const byParent = new Map<string, R[]>()
+    for (const model of far.all()) {
+      const parentKey = throughToParent.get(String(model.getAttribute(this.secondKey)))
+      if (parentKey === undefined) continue
+      const bucket = byParent.get(parentKey) ?? []
+      bucket.push(model)
+      byParent.set(parentKey, bucket)
+    }
+    for (const parent of parents) {
+      const bucket = byParent.get(String(parent.getAttribute(this.localKey))) ?? []
+      parent.setRelation(name, new EloquentCollection(bucket))
+    }
+  }
+  async existenceKeys(): Promise<ExistenceKeys> {
+    throw new Error('[eloquent] whereHas is not supported on hasManyThrough relations')
+  }
+}
