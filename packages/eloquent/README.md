@@ -150,6 +150,17 @@ await User.query().upsert([{ email: 'a@b.c', name: 'A' }], ['email'], ['name'])
 .selectRaw('count(*) as n')
 ```
 
+Raw SQL against the connection — positional or named bindings, plus `unprepared`
+for multi-statement DDL:
+
+```ts
+import { raw, unprepared } from '@elysia-ravel/eloquent'
+
+await raw('SELECT * FROM users WHERE id = :id', { id: 1 }) // :name → ? / $n
+await raw('SELECT * FROM users WHERE age > ?', [18])
+await unprepared('CREATE TABLE a (id INT); CREATE TABLE b (id INT);')
+```
+
 Also available: `distinct`, `whereColumn`, `whereExists`, `leftJoin`,
 `orderByRaw`, `union`, `lockForUpdate`, `sharedLock`, `when`, `pluck`, `value`,
 `chunk`, `insertOrIgnore`, `updateOrInsert`, `decrement`.
@@ -292,6 +303,11 @@ ravel migrate:fresh      # drop everything and re-migrate
 ravel migrate:rollback   # roll back the last batch
 ravel migrate:status
 ravel db:seed
+
+ravel db                 # open the native shell (sqlite3 / psql)
+ravel db:show            # list tables with row counts
+ravel db:table users     # describe a table's columns
+ravel db:monitor --max=100   # open-connection count (Postgres)
 ```
 
 ---
@@ -372,8 +388,12 @@ pgSplit: {
     { url: 'postgres://replica-1:5432/app' },
     { url: 'postgres://replica-2:5432/app' }, // round-robin
   ],
+  sticky: true, // after a write, route that request's reads to the primary
 }
 ```
+
+`sticky` gives read-your-writes per HTTP request (scoped with `AsyncLocalStorage`);
+reads inside a transaction always use the primary regardless.
 
 ---
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env bun
 import {
+  dbMonitorCommand,
+  dbShellCommand,
+  dbShowCommand,
+  dbTableCommand,
   migrateCommand,
   pruneCommand,
   rollbackCommand,
@@ -21,6 +25,11 @@ Usage:
   ravel migrate:status                        Show applied/pending migrations
   ravel db:seed                               Run database/seeders/DatabaseSeeder
   ravel model:prune [Name]                    Prune stale records (all prunable models, or one)
+
+  ravel db                                    Open the native database shell (sqlite3 / psql)
+  ravel db:show                               List tables with row counts
+  ravel db:table <name>                       Describe a table's columns
+  ravel db:monitor [--max=N]                  Report open connections (Postgres)
 
   ravel make:controller <Name>                Generate a controller plugin
   ravel make:middleware <Name>                Generate a middleware plugin
@@ -83,6 +92,22 @@ async function main(): Promise<number> {
 
   if (command === 'model:prune') {
     return pruneCommand(rest[0])
+  }
+
+  if (command === 'db') {
+    return dbShellCommand()
+  }
+
+  if (command === 'db:show') {
+    return dbShowCommand()
+  }
+
+  if (command === 'db:table') {
+    return dbTableCommand(rest[0])
+  }
+
+  if (command === 'db:monitor') {
+    return dbMonitorCommand(flags.max ? Number(flags.max) : undefined)
   }
 
   if (command.startsWith('make:')) {

@@ -2,14 +2,19 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createApp } from '@elysia-ravel/core'
 import {
+  type Connection,
+  countRows,
   DatabaseToken,
   freshMigrate,
+  listTables,
   migrate,
   type Model,
+  openConnectionCount,
   rollback,
   runSeeders,
   type SeederClass,
   status,
+  tableColumns,
 } from '@elysia-ravel/eloquent'
 
 /** A model constructor with the static pruning API. */
@@ -117,4 +122,93 @@ export async function pruneCommand(name?: string): Promise<number> {
 
   if (!anyPruned && !name) console.log('Nothing to prune.')
   return 0
+}
+
+/** `ravel db:show` — list tables with row counts. */
+export async function dbShowCommand(): Promise<number> {
+  const { app, conn } = await boot()
+  const connection = conn as Connection
+  const name = app.config.get<string>('database.default', 'sqlite')
+  console.log(`Connection: ${name} (${connection.dialect})`)
+
+  const tables = await listTables(connection)
+  if (tables.length === 0) {
+    console.log('No tables.')
+    return 0
+  }
+  const rows = await Promise.all(
+    tables.map(async (t) => ({ table: t, rows: await countRows(connection, t) })),
+  )
+  const width = Math.max(...rows.map((r) => r.table.length), 'Table'.length)
+  console.log(`${'Table'.padEnd(width)}  Rows`)
+  for (const r of rows) console.log(`${r.table.padEnd(width)}  ${r.rows}`)
+  return 0
+}
+
+/** `ravel db:table <name>` — describe a table's columns. */
+export async function dbTableCommand(table?: string): Promise<number> {
+  if (!table) {
+    console.error('Usage: ravel db:table <name>')
+    return 1
+  }
+  const { conn } = await boot()
+  const connection = conn as Connection
+
+  const tables = await listTables(connection)
+  if (!tables.includes(table)) {
+    console.error(`Table "${table}" not found.`)
+    return 1
+  }
+  const columns = await tableColumns(connection, table)
+  const w = Math.max(...columns.map((c) => c.name.length), 'Column'.length)
+  const tw = Math.max(...columns.map((c) => c.type.length), 'Type'.length)
+  console.log(`${'Column'.padEnd(w)}  ${'Type'.padEnd(tw)}  Nullable  Default`)
+  for (const c of columns) {
+    console.log(
+      `${c.name.padEnd(w)}  ${c.type.padEnd(tw)}  ${(c.nullable ? 'yes' : 'no').padEnd(8)}  ${c.default ?? ''}`,
+    )
+  }
+  return 0
+}
+
+/** `ravel db:monitor [--max=N]` — report open connections (Postgres only). */
+export async function dbMonitorCommand(max = 100): Promise<number> {
+  const { conn } = await boot()
+  const connection = conn as Connection
+  const count = await openConnectionCount(connection)
+  if (count === null) {
+    console.log(`Connection monitoring is only supported on Postgres (dialect: ${connection.dialect}).`)
+    return 0
+  }
+  console.log(`Open connections: ${count} / ${max}`)
+  if (count > max) {
+    console.error(`⚠ Open connections (${count}) exceed the max (${max}).`)
+    return 1
+  }
+  return 0
+}
+
+/** `ravel db` — open the native database shell (sqlite3 / psql). */
+export async function dbShellCommand(): Promise<number> {
+  const { app } = await boot()
+  const name = app.config.get<string>('database.default', 'sqlite')
+  const config = app.config.get<Record<string, unknown>>(`database.connections.${name}`, {})
+
+  let cmd: string[]
+  if (config.driver === 'sqlite') {
+    cmd = ['sqlite3', app.path(String(config.database))]
+  } else if (config.driver === 'pg') {
+    cmd = ['psql', String(config.url)]
+  } else {
+    console.error(`No interactive shell for driver "${String(config.driver)}".`)
+    return 1
+  }
+
+  try {
+    const proc = Bun.spawn(cmd, { stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })
+    return await proc.exited
+  } catch {
+    console.error(`Could not launch "${cmd[0]}". Is it installed and on your PATH?`)
+    return 1
+  }
 }

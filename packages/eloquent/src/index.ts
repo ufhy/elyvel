@@ -44,6 +44,13 @@ export {
   Model,
   type ModelEvent,
 } from './model'
+export {
+  type ColumnInfo,
+  countRows,
+  listTables,
+  openConnectionCount,
+  tableColumns,
+} from './inspect'
 export { freshMigrate, loadMigrations, type Migration, migrate, rollback, status } from './migrator'
 export { QueryBuilder, table } from './query-builder'
 export {
