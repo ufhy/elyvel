@@ -16,6 +16,12 @@ export interface QueryLogEntry {
 export type QueryExecuted = QueryLogEntry
 export type QueryListener = (event: QueryExecuted) => void
 
+/** A query that threw — the payload passed to {@link Connection.onQueryError}. */
+export interface QueryErrored extends QueryExecuted {
+  error: unknown
+}
+export type QueryErrorListener = (event: QueryErrored) => void
+
 export interface Connection {
   readonly dialect: Dialect
   readonly grammar: Grammar
@@ -33,6 +39,12 @@ export interface Connection {
    * `DB::listen`). Returns an unsubscribe function.
    */
   onQuery(listener: QueryListener): () => void
+  /**
+   * Register a listener fired when a query throws (with `sql`, `bindings`, and
+   * the `error`). The error is still re-thrown afterwards. Returns an
+   * unsubscribe function.
+   */
+  onQueryError(listener: QueryErrorListener): () => void
   /**
    * Fire `callback` once the cumulative query time (ms) since the last reset
    * crosses `threshold` — for slow-request alerts (à la Laravel's
@@ -141,6 +153,7 @@ function withQueryLog(base: RawConnection): Connection {
   let logging = false
   const log: QueryLogEntry[] = []
   const listeners = new Set<QueryListener>()
+  const errorListeners = new Set<QueryErrorListener>()
   const slow: { threshold: number; callback: QueryListener; fired: boolean }[] = []
   let totalDuration = 0
 
@@ -148,7 +161,14 @@ function withQueryLog(base: RawConnection): Connection {
 
   const record = async <T>(sql: string, bindings: unknown[], run: () => Promise<T>): Promise<T> => {
     const start = performance.now()
-    const result = await run()
+    let result: T
+    try {
+      result = await run()
+    } catch (error) {
+      const ms = round(performance.now() - start)
+      for (const listener of errorListeners) listener({ sql, bindings, ms, error })
+      throw error
+    }
     const ms = round(performance.now() - start)
     const event: QueryExecuted = { sql, bindings, ms }
 
@@ -184,6 +204,10 @@ function withQueryLog(base: RawConnection): Connection {
     onQuery: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    onQueryError: (listener) => {
+      errorListeners.add(listener)
+      return () => errorListeners.delete(listener)
     },
     whenQueryingForLongerThan: (threshold, callback) => {
       const entry = { threshold, callback, fired: false }

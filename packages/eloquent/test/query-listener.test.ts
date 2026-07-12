@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, type QueryExecuted, setConnection } from '../src/connection'
+import {
+  createConnection,
+  type QueryErrored,
+  type QueryExecuted,
+  setConnection,
+} from '../src/connection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 
@@ -60,6 +65,20 @@ for (const d of dialects) {
       expect(conn.getTotalQueryDuration()).toBe(0)
       await Widget.query().get()
       expect(fired).toBe(2) // re-armed after reset
+    })
+
+    test('onQueryError fires with sql + error, then re-throws', async () => {
+      const conn = (await import('../src/connection')).useConnection()
+      const errors: QueryErrored[] = []
+      conn.onQueryError((e) => errors.push(e))
+
+      // Querying a non-existent table fails at the driver level.
+      await expect(conn.select('SELECT * FROM does_not_exist')).rejects.toThrow()
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0]?.sql).toContain('does_not_exist')
+      expect(errors[0]?.error).toBeDefined()
+      expect(typeof errors[0]?.ms).toBe('number')
     })
   })
 }

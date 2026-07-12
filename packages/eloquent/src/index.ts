@@ -7,6 +7,8 @@ export {
   hasConnection,
   type PgliteConnectionConfig,
   type PostgresConnectionConfig,
+  type QueryErrored,
+  type QueryErrorListener,
   type QueryExecuted,
   type QueryListener,
   type QueryLogEntry,
