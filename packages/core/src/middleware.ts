@@ -20,18 +20,23 @@ export interface MiddlewareContext {
 }
 
 /**
- * A middleware. Implement `handle` — short-circuit by returning a response,
- * or return nothing to continue. Extra route arguments (`throttle:60,1`) arrive
- * as trailing string params.
+ * A middleware. Implement `handle` (runs before the route) — short-circuit by
+ * returning a response, or return nothing to continue. Optionally implement
+ * `terminate` to run work *after* the response is sent (logging, cleanup).
+ * Extra route arguments (`throttle:60,1`) arrive as trailing string params.
  */
 export abstract class Middleware {
   abstract handle(context: MiddlewareContext, ...args: string[]): unknown
+  /** Runs after the response is sent. Return value is ignored. */
+  terminate?(context: MiddlewareContext, ...args: string[]): void | Promise<void>
 }
 
 export type MiddlewareClass = new () => Middleware
 /** A middleware entry: a class, a raw Elysia plugin, or (in groups) an alias name. */
 export type MiddlewareItem = MiddlewareClass | Elysia
 export type GroupItem = MiddlewareItem | string
+/** A "guard" — a middleware class or an alias spec string like `throttle:60,1`. */
+type Guard = MiddlewareClass | string
 
 /** Shape of `config/middleware.ts`. Author it with {@link defineMiddlewareConfig}. */
 export interface MiddlewareConfig {
@@ -70,51 +75,83 @@ function parseSpec(spec: string): [string, string[]] {
   return [spec.slice(0, idx), spec.slice(idx + 1).split(',')]
 }
 
-/** Run one named alias (with optional args) as a before-handle guard. */
-async function runAlias(spec: string, context: MiddlewareContext): Promise<unknown> {
-  const [name, args] = parseSpec(spec)
+/** Instantiate a guard (alias name → registered class, or a class as-is). */
+function instantiate(guard: Guard): { instance: Middleware; args: string[] } {
+  if (typeof guard !== 'string') return { instance: new guard(), args: [] }
+  const [name, args] = parseSpec(guard)
   const Cls = aliases.get(name)
   if (!Cls) {
     throw new Error(
       `[elysia-ravel] Unknown middleware "${name}". Register it in config/middleware.ts (aliases).`,
     )
   }
-  return new Cls().handle(context, ...args)
+  return { instance: new Cls(), args }
+}
+
+/** Run guards' `handle` in order; the first response short-circuits. */
+async function runGuards(guards: Guard[], context: MiddlewareContext): Promise<unknown> {
+  for (const guard of guards) {
+    const { instance, args } = instantiate(guard)
+    const result = await instance.handle(context, ...args)
+    if (result !== undefined) return result
+  }
+  return undefined
+}
+
+/**
+ * Run guards' `terminate` after the response (no short-circuit). Unknown aliases
+ * are skipped here — they've already surfaced in the before phase — so a bad
+ * config never throws twice.
+ */
+async function runTerminators(guards: Guard[], context: MiddlewareContext): Promise<void> {
+  for (const guard of guards) {
+    let resolved: { instance: Middleware; args: string[] }
+    try {
+      resolved = instantiate(guard)
+    } catch {
+      continue
+    }
+    if (resolved.instance.terminate) await resolved.instance.terminate(context, ...resolved.args)
+  }
 }
 
 /**
  * A named base router: `new Elysia()` plus the `middleware` macro, so routes can
  * do `{ middleware: 'auth' }` / `{ middleware: ['auth', 'throttle:60,1'] }`.
  * Use this instead of `new Elysia()` in `routes/` files.
+ *
+ * Pass `{ middleware }` to apply middleware to *every* route in this group,
+ * à la Laravel's `Route::group(['middleware' => ...])`.
  */
-export function route(prefix?: string) {
-  // Return type is inferred (not annotated) so the `middleware` macro stays
+export function route(prefix?: string, options: { middleware?: string[] } = {}) {
+  const groupMw = options.middleware ?? []
+  // Return type stays inferred (not annotated) so the `middleware` macro remains
   // visible to `.get(..., { middleware: '...' })` at call sites.
-  return new Elysia(prefix ? { prefix } : {}).macro({
-    middleware(names: string | string[]) {
-      const list = Array.isArray(names) ? names : [names]
-      return {
-        // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
-        beforeHandle: async (context: any) => {
-          for (const spec of list) {
-            const result = await runAlias(spec, context as MiddlewareContext)
-            if (result !== undefined) return result // short-circuit
-          }
-          return undefined
-        },
-      }
-    },
-  })
-}
-
-/** Run a mixed list of guards (alias names or middleware classes) in order. */
-async function runGuards(guards: (MiddlewareClass | string)[], context: MiddlewareContext) {
-  for (const item of guards) {
-    const result =
-      typeof item === 'string' ? await runAlias(item, context) : await new item().handle(context)
-    if (result !== undefined) return result
-  }
-  return undefined
+  return new Elysia(prefix ? { prefix } : {})
+    .macro({
+      middleware(names: string | string[]) {
+        const list = Array.isArray(names) ? names : [names]
+        return {
+          // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
+          beforeHandle: async (context: any) => {
+            const result = await runGuards(list, context as MiddlewareContext)
+            if (result !== undefined) return result
+          },
+          // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
+          afterResponse: async (context: any) => {
+            await runTerminators(list, context as MiddlewareContext)
+          },
+        }
+      },
+    })
+    .onBeforeHandle({ as: 'scoped' }, async (context) => {
+      if (!groupMw.length) return
+      const result = await runGuards(groupMw, context as MiddlewareContext)
+      if (result !== undefined) return result
+    })
+    .onAfterResponse({ as: 'scoped' }, async (context) => {
+      if (groupMw.length) await runTerminators(groupMw, context as MiddlewareContext)
+    })
 }
 
 /**
@@ -127,22 +164,27 @@ export function group(name: string): Elysia {
     throw new Error(`[elysia-ravel] Unknown middleware group "${name}" (config/middleware.ts).`)
   }
   const plugins = items.filter(isElysia)
-  const guards = items.filter((i): i is MiddlewareClass | string => !isElysia(i))
+  const guards = items.filter((i): i is Guard => !isElysia(i))
 
   // biome-ignore lint/suspicious/noExplicitAny: composing Elysia plugins of varied generics
   let plugin: any = new Elysia({ name: `ravel-group-${name}` })
   for (const p of plugins) plugin = plugin.use(p)
   if (guards.length) {
-    plugin = plugin.onBeforeHandle({ as: 'scoped' }, (context: MiddlewareContext) =>
-      runGuards(guards, context),
-    )
+    plugin = plugin
+      .onBeforeHandle({ as: 'scoped' }, async (context: MiddlewareContext) => {
+        const result = await runGuards(guards, context)
+        if (result !== undefined) return result
+      })
+      .onAfterResponse({ as: 'scoped' }, async (context: MiddlewareContext) => {
+        await runTerminators(guards, context)
+      })
   }
   return plugin as Elysia
 }
 
 /**
  * Build the global-middleware plugin (applied to every request by the
- * Application). Class middleware run as global before-handle guards; raw Elysia
+ * Application). Class middleware run as global before/after guards; raw Elysia
  * plugins are mounted directly.
  */
 export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
@@ -153,9 +195,14 @@ export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
   let plugin: any = new Elysia({ name: 'ravel-global-middleware' })
   for (const p of plugins) plugin = plugin.use(p)
   if (guards.length) {
-    plugin = plugin.onBeforeHandle({ as: 'global' }, (context: MiddlewareContext) =>
-      runGuards(guards, context),
-    )
+    plugin = plugin
+      .onBeforeHandle({ as: 'global' }, async (context: MiddlewareContext) => {
+        const result = await runGuards(guards, context)
+        if (result !== undefined) return result
+      })
+      .onAfterResponse({ as: 'global' }, async (context: MiddlewareContext) => {
+        await runTerminators(guards, context)
+      })
   }
   return plugin as Elysia
 }

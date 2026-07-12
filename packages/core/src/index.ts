@@ -52,8 +52,10 @@ export { loadRoutes } from './router'
 export type { RouteModule } from './router'
 export {
   apiResource,
+  type Binder,
   Controller,
   type ControllerClass,
+  type ModelBinder,
   resource,
   type ResourceAction,
   type ResourceOptions,

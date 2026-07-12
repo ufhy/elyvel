@@ -1,6 +1,5 @@
 import type { Elysia } from 'elysia'
-import type { MiddlewareContext } from './middleware'
-import { route } from './middleware'
+import { type MiddlewareContext, route } from './middleware'
 
 /** A controller action handler — receives the Elysia context, returns a response. */
 export type RouteHandler = (context: MiddlewareContext) => unknown
@@ -17,6 +16,12 @@ export type ResourceAction = 'index' | 'store' | 'show' | 'update' | 'destroy'
 
 const ALL_ACTIONS: ResourceAction[] = ['index', 'store', 'show', 'update', 'destroy']
 
+/** Resolves the route id into a model instance (e.g. an Eloquent model class). */
+export interface ModelBinder {
+  find(id: unknown): unknown | Promise<unknown>
+}
+export type Binder = ModelBinder | ((id: string) => unknown | Promise<unknown>)
+
 export interface ResourceOptions {
   /** Only wire these actions. */
   only?: ResourceAction[]
@@ -29,6 +34,12 @@ export interface ResourceOptions {
    * per-action. Values are alias specs (`'auth'`, `'throttle:60,1'`).
    */
   middleware?: string[] | Partial<Record<ResourceAction, string[]>>
+  /**
+   * Route model binding: resolve `:id` into a model for `show`/`update`/`destroy`,
+   * exposed as `ctx.model` (404 if not found). Pass a model class with a static
+   * `find(id)` (like an Eloquent model) or a resolver function.
+   */
+  bind?: Binder
 }
 
 type ControllerInstance = Partial<Record<ResourceAction, RouteHandler>>
@@ -68,6 +79,7 @@ export function resource(
   const instance = new Controller()
   const param = options.param ?? 'id'
   const idPath = `/:${param}`
+  const label = path.replace(/^\//, '').replace(/\/$/, '') || 'resource'
   // biome-ignore lint/suspicious/noExplicitAny: Elysia route generics vary per call
   let r: any = route(path)
 
@@ -75,9 +87,34 @@ export function resource(
     const mw = middlewareFor(action, options)
     return mw.length ? { middleware: mw } : undefined
   }
+
+  const resolveModel = async (ctx: MiddlewareContext): Promise<unknown> => {
+    const id = ctx.params[param]
+    const binder = options.bind as Binder
+    // A model class (or object) exposes `.find`; anything else is a resolver fn.
+    return typeof (binder as ModelBinder).find === 'function'
+      ? (binder as ModelBinder).find(id)
+      : (binder as (id: string) => unknown)(String(id))
+  }
+
+  // Wrap id-based actions with model binding when `bind` is set.
+  const bindAction = (action: ResourceAction, handler: RouteHandler): RouteHandler => {
+    const needsModel = action === 'show' || action === 'update' || action === 'destroy'
+    if (!options.bind || !needsModel) return handler
+    return async (ctx) => {
+      const model = await resolveModel(ctx)
+      if (model === null || model === undefined) {
+        return ctx.status(404, { message: `${label} not found` })
+      }
+      ctx.model = model
+      return handler(ctx)
+    }
+  }
+
   const bind = (action: ResourceAction): RouteHandler | undefined => {
     const fn = instance[action]
-    return typeof fn === 'function' ? (fn as RouteHandler).bind(instance) : undefined
+    if (typeof fn !== 'function') return undefined
+    return bindAction(action, (fn as RouteHandler).bind(instance))
   }
 
   for (const action of selectedActions(options)) {

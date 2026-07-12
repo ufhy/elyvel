@@ -11,10 +11,9 @@ export class UserController extends Controller {
     return (await User.all()).toArray()
   }
 
-  /** GET /users/:id */
+  /** GET /users/:id — `ctx.model` is resolved by route model binding (404 if missing). */
   async show(ctx: MiddlewareContext) {
-    const user = await User.find(Number(ctx.params.id))
-    return user ? user.toJSON() : ctx.status(404, { message: 'User not found' })
+    return (ctx.model as User).toJSON()
   }
 
   /** POST /users */
@@ -23,11 +22,9 @@ export class UserController extends Controller {
     return ctx.status(201, user.toJSON())
   }
 
-  /** DELETE /users/:id */
+  /** DELETE /users/:id — bound model, already 404-guarded. */
   async destroy(ctx: MiddlewareContext) {
-    const user = await User.find(Number(ctx.params.id))
-    if (!user) return ctx.status(404, { message: 'User not found' })
-    await user.delete()
+    await (ctx.model as User).delete()
     return { deleted: true }
   }
 }
