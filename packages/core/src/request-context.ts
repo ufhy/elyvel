@@ -62,12 +62,26 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
       else if (status >= 400) http.warn(line, context)
       else http.info(line, context)
     })
-    .onError({ as: 'global' }, ({ request, error, code }) => {
+    .onError({ as: 'global' }, ({ request, error, code, set }) => {
       const { pathname } = new URL(request.url)
+      const requestId = meta.get(request)?.id
+      const message = error instanceof Error ? error.message : String(error)
+
+      // Client errors that carry a status (e.g. ValidationException 422,
+      // AuthorizationException 403) are rendered as JSON — duck-typed so core
+      // stays decoupled from the validation package.
+      const status = (error as { status?: unknown }).status
+      if (typeof status === 'number' && status >= 400 && status < 500) {
+        set.status = status
+        http.warn(`${request.method} ${pathname}`, { requestId, status })
+        const errors = (error as { errors?: unknown }).errors
+        return errors ? { message, errors } : { message }
+      }
+
       http.error(`${request.method} ${pathname} threw`, {
-        requestId: meta.get(request)?.id,
+        requestId,
         code,
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
         stack: error instanceof Error ? error.stack : undefined,
       })
     })

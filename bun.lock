@@ -17,6 +17,7 @@
         "@elysia-ravel/auth": "workspace:*",
         "@elysia-ravel/core": "workspace:*",
         "@elysia-ravel/database": "workspace:*",
+        "@elysia-ravel/validation": "workspace:*",
         "elysia": "^1.3.0",
       },
       "devDependencies": {
@@ -75,6 +76,10 @@
       "name": "@elysia-ravel/support",
       "version": "0.0.0",
     },
+    "packages/validation": {
+      "name": "@elysia-ravel/validation",
+      "version": "0.0.0",
+    },
   },
   "packages": {
     "@biomejs/biome": ["@biomejs/biome@1.9.4", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "1.9.4", "@biomejs/cli-darwin-x64": "1.9.4", "@biomejs/cli-linux-arm64": "1.9.4", "@biomejs/cli-linux-arm64-musl": "1.9.4", "@biomejs/cli-linux-x64": "1.9.4", "@biomejs/cli-linux-x64-musl": "1.9.4", "@biomejs/cli-win32-arm64": "1.9.4", "@biomejs/cli-win32-x64": "1.9.4" }, "bin": { "biome": "bin/biome" } }, "sha512-1rkd7G70+o9KkTn5KLmDYXihGoTaIGO9PIIN2ZB7UJxFrWw04CZHPYiMRjYsaDvVV7hP1dYNRLxSANLaBFGpog=="],
@@ -108,6 +113,8 @@
     "@elysia-ravel/database": ["@elysia-ravel/database@workspace:packages/database"],
 
     "@elysia-ravel/support": ["@elysia-ravel/support@workspace:packages/support"],
+
+    "@elysia-ravel/validation": ["@elysia-ravel/validation@workspace:packages/validation"],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.51", "", {}, "sha512-Nu4sNPT4G3QgAvxmdUCR/NBmsi23F2tEIcbMOZJVHS+qEgk+rmXxQikEeoKFyaX+UEggAoTvHUvIlj8MfYPzXQ=="],
 

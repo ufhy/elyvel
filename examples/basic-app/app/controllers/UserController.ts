@@ -1,5 +1,7 @@
 import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
+import { Hash } from '@elysia-ravel/auth'
 import { User } from '../models/User'
+import { StoreUserRequest } from '../requests/StoreUserRequest'
 
 /**
  * UserController — a RESTful resource controller. Wired up in `routes/api.ts`
@@ -16,9 +18,14 @@ export class UserController extends Controller {
     return (ctx.model as User).toJSON()
   }
 
-  /** POST /users */
+  /** POST /users — validated by StoreUserRequest (422 Laravel bag on failure). */
   async store(ctx: MiddlewareContext) {
-    const user = await User.create(ctx.body as Record<string, unknown>)
+    const data = await StoreUserRequest.validate(ctx)
+    const user = await User.create({
+      name: data.name,
+      email: data.email,
+      password: await Hash.make(String(data.password)),
+    })
     return ctx.status(201, user.toJSON())
   }
 
