@@ -23,7 +23,7 @@ export {
   Model,
   type ModelEvent,
 } from './model'
-export { freshMigrate, loadMigrations, type Migration, migrate } from './migrator'
+export { freshMigrate, loadMigrations, type Migration, migrate, rollback, status } from './migrator'
 export { QueryBuilder } from './query-builder'
 export { BelongsTo, BelongsToMany, HasMany, HasOne, Relation } from './relations'
 export { Blueprint, SchemaBuilder } from './schema'

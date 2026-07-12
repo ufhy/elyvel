@@ -3,12 +3,33 @@ export type Dialect = 'sqlite' | 'pg'
 /** A column definition collected by the schema {@link Blueprint}. */
 export interface ColumnDefinition {
   name: string
-  type: 'id' | 'string' | 'text' | 'integer' | 'bigInteger' | 'boolean' | 'timestamp' | 'json'
+  type:
+    | 'id'
+    | 'string'
+    | 'text'
+    | 'integer'
+    | 'bigInteger'
+    | 'boolean'
+    | 'timestamp'
+    | 'json'
+    | 'uuid'
+    | 'decimal'
+    | 'date'
+    | 'datetime'
   length?: number
+  precision?: number
+  scale?: number
   nullable?: boolean
   unique?: boolean
   default?: unknown
   references?: { table: string; column: string; onDelete?: 'cascade' | 'set null' | 'restrict' }
+}
+
+/** A standalone index (created after the table). */
+export interface IndexDefinition {
+  columns: string[]
+  unique: boolean
+  name: string
 }
 
 /**
@@ -54,6 +75,16 @@ export abstract class Grammar {
     return `DROP TABLE IF EXISTS ${this.wrap(table)}${cascade}`
   }
 
+  compileAddColumn(table: string, column: ColumnDefinition): string {
+    return `ALTER TABLE ${this.wrap(table)} ADD COLUMN ${this.compileColumn(column)}`
+  }
+
+  compileCreateIndex(table: string, index: IndexDefinition): string {
+    const unique = index.unique ? 'UNIQUE ' : ''
+    const cols = index.columns.map((c) => this.wrap(c)).join(', ')
+    return `CREATE ${unique}INDEX ${this.wrap(index.name)} ON ${this.wrap(table)} (${cols})`
+  }
+
   protected compileColumn(column: ColumnDefinition): string {
     const parts = [this.wrap(column.name), this.columnType(column)]
     if (column.type !== 'id') {
@@ -84,7 +115,12 @@ class SqliteGrammar extends Grammar {
       case 'text':
       case 'timestamp':
       case 'json':
+      case 'uuid':
+      case 'date':
+      case 'datetime':
         return 'TEXT'
+      case 'decimal':
+        return 'NUMERIC'
       case 'integer':
       case 'bigInteger':
       case 'boolean':
@@ -107,7 +143,13 @@ class PostgresGrammar extends Grammar {
       case 'text':
       case 'timestamp': // stored as ISO string for identical behavior across dialects
       case 'json': // stored as text (JSON string) for identical behavior across dialects
+      case 'date':
+      case 'datetime':
         return 'TEXT'
+      case 'uuid':
+        return 'VARCHAR(36)'
+      case 'decimal':
+        return `NUMERIC(${c.precision ?? 10}, ${c.scale ?? 2})`
       case 'integer':
         return 'INTEGER'
       case 'bigInteger':

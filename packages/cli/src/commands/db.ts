@@ -4,8 +4,10 @@ import {
   DatabaseToken,
   freshMigrate,
   migrate,
+  rollback,
   runSeeders,
   type SeederClass,
+  status,
 } from '@elysia-ravel/eloquent'
 
 /** Boot the framework without HTTP routes — just enough to reach the DB. */
@@ -26,6 +28,24 @@ export async function migrateCommand(fresh: boolean): Promise<number> {
     if (fresh) console.log('Dropped all tables, re-running migrations:')
     for (const name of applied) console.log(`✓ ${name}`)
   }
+  return 0
+}
+
+/** `ravel migrate:rollback` — roll back the most recent batch. */
+export async function rollbackCommand(): Promise<number> {
+  const { app, conn } = await boot()
+  const rolledBack = await rollback(conn, app.path('database/migrations'))
+  if (rolledBack.length === 0) console.log('Nothing to roll back.')
+  else for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+  return 0
+}
+
+/** `ravel migrate:status` — show applied/pending migrations. */
+export async function statusCommand(): Promise<number> {
+  const { app, conn } = await boot()
+  const rows = await status(conn, app.path('database/migrations'))
+  if (rows.length === 0) console.log('No migrations found.')
+  else for (const r of rows) console.log(`${r.ran ? '✓ ran    ' : '· pending'}  ${r.name}`)
   return 0
 }
 

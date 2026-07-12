@@ -1,5 +1,5 @@
 import type { Connection } from './connection'
-import type { ColumnDefinition } from './grammar'
+import type { ColumnDefinition, IndexDefinition } from './grammar'
 
 /** Fluent modifiers returned by each column method. */
 class ColumnBuilder {
@@ -37,6 +37,7 @@ class ColumnBuilder {
  */
 export class Blueprint {
   readonly columns: ColumnDefinition[] = []
+  readonly indexes: IndexDefinition[] = []
 
   private push(def: ColumnDefinition): ColumnBuilder {
     this.columns.push(def)
@@ -70,6 +71,28 @@ export class Blueprint {
   foreignId(name: string): ColumnBuilder {
     return this.push({ name, type: 'bigInteger' })
   }
+  uuid(name: string): ColumnBuilder {
+    return this.push({ name, type: 'uuid' })
+  }
+  decimal(name: string, precision = 10, scale = 2): ColumnBuilder {
+    return this.push({ name, type: 'decimal', precision, scale })
+  }
+  date(name: string): ColumnBuilder {
+    return this.push({ name, type: 'date' })
+  }
+  dateTime(name: string): ColumnBuilder {
+    return this.push({ name, type: 'datetime' })
+  }
+  /** Polymorphic columns: `<name>_id` + `<name>_type`. */
+  morphs(name: string): void {
+    this.push({ name: `${name}_id`, type: 'bigInteger' })
+    this.push({ name: `${name}_type`, type: 'string' })
+  }
+  /** A standalone (optionally composite) index. */
+  index(columns: string | string[], name?: string): void {
+    const cols = Array.isArray(columns) ? columns : [columns]
+    this.indexes.push({ columns: cols, unique: false, name: name ?? `idx_${cols.join('_')}` })
+  }
   /** `created_at` + `updated_at` (nullable timestamps managed by the model). */
   timestamps(): void {
     this.push({ name: 'created_at', type: 'timestamp', nullable: true })
@@ -88,9 +111,24 @@ export class SchemaBuilder {
   async create(table: string, build: (table: Blueprint) => void): Promise<void> {
     const blueprint = new Blueprint()
     build(blueprint)
-    await this.connection.statement(
-      this.connection.grammar.compileCreateTable(table, blueprint.columns),
-    )
+    const g = this.connection.grammar
+    await this.connection.statement(g.compileCreateTable(table, blueprint.columns))
+    for (const index of blueprint.indexes) {
+      await this.connection.statement(g.compileCreateIndex(table, index))
+    }
+  }
+
+  /** Alter a table: add columns / indexes (`ADD COLUMN`, `CREATE INDEX`). */
+  async table(table: string, build: (table: Blueprint) => void): Promise<void> {
+    const blueprint = new Blueprint()
+    build(blueprint)
+    const g = this.connection.grammar
+    for (const column of blueprint.columns) {
+      await this.connection.statement(g.compileAddColumn(table, column))
+    }
+    for (const index of blueprint.indexes) {
+      await this.connection.statement(g.compileCreateIndex(table, index))
+    }
   }
 
   async dropIfExists(table: string): Promise<void> {

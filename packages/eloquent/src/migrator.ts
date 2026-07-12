@@ -88,6 +88,38 @@ async function userTables(conn: Connection): Promise<string[]> {
   return rows.map((r) => r.name)
 }
 
+/** Roll back the most recent batch (runs `down` in reverse, clears ledger rows). */
+export async function rollback(conn: Connection, dir: string): Promise<string[]> {
+  await ensureLedger(conn)
+  const rows = await conn.select<{ name: string; batch: number | string }>(
+    `SELECT name, batch FROM ${TABLE}`,
+  )
+  if (rows.length === 0) return []
+  const maxBatch = Math.max(...rows.map((r) => Number(r.batch)))
+  const inBatch = new Set(rows.filter((r) => Number(r.batch) === maxBatch).map((r) => r.name))
+
+  const schema = new SchemaBuilder(conn)
+  const g = conn.grammar
+  const rolledBack: string[] = []
+  for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
+    if (!inBatch.has(name)) continue
+    await migration.down(schema)
+    await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
+    rolledBack.push(name)
+  }
+  return rolledBack
+}
+
+/** Report each migration's applied/pending state. */
+export async function status(
+  conn: Connection,
+  dir: string,
+): Promise<{ name: string; ran: boolean }[]> {
+  await ensureLedger(conn)
+  const ran = await ranNames(conn)
+  return (await loadMigrations(dir)).map((m) => ({ name: m.name, ran: ran.has(m.name) }))
+}
+
 export async function freshMigrate(conn: Connection, dir: string): Promise<string[]> {
   const tables = await userTables(conn)
   const cascade = conn.dialect === 'pg' ? ' CASCADE' : ''

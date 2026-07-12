@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { migrateCommand, seedCommand } from './commands/db'
+import { migrateCommand, rollbackCommand, seedCommand, statusCommand } from './commands/db'
 import { make } from './commands/make'
 import { serve } from './commands/serve'
 
@@ -11,6 +11,8 @@ Usage:
 
   ravel migrate                               Run pending migrations
   ravel migrate:fresh                         Drop all tables and re-migrate
+  ravel migrate:rollback                      Roll back the last migration batch
+  ravel migrate:status                        Show applied/pending migrations
   ravel db:seed                               Run database/seeders/DatabaseSeeder
 
   ravel make:controller <Name>                Generate a controller plugin
@@ -58,6 +60,14 @@ async function main(): Promise<number> {
 
   if (command === 'migrate:fresh') {
     return migrateCommand(true)
+  }
+
+  if (command === 'migrate:rollback') {
+    return rollbackCommand()
+  }
+
+  if (command === 'migrate:status') {
+    return statusCommand()
   }
 
   if (command === 'db:seed') {
