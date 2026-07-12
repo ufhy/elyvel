@@ -12,6 +12,8 @@ export interface AppConfig {
   env?: string
   /** App timezone for date *display* (e.g. `Asia/Makassar`). Storage stays UTC. Default `UTC`. */
   timezone?: string
+  /** Secret key for encryption (e.g. `encrypted` model casts). */
+  key?: string
   /** Port to listen on (overridable by `PORT` env or `listen(port)`). */
   port?: number
   /** Service providers to register at boot, in order. */

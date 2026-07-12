@@ -16,6 +16,7 @@ export {
   useConnection,
 } from './connection'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
+export { setEncryptionKey } from './crypto'
 export { EloquentServiceProvider } from './database-provider'
 export {
   type CursorPaginator,

@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { ServiceProvider } from '@elysia-ravel/core'
 import { type ConnectionConfig, createConnection, setConnection } from './connection'
+import { setEncryptionKey } from './crypto'
 import { DatabaseToken } from './tokens'
 
 /**
@@ -25,6 +26,9 @@ export class EloquentServiceProvider extends ServiceProvider {
     const connection = await createConnection(this.resolvePaths(config))
     setConnection(connection)
     this.app.container.instance(DatabaseToken, connection)
+
+    const appKey = this.app.config.get<string | undefined>('app.key')
+    if (appKey) setEncryptionKey(appKey)
   }
 
   private resolvePaths(config: ConnectionConfig): ConnectionConfig {

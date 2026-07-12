@@ -1,4 +1,5 @@
 import { useConnection } from './connection'
+import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
 import type { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
@@ -33,6 +34,7 @@ export type CastType =
   | 'array'
   | 'date'
   | 'datetime'
+  | 'encrypted'
 
 /** A custom cast / accessor-mutator: transform on read (`get`) and write (`set`). */
 export interface CustomCast {
@@ -63,6 +65,8 @@ function castGet(cast: Cast, value: unknown): unknown {
     case 'date':
     case 'datetime':
       return value instanceof Date ? value : new Date(String(value))
+    case 'encrypted':
+      return JSON.parse(decrypt(String(value)))
   }
 }
 
@@ -80,6 +84,8 @@ function castStore(cast: Cast, value: unknown, dialect: string): unknown {
     case 'date':
     case 'datetime':
       return value instanceof Date ? value.toISOString() : String(value)
+    case 'encrypted':
+      return encrypt(JSON.stringify(value))
     default:
       return value
   }
