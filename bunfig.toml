@@ -1,2 +1,2 @@
 [test]
-preload = ["./packages/eloquent/test/setup.ts"]
+preload = ["./packages/database/test/setup.ts"]

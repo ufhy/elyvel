@@ -1,4 +1,4 @@
-import { type EloquentBuilder, Model } from '@elysia-ravel/eloquent'
+import { type EloquentBuilder, Model } from '@elysia-ravel/database'
 
 /** Sanctum-style API tokens. Only the SHA-256 hash of a token is stored. */
 export class PersonalAccessToken extends Model {

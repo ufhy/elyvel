@@ -1,4 +1,4 @@
-import type { Migration } from '@elysia-ravel/eloquent'
+import type { Migration } from '@elysia-ravel/database'
 
 export default {
   up: (schema) =>

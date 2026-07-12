@@ -1,5 +1,5 @@
 {
-  "name": "@elysia-ravel/eloquent",
+  "name": "@elysia-ravel/database",
   "version": "0.0.0",
   "description": "A Laravel Eloquent-style Active Record ORM for Bun (SQLite + Postgres)",
   "type": "module",

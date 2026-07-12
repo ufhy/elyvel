@@ -1,4 +1,4 @@
-# @elysia-ravel/eloquent
+# @elysia-ravel/database
 
 A Laravel Eloquent-style Active Record ORM for [Bun](https://bun.sh), built for the
 [elysia-ravel](../../README.md) framework. Define your models and migrations once
@@ -26,7 +26,7 @@ connections. Swapping the database is just changing `default`.
 
 ```ts
 // config/database.ts
-import { defineDatabaseConfig } from '@elysia-ravel/eloquent'
+import { defineDatabaseConfig } from '@elysia-ravel/database'
 
 export default defineDatabaseConfig({
   default: process.env.DB_CONNECTION ?? 'sqlite',
@@ -40,7 +40,7 @@ export default defineDatabaseConfig({
 
 ```ts
 // config/app.ts
-import { EloquentServiceProvider } from '@elysia-ravel/eloquent'
+import { EloquentServiceProvider } from '@elysia-ravel/database'
 
 export default defineAppConfig({
   key: process.env.APP_KEY, // secret for `encrypted` casts (AES-256-GCM)
@@ -51,7 +51,7 @@ export default defineAppConfig({
 ### Standalone (no framework)
 
 ```ts
-import { createConnection, setConnection } from '@elysia-ravel/eloquent'
+import { createConnection, setConnection } from '@elysia-ravel/database'
 
 const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
 setConnection(conn) // becomes the default connection used by models
@@ -62,7 +62,7 @@ setConnection(conn) // becomes the default connection used by models
 ## Defining models
 
 ```ts
-import { Model } from '@elysia-ravel/eloquent'
+import { Model } from '@elysia-ravel/database'
 
 export class User extends Model {
   static override table = 'users'
@@ -122,7 +122,7 @@ Laravel's `DB::table()` — the standalone form returns raw rows and can target 
 named connection:
 
 ```ts
-import { table } from '@elysia-ravel/eloquent'
+import { table } from '@elysia-ravel/database'
 
 const rows = await table('users').where('active', true).orderByDesc('id').get()
 await table('logs', 'analytics').count() // second arg = named connection
@@ -188,7 +188,7 @@ Raw SQL against the connection — positional or named bindings, plus `unprepare
 for multi-statement DDL:
 
 ```ts
-import { raw, unprepared } from '@elysia-ravel/eloquent'
+import { raw, unprepared } from '@elysia-ravel/database'
 
 await raw('SELECT * FROM users WHERE id = :id', { id: 1 }) // :name → ? / $n
 await raw('SELECT * FROM users WHERE age > ?', [18])
@@ -305,7 +305,7 @@ Migrations use the schema builder — never raw SQL — so they run on any drive
 
 ```ts
 // database/migrations/20260101000000_create_posts_table.ts
-import type { Migration } from '@elysia-ravel/eloquent'
+import type { Migration } from '@elysia-ravel/database'
 
 export default {
   up: (schema) =>
@@ -368,7 +368,7 @@ ravel db:monitor --max=100   # open-connection count (Postgres)
 ## Transactions
 
 ```ts
-import { transaction } from '@elysia-ravel/eloquent'
+import { transaction } from '@elysia-ravel/database'
 
 await transaction(async () => {
   const user = await User.create({ name: 'Ada' })
@@ -388,7 +388,7 @@ await transaction(async () => {
 })
 
 // Manual control
-import { beginTransaction, commit, rollBack } from '@elysia-ravel/eloquent'
+import { beginTransaction, commit, rollBack } from '@elysia-ravel/database'
 await beginTransaction()
 try {
   // ...

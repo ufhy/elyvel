@@ -31,7 +31,9 @@
       "Bash(git commit -q -m 'feat\\(eloquent\\): pagination \\(Cut-3, part 2\\)' -m 'EloquentBuilder.paginate\\(perPage, page\\) → { data, total, perPage, currentPage, *)",
       "Bash(git commit -q -m 'feat\\(eloquent\\): query builder expansion \\(Batch 1\\)' -m 'select/distinct, join/leftJoin, groupBy/having, whereBetween, aggregates *)",
       "Bash(git commit *)",
-      "Bash(git commit -q -m 'feat\\(eloquent\\): LazyCollection/cursor, model factories, multiple connections \\(Batch 6\\)' -m '- LazyCollection \\(support\\) + EloquentBuilder.cursor\\(\\) for memory-bounded streaming *)"
+      "Bash(git commit -q -m 'feat\\(eloquent\\): LazyCollection/cursor, model factories, multiple connections \\(Batch 6\\)' -m '- LazyCollection \\(support\\) + EloquentBuilder.cursor\\(\\) for memory-bounded streaming *)",
+      "Bash(echo \"TC=$?\")",
+      "Bash(echo \"DB TESTS=$?\")"
     ]
   }
 }

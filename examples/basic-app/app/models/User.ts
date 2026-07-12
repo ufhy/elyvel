@@ -1,4 +1,4 @@
-import { Model } from '@elysia-ravel/eloquent'
+import { Model } from '@elysia-ravel/database'
 
 export class User extends Model {
   static override table = 'users'

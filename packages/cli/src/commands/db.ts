@@ -15,7 +15,7 @@ import {
   type SeederClass,
   status,
   tableColumns,
-} from '@elysia-ravel/eloquent'
+} from '@elysia-ravel/database'
 
 /** A model constructor with the static pruning API. */
 type PrunableClass = typeof Model & { prune(chunkSize?: number): Promise<number> }

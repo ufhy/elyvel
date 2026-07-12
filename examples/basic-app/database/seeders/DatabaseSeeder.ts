@@ -1,5 +1,5 @@
 import { Hash } from '@elysia-ravel/auth'
-import { Seeder } from '@elysia-ravel/eloquent'
+import { Seeder } from '@elysia-ravel/database'
 import { User } from '../../app/models/User'
 
 export class DatabaseSeeder extends Seeder {
