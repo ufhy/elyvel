@@ -1,3 +1,4 @@
+import { LazyCollection } from '@elysia-ravel/support'
 import { EloquentCollection } from './eloquent-collection'
 import type { Model } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
@@ -229,6 +230,23 @@ export class EloquentBuilder<M extends Model> {
   async first(): Promise<M | undefined> {
     this.qb.limit(1)
     return (await this.get()).first() // get() applies scopes + eager loading
+  }
+
+  /** Stream rows lazily in chunks (memory-bounded) as a LazyCollection. */
+  cursor(chunkSize = 100): LazyCollection<M> {
+    this.prepare()
+    const qb = this.qb
+    const hydrate = this.hydrate
+    return new LazyCollection<M>(async function* () {
+      let page = 0
+      while (true) {
+        const rows = await qb.offset(page * chunkSize).limit(chunkSize).get()
+        if (rows.length === 0) break
+        for (const row of rows) yield hydrate(row)
+        if (rows.length < chunkSize) break
+        page++
+      }
+    })
   }
   count(): Promise<number> {
     this.prepare()

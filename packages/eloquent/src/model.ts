@@ -144,6 +144,8 @@ export class Model {
   static table?: string
   static primaryKey = 'id'
   static timestamps = true
+  /** Named connection (from config/database.ts) this model uses; default when unset. */
+  static connection?: string
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
   static hidden: string[] = []
   /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
@@ -206,7 +208,7 @@ export class Model {
 
   // ── static query API ──────────────────────────────────────────────────────
   static query<M extends Model>(this: ModelClass<M>): EloquentBuilder<M> {
-    const qb = new QueryBuilder(useConnection(), this.getTableName())
+    const qb = new QueryBuilder(useConnection(this.connection), this.getTableName())
     return new EloquentBuilder<M>(qb, (row) => this.hydrate(row), this)
   }
 
@@ -293,7 +295,7 @@ export class Model {
   /** Attributes in DB-storage form (casts applied for the active dialect). */
   private toStorage(attributes: Attributes): Attributes {
     const casts = this.self().casts
-    const dialect = useConnection().dialect
+    const dialect = useConnection(this.self().connection).dialect
     const out: Attributes = { ...attributes }
     for (const key of Object.keys(out)) {
       if (casts[key]) out[key] = castStore(casts[key], out[key], dialect)
@@ -418,7 +420,7 @@ export class Model {
   async save(): Promise<this> {
     const self = this.self()
     const now = new Date().toISOString()
-    const qb = () => new QueryBuilder(useConnection(), self.getTableName())
+    const qb = () => new QueryBuilder(useConnection(self.connection), self.getTableName())
 
     await this.fireEvent('saving')
     if (this.exists) {
@@ -449,7 +451,7 @@ export class Model {
   /** Reload this instance's attributes from the database (mutates in place). */
   async refresh(): Promise<this> {
     const self = this.self()
-    const row = await new QueryBuilder(useConnection(), self.getTableName())
+    const row = await new QueryBuilder(useConnection(self.connection), self.getTableName())
       .where(self.primaryKey, this.getKey())
       .first()
     if (row) {
@@ -486,7 +488,7 @@ export class Model {
   /** Permanently delete the row, ignoring soft deletes. */
   async forceDelete(): Promise<void> {
     const self = this.self()
-    await new QueryBuilder(useConnection(), self.getTableName())
+    await new QueryBuilder(useConnection(self.connection), self.getTableName())
       .where(self.primaryKey, this.getKey())
       .delete()
     this.exists = false

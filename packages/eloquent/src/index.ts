@@ -1,4 +1,5 @@
 export { EloquentCollection } from './eloquent-collection'
+export { Factory, type FactoryDefinition, defineFactory } from './factory'
 export {
   type Connection,
   type ConnectionConfig,
@@ -39,3 +40,4 @@ export {
 export { Blueprint, SchemaBuilder } from './schema'
 export { runSeeders, Seeder, type SeederClass } from './seeder'
 export { DatabaseToken } from './tokens'
+export { Collection, LazyCollection } from '@elysia-ravel/support'

@@ -87,21 +87,26 @@ export async function createConnection(config: ConnectionConfig): Promise<Connec
 }
 
 /** Process-wide default connection, set at boot by the DatabaseServiceProvider. */
+const connections = new Map<string, Connection>()
 let current: Connection | null = null
 
-export function setConnection(connection: Connection): void {
-  current = connection
+/** Register a connection under `name` (the first/`default` becomes the default). */
+export function setConnection(connection: Connection, name = 'default'): void {
+  connections.set(name, connection)
+  if (name === 'default' || current === null) current = connection
 }
-export function hasConnection(): boolean {
-  return current !== null
+export function hasConnection(name?: string): boolean {
+  return name ? connections.has(name) : current !== null
 }
-export function useConnection(): Connection {
-  if (!current) {
+/** Resolve the default connection, or a named one when `name` is given. */
+export function useConnection(name?: string): Connection {
+  const connection = name ? connections.get(name) : current
+  if (!connection) {
     throw new Error(
-      '[elysia-ravel] No database connection. Register EloquentServiceProvider (config/database.ts).',
+      `[elysia-ravel] No database connection${name ? ` "${name}"` : ''}. Register EloquentServiceProvider (config/database.ts).`,
     )
   }
-  return current
+  return connection
 }
 
 /**
