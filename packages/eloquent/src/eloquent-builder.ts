@@ -66,12 +66,45 @@ export class EloquentBuilder<M extends Model> {
     if (fn) fn(this as unknown as EloquentBuilder<Model>, ...args)
     return this
   }
-  where(column: string, operatorOrValue?: unknown, value?: unknown): this {
+  where(column: string | ((q: QueryBuilder) => void), operatorOrValue?: unknown, value?: unknown): this {
     this.qb.where(column, operatorOrValue, value)
     return this
   }
-  orWhere(column: string, operatorOrValue?: unknown, value?: unknown): this {
+  orWhere(column: string | ((q: QueryBuilder) => void), operatorOrValue?: unknown, value?: unknown): this {
     this.qb.orWhere(column, operatorOrValue, value)
+    return this
+  }
+  whereColumn(first: string, operator: string, second: string): this {
+    this.qb.whereColumn(first, operator, second)
+    return this
+  }
+  whereNotIn(column: string, values: unknown[]): this {
+    this.qb.whereNotIn(column, values)
+    return this
+  }
+  orWhereIn(column: string, values: unknown[]): this {
+    this.qb.orWhereIn(column, values)
+    return this
+  }
+  whereNotBetween(column: string, range: [unknown, unknown]): this {
+    this.qb.whereNotBetween(column, range)
+    return this
+  }
+  when(condition: unknown, then: (q: this) => void, otherwise?: (q: this) => void): this {
+    if (condition) then(this)
+    else otherwise?.(this)
+    return this
+  }
+  orderByDesc(column: string): this {
+    this.qb.orderByDesc(column)
+    return this
+  }
+  latest(column = 'created_at'): this {
+    this.qb.latest(column)
+    return this
+  }
+  oldest(column = 'created_at'): this {
+    this.qb.oldest(column)
     return this
   }
   whereIn(column: string, values: unknown[] | QueryBuilder): this {

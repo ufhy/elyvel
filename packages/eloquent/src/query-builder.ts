@@ -8,10 +8,23 @@ interface WhereClause {
   column: string
   operator: string
   value: unknown
-  kind: 'basic' | 'in' | 'null' | 'notNull' | 'between' | 'raw' | 'inSub' | 'exists'
+  kind:
+    | 'basic'
+    | 'in'
+    | 'notIn'
+    | 'null'
+    | 'notNull'
+    | 'between'
+    | 'notBetween'
+    | 'raw'
+    | 'inSub'
+    | 'exists'
+    | 'group'
+    | 'column'
   values?: unknown[]
   rawSql?: string
   sub?: QueryBuilder
+  secondColumn?: string
 }
 interface JoinClause {
   type: 'INNER' | 'LEFT'
@@ -59,11 +72,41 @@ export class QueryBuilder {
     return this
   }
 
-  where(column: string, operatorOrValue: unknown, value?: unknown): this {
+  where(column: string | ((q: QueryBuilder) => void), operatorOrValue?: unknown, value?: unknown): this {
+    if (typeof column === 'function') return this.whereGroup('AND', column)
     return this.addWhere('AND', column, operatorOrValue, value)
   }
-  orWhere(column: string, operatorOrValue: unknown, value?: unknown): this {
+  orWhere(column: string | ((q: QueryBuilder) => void), operatorOrValue?: unknown, value?: unknown): this {
+    if (typeof column === 'function') return this.whereGroup('OR', column)
     return this.addWhere('OR', column, operatorOrValue, value)
+  }
+  private whereGroup(boolean: 'AND' | 'OR', build: (q: QueryBuilder) => void): this {
+    const sub = new QueryBuilder(this.connection, this.table)
+    build(sub)
+    this.wheres.push({ boolean, column: '', operator: '', value: null, kind: 'group', sub })
+    return this
+  }
+  whereColumn(first: string, operator: string, second: string): this {
+    this.wheres.push({ boolean: 'AND', column: first, operator, value: null, kind: 'column', secondColumn: second })
+    return this
+  }
+  whereNotIn(column: string, values: unknown[]): this {
+    this.wheres.push({ boolean: 'AND', column, operator: 'NOT IN', value: null, kind: 'notIn', values })
+    return this
+  }
+  orWhereIn(column: string, values: unknown[]): this {
+    this.wheres.push({ boolean: 'OR', column, operator: 'IN', value: null, kind: 'in', values })
+    return this
+  }
+  whereNotBetween(column: string, range: [unknown, unknown]): this {
+    this.wheres.push({ boolean: 'AND', column, operator: 'NOT BETWEEN', value: null, kind: 'notBetween', values: range })
+    return this
+  }
+  /** Conditionally apply clauses: `when(active, (q) => q.where('active', 1))`. */
+  when(condition: unknown, then: (q: this) => void, otherwise?: (q: this) => void): this {
+    if (condition) then(this)
+    else otherwise?.(this)
+    return this
   }
   /** `whereIn('col', [...])` or `whereIn('col', subquery)`. */
   whereIn(column: string, values: unknown[] | QueryBuilder): this {
@@ -123,6 +166,15 @@ export class QueryBuilder {
     this.orders.push({ column, direction: direction.toUpperCase() as 'ASC' | 'DESC' })
     return this
   }
+  orderByDesc(column: string): this {
+    return this.orderBy(column, 'desc')
+  }
+  latest(column = 'created_at'): this {
+    return this.orderBy(column, 'desc')
+  }
+  oldest(column = 'created_at'): this {
+    return this.orderBy(column, 'asc')
+  }
   orderByRaw(sql: string): this {
     this.rawOrders.push(sql)
     return this
@@ -153,45 +205,61 @@ export class QueryBuilder {
     })
   }
 
-  private compileWheres(bindings: unknown[]): string {
-    if (!this.wheres.length) return ''
+  private compileWhereConditions(bindings: unknown[]): string {
     const g = this.connection.grammar
-    const parts = this.wheres.map((w, i) => {
-      const prefix = i === 0 ? '' : `${w.boolean} `
-      switch (w.kind) {
-        case 'null':
-        case 'notNull':
-          return `${prefix}${g.wrap(w.column)} ${w.operator}`
-        case 'between': {
-          const a = g.placeholder(bindings.length)
-          bindings.push(w.values?.[0])
-          const b = g.placeholder(bindings.length)
-          bindings.push(w.values?.[1])
-          return `${prefix}${g.wrap(w.column)} BETWEEN ${a} AND ${b}`
-        }
-        case 'in': {
-          if (!w.values?.length) return `${prefix}1 = 0`
-          const phs = w.values.map((v) => {
+    const between = (w: WhereClause, keyword: string) => {
+      const a = g.placeholder(bindings.length)
+      bindings.push(w.values?.[0])
+      const b = g.placeholder(bindings.length)
+      bindings.push(w.values?.[1])
+      return `${g.wrap(w.column)} ${keyword} ${a} AND ${b}`
+    }
+    const inList = (w: WhereClause, keyword: string, emptyResult: string) => {
+      if (!w.values?.length) return emptyResult
+      const phs = w.values.map((v) => {
+        const ph = g.placeholder(bindings.length)
+        bindings.push(v)
+        return ph
+      })
+      return `${g.wrap(w.column)} ${keyword} (${phs.join(', ')})`
+    }
+    return this.wheres
+      .map((w, i) => {
+        const prefix = i === 0 ? '' : `${w.boolean} `
+        switch (w.kind) {
+          case 'null':
+          case 'notNull':
+            return `${prefix}${g.wrap(w.column)} ${w.operator}`
+          case 'between':
+            return `${prefix}${between(w, 'BETWEEN')}`
+          case 'notBetween':
+            return `${prefix}${between(w, 'NOT BETWEEN')}`
+          case 'in':
+            return `${prefix}${inList(w, 'IN', '1 = 0')}`
+          case 'notIn':
+            return `${prefix}${inList(w, 'NOT IN', '1 = 1')}`
+          case 'inSub':
+            return `${prefix}${g.wrap(w.column)} IN (${(w.sub as QueryBuilder).compileSelect(bindings)})`
+          case 'exists':
+            return `${prefix}EXISTS (${(w.sub as QueryBuilder).compileSelect(bindings)})`
+          case 'group':
+            return `${prefix}(${(w.sub as QueryBuilder).compileWhereConditions(bindings)})`
+          case 'column':
+            return `${prefix}${g.wrap(w.column)} ${w.operator} ${g.wrap(w.secondColumn as string)}`
+          case 'raw':
+            return `${prefix}${this.applyRaw(w.rawSql as string, w.values ?? [], bindings)}`
+          default: {
             const ph = g.placeholder(bindings.length)
-            bindings.push(v)
-            return ph
-          })
-          return `${prefix}${g.wrap(w.column)} IN (${phs.join(', ')})`
+            bindings.push(w.value)
+            return `${prefix}${g.wrap(w.column)} ${w.operator} ${ph}`
+          }
         }
-        case 'inSub':
-          return `${prefix}${g.wrap(w.column)} IN (${(w.sub as QueryBuilder).compileSelect(bindings)})`
-        case 'exists':
-          return `${prefix}EXISTS (${(w.sub as QueryBuilder).compileSelect(bindings)})`
-        case 'raw':
-          return `${prefix}${this.applyRaw(w.rawSql as string, w.values ?? [], bindings)}`
-        default: {
-          const ph = g.placeholder(bindings.length)
-          bindings.push(w.value)
-          return `${prefix}${g.wrap(w.column)} ${w.operator} ${ph}`
-        }
-      }
-    })
-    return ` WHERE ${parts.join(' ')}`
+      })
+      .join(' ')
+  }
+
+  private compileWheres(bindings: unknown[]): string {
+    return this.wheres.length ? ` WHERE ${this.compileWhereConditions(bindings)}` : ''
   }
 
   private compileJoins(): string {
