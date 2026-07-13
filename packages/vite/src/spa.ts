@@ -11,6 +11,8 @@ export interface SpaOptions extends ViteOptions {
   buildDir?: string
   /** `<title>` for the shell document. */
   title?: string
+  /** Serve the built assets at `base`. Set false if another route already does. Default true. */
+  assets?: boolean
   /** Override the shell HTML. */
   html?: (opts: { head: string; rootId: string; title?: string }) => string
 }
@@ -46,8 +48,7 @@ export function spa(options: SpaOptions) {
     return shell()
   }
 
-  return new Elysia({ name: `ravel-spa-${prefix || 'root'}` })
-    .use(staticFiles({ prefix: base, dir: options.buildDir ?? 'public/build' }))
-    .get(prefix || '/', serveShell)
-    .get(`${prefix}/*`, serveShell)
+  const app = new Elysia({ name: `ravel-spa-${prefix || 'root'}` })
+  if (options.assets !== false) app.use(staticFiles({ prefix: base, dir: options.buildDir ?? 'public/build' }))
+  return app.get(prefix || '/', serveShell).get(`${prefix}/*`, serveShell)
 }

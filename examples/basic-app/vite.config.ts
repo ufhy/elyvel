@@ -9,6 +9,7 @@ import { defineConfig } from 'vite'
  */
 export default defineConfig(({ isSsrBuild }) => ({
   plugins: [vue()],
+  base: '/build/', // built asset (chunk) imports resolve under the served /build path
   publicDir: false, // we serve /build ourselves; outDir lives under public/
 
   build: isSsrBuild
@@ -17,6 +18,7 @@ export default defineConfig(({ isSsrBuild }) => ({
         manifest: true,
         outDir: 'public/build',
         emptyOutDir: true,
-        rollupOptions: { input: 'resources/js/app.ts' },
+        // Two entries: the Inertia app and the plain-Vue SPA (Mode B).
+        rollupOptions: { input: { app: 'resources/js/app.ts', spa: 'resources/js/spa.ts' } },
       },
 }))
