@@ -1,4 +1,5 @@
 import { cronMatches, partsInZone } from './cron'
+import { scheduleMutex } from './mutex'
 
 /** The unit of work a scheduled event runs. */
 type Task = () => void | Promise<void>
@@ -30,6 +31,8 @@ export class ScheduledEvent {
   private readonly filters: Array<(date: Date) => boolean | Promise<boolean>> = []
   private readonly rejects: Array<(date: Date) => boolean | Promise<boolean>> = []
   private noOverlap = false
+  private overlapTtl = 3600 // seconds the overlap lock is held
+  private oneServer = false
   private background = false
   private envs: string[] | undefined
   private label: string | undefined
@@ -190,9 +193,22 @@ export class ScheduledEvent {
     this.envs = envs
     return this
   }
-  /** Prevent a second copy running while one is in flight (per process). */
-  withoutOverlapping(): this {
+  /**
+   * Prevent a second copy running while one is in flight. Per-process by
+   * default; cross-process when a mutex is set via `configureScheduleMutex`.
+   * `expiresAfterMinutes` bounds how long a crashed run holds the lock.
+   */
+  withoutOverlapping(expiresAfterMinutes = 60): this {
     this.noOverlap = true
+    this.overlapTtl = expiresAfterMinutes * 60
+    return this
+  }
+  /**
+   * Run on only one server per due tick (needs a shared mutex via
+   * `configureScheduleMutex`; a no-op without one).
+   */
+  onOneServer(): this {
+    this.oneServer = true
     return this
   }
   /** Run the task without blocking the rest of the schedule (fire-and-forget). */
@@ -247,15 +263,34 @@ export class ScheduledEvent {
   }
 
   /**
-   * Run the task now, honoring withoutOverlapping and firing lifecycle hooks.
-   * Returns false if skipped by an overlap lock. Rethrows task errors (after
-   * firing onFailure) so the caller can record them.
+   * Run the task now, honoring withoutOverlapping/onOneServer and firing
+   * lifecycle hooks. Returns false if skipped by a lock. Rethrows task errors
+   * (after firing onFailure) so the caller can record them. `date` scopes the
+   * onOneServer lock to the current due tick.
    */
-  async run(): Promise<boolean> {
-    if (this.noOverlap) {
-      if (runningLocks.has(this.name)) return false
-      runningLocks.add(this.name)
+  async run(date = new Date(0)): Promise<boolean> {
+    const mutex = scheduleMutex()
+
+    // onOneServer: first server to claim this tick wins; the lock is not
+    // released (it must outlive the tick so peers skip it).
+    if (this.oneServer && mutex) {
+      const bucket = Math.floor(date.getTime() / 60000)
+      const claimed = await mutex.create(`oneserver:${this.name}:${bucket}`, 60)
+      if (!claimed) return false
     }
+
+    // withoutOverlapping: cross-process via mutex, else per-process set.
+    const overlapKey = `overlap:${this.name}`
+    if (this.noOverlap) {
+      if (mutex) {
+        const acquired = await mutex.create(overlapKey, this.overlapTtl)
+        if (!acquired) return false
+      } else {
+        if (runningLocks.has(this.name)) return false
+        runningLocks.add(this.name)
+      }
+    }
+
     for (const hook of this.beforeHooks) await hook()
     try {
       await this.task()
@@ -266,7 +301,10 @@ export class ScheduledEvent {
       throw error
     } finally {
       for (const hook of this.afterHooks) await hook()
-      if (this.noOverlap) runningLocks.delete(this.name)
+      if (this.noOverlap) {
+        if (mutex) await mutex.forget(overlapKey)
+        else runningLocks.delete(this.name)
+      }
     }
   }
 

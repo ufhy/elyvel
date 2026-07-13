@@ -1,4 +1,5 @@
 export { cronMatches, parseCron, parseCronField, partsInZone } from './cron'
 export { ScheduledEvent, setSchedulerEnvironment } from './event'
+export { configureScheduleMutex, MemoryScheduleMutex, type ScheduleMutex, scheduleMutex } from './mutex'
 export { Schedule, type ScheduleRunResult, schedule, setDefaultSchedule } from './schedule'
 export { ScheduleServiceProvider, ScheduleToken } from './provider'

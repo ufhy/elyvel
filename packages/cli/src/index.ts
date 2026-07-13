@@ -20,7 +20,12 @@ import {
   queueWorkCommand,
 } from './commands/queue'
 import { routeListCommand } from './commands/route'
-import { scheduleListCommand, scheduleRunCommand } from './commands/schedule'
+import {
+  scheduleListCommand,
+  scheduleRunCommand,
+  scheduleTestCommand,
+  scheduleWorkCommand,
+} from './commands/schedule'
 import { serve } from './commands/serve'
 
 const BANNER = `
@@ -50,6 +55,8 @@ Usage:
   ravel queue:flush                           Delete all failed jobs
   ravel queue:prune-failed [--hours=24]       Delete failed jobs older than N hours
   ravel schedule:run                          Run scheduled tasks that are due now
+  ravel schedule:work                         Run the scheduler in-process (dev; ticks each minute)
+  ravel schedule:test [name]                  Run scheduled tasks now regardless of cron
   ravel schedule:list                         List scheduled tasks and their cron
 
   ravel make:controller <Name>                Generate a controller plugin
@@ -161,6 +168,14 @@ async function main(): Promise<number> {
 
   if (command === 'schedule:run') {
     return scheduleRunCommand()
+  }
+
+  if (command === 'schedule:work') {
+    return scheduleWorkCommand()
+  }
+
+  if (command === 'schedule:test') {
+    return scheduleTestCommand(rest[0])
   }
 
   if (command === 'schedule:list') {

@@ -59,12 +59,12 @@ export class Schedule {
       if (!(await event.shouldRun(date))) continue
       if (event.runsInBackground) {
         // fire-and-forget; the event's own onFailure hooks handle errors
-        void event.run().catch(() => {})
+        void event.run(date).catch(() => {})
         results.push({ name: event.name, expression: event.expression, ran: true })
         continue
       }
       try {
-        const ran = await event.run()
+        const ran = await event.run(date)
         results.push({ name: event.name, expression: event.expression, ran })
       } catch (error) {
         results.push({ name: event.name, expression: event.expression, ran: true, error })

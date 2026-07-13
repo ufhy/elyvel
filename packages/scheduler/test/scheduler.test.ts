@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { cronMatches, parseCron, parseCronField } from '../src/cron'
 import { ScheduledEvent, setSchedulerEnvironment } from '../src/event'
+import { configureScheduleMutex, MemoryScheduleMutex } from '../src/mutex'
 import { Schedule } from '../src/schedule'
 
 // ── cron field parsing ────────────────────────────────────────────────────────
@@ -185,6 +186,42 @@ describe('between / unlessBetween / environments / background', () => {
     expect(done).toBe(false) // not awaited
     await new Promise((r) => setTimeout(r, 40))
     expect(done).toBe(true)
+  })
+})
+
+// ── cross-process locking (mutex) ─────────────────────────────────────────────
+describe('onOneServer / mutex-backed overlap', () => {
+  const monday0800 = new Date('2026-07-13T08:00:00Z')
+
+  test('onOneServer lets only one claimant run per tick', async () => {
+    configureScheduleMutex(new MemoryScheduleMutex()) // shared mutex simulates one server pool
+    const ranA: string[] = []
+    const evA = new ScheduledEvent(() => void ranA.push('A')).cron('0 8 * * *').timezone('UTC').named('job').onOneServer()
+    const evB = new ScheduledEvent(() => void ranA.push('B')).cron('0 8 * * *').timezone('UTC').named('job').onOneServer()
+    // same name + same tick → second is skipped
+    expect(await evA.run(monday0800)).toBe(true)
+    expect(await evB.run(monday0800)).toBe(false)
+    expect(ranA).toEqual(['A'])
+    configureScheduleMutex(new MemoryScheduleMutex()) // reset
+  })
+
+  test('mutex-backed withoutOverlapping blocks a concurrent run', async () => {
+    configureScheduleMutex(new MemoryScheduleMutex())
+    let running = 0
+    let maxConcurrent = 0
+    const make = () =>
+      new ScheduledEvent(async () => {
+        running++
+        maxConcurrent = Math.max(maxConcurrent, running)
+        await new Promise((r) => setTimeout(r, 20))
+        running--
+      })
+        .named('exclusive')
+        .withoutOverlapping()
+    const [a, b] = await Promise.all([make().run(monday0800), make().run(monday0800)])
+    expect(maxConcurrent).toBe(1)
+    expect([a, b].filter(Boolean).length).toBe(1)
+    configureScheduleMutex(new MemoryScheduleMutex()) // reset
   })
 })
 
