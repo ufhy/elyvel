@@ -37,7 +37,22 @@ class FlakyJob extends Job {
   }
 }
 
-registerJob(RecordJob, FlakyJob)
+class TunedJob extends Job {
+  override tries = 5
+  override backoff = [1, 2, 3]
+  override timeout = 30
+  override maxExceptions = 2
+  handle(): void {}
+}
+
+class SlowJob extends Job {
+  override timeout = 0.05 // 50ms
+  async handle(): Promise<void> {
+    await new Promise((r) => setTimeout(r, 200))
+  }
+}
+
+registerJob(RecordJob, FlakyJob, TunedJob, SlowJob)
 
 beforeEach(() => {
   ran.length = 0
@@ -50,14 +65,27 @@ describe('job serialization', () => {
     const s = serializeJob(new RecordJob('hello'))
     expect(s.job).toBe('RecordJob')
     expect(s.data).toEqual({ tag: 'hello' })
-    const job = reconstructJob(s.job, s.data, s.tries)
+    expect(s.config.tries).toBe(1)
+    const job = reconstructJob(s)
     expect(job).toBeInstanceOf(RecordJob)
     job.handle()
     expect(ran).toEqual(['hello'])
   })
 
+  test('config fields (tries/backoff/timeout/maxExceptions) are carried, not payload', () => {
+    const s = serializeJob(new FlakyJob())
+    expect(s.data).toEqual({ failedWith: null })
+    expect(s.config).toEqual({ tries: 3 })
+    const s2 = serializeJob(new TunedJob())
+    expect(s2.config).toEqual({ tries: 5, backoff: [1, 2, 3], timeout: 30, maxExceptions: 2 })
+    const job = reconstructJob(s2) as TunedJob
+    expect(job.backoff).toEqual([1, 2, 3])
+    expect(job.timeout).toBe(30)
+    expect(job.maxExceptions).toBe(2)
+  })
+
   test('reconstruct throws for unknown job', () => {
-    expect(() => reconstructJob('Nope', {}, 1)).toThrow(/Unknown job "Nope"/)
+    expect(() => reconstructJob({ job: 'Nope', data: {}, config: { tries: 1 } })).toThrow(/Unknown job "Nope"/)
   })
 })
 
@@ -164,6 +192,62 @@ describe('failed jobs', () => {
     expect(await failed.all()).toHaveLength(2)
     await failed.flush()
     expect(await failed.all()).toHaveLength(0)
+  })
+})
+
+// ── retry reliability: backoff / timeout / maxExceptions ──────────────────────
+describe('retry reliability', () => {
+  test('backoff array sets per-attempt release delay', async () => {
+    const delays: number[] = []
+    const store = new MemoryQueueStore()
+    // spy on release to capture the delay
+    const orig = store.release.bind(store)
+    store.release = (record, delay) => {
+      delays.push(delay)
+      return orig(record, 0) // re-push immediately so the manual drain can re-pop
+    }
+    // a job that always fails, tries=3, backoff [10, 20]
+    class BackoffJob extends Job {
+      override tries = 3
+      override backoff = [10, 20]
+      handle(): void {
+        throw new Error('nope')
+      }
+    }
+    registerJob(BackoffJob)
+    await store.push(JSON.stringify(serializeJob(new BackoffJob())))
+    // drain manually so delayed releases don't block the test
+    for (let i = 0; i < 3; i++) await new Worker(store).processNext()
+    // attempt 1 → backoff[0]=10, attempt 2 → backoff[1]=20 (attempt 3 exhausts, no release)
+    expect(delays).toEqual([10, 20])
+  })
+
+  test('maxExceptions caps attempts below tries', async () => {
+    class CappedJob extends Job {
+      override tries = 5
+      override maxExceptions = 2
+      handle(): void {
+        attemptCount++
+        throw new Error('x')
+      }
+    }
+    registerJob(CappedJob)
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new CappedJob())))
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(attemptCount).toBe(2) // stopped at maxExceptions, not tries=5
+  })
+
+  test('timeout fails a slow job', async () => {
+    const store = new MemoryQueueStore()
+    const failed = new FailedJobRepository(new MemoryFailedJobStore())
+    await store.push(JSON.stringify(serializeJob(new SlowJob())))
+    await new Worker(store, { failed }).work({ stopWhenEmpty: true })
+    // handle() exceeded the 50ms timeout → treated as failed (tries=1, no retry)
+    expect(await store.size()).toBe(0)
+    const rows = await failed.all()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.exception).toContain('timed out')
   })
 })
 

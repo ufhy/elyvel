@@ -6,12 +6,40 @@
 export abstract class Job {
   /** Max attempts before the job is marked failed. Default 1. */
   tries = 1
+  /**
+   * Seconds to wait before retrying. A number is a fixed delay; an array gives
+   * a per-attempt schedule (e.g. `[1, 5, 10]` — exponential-ish backoff), using
+   * the last entry once exhausted.
+   */
+  backoff?: number | number[]
+  /** Max seconds `handle()` may run before it's treated as failed. */
+  timeout?: number
+  /** Fail after this many thrown exceptions, even if `tries` remains. */
+  maxExceptions?: number
+
   abstract handle(): void | Promise<void>
   failed?(error: unknown): void | Promise<void>
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: job classes have varied shapes
 export type JobClass = new (...args: any[]) => Job
+
+/** Runtime config carried with a serialized job (not part of its payload). */
+export interface JobConfig {
+  tries: number
+  backoff?: number | number[]
+  timeout?: number
+  maxExceptions?: number
+}
+
+export interface SerializedJob {
+  job: string
+  data: Record<string, unknown>
+  config: JobConfig
+}
+
+/** Fields that are job configuration, not user payload. */
+const CONFIG_KEYS = new Set(['tries', 'backoff', 'timeout', 'maxExceptions'])
 
 const registry = new Map<string, JobClass>()
 
@@ -20,24 +48,41 @@ export function registerJob(...classes: JobClass[]): void {
   for (const cls of classes) registry.set(cls.name, cls)
 }
 
-/** Serialize a job to `{ job, data }` (its own enumerable fields). */
-export function serializeJob(job: Job): { job: string; data: Record<string, unknown>; tries: number } {
+/** Serialize a job to `{ job, data, config }` (payload fields + retry config). */
+export function serializeJob(job: Job): SerializedJob {
   const data: Record<string, unknown> = {}
   for (const key of Object.keys(job)) {
-    if (key === 'tries') continue
+    if (CONFIG_KEYS.has(key)) continue
     data[key] = (job as unknown as Record<string, unknown>)[key]
   }
-  return { job: job.constructor.name, data, tries: job.tries }
+  const config: JobConfig = { tries: job.tries }
+  if (job.backoff !== undefined) config.backoff = job.backoff
+  if (job.timeout !== undefined) config.timeout = job.timeout
+  if (job.maxExceptions !== undefined) config.maxExceptions = job.maxExceptions
+  return { job: job.constructor.name, data, config }
 }
 
 /** Reconstruct a job instance (with its prototype/methods) from serialized data. */
-export function reconstructJob(name: string, data: Record<string, unknown>, tries: number): Job {
-  const cls = registry.get(name)
+export function reconstructJob(serialized: SerializedJob): Job {
+  const cls = registry.get(serialized.job)
   if (!cls) {
-    throw new Error(`[elysia-ravel] Unknown job "${name}". Register it with registerJob(${name}).`)
+    throw new Error(`[elysia-ravel] Unknown job "${serialized.job}". Register it with registerJob(${serialized.job}).`)
   }
   const job = Object.create(cls.prototype) as Job
-  Object.assign(job, data)
-  job.tries = tries
+  Object.assign(job, serialized.data)
+  job.tries = serialized.config.tries
+  job.backoff = serialized.config.backoff
+  job.timeout = serialized.config.timeout
+  job.maxExceptions = serialized.config.maxExceptions
   return job
+}
+
+/** The delay (seconds) before the next retry, given how many attempts have run. */
+export function backoffFor(job: Job, attempts: number, fallback = 0): number {
+  const backoff = job.backoff
+  if (backoff === undefined) return fallback
+  if (typeof backoff === 'number') return backoff
+  if (backoff.length === 0) return fallback
+  // attempts is 1-based (the attempt that just ran); pick this attempt's delay.
+  return backoff[Math.min(attempts - 1, backoff.length - 1)] ?? fallback
 }

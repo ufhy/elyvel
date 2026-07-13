@@ -7,7 +7,16 @@ export {
   failedJobs,
   MemoryFailedJobStore,
 } from './failed'
-export { Job, type JobClass, reconstructJob, registerJob, serializeJob } from './job'
+export {
+  backoffFor,
+  Job,
+  type JobClass,
+  type JobConfig,
+  reconstructJob,
+  registerJob,
+  type SerializedJob,
+  serializeJob,
+} from './job'
 export {
   type DispatchOptions,
   dispatch,

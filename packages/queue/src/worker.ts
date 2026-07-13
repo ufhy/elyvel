@@ -1,5 +1,5 @@
 import type { FailedJobRepository } from './failed'
-import { reconstructJob } from './job'
+import { backoffFor, reconstructJob, type SerializedJob } from './job'
 import type { QueueStore } from './store'
 
 export interface WorkerOptions {
@@ -15,6 +15,20 @@ export interface WorkerOptions {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * Reject if `promise` doesn't settle within `seconds`. Note: JS can't forcibly
+ * cancel the underlying work, so `handle()` keeps running — but the job is
+ * treated as failed and retried/failed accordingly.
+ */
+function withTimeout<T>(promise: Promise<T>, seconds: number | undefined): Promise<T> {
+  if (!seconds) return promise
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`Job timed out after ${seconds}s`)), seconds * 1000)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer)) as Promise<T>
+}
+
 /** Pulls jobs off a {@link QueueStore} and runs them, with retries. */
 export class Worker {
   constructor(
@@ -27,19 +41,19 @@ export class Worker {
     const record = await this.store.pop()
     if (!record) return false
 
-    const { job: name, data, tries } = JSON.parse(record.body) as {
-      job: string
-      data: Record<string, unknown>
-      tries: number
-    }
-    const job = reconstructJob(name, data, tries)
+    const serialized = JSON.parse(record.body) as SerializedJob
+    const job = reconstructJob(serialized)
+    const name = serialized.job
     try {
-      await job.handle()
+      await withTimeout(Promise.resolve(job.handle()), job.timeout)
     } catch (error) {
-      const willRetry = record.attempts < (job.tries ?? 1)
+      // Cap attempts by tries and (if set) maxExceptions — in our model every
+      // failure is an exception, so the lower of the two wins.
+      const cap = Math.min(job.tries ?? 1, job.maxExceptions ?? Number.POSITIVE_INFINITY)
+      const willRetry = record.attempts < cap
       this.options.onError?.(name, error, willRetry)
       if (willRetry) {
-        await this.store.release(record, this.options.retryAfter ?? 0)
+        await this.store.release(record, backoffFor(job, record.attempts, this.options.retryAfter ?? 0))
       } else {
         await job.failed?.(error)
         const connection = this.options.connection ?? 'default'
