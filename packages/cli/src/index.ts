@@ -11,6 +11,7 @@ import {
   statusCommand,
 } from './commands/db'
 import { make } from './commands/make'
+import { queueWorkCommand } from './commands/queue'
 import { routeListCommand } from './commands/route'
 import { serve } from './commands/serve'
 
@@ -32,6 +33,8 @@ Usage:
   ravel db:table <name>                       Describe a table's columns
   ravel db:monitor [--max=N]                  Report open connections (Postgres)
   ravel route:list                            List all registered HTTP routes
+  ravel queue:work [--connection=<name>]      Process queued jobs
+                   [--once|--stop-when-empty|--max=N] [--sleep=N] [--retry-after=N]
 
   ravel make:controller <Name>                Generate a controller plugin
   ravel make:middleware <Name>                Generate a middleware plugin
@@ -114,6 +117,10 @@ async function main(): Promise<number> {
 
   if (command === 'route:list') {
     return routeListCommand()
+  }
+
+  if (command === 'queue:work') {
+    return queueWorkCommand(flags)
   }
 
   if (command.startsWith('make:')) {

@@ -13,6 +13,7 @@
     "@elysia-ravel/core": "workspace:*",
     "@elysia-ravel/database": "workspace:*",
     "@elysia-ravel/events": "workspace:*",
+    "@elysia-ravel/queue": "workspace:*",
     "@elysia-ravel/validation": "workspace:*",
     "elysia": "^1.3.0"
   },

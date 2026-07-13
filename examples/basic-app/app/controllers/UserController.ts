@@ -1,8 +1,10 @@
 import { Hash } from '@elysia-ravel/auth'
 import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
 import { event } from '@elysia-ravel/events'
-import { User } from '../models/User'
+import { dispatch } from '@elysia-ravel/queue'
 import { UserRegistered } from '../events/UserRegistered'
+import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
+import { User } from '../models/User'
 import { StoreUserRequest } from '../requests/StoreUserRequest'
 
 /**
@@ -29,6 +31,7 @@ export class UserController extends Controller {
       password: await Hash.make(String(data.password)),
     })
     await event(new UserRegistered(String(data.email)))
+    await dispatch(new SendWelcomeEmail(String(data.email)))
     return ctx.status(201, user.toJSON())
   }
 

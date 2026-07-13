@@ -1,7 +1,9 @@
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
 import { table } from '@elysia-ravel/database'
+import { configureDatabaseQueue, registerJob } from '@elysia-ravel/queue'
 import { configureDbRules } from '@elysia-ravel/validation'
+import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 
 /**
  * The application's own service provider — the place to bind app-wide services
@@ -48,6 +50,23 @@ export class AppServiceProvider extends ServiceProvider {
       write: async (id, payload, lastActivity) => {
         await table('sessions').updateOrInsert({ id }, { payload, last_activity: lastActivity })
       },
+    })
+
+    // Register job classes so the worker can reconstruct them from the queue.
+    registerJob(SendWelcomeEmail)
+
+    // Wire the `database` queue driver (config/queue.ts) to the `jobs` table.
+    configureDatabaseQueue({
+      insert: async (id, body, attempts, availableAt) => {
+        await table('jobs').insert({ id, body, attempts, available_at: availableAt })
+      },
+      takeReady: async (now) => {
+        const row = await table('jobs').where('available_at', '<=', now).orderBy('available_at').first()
+        if (!row) return null
+        await table('jobs').where('id', row.id).delete()
+        return { id: String(row.id), body: String(row.body), attempts: Number(row.attempts) }
+      },
+      count: async () => table('jobs').count(),
     })
   }
 }
