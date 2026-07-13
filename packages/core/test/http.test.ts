@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
+import { download, file, streamDownload } from '../src/http/file'
 import { methodOverride } from '../src/http/method-override'
 import { expectsJson, wantsHtml } from '../src/http/negotiation'
 import { httpResponses } from '../src/http/plugin'
@@ -79,6 +80,51 @@ describe('methodOverride', () => {
     const res = await app.handle(spoofed)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ updated: '7' })
+  })
+})
+
+// ── file / download / stream responses ───────────────────────────────────────
+describe('file responses', () => {
+  const app = () =>
+    new Elysia()
+      .use(httpResponses())
+      .get('/export', () => streamDownload('users.csv', 'id,name\n1,Sam\n', { contentType: 'text/csv' }))
+      .get('/logo', () => download('package.json', 'pkg.json', { contentType: 'application/json' }))
+      .get('/stream', () =>
+        streamDownload(
+          'feed.txt',
+          (async function* () {
+            yield 'a'
+            yield 'b'
+          })(),
+        ),
+      )
+      .get('/inline', () => file('package.json'))
+
+  test('download() sets attachment + filename and sends the content', async () => {
+    const res = await app().handle(new Request('http://localhost/export'))
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="users.csv"')
+    expect(res.headers.get('content-type')).toContain('text/csv')
+    expect(await res.text()).toBe('id,name\n1,Sam\n')
+  })
+
+  test('download() serves a path as an attachment', async () => {
+    const res = await app().handle(new Request('http://localhost/logo'))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="pkg.json"')
+    expect(await res.text()).toContain('"name"')
+  })
+
+  test('streamDownload() streams with an attachment header', async () => {
+    const res = await app().handle(new Request('http://localhost/stream'))
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="feed.txt"')
+    expect(await res.text()).toBe('ab')
+  })
+
+  test('file() serves a path inline', async () => {
+    const res = await app().handle(new Request('http://localhost/inline'))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('"name"')
   })
 })
 

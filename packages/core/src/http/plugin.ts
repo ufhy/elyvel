@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { FileResponse } from './file'
 import { RedirectResponse } from './redirect'
 
 /**
@@ -18,6 +19,15 @@ export function httpResponses() {
       ctx.set.status = response.status
       ctx.set.headers.location = response.location(ctx.request)
       return ''
+    }
+    if (response instanceof FileResponse) {
+      const { source, options } = response
+      const name = options.name ?? (options.fromPath ? String(source).split('/').pop() : undefined)
+      if (options.contentType) ctx.set.headers['content-type'] = options.contentType
+      if (options.disposition === 'attachment' || name) {
+        ctx.set.headers['content-disposition'] = `${options.disposition}${name ? `; filename="${name}"` : ''}`
+      }
+      return options.fromPath ? Bun.file(source as string) : source
     }
     // A view response (from @elysia-ravel/view) — duck-typed so core stays
     // decoupled. Build shared data from the session and render to text/html.

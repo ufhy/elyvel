@@ -57,6 +57,7 @@ export {
   type MiddlewareItem,
   route,
 } from './middleware'
+export { download, file, FileResponse, type FileSource, streamDownload } from './http/file'
 export { methodOverride } from './http/method-override'
 export { expectsJson, wantsHtml } from './http/negotiation'
 export { httpResponses } from './http/plugin'
