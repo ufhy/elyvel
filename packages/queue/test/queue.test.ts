@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
 import { dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
 import { Job, registerJob, reconstructJob, serializeJob } from '../src/job'
 import {
@@ -123,6 +124,46 @@ describe('Worker (memory store)', () => {
     await store.push(JSON.stringify(serializeJob(new RecordJob('soon'))), 3600)
     expect(await store.pop()).toBeNull()
     expect(await store.size()).toBe(1)
+  })
+})
+
+// ── failed jobs ───────────────────────────────────────────────────────────────
+describe('failed jobs', () => {
+  test('exhausted job is recorded to the failed store', async () => {
+    const store = new MemoryQueueStore()
+    const failed = new FailedJobRepository(new MemoryFailedJobStore())
+    await store.push(JSON.stringify(serializeJob(new FlakyJob())))
+    await new Worker(store, { connection: 'database', failed }).work({ stopWhenEmpty: true })
+
+    const rows = await failed.all()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.connection).toBe('database')
+    expect(rows[0]?.exception).toContain('boom')
+  })
+
+  test('retry re-pushes the body and forget removes it', async () => {
+    const store = new MemoryQueueStore()
+    const adapter = new MemoryFailedJobStore()
+    const failed = new FailedJobRepository(adapter)
+    await store.push(JSON.stringify(serializeJob(new FlakyJob())))
+    await new Worker(store, { connection: 'memory', failed }).work({ stopWhenEmpty: true })
+
+    const [rec] = await failed.all()
+    expect(rec).toBeDefined()
+    // simulate `queue:retry`: re-push the stored body, then forget
+    await store.push((rec as { body: string }).body)
+    expect(await store.size()).toBe(1)
+    expect(await failed.forget((rec as { id: string }).id)).toBe(true)
+    expect(await failed.all()).toHaveLength(0)
+  })
+
+  test('flush clears everything', async () => {
+    const failed = new FailedJobRepository(new MemoryFailedJobStore())
+    await failed.log('sync', 'sync', '{}', new Error('x'))
+    await failed.log('sync', 'sync', '{}', new Error('y'))
+    expect(await failed.all()).toHaveLength(2)
+    await failed.flush()
+    expect(await failed.all()).toHaveLength(0)
   })
 })
 

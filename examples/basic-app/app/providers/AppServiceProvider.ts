@@ -1,7 +1,7 @@
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
 import { table } from '@elysia-ravel/database'
-import { configureDatabaseQueue, registerJob } from '@elysia-ravel/queue'
+import { configureDatabaseQueue, configureFailedJobs, registerJob } from '@elysia-ravel/queue'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 
@@ -67,6 +67,52 @@ export class AppServiceProvider extends ServiceProvider {
         return { id: String(row.id), body: String(row.body), attempts: Number(row.attempts) }
       },
       count: async () => table('jobs').count(),
+    })
+
+    // Persist exhausted jobs to the `failed_jobs` table (ravel queue:failed/retry/…).
+    configureFailedJobs({
+      log: async (r) => {
+        await table('failed_jobs').insert({
+          id: r.id,
+          connection: r.connection,
+          queue: r.queue,
+          body: r.body,
+          exception: r.exception,
+          failed_at: r.failedAt,
+        })
+      },
+      all: async () => {
+        const rows = await table('failed_jobs').orderBy('failed_at', 'desc').get()
+        return rows.map((row) => ({
+          id: String(row.id),
+          connection: String(row.connection),
+          queue: String(row.queue),
+          body: String(row.body),
+          exception: String(row.exception),
+          failedAt: Number(row.failed_at),
+        }))
+      },
+      find: async (id) => {
+        const row = await table('failed_jobs').where('id', id).first()
+        if (!row) return null
+        return {
+          id: String(row.id),
+          connection: String(row.connection),
+          queue: String(row.queue),
+          body: String(row.body),
+          exception: String(row.exception),
+          failedAt: Number(row.failed_at),
+        }
+      },
+      forget: async (id) => {
+        const existed = await table('failed_jobs').where('id', id).first()
+        if (!existed) return false
+        await table('failed_jobs').where('id', id).delete()
+        return true
+      },
+      flush: async () => {
+        await table('failed_jobs').truncate()
+      },
     })
   }
 }

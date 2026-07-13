@@ -11,7 +11,13 @@ import {
   statusCommand,
 } from './commands/db'
 import { make } from './commands/make'
-import { queueWorkCommand } from './commands/queue'
+import {
+  queueFailedCommand,
+  queueFlushCommand,
+  queueForgetCommand,
+  queueRetryCommand,
+  queueWorkCommand,
+} from './commands/queue'
 import { routeListCommand } from './commands/route'
 import { scheduleListCommand, scheduleRunCommand } from './commands/schedule'
 import { serve } from './commands/serve'
@@ -36,6 +42,10 @@ Usage:
   ravel route:list                            List all registered HTTP routes
   ravel queue:work [--connection=<name>]      Process queued jobs
                    [--once|--stop-when-empty|--max=N] [--sleep=N] [--retry-after=N]
+  ravel queue:failed                          List failed jobs
+  ravel queue:retry <id> | --all              Re-queue failed jobs
+  ravel queue:forget <id>                     Delete a failed job
+  ravel queue:flush                           Delete all failed jobs
   ravel schedule:run                          Run scheduled tasks that are due now
   ravel schedule:list                         List scheduled tasks and their cron
 
@@ -124,6 +134,22 @@ async function main(): Promise<number> {
 
   if (command === 'queue:work') {
     return queueWorkCommand(flags)
+  }
+
+  if (command === 'queue:failed') {
+    return queueFailedCommand()
+  }
+
+  if (command === 'queue:retry') {
+    return queueRetryCommand(rest[0], flags)
+  }
+
+  if (command === 'queue:forget') {
+    return queueForgetCommand(rest[0])
+  }
+
+  if (command === 'queue:flush') {
+    return queueFlushCommand()
   }
 
   if (command === 'schedule:run') {

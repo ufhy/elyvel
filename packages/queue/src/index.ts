@@ -1,4 +1,12 @@
 export { type QueueConfig, type QueueConnectionConfig, defineQueueConfig } from './config-schema'
+export {
+  configureFailedJobs,
+  type FailedJobAdapter,
+  type FailedJobRecord,
+  FailedJobRepository,
+  failedJobs,
+  MemoryFailedJobStore,
+} from './failed'
 export { Job, type JobClass, reconstructJob, registerJob, serializeJob } from './job'
 export {
   type DispatchOptions,

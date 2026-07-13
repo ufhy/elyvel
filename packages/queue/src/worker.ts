@@ -1,3 +1,4 @@
+import type { FailedJobRepository } from './failed'
 import { reconstructJob } from './job'
 import type { QueueStore } from './store'
 
@@ -6,6 +7,10 @@ export interface WorkerOptions {
   retryAfter?: number
   /** Called when a job throws (each attempt). */
   onError?: (name: string, error: unknown, willRetry: boolean) => void
+  /** Connection name recorded on failed jobs. Default 'default'. */
+  connection?: string
+  /** Where to persist jobs whose retries are exhausted (from `failedJobs()`). */
+  failed?: FailedJobRepository | null
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -33,8 +38,13 @@ export class Worker {
     } catch (error) {
       const willRetry = record.attempts < (job.tries ?? 1)
       this.options.onError?.(name, error, willRetry)
-      if (willRetry) await this.store.release(record, this.options.retryAfter ?? 0)
-      else await job.failed?.(error)
+      if (willRetry) {
+        await this.store.release(record, this.options.retryAfter ?? 0)
+      } else {
+        await job.failed?.(error)
+        const connection = this.options.connection ?? 'default'
+        await this.options.failed?.log(connection, connection, record.body, error)
+      }
     }
     return true
   }
