@@ -11,6 +11,6 @@ export default defineQueueConfig({
     sync: { driver: 'sync' },
     memory: { driver: 'memory' }, // per-process; lost on restart
     database: { driver: 'database' }, // uses the `jobs` table (wired in AppServiceProvider)
-    redis: { driver: 'redis', url: process.env.REDIS_URL, queue: 'queues:default' },
+    redis: { driver: 'redis', url: process.env.REDIS_URL, queue: 'queues' }, // key prefix; lanes become queues:<name>
   },
 })

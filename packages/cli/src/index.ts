@@ -41,7 +41,8 @@ Usage:
   ravel db:monitor [--max=N]                  Report open connections (Postgres)
   ravel route:list                            List all registered HTTP routes
   ravel queue:work [--connection=<name>]      Process queued jobs
-                   [--once|--stop-when-empty|--max=N] [--sleep=N] [--retry-after=N]
+                   [--queue=high,default] [--once|--stop-when-empty|--max=N]
+                   [--sleep=N] [--retry-after=N]
   ravel queue:failed                          List failed jobs
   ravel queue:retry <id> | --all              Re-queue failed jobs
   ravel queue:forget <id>                     Delete a failed job

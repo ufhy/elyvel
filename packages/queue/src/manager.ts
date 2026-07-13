@@ -9,6 +9,8 @@ export interface DispatchOptions {
   delay?: number
   /** Target a non-default connection. */
   connection?: string
+  /** Named queue (priority lane) to dispatch onto. Defaults to `'default'`. */
+  queue?: string
   /**
    * Defer the actual dispatch until the current DB transaction commits (and
    * drop it on rollback). Requires {@link configureAfterCommit}. Overrides the
@@ -55,7 +57,7 @@ export class QueueManager {
       case 'database':
         return new DatabaseQueueStore()
       case 'redis':
-        return new RedisQueueStore(cfg.url ? new RedisClient(cfg.url) : new RedisClient(), cfg.queue ?? 'queues:default')
+        return new RedisQueueStore(cfg.url ? new RedisClient(cfg.url) : new RedisClient(), cfg.queue ?? 'queues')
       default:
         return 'sync'
     }
@@ -82,7 +84,7 @@ export class QueueManager {
         }
         return
       }
-      await store.push(JSON.stringify(serializeJob(job)), options.delay ?? 0)
+      await store.push(JSON.stringify(serializeJob(job)), { delaySeconds: options.delay ?? 0, queue: options.queue })
     }
 
     const connCfg = this.config.connections?.[name]

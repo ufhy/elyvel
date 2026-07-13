@@ -30,7 +30,9 @@ export { QueueServiceProvider, QueueToken } from './provider'
 export {
   configureDatabaseQueue,
   DatabaseQueueStore,
+  DEFAULT_QUEUE,
   MemoryQueueStore,
+  type PushOptions,
   type QueueDbAdapter,
   type QueuedRecord,
   type QueueStore,

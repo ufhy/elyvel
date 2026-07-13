@@ -26,9 +26,12 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
     return 1
   }
 
+  const queues = typeof flags.queue === 'string' ? flags.queue.split(',').map((q) => q.trim()) : undefined
+
   const worker = new Worker(store, {
     retryAfter: flags['retry-after'] ? Number(flags['retry-after']) : 0,
     connection: connection ?? 'default',
+    queues,
     failed: failedJobs(),
     onError: (name, error, willRetry) => {
       const detail = error instanceof Error ? error.message : String(error)
@@ -98,7 +101,7 @@ export async function queueRetryCommand(id: string | undefined, flags: Record<st
       console.error(`✗ ${job.id}: connection "${job.connection}" is sync — nothing to re-queue.`)
       continue
     }
-    await store.push(job.body)
+    await store.push(job.body, { queue: job.queue })
     await repo.forget(job.id)
     console.log(`✓ re-queued ${job.id}`)
     retried++

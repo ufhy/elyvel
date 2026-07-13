@@ -150,7 +150,7 @@ describe('Worker (memory store)', () => {
 
   test('delayed jobs are not popped early', async () => {
     const store = new MemoryQueueStore()
-    await store.push(JSON.stringify(serializeJob(new RecordJob('soon'))), 3600)
+    await store.push(JSON.stringify(serializeJob(new RecordJob('soon'))), { delaySeconds: 3600 })
     expect(await store.pop()).toBeNull()
     expect(await store.size()).toBe(1)
   })
@@ -309,6 +309,36 @@ describe('retry reliability', () => {
   })
 })
 
+// ── named queues / priority ───────────────────────────────────────────────────
+describe('named queues', () => {
+  test('pop honors queue priority order', async () => {
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('low1'))), { queue: 'low' })
+    await store.push(JSON.stringify(serializeJob(new RecordJob('high1'))), { queue: 'high' })
+    await store.push(JSON.stringify(serializeJob(new RecordJob('low2'))), { queue: 'low' })
+
+    // worker prefers 'high' then 'low'
+    await new Worker(store, { queues: ['high', 'low'] }).work({ stopWhenEmpty: true })
+    expect(ran).toEqual(['high1', 'low1', 'low2'])
+  })
+
+  test('size can target a single queue', async () => {
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('a'))), { queue: 'emails' })
+    await store.push(JSON.stringify(serializeJob(new RecordJob('b'))), { queue: 'default' })
+    expect(await store.size('emails')).toBe(1)
+    expect(await store.size()).toBe(2)
+  })
+
+  test('a job dispatched to a queue is invisible to a worker on another', async () => {
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('only-high'))), { queue: 'high' })
+    const processed = await new Worker(store, { queues: ['default'] }).work({ stopWhenEmpty: true })
+    expect(processed).toBe(0)
+    expect(ran).toEqual([])
+  })
+})
+
 // ── redis store (fake ZSET client) ────────────────────────────────────────────
 class FakeRedisZSet implements RedisLike {
   private sets = new Map<string, { score: number; member: string }[]>()
@@ -357,19 +387,24 @@ describe('RedisQueueStore (fake client — logic only)', () => {
 // ── database store (fake adapter) ─────────────────────────────────────────────
 describe('DatabaseQueueStore (fake adapter)', () => {
   test('push/takeReady/count via the injected adapter', async () => {
-    const rows: { id: string; body: string; attempts: number; availableAt: number }[] = []
+    const rows: { id: string; body: string; attempts: number; availableAt: number; queue: string }[] = []
     const adapter: QueueDbAdapter = {
-      insert: async (id, body, attempts, availableAt) => {
-        rows.push({ id, body, attempts, availableAt })
+      insert: async (id, body, attempts, availableAt, queue) => {
+        rows.push({ id, body, attempts, availableAt, queue })
       },
-      takeReady: async (now) => {
-        const ready = rows.filter((r) => r.availableAt <= now).sort((a, b) => a.availableAt - b.availableAt)
-        const next = ready[0]
-        if (!next) return null
-        rows.splice(rows.indexOf(next), 1)
-        return { id: next.id, body: next.body, attempts: next.attempts }
+      takeReady: async (now, queues) => {
+        for (const queue of queues) {
+          const ready = rows
+            .filter((r) => r.queue === queue && r.availableAt <= now)
+            .sort((a, b) => a.availableAt - b.availableAt)
+          const next = ready[0]
+          if (!next) continue
+          rows.splice(rows.indexOf(next), 1)
+          return { id: next.id, body: next.body, attempts: next.attempts, queue: next.queue }
+        }
+        return null
       },
-      count: async () => rows.length,
+      count: async (queue) => (queue ? rows.filter((r) => r.queue === queue).length : rows.length),
     }
     configureDatabaseQueue(adapter)
     const store = new DatabaseQueueStore()

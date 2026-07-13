@@ -69,16 +69,29 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Wire the `database` queue driver (config/queue.ts) to the `jobs` table.
     configureDatabaseQueue({
-      insert: async (id, body, attempts, availableAt) => {
-        await table('jobs').insert({ id, body, attempts, available_at: availableAt })
+      insert: async (id, body, attempts, availableAt, queue) => {
+        await table('jobs').insert({ id, queue, body, attempts, available_at: availableAt })
       },
-      takeReady: async (now) => {
-        const row = await table('jobs').where('available_at', '<=', now).orderBy('available_at').first()
-        if (!row) return null
-        await table('jobs').where('id', row.id).delete()
-        return { id: String(row.id), body: String(row.body), attempts: Number(row.attempts) }
+      takeReady: async (now, queues) => {
+        // Honor queue priority: first queue with a ready job wins.
+        for (const queue of queues) {
+          const row = await table('jobs')
+            .where('queue', queue)
+            .where('available_at', '<=', now)
+            .orderBy('available_at')
+            .first()
+          if (!row) continue
+          await table('jobs').where('id', row.id).delete()
+          return {
+            id: String(row.id),
+            body: String(row.body),
+            attempts: Number(row.attempts),
+            queue: String(row.queue),
+          }
+        }
+        return null
       },
-      count: async () => table('jobs').count(),
+      count: async (queue) => (queue ? table('jobs').where('queue', queue).count() : table('jobs').count()),
     })
 
     // Persist exhausted jobs to the `failed_jobs` table (ravel queue:failed/retry/…).

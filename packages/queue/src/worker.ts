@@ -10,6 +10,8 @@ export interface WorkerOptions {
   onError?: (name: string, error: unknown, willRetry: boolean) => void
   /** Connection name recorded on failed jobs. Default 'default'. */
   connection?: string
+  /** Named queues to process, in priority order. Defaults to `['default']`. */
+  queues?: string[]
   /** Where to persist jobs whose retries are exhausted (from `failedJobs()`). */
   failed?: FailedJobRepository | null
 }
@@ -39,7 +41,7 @@ export class Worker {
 
   /** Process the next ready job. Returns true if one was processed. */
   async processNext(): Promise<boolean> {
-    const record = await this.store.pop()
+    const record = await this.store.pop(this.options.queues)
     if (!record) return false
 
     const serialized = JSON.parse(record.body) as SerializedJob
