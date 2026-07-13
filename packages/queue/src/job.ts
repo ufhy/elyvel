@@ -25,6 +25,8 @@ export abstract class Job {
   uniqueFor?: number
   /** Encrypt this job's payload at rest (needs configureJobEncryption). */
   encrypt?: boolean
+  /** The batch this job belongs to (set by Bus.batch); tracked by the worker. */
+  batchId?: string
   /** Distinguishes unique instances (e.g. a model id). Defaults to ''. */
   uniqueId?(): string
 
@@ -56,6 +58,7 @@ export interface JobConfig {
   unique?: boolean
   uniqueFor?: number
   encrypt?: boolean
+  batchId?: string
 }
 
 export interface SerializedJob {
@@ -75,6 +78,7 @@ const CONFIG_KEYS = new Set([
   'unique',
   'uniqueFor',
   'encrypt',
+  'batchId',
   'chainedJobs',
 ])
 
@@ -100,6 +104,7 @@ export function serializeJob(job: Job): SerializedJob {
   if (job.unique !== undefined) config.unique = job.unique
   if (job.uniqueFor !== undefined) config.uniqueFor = job.uniqueFor
   if (job.encrypt !== undefined) config.encrypt = job.encrypt
+  if (job.batchId !== undefined) config.batchId = job.batchId
   const result: SerializedJob = { job: job.constructor.name, data: serializedData, config }
   if (job.chainedJobs && job.chainedJobs.length > 0) result.chain = job.chainedJobs.map(serializeJob)
   return result
@@ -120,6 +125,7 @@ export function reconstructJob(serialized: SerializedJob): Job {
   job.unique = serialized.config.unique
   job.uniqueFor = serialized.config.uniqueFor
   job.encrypt = serialized.config.encrypt
+  job.batchId = serialized.config.batchId
   return job
 }
 

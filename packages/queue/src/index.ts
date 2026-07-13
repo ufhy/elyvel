@@ -1,3 +1,14 @@
+export {
+  Batch,
+  type BatchAdapter,
+  type BatchRecord,
+  batchAdapter,
+  Bus,
+  configureBatches,
+  findBatch,
+  MemoryBatchStore,
+  PendingBatch,
+} from './batch'
 export { type QueueConfig, type QueueConnectionConfig, defineQueueConfig } from './config-schema'
 export {
   configureFailedJobs,

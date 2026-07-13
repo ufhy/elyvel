@@ -1,3 +1,4 @@
+import { isBatchCancelled, recordBatchedJob } from './batch'
 import { fireAfter, fireBefore, fireFailing } from './events'
 import type { FailedJobRepository } from './failed'
 import { backoffFor, decodeBody, encodeBody, reconstructJob, type SerializedJob } from './job'
@@ -60,6 +61,13 @@ export class Worker {
       const key = uniqueKeyFor(job)
       if (key) await uniqueLock()?.release(key)
     }
+
+    // A cancelled batch's remaining jobs are dropped without running.
+    if (job.batchId && (await isBatchCancelled(job.batchId))) {
+      await willReleaseLock()
+      return true
+    }
+
     try {
       this.options.onBeforeJob?.(name)
       await fireBefore(name)
@@ -67,6 +75,7 @@ export class Worker {
       await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
       await willReleaseLock()
       await this.dispatchChain(serialized, record.queue)
+      if (job.batchId) await recordBatchedJob(job.batchId, true)
       this.options.onAfterJob?.(name)
       await fireAfter(name)
     } catch (error) {
@@ -89,6 +98,7 @@ export class Worker {
         const connection = this.options.connection ?? 'default'
         await this.options.failed?.log(connection, connection, record.body, error)
         await willReleaseLock() // released on final failure, held across retries
+        if (job.batchId) await recordBatchedJob(job.batchId, false, error)
       }
     }
     return true

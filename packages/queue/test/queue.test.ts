@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { Bus, configureBatches, findBatch, MemoryBatchStore } from '../src/batch'
 import { configureJobEncryption } from '../src/encryption'
 import { Queue } from '../src/events'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
@@ -318,6 +319,98 @@ describe('retry reliability', () => {
     const rows = await failed.all()
     expect(rows).toHaveLength(1)
     expect(rows[0]?.exception).toContain('timed out')
+  })
+})
+
+// ── job batching ──────────────────────────────────────────────────────────────
+describe('job batching', () => {
+  class BatchOk extends Job {
+    handle(): void {
+      const store = globalThis as Record<string, unknown>
+      store.__okRan = ((store.__okRan as number | undefined) ?? 0) + 1
+    }
+  }
+  class BatchFail extends Job {
+    handle(): void {
+      throw new Error('batch-fail')
+    }
+  }
+  registerJob(BatchOk, BatchFail)
+
+  const g = globalThis as Record<string, unknown>
+  const setup = () => {
+    configureBatches(new MemoryBatchStore())
+    const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
+    setDefaultQueue(m)
+    g.__okRan = 0
+    g.__then = false
+    g.__catch = false
+    g.__finally = false
+    return m.store('memory') as InstanceType<typeof MemoryQueueStore>
+  }
+
+  test('then + finally run when all jobs succeed; progress reaches 100', async () => {
+    const store = setup()
+    const batch = await Bus.batch([new BatchOk(), new BatchOk()])
+      .name('imports')
+      .then(() => {
+        ;(globalThis as Record<string, unknown>).__then = true
+      })
+      .finally(() => {
+        ;(globalThis as Record<string, unknown>).__finally = true
+      })
+      .dispatch()
+    expect(batch.total).toBe(2)
+    expect(batch.progress()).toBe(0)
+
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(g.__okRan).toBe(2)
+    expect(g.__then).toBe(true)
+    expect(g.__finally).toBe(true)
+    const after = await findBatch(batch.id)
+    expect(after?.processed).toBe(2)
+    expect(after?.progress()).toBe(100)
+    expect(after?.finished).toBe(true)
+  })
+
+  test('failure cancels the batch: catch runs, then does not, remaining jobs skip', async () => {
+    const store = setup()
+    const batch = await Bus.batch([new BatchFail(), new BatchOk()])
+      .then(() => {
+        ;(globalThis as Record<string, unknown>).__then = true
+      })
+      .catch(() => {
+        ;(globalThis as Record<string, unknown>).__catch = true
+      })
+      .finally(() => {
+        ;(globalThis as Record<string, unknown>).__finally = true
+      })
+      .dispatch()
+
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(g.__catch).toBe(true)
+    expect(g.__then).toBe(false) // never all-success
+    expect(g.__okRan).toBe(0) // second job skipped because batch cancelled
+    const after = await findBatch(batch.id)
+    expect(after?.cancelled).toBe(true)
+  })
+
+  test('allowFailures keeps the batch running (then skipped, finally runs)', async () => {
+    const store = setup()
+    await Bus.batch([new BatchFail(), new BatchOk()])
+      .allowFailures()
+      .then(() => {
+        ;(globalThis as Record<string, unknown>).__then = true
+      })
+      .finally(() => {
+        ;(globalThis as Record<string, unknown>).__finally = true
+      })
+      .dispatch()
+
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(g.__okRan).toBe(1) // second job still ran
+    expect(g.__then).toBe(false) // had a failure
+    expect(g.__finally).toBe(true)
   })
 })
 

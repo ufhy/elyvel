@@ -2,7 +2,9 @@ import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
 import { afterCommit, Model, table } from '@elysia-ravel/database'
 import {
+  type BatchRecord,
   configureAfterCommit,
+  configureBatches,
   configureDatabaseQueue,
   configureFailedJobs,
   configureJobEncryption,
@@ -96,6 +98,56 @@ export class AppServiceProvider extends ServiceProvider {
       },
       request: async () => {
         await table('cache').updateOrInsert({ key: 'queue:restart' }, { value: String(Date.now()), expiration: null })
+      },
+    })
+
+    // Job batching (Bus.batch) backed by the `job_batches` table.
+    const toBatch = (row: Record<string, unknown>): BatchRecord => ({
+      id: String(row.id),
+      name: row.name == null ? undefined : String(row.name),
+      total: Number(row.total),
+      pending: Number(row.pending),
+      failed: Number(row.failed),
+      allowFailures: Boolean(Number(row.allow_failures)),
+      cancelledAt: row.cancelled_at == null ? null : Number(row.cancelled_at),
+      finishedAt: row.finished_at == null ? null : Number(row.finished_at),
+      createdAt: Number(row.created_at),
+      onThen: row.on_then == null ? undefined : String(row.on_then),
+      onCatch: row.on_catch == null ? undefined : String(row.on_catch),
+      onFinally: row.on_finally == null ? undefined : String(row.on_finally),
+    })
+    configureBatches({
+      create: async (r) => {
+        await table('job_batches').insert({
+          id: r.id,
+          name: r.name ?? null,
+          total: r.total,
+          pending: r.pending,
+          failed: r.failed,
+          allow_failures: r.allowFailures,
+          cancelled_at: r.cancelledAt,
+          finished_at: r.finishedAt,
+          created_at: r.createdAt,
+          on_then: r.onThen ?? null,
+          on_catch: r.onCatch ?? null,
+          on_finally: r.onFinally ?? null,
+        })
+      },
+      find: async (id) => {
+        const row = await table('job_batches').where('id', id).first()
+        return row ? toBatch(row) : null
+      },
+      recordJobResult: async (id, success) => {
+        await table('job_batches').where('id', id).decrement('pending', 1)
+        if (!success) await table('job_batches').where('id', id).increment('failed', 1)
+        const row = await table('job_batches').where('id', id).first()
+        return row ? toBatch(row) : null
+      },
+      cancel: async (id) => {
+        await table('job_batches').where('id', id).update({ cancelled_at: Date.now() })
+      },
+      markFinished: async (id) => {
+        await table('job_batches').where('id', id).update({ finished_at: Date.now() })
       },
     })
 
