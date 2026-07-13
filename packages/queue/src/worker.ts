@@ -1,5 +1,6 @@
+import { fireAfter, fireBefore, fireFailing } from './events'
 import type { FailedJobRepository } from './failed'
-import { backoffFor, reconstructJob, type SerializedJob } from './job'
+import { backoffFor, decodeBody, encodeBody, reconstructJob, type SerializedJob } from './job'
 import { ReleaseJob, runThroughMiddleware } from './middleware'
 import type { QueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
@@ -49,7 +50,7 @@ export class Worker {
     const record = await this.store.pop(this.options.queues)
     if (!record) return false
 
-    const serialized = JSON.parse(record.body) as SerializedJob
+    const serialized = decodeBody(record.body)
     const job = reconstructJob(serialized)
     const name = serialized.job
     const willReleaseLock = async () => {
@@ -58,10 +59,12 @@ export class Worker {
     }
     try {
       this.options.onBeforeJob?.(name)
+      await fireBefore(name)
       await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
       await willReleaseLock()
       await this.dispatchChain(serialized, record.queue)
       this.options.onAfterJob?.(name)
+      await fireAfter(name)
     } catch (error) {
       // Middleware asked to re-queue the job without burning an attempt (the
       // pop already incremented attempts, so decrement to net zero).
@@ -74,6 +77,7 @@ export class Worker {
       const cap = Math.min(job.tries ?? 1, job.maxExceptions ?? Number.POSITIVE_INFINITY)
       const willRetry = record.attempts < cap
       this.options.onError?.(name, error, willRetry)
+      await fireFailing(name, error)
       if (willRetry) {
         await this.store.release(record, backoffFor(job, record.attempts, this.options.retryAfter ?? 0))
       } else {
@@ -92,7 +96,7 @@ export class Worker {
     const [next, ...rest] = serialized.chain
     if (!next) return
     if (rest.length > 0) next.chain = rest
-    await this.store.push(JSON.stringify(next), { queue })
+    await this.store.push(encodeBody(next), { queue })
   }
 
   /**

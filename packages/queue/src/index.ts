@@ -7,8 +7,13 @@ export {
   failedJobs,
   MemoryFailedJobStore,
 } from './failed'
+export { configureJobEncryption } from './encryption'
+export { Queue } from './events'
 export {
   backoffFor,
+  CallQueuedClosure,
+  decodeBody,
+  encodeBody,
   Job,
   type JobClass,
   type JobConfig,
@@ -30,6 +35,7 @@ export {
 } from './middleware'
 export {
   configureAfterCommit,
+  type Dispatchable,
   type DispatchOptions,
   dispatch,
   dispatchSync,

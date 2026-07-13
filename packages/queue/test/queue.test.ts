@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { configureJobEncryption } from '../src/encryption'
+import { Queue } from '../src/events'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
 import { configureAfterCommit, dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
-import { Job, registerJob, reconstructJob, serializeJob } from '../src/job'
+import { decodeBody, encodeBody, Job, registerJob, reconstructJob, serializeJob } from '../src/job'
 import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import {
   configureRateLimiter,
@@ -314,6 +316,88 @@ describe('retry reliability', () => {
     const rows = await failed.all()
     expect(rows).toHaveLength(1)
     expect(rows[0]?.exception).toContain('timed out')
+  })
+})
+
+// ── encrypted jobs ────────────────────────────────────────────────────────────
+describe('encrypted jobs', () => {
+  class SecretJob extends Job {
+    override encrypt = true
+    constructor(public msg = '') {
+      super()
+    }
+    handle(): void {
+      ran.push(this.msg)
+    }
+  }
+  registerJob(SecretJob)
+
+  test('payload is encrypted at rest and round-trips', async () => {
+    configureJobEncryption('a-test-secret')
+    const body = encodeBody(serializeJob(new SecretJob('top-secret')))
+    expect(body.startsWith('ENC:')).toBe(true)
+    expect(body).not.toContain('top-secret')
+    const decoded = decodeBody(body)
+    expect(decoded.job).toBe('SecretJob')
+    expect(decoded.data).toEqual({ msg: 'top-secret' })
+  })
+
+  test('worker decrypts and runs an encrypted job', async () => {
+    configureJobEncryption('a-test-secret')
+    const store = new MemoryQueueStore()
+    const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
+    ;(m as unknown as { resolved: Map<string, unknown> }).resolved.set('memory', store)
+    await m.push(new SecretJob('classified'))
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(ran).toEqual(['classified'])
+  })
+})
+
+// ── queued closures ───────────────────────────────────────────────────────────
+describe('queued closures', () => {
+  test('a self-contained closure can be dispatched and worked', async () => {
+    ;(globalThis as Record<string, unknown>).__closureRan = false
+    const store = new MemoryQueueStore()
+    const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
+    ;(m as unknown as { resolved: Map<string, unknown> }).resolved.set('memory', store)
+    await m.push(() => {
+      ;(globalThis as Record<string, unknown>).__closureRan = true
+    })
+    expect(await store.size()).toBe(1)
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect((globalThis as Record<string, unknown>).__closureRan).toBe(true)
+  })
+
+  test('dispatchSync runs a closure inline', async () => {
+    ;(globalThis as Record<string, unknown>).__syncClosureRan = false
+    setDefaultQueue(new QueueManager({ default: 'sync' }))
+    await dispatchSync(() => {
+      ;(globalThis as Record<string, unknown>).__syncClosureRan = true
+    })
+    expect((globalThis as Record<string, unknown>).__syncClosureRan).toBe(true)
+  })
+})
+
+// ── global queue events ───────────────────────────────────────────────────────
+describe('Queue lifecycle events', () => {
+  test('before/after fire for successful jobs, failing for throwing jobs', async () => {
+    Queue.clearListeners()
+    const before: string[] = []
+    const after: string[] = []
+    const failing: string[] = []
+    Queue.before((n) => void before.push(n))
+    Queue.after((n) => void after.push(n))
+    Queue.failing((n) => void failing.push(n))
+
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('ok'))))
+    await store.push(JSON.stringify(serializeJob(new FlakyJob()))) // tries=3
+    await new Worker(store).work({ stopWhenEmpty: true })
+
+    expect(before).toContain('RecordJob')
+    expect(after).toEqual(['RecordJob']) // only the successful one
+    expect(failing.filter((n) => n === 'FlakyJob')).toHaveLength(3) // one per attempt
+    Queue.clearListeners()
   })
 })
 

@@ -1,8 +1,16 @@
 import { RedisClient } from 'bun'
 import type { QueueConfig, QueueConnectionConfig } from './config-schema'
-import { type Job, serializeJob } from './job'
+import { CallQueuedClosure, encodeBody, type Job, serializeJob } from './job'
 import { DatabaseQueueStore, MemoryQueueStore, type QueueStore, RedisQueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
+
+/** A job instance or a self-contained closure to queue. */
+export type Dispatchable = Job | (() => void | Promise<void>)
+
+/** Normalize a dispatchable into a Job (wrapping closures). */
+function toJob(dispatchable: Dispatchable): Job {
+  return typeof dispatchable === 'function' ? new CallQueuedClosure(dispatchable.toString()) : dispatchable
+}
 
 export interface DispatchOptions {
   /** Delay before the job becomes available, in seconds. */
@@ -63,8 +71,9 @@ export class QueueManager {
     }
   }
 
-  /** Dispatch a job: run inline on `sync`, otherwise enqueue. */
-  async push(job: Job, options: DispatchOptions = {}): Promise<void> {
+  /** Dispatch a job (or closure): run inline on `sync`, otherwise enqueue. */
+  async push(dispatchable: Dispatchable, options: DispatchOptions = {}): Promise<void> {
+    const job = toJob(dispatchable)
     // Unique jobs: skip the dispatch if a lock is already held.
     const uniqueKey = uniqueKeyFor(job)
     const lock = uniqueLock()
@@ -84,7 +93,7 @@ export class QueueManager {
         }
         return
       }
-      await store.push(JSON.stringify(serializeJob(job)), { delaySeconds: options.delay ?? 0, queue: options.queue })
+      await store.push(encodeBody(serializeJob(job)), { delaySeconds: options.delay ?? 0, queue: options.queue })
     }
 
     const connCfg = this.config.connections?.[name]
@@ -96,9 +105,9 @@ export class QueueManager {
     await doPush()
   }
 
-  /** Run a job immediately, bypassing the queue. */
-  async pushSync(job: Job): Promise<void> {
-    await job.handle()
+  /** Run a job (or closure) immediately, bypassing the queue. */
+  async pushSync(dispatchable: Dispatchable): Promise<void> {
+    await toJob(dispatchable).handle()
   }
 }
 
@@ -112,11 +121,11 @@ export function queueManager(): QueueManager {
   return defaultManager
 }
 
-/** Dispatch a job onto the queue (Laravel's `dispatch()` helper). */
-export function dispatch(job: Job, options?: DispatchOptions): Promise<void> {
-  return queueManager().push(job, options)
+/** Dispatch a job or closure onto the queue (Laravel's `dispatch()` helper). */
+export function dispatch(dispatchable: Dispatchable, options?: DispatchOptions): Promise<void> {
+  return queueManager().push(dispatchable, options)
 }
-/** Run a job immediately (Laravel's `dispatchSync`). */
-export function dispatchSync(job: Job): Promise<void> {
-  return queueManager().pushSync(job)
+/** Run a job or closure immediately (Laravel's `dispatchSync`). */
+export function dispatchSync(dispatchable: Dispatchable): Promise<void> {
+  return queueManager().pushSync(dispatchable)
 }

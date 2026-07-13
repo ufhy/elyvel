@@ -1,3 +1,5 @@
+import { decryptString, encryptString, isEncrypted } from './encryption'
+
 /**
  * A queued job. Put your work in `handle()`; store data in public fields (they
  * are serialized to the queue and restored on the worker). Optionally implement
@@ -20,6 +22,8 @@ export abstract class Job {
   unique?: boolean
   /** How long (seconds) the uniqueness lock is held. Default 3600. */
   uniqueFor?: number
+  /** Encrypt this job's payload at rest (needs configureJobEncryption). */
+  encrypt?: boolean
   /** Distinguishes unique instances (e.g. a model id). Defaults to ''. */
   uniqueId?(): string
 
@@ -50,6 +54,7 @@ export interface JobConfig {
   maxExceptions?: number
   unique?: boolean
   uniqueFor?: number
+  encrypt?: boolean
 }
 
 export interface SerializedJob {
@@ -68,6 +73,7 @@ const CONFIG_KEYS = new Set([
   'maxExceptions',
   'unique',
   'uniqueFor',
+  'encrypt',
   'chainedJobs',
 ])
 
@@ -91,6 +97,7 @@ export function serializeJob(job: Job): SerializedJob {
   if (job.maxExceptions !== undefined) config.maxExceptions = job.maxExceptions
   if (job.unique !== undefined) config.unique = job.unique
   if (job.uniqueFor !== undefined) config.uniqueFor = job.uniqueFor
+  if (job.encrypt !== undefined) config.encrypt = job.encrypt
   const result: SerializedJob = { job: job.constructor.name, data, config }
   if (job.chainedJobs && job.chainedJobs.length > 0) result.chain = job.chainedJobs.map(serializeJob)
   return result
@@ -110,8 +117,37 @@ export function reconstructJob(serialized: SerializedJob): Job {
   job.maxExceptions = serialized.config.maxExceptions
   job.unique = serialized.config.unique
   job.uniqueFor = serialized.config.uniqueFor
+  job.encrypt = serialized.config.encrypt
   return job
 }
+
+/** Serialize a job to a store-ready string body (encrypting if `config.encrypt`). */
+export function encodeBody(serialized: SerializedJob): string {
+  const json = JSON.stringify(serialized)
+  return serialized.config.encrypt ? encryptString(json) : json
+}
+
+/** Parse a store body back to a {@link SerializedJob} (decrypting if needed). */
+export function decodeBody(body: string): SerializedJob {
+  return JSON.parse(isEncrypted(body) ? decryptString(body) : body) as SerializedJob
+}
+
+/**
+ * Wraps a plain closure so it can be queued (Laravel's queued closures).
+ * The function is serialized via `toString()`, so it must be self-contained —
+ * variables captured from the enclosing scope are NOT preserved.
+ */
+export class CallQueuedClosure extends Job {
+  constructor(public source = '') {
+    super()
+  }
+  handle(): void | Promise<void> {
+    // biome-ignore lint/security/noGlobalEval: developer-authored closure, same trust as their own code
+    const fn = new Function(`return (${this.source})`)() as () => void | Promise<void>
+    return fn()
+  }
+}
+registerJob(CallQueuedClosure)
 
 /** The delay (seconds) before the next retry, given how many attempts have run. */
 export function backoffFor(job: Job, attempts: number, fallback = 0): number {

@@ -5,8 +5,10 @@ import {
   configureAfterCommit,
   configureDatabaseQueue,
   configureFailedJobs,
+  configureJobEncryption,
   configureUniqueJobs,
   MemoryUniqueLock,
+  Queue,
   registerJob,
 } from '@elysia-ravel/queue'
 import { configureDbRules } from '@elysia-ravel/validation'
@@ -66,6 +68,14 @@ export class AppServiceProvider extends ServiceProvider {
     // it with Redis for cross-process uniqueness in production).
     configureAfterCommit((cb) => afterCommit(cb))
     configureUniqueJobs(new MemoryUniqueLock())
+
+    // Encrypt jobs flagged `encrypt = true` with the app key (if set).
+    const appKey = this.app.config.get<string | undefined>('app.key')
+    if (appKey) configureJobEncryption(appKey)
+
+    // Log every job failure globally (bridge the queue's failing event).
+    const queueLog = this.app.logger.child('queue')
+    Queue.failing((name, error) => queueLog.error('job failed', { job: name, error: String(error) }))
 
     // Wire the `database` queue driver (config/queue.ts) to the `jobs` table.
     configureDatabaseQueue({
