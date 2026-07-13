@@ -93,6 +93,14 @@
         "@elysia-ravel/core": "workspace:*",
       },
     },
+    "packages/inertia": {
+      "name": "@elysia-ravel/inertia",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+        "elysia": ">=1.3.0",
+      },
+    },
     "packages/queue": {
       "name": "@elysia-ravel/queue",
       "version": "0.0.0",
@@ -158,6 +166,8 @@
     "@elysia-ravel/database": ["@elysia-ravel/database@workspace:packages/database"],
 
     "@elysia-ravel/events": ["@elysia-ravel/events@workspace:packages/events"],
+
+    "@elysia-ravel/inertia": ["@elysia-ravel/inertia@workspace:packages/inertia"],
 
     "@elysia-ravel/queue": ["@elysia-ravel/queue@workspace:packages/queue"],
 
