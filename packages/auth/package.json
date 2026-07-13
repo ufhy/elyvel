@@ -1,7 +1,7 @@
 {
   "name": "@elysia-ravel/auth",
   "version": "0.0.0",
-  "description": "Authentication (token guard) + authorization (gate) for elysia-ravel",
+  "description": "Authentication for elysia-ravel — token guard, gate, and Better Auth (Eloquent adapter)",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -13,6 +13,10 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@elysia-ravel/core": "workspace:*",
+    "@elysia-ravel/database": "workspace:*",
+    "better-auth": ">=1.2.0",
     "elysia": ">=1.3.0"
-  }
+  },
+  "devDependencies": { "better-auth": "^1.3.0" }
 }

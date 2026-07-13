@@ -61,9 +61,11 @@ describe('methodOverride', () => {
     expect(out.method).toBe('PATCH')
     expect(await out.text()).toContain('name=Sam') // body preserved for the handler
   })
-  test('_method in JSON body', async () => {
+  test('JSON bodies are left untouched (spoof via header/query, not JSON body)', async () => {
     const req = post({ headers: { 'content-type': 'application/json' }, body: JSON.stringify({ _method: 'PUT' }) })
-    expect((await methodOverride(req)).method).toBe('PUT')
+    const out = await methodOverride(req)
+    expect(out.method).toBe('POST')
+    expect(await out.text()).toContain('_method') // body intact, not consumed
   })
   test('leaves GET and unspoofable methods alone', async () => {
     expect((await methodOverride(new Request('http://localhost/x'))).method).toBe('GET')

@@ -22,19 +22,16 @@ export async function methodOverride(request: Request): Promise<Request> {
   const fromQuery = normalize(new URL(request.url).searchParams.get('_method'))
   if (fromQuery) return new Request(request, { method: fromQuery })
 
-  // Body `_method` — buffer the body, extract, and reconstruct (so the handler
-  // can still read the body afterwards).
+  // Body `_method` — only for HTML form posts (urlencoded). JSON API requests are
+  // left untouched (they use a real method or the X-HTTP-Method-Override header),
+  // so their body is never consumed/reconstructed here.
   const contentType = request.headers.get('content-type') ?? ''
-  if (!/application\/json|x-www-form-urlencoded/.test(contentType)) return request
+  if (!contentType.includes('x-www-form-urlencoded')) return request
 
   const body = await request.arrayBuffer()
   let fromBody: string | undefined
   try {
-    if (contentType.includes('json')) {
-      fromBody = normalize((JSON.parse(new TextDecoder().decode(body)) as { _method?: string })._method)
-    } else {
-      fromBody = normalize(new URLSearchParams(new TextDecoder().decode(body)).get('_method'))
-    }
+    fromBody = normalize(new URLSearchParams(new TextDecoder().decode(body)).get('_method'))
   } catch {
     // malformed body — leave the method as POST
   }
