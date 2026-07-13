@@ -100,9 +100,13 @@ export type ModelEvent =
   | 'updated'
   | 'deleting'
   | 'deleted'
+  | 'trashed'
+  | 'forceDeleting'
+  | 'forceDeleted'
   | 'restoring'
   | 'restored'
   | 'retrieved'
+  | 'replicating'
   | 'pruning'
 
 type EventListener = (model: Model) => void | Promise<void>
@@ -819,6 +823,7 @@ export class Model {
     }
     const clone = new (this.constructor as ModelClass<this>)()
     clone.forceFill(attributes)
+    void clone.fireEvent('replicating') // fire-and-forget (replicate() stays sync)
     return clone
   }
 
@@ -835,14 +840,22 @@ export class Model {
     if (self.softDeletes) {
       this.setAttribute(self.deletedAtColumn, new Date().toISOString())
       await this.save()
+      await this.fireEvent('trashed')
     } else {
-      await this.forceDelete()
+      await this.performDelete()
     }
     await this.fireEvent('deleted')
   }
 
-  /** Permanently delete the row, ignoring soft deletes. */
+  /** Permanently delete the row, ignoring soft deletes (fires forceDeleting/forceDeleted). */
   async forceDelete(): Promise<void> {
+    await this.fireEvent('forceDeleting')
+    await this.performDelete()
+    await this.fireEvent('forceDeleted')
+  }
+
+  /** The raw DELETE query, shared by delete()/forceDelete() (no events). */
+  private async performDelete(): Promise<void> {
     const self = this.self()
     await new QueryBuilder(useConnection(self.connection), self.getTableName())
       .where(self.primaryKey, this.getKey())
