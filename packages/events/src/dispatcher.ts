@@ -32,6 +32,7 @@ function invoke(listener: Listener, event: AnyEvent, name: string): unknown {
  */
 export class Dispatcher {
   private readonly listeners = new Map<string, Listener[]>()
+  private readonly pushed = new Map<string, AnyEvent[]>()
 
   /** Register a listener for an event class or string name (or `'*'` for all). */
   listen<E>(event: EventKey<E>, listener: Listener<E>): this {
@@ -68,12 +69,40 @@ export class Dispatcher {
   async dispatch(event: object | string, payload?: AnyEvent): Promise<unknown[]> {
     const name = typeof event === 'string' ? event : nameOfInstance(event)
     const value = typeof event === 'string' ? payload : event
+
+    // ShouldDispatchAfterCommit: defer until the DB transaction commits.
+    if (afterCommitHook && shouldDispatchAfterCommit(value)) {
+      afterCommitHook(() => {
+        void this.run(name, value)
+      })
+      return []
+    }
+    return this.run(name, value)
+  }
+
+  /** Run listeners for `name`; a listener returning `false` halts propagation. */
+  private async run(name: string, value: AnyEvent): Promise<unknown[]> {
     const results: unknown[] = []
     for (const listener of this.listenersFor(name)) {
       const result = await invoke(listener, value, name)
+      if (result === false) break // stop propagation
       if (result !== null && result !== undefined) results.push(result)
     }
     return results
+  }
+
+  /** Queue an event by name to be dispatched later with {@link flush}. */
+  push(name: string, payload?: AnyEvent): void {
+    const list = this.pushed.get(name) ?? []
+    list.push(payload)
+    this.pushed.set(name, list)
+  }
+
+  /** Dispatch (and clear) all events pushed under `name`. */
+  async flush(name: string): Promise<void> {
+    const list = this.pushed.get(name) ?? []
+    this.pushed.delete(name)
+    for (const payload of list) await this.dispatch(name, payload)
   }
 
   /** Dispatch until a listener returns a non-null value; returns that value. */
@@ -85,6 +114,61 @@ export class Dispatcher {
     }
     return null
   }
+}
+
+// ── dispatch-after-commit ─────────────────────────────────────────────────────
+type AfterCommitHook = (callback: () => void) => void
+let afterCommitHook: AfterCommitHook | null = null
+/** Wire transaction-aware event dispatch (e.g. to `@elysia-ravel/database`'s `afterCommit`). */
+export function configureEventAfterCommit(hook: AfterCommitHook): void {
+  afterCommitHook = hook
+}
+/** An event opts into after-commit dispatch by setting `dispatchAfterCommit = true`. */
+function shouldDispatchAfterCommit(value: AnyEvent): boolean {
+  return !!value && typeof value === 'object' && value.dispatchAfterCommit === true
+}
+
+// ── testing: Event::fake() ────────────────────────────────────────────────────
+/** A dispatcher that records events instead of running listeners (for tests). */
+export class EventFake extends Dispatcher {
+  readonly recorded: { name: string; event: AnyEvent }[] = []
+
+  override async dispatch(event: object | string, payload?: AnyEvent): Promise<unknown[]> {
+    const name = typeof event === 'string' ? event : nameOfInstance(event)
+    this.recorded.push({ name, event: typeof event === 'string' ? payload : event })
+    return []
+  }
+  override async until(event: object): Promise<unknown> {
+    this.recorded.push({ name: nameOfInstance(event), event })
+    return null
+  }
+
+  /** All recorded dispatches of an event (by class or name). */
+  dispatched(key: EventKey): AnyEvent[] {
+    const name = keyOf(key)
+    return this.recorded.filter((r) => r.name === name).map((r) => r.event)
+  }
+  assertDispatched(key: EventKey, times?: number): void {
+    const count = this.dispatched(key).length
+    if (times === undefined ? count === 0 : count !== times) {
+      throw new Error(`Expected "${keyOf(key)}" dispatched ${times ?? '≥1'} time(s), got ${count}.`)
+    }
+  }
+  assertNotDispatched(key: EventKey): void {
+    const count = this.dispatched(key).length
+    if (count !== 0) throw new Error(`Expected "${keyOf(key)}" NOT dispatched, got ${count}.`)
+  }
+}
+
+/** Swap the default dispatcher for a recording fake; returns it. Call {@link restoreEvents} after. */
+export function fakeEvents(): EventFake {
+  const fake = new EventFake()
+  setDefaultDispatcher(fake)
+  return fake
+}
+/** Restore a previously-captured real dispatcher. */
+export function restoreEvents(dispatcher: Dispatcher): void {
+  setDefaultDispatcher(dispatcher)
 }
 
 // ── process-wide default (set by EventServiceProvider at boot) ──────────────

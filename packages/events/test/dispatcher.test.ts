@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { Dispatcher, type Subscriber } from '../src/dispatcher'
+import {
+  configureEventAfterCommit,
+  Dispatcher,
+  EventFake,
+  fakeEvents,
+  restoreEvents,
+  type Subscriber,
+} from '../src/dispatcher'
 
 class UserRegistered {
   constructor(readonly email: string) {}
@@ -83,5 +90,65 @@ describe('Dispatcher', () => {
     await d.dispatch('a')
     await d.dispatch('b')
     expect(hits).toEqual(['a', 'b'])
+  })
+
+  test('returning false halts propagation', async () => {
+    const d = new Dispatcher()
+    const hits: string[] = []
+    d.listen('e', () => hits.push('first'))
+    d.listen('e', () => false) // stop
+    d.listen('e', () => hits.push('third'))
+    await d.dispatch('e')
+    expect(hits).toEqual(['first'])
+  })
+
+  test('push / flush deferred events', async () => {
+    const d = new Dispatcher()
+    const seen: unknown[] = []
+    d.listen('report', (p) => seen.push(p))
+    d.push('report', { id: 1 })
+    d.push('report', { id: 2 })
+    expect(seen).toEqual([]) // nothing yet
+    await d.flush('report')
+    expect(seen).toEqual([{ id: 1 }, { id: 2 }])
+  })
+
+  test('ShouldDispatchAfterCommit defers via the hook', async () => {
+    const deferred: Array<() => void> = []
+    configureEventAfterCommit((cb) => deferred.push(cb))
+    const d = new Dispatcher()
+    const seen: string[] = []
+    d.listen('Paid', () => seen.push('ran'))
+    await d.dispatch('Paid', { dispatchAfterCommit: true })
+    expect(seen).toEqual([]) // not run until "commit"
+    for (const cb of deferred) cb()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(seen).toEqual(['ran'])
+    configureEventAfterCommit(() => {}) // reset
+  })
+})
+
+describe('Event faking', () => {
+  class OrderPlaced {
+    constructor(readonly id: number) {}
+  }
+
+  test('fakeEvents records instead of running; asserts', async () => {
+    const fake = fakeEvents()
+    expect(fake).toBeInstanceOf(EventFake)
+    let ran = false
+    fake.listen(OrderPlaced, () => {
+      ran = true
+    })
+    await fake.dispatch(new OrderPlaced(1))
+    await fake.dispatch(new OrderPlaced(2))
+
+    expect(ran).toBe(false) // listeners NOT invoked under fake
+    fake.assertDispatched(OrderPlaced)
+    fake.assertDispatched(OrderPlaced, 2)
+    expect(fake.dispatched(OrderPlaced)).toHaveLength(2)
+    expect(() => fake.assertNotDispatched(OrderPlaced)).toThrow()
+
+    restoreEvents(new Dispatcher())
   })
 })
