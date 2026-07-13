@@ -1,10 +1,22 @@
-import { cronMatches } from './cron'
+import { cronMatches, partsInZone } from './cron'
 
 /** The unit of work a scheduled event runs. */
 type Task = () => void | Promise<void>
 
 /** Process-wide set of currently-running event names (for withoutOverlapping). */
 const runningLocks = new Set<string>()
+
+/** The app environment scheduled events are compared against (set by the provider). */
+let schedulerEnvironment: string | undefined
+export function setSchedulerEnvironment(env: string): void {
+  schedulerEnvironment = env
+}
+
+/** Minutes since midnight for `HH:MM`. */
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':')
+  return Number(h ?? 0) * 60 + Number(m ?? 0)
+}
 
 /**
  * A scheduled task with a fluent frequency + constraint API, mirroring
@@ -15,10 +27,16 @@ export class ScheduledEvent {
   /** Cron fields: minute hour day-of-month month day-of-week. */
   private segments: [string, string, string, string, string] = ['*', '*', '*', '*', '*']
   private tz: string | undefined
-  private readonly filters: Array<() => boolean | Promise<boolean>> = []
-  private readonly rejects: Array<() => boolean | Promise<boolean>> = []
+  private readonly filters: Array<(date: Date) => boolean | Promise<boolean>> = []
+  private readonly rejects: Array<(date: Date) => boolean | Promise<boolean>> = []
   private noOverlap = false
+  private background = false
+  private envs: string[] | undefined
   private label: string | undefined
+  private readonly beforeHooks: Array<() => void | Promise<void>> = []
+  private readonly afterHooks: Array<() => void | Promise<void>> = []
+  private readonly successHooks: Array<() => void | Promise<void>> = []
+  private readonly failureHooks: Array<(error: unknown) => void | Promise<void>> = []
 
   constructor(private readonly task: Task) {}
 
@@ -30,6 +48,9 @@ export class ScheduledEvent {
   }
   get name(): string {
     return this.label ?? `event(${this.expression})`
+  }
+  get runsInBackground(): boolean {
+    return this.background
   }
 
   // ── raw / naming ────────────────────────────────────────────────────────
@@ -154,10 +175,60 @@ export class ScheduledEvent {
     this.rejects.push(callback)
     return this
   }
+  /** Only run when the time-of-day is within `[start, end]` (handles overnight windows). */
+  between(start: string, end: string): this {
+    this.filters.push((date) => this.withinWindow(date, start, end))
+    return this
+  }
+  /** Skip when the time-of-day is within `[start, end]`. */
+  unlessBetween(start: string, end: string): this {
+    this.rejects.push((date) => this.withinWindow(date, start, end))
+    return this
+  }
+  /** Only run in these app environments (compared against setSchedulerEnvironment). */
+  environments(...envs: string[]): this {
+    this.envs = envs
+    return this
+  }
   /** Prevent a second copy running while one is in flight (per process). */
   withoutOverlapping(): this {
     this.noOverlap = true
     return this
+  }
+  /** Run the task without blocking the rest of the schedule (fire-and-forget). */
+  runInBackground(): this {
+    this.background = true
+    return this
+  }
+
+  // ── lifecycle hooks ─────────────────────────────────────────────────────────
+  /** Run before the task. */
+  before(callback: () => void | Promise<void>): this {
+    this.beforeHooks.push(callback)
+    return this
+  }
+  /** Run after the task, whether it succeeded or failed. */
+  after(callback: () => void | Promise<void>): this {
+    this.afterHooks.push(callback)
+    return this
+  }
+  /** Run after the task succeeds. */
+  onSuccess(callback: () => void | Promise<void>): this {
+    this.successHooks.push(callback)
+    return this
+  }
+  /** Run when the task throws. */
+  onFailure(callback: (error: unknown) => void | Promise<void>): this {
+    this.failureHooks.push(callback)
+    return this
+  }
+
+  private withinWindow(date: Date, start: string, end: string): boolean {
+    const p = partsInZone(date, this.tz)
+    const nowMin = p.hour * 60 + p.minute
+    const s = toMinutes(start)
+    const e = toMinutes(end)
+    return s <= e ? nowMin >= s && nowMin <= e : nowMin >= s || nowMin <= e // overnight window
   }
 
   // ── evaluation ────────────────────────────────────────────────────────────
@@ -166,24 +237,35 @@ export class ScheduledEvent {
     return cronMatches(this.expression, date, this.tz)
   }
 
-  /** Should this event run now — cron due AND all filters pass? */
+  /** Should this event run now — cron due, in-environment, AND all filters pass? */
   async shouldRun(date: Date): Promise<boolean> {
     if (!this.isDue(date)) return false
-    for (const filter of this.filters) if (!(await filter())) return false
-    for (const reject of this.rejects) if (await reject()) return false
+    if (this.envs && !this.envs.includes(schedulerEnvironment ?? '')) return false
+    for (const filter of this.filters) if (!(await filter(date))) return false
+    for (const reject of this.rejects) if (await reject(date)) return false
     return true
   }
 
-  /** Run the task now, honoring withoutOverlapping. Returns false if skipped by a lock. */
+  /**
+   * Run the task now, honoring withoutOverlapping and firing lifecycle hooks.
+   * Returns false if skipped by an overlap lock. Rethrows task errors (after
+   * firing onFailure) so the caller can record them.
+   */
   async run(): Promise<boolean> {
     if (this.noOverlap) {
       if (runningLocks.has(this.name)) return false
       runningLocks.add(this.name)
     }
+    for (const hook of this.beforeHooks) await hook()
     try {
       await this.task()
+      for (const hook of this.successHooks) await hook()
       return true
+    } catch (error) {
+      for (const hook of this.failureHooks) await hook(error)
+      throw error
     } finally {
+      for (const hook of this.afterHooks) await hook()
       if (this.noOverlap) runningLocks.delete(this.name)
     }
   }

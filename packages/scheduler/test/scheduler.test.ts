@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { cronMatches, parseCron, parseCronField } from '../src/cron'
-import { ScheduledEvent } from '../src/event'
+import { ScheduledEvent, setSchedulerEnvironment } from '../src/event'
 import { Schedule } from '../src/schedule'
 
 // ── cron field parsing ────────────────────────────────────────────────────────
@@ -113,6 +113,78 @@ describe('when / skip / withoutOverlapping', () => {
     const [a, b] = await Promise.all([ev.run(), ev.run()])
     expect(overlapped).toBe(false)
     expect([a, b].filter(Boolean).length).toBe(1) // one ran, one was blocked
+  })
+})
+
+// ── lifecycle hooks ───────────────────────────────────────────────────────────
+describe('lifecycle hooks', () => {
+  test('before / onSuccess / after fire on success', async () => {
+    const trace: string[] = []
+    const ev = new ScheduledEvent(() => void trace.push('task'))
+      .before(() => void trace.push('before'))
+      .onSuccess(() => void trace.push('success'))
+      .after(() => void trace.push('after'))
+    await ev.run()
+    expect(trace).toEqual(['before', 'task', 'success', 'after'])
+  })
+
+  test('onFailure + after fire on error (and error rethrows)', async () => {
+    const trace: string[] = []
+    const ev = new ScheduledEvent(() => {
+      throw new Error('boom')
+    })
+      .onSuccess(() => void trace.push('success'))
+      .onFailure((e) => void trace.push(`failure:${(e as Error).message}`))
+      .after(() => void trace.push('after'))
+    await expect(ev.run()).rejects.toThrow('boom')
+    expect(trace).toEqual(['failure:boom', 'after'])
+  })
+})
+
+// ── time windows / environments / background ──────────────────────────────────
+describe('between / unlessBetween / environments / background', () => {
+  const monday0800 = new Date('2026-07-13T08:00:00Z')
+
+  test('between gates by time-of-day', async () => {
+    const inWindow = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').between('08:00', '09:00')
+    const outWindow = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').between('09:00', '10:00')
+    expect(await inWindow.shouldRun(monday0800)).toBe(true)
+    expect(await outWindow.shouldRun(monday0800)).toBe(false)
+  })
+
+  test('unlessBetween is the inverse', async () => {
+    const ev = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').unlessBetween('08:00', '09:00')
+    expect(await ev.shouldRun(monday0800)).toBe(false)
+  })
+
+  test('overnight between window wraps midnight', async () => {
+    const night = new Date('2026-07-13T23:30:00Z')
+    const ev = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').between('22:00', '02:00')
+    expect(await ev.shouldRun(night)).toBe(true)
+  })
+
+  test('environments restricts to matching env', async () => {
+    setSchedulerEnvironment('production')
+    const prod = new ScheduledEvent(() => {}).everyMinute().environments('production')
+    const local = new ScheduledEvent(() => {}).everyMinute().environments('local')
+    expect(await prod.shouldRun(monday0800)).toBe(true)
+    expect(await local.shouldRun(monday0800)).toBe(false)
+  })
+
+  test('runInBackground does not block the run', async () => {
+    let done = false
+    const s = new Schedule()
+    s.call(async () => {
+      await new Promise((r) => setTimeout(r, 20))
+      done = true
+    })
+      .everyMinute()
+      .runInBackground()
+    const results = await s.run(monday0800)
+    expect(results[0]?.ran).toBe(true)
+    expect(done).toBe(false) // not awaited
+    await new Promise((r) => setTimeout(r, 40))
+    expect(done).toBe(true)
   })
 })
 

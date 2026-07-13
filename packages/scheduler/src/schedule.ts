@@ -57,6 +57,12 @@ export class Schedule {
     const results: ScheduleRunResult[] = []
     for (const event of this.events) {
       if (!(await event.shouldRun(date))) continue
+      if (event.runsInBackground) {
+        // fire-and-forget; the event's own onFailure hooks handle errors
+        void event.run().catch(() => {})
+        results.push({ name: event.name, expression: event.expression, ran: true })
+        continue
+      }
       try {
         const ran = await event.run()
         results.push({ name: event.name, expression: event.expression, ran })

@@ -17,9 +17,16 @@ export class ScheduleServiceProvider extends BaseScheduleServiceProvider {
       .dailyAt('08:00')
       .timezone('Asia/Makassar')
       .withoutOverlapping()
+      .onFailure((error) => console.error('[schedule] daily-digest failed', error))
       .named('daily-digest')
 
-    // Prune stale model records weekly, on Sundays, via the CLI.
-    schedule.command('model:prune').weeklyOn(0, '02:00').named('weekly-prune')
+    // Prune stale model records weekly, on Sundays, via the CLI — in the
+    // background so it doesn't block the rest of the schedule. Skipped locally.
+    schedule
+      .command('model:prune')
+      .weeklyOn(0, '02:00')
+      .environments('production')
+      .runInBackground()
+      .named('weekly-prune')
   }
 }

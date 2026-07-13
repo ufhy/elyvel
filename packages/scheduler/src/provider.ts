@@ -1,4 +1,5 @@
 import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
+import { setSchedulerEnvironment } from './event'
 import { Schedule, setDefaultSchedule } from './schedule'
 
 export const ScheduleToken: Token<Schedule> = token<Schedule>('schedule')
@@ -13,6 +14,8 @@ export class ScheduleServiceProvider extends ServiceProvider {
   protected schedule(_schedule: Schedule): void {}
 
   override register(): void {
+    const env = this.app.config.get<string>('app.env', 'production')
+    setSchedulerEnvironment(env)
     const schedule = new Schedule()
     this.schedule(schedule)
     setDefaultSchedule(schedule)
