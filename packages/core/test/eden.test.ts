@@ -1,6 +1,7 @@
 import { treaty } from '@elysiajs/eden'
 import { Elysia } from 'elysia'
 import { describe, expect, test } from 'bun:test'
+import { route } from '../src/middleware'
 
 /**
  * DX proof for the decoupled (Mode A) / single-origin (Mode B) SPA: a frontend
@@ -9,11 +10,11 @@ import { describe, expect, test } from 'bun:test'
  * and the client is `treaty<Api>(url)`. We use treaty(instance) in-process so
  * the inferred types are verified by the workspace typecheck itself.
  *
- * NOTE: Eden infers response types precisely from plain Elysia routes. The
- * `route()` helper's `middleware` macro currently widens responses with a `{}`
- * branch (its short-circuit return type leaks in) — so for Eden-typed API
- * endpoints, define them on a plain Elysia instance (still valid in route files)
- * and export its type. See the tracked follow-up to make the macro Eden-clean.
+ * NOTE: response types are inferred precisely from both plain Elysia routes and
+ * the `route()` helper (its before-hooks are typed `=> Promise<void>`, so the
+ * guard short-circuit no longer leaks a `{}` branch). The only residue is that
+ * `route()`'s `middleware` macro leaves the URL-prefix segment optional in the
+ * Eden proxy (access it with `?.`); the response payload types stay exact.
  */
 describe('Eden end-to-end type safety (DX for Mode A/B)', () => {
   const api = new Elysia({ prefix: '/api' })
@@ -37,5 +38,15 @@ describe('Eden end-to-end type safety (DX for Mode A/B)', () => {
     const name: string | undefined = data?.name
     expect(data?.id).toBe('7')
     expect(name).toBe('Sam')
+  })
+
+  test('route() helper responses are Eden-clean (no {} branch)', async () => {
+    const r = route('/api').get('/health', () => ({ status: 'ok' as const }))
+    const rc = treaty(r)
+    // The `middleware` macro leaves the prefix segment optional (hence `?.`), but
+    // the RESPONSE type is now precise — `data?.status` no longer widens to `{}`.
+    const res = await rc.api?.health.get()
+    const status: 'ok' | undefined = res?.data?.status
+    expect(status).toBe('ok')
   })
 })

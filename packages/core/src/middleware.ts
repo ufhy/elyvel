@@ -125,33 +125,36 @@ async function runTerminators(guards: Guard[], context: MiddlewareContext): Prom
  */
 export function route(prefix?: string, options: { middleware?: string[] } = {}) {
   const groupMw = options.middleware ?? []
-  // Return type stays inferred (not annotated) so the `middleware` macro remains
-  // visible to `.get(..., { middleware: '...' })` at call sites.
-  return new Elysia(prefix ? { prefix } : {})
-    .macro({
-      middleware(names: string | string[]) {
-        const list = Array.isArray(names) ? names : [names]
-        return {
-          // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
-          beforeHandle: async (context: any) => {
-            const result = await runGuards(list, context as MiddlewareContext)
-            if (result !== undefined) return result
-          },
-          // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
-          afterResponse: async (context: any) => {
-            await runTerminators(list, context as MiddlewareContext)
-          },
-        }
-      },
-    })
-    .onBeforeHandle({ as: 'scoped' }, async (context) => {
+  // The before hooks short-circuit at runtime by returning the guard's response,
+  // but are typed `=> Promise<void>` so Elysia (and therefore Eden) does NOT fold
+  // that response into every route's response type — keeping end-to-end types clean.
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
+  type Hook = (context: any) => Promise<void>
+  const base = new Elysia(prefix ? { prefix } : {}).macro({
+    middleware(names: string | string[]) {
+      const list = Array.isArray(names) ? names : [names]
+      return {
+        beforeHandle: (async (context) => {
+          const result = await runGuards(list, context as MiddlewareContext)
+          if (result !== undefined) return result
+        }) as Hook,
+        afterResponse: (async (context) => {
+          await runTerminators(list, context as MiddlewareContext)
+        }) as Hook,
+      }
+    },
+  })
+
+  // Group-wide middleware hooks (only meaningful when there IS group middleware).
+  return base
+    .onBeforeHandle({ as: 'scoped' }, (async (context) => {
       if (!groupMw.length) return
       const result = await runGuards(groupMw, context as MiddlewareContext)
       if (result !== undefined) return result
-    })
-    .onAfterResponse({ as: 'scoped' }, async (context) => {
+    }) as Hook)
+    .onAfterResponse({ as: 'scoped' }, (async (context) => {
       if (groupMw.length) await runTerminators(groupMw, context as MiddlewareContext)
-    })
+    }) as Hook)
 }
 
 /**
