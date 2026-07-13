@@ -19,6 +19,21 @@ export function httpResponses() {
       ctx.set.headers.location = response.location(ctx.request)
       return ''
     }
+    // A view response (from @elysia-ravel/view) — duck-typed so core stays
+    // decoupled. Build shared data from the session and render to text/html.
+    if (response && typeof response === 'object' && response.__ravelView === true) {
+      const session = ctx.session
+      const oldInput = (session?.get?.('_old_input') ?? {}) as Record<string, unknown>
+      const shared = {
+        errors: (session?.get?.('errors') ?? {}) as Record<string, string[]>,
+        old: (key: string, fallback?: unknown) => oldInput[key] ?? fallback,
+        flash: (key: string, fallback?: unknown) => session?.get?.(key) ?? fallback,
+        csrf: session?.token?.() ?? '',
+      }
+      ctx.set.status = response.statusCode ?? 200
+      ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
+      return response.render(shared)
+    }
     return undefined
   })
 }
