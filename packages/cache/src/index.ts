@@ -9,4 +9,6 @@ export {
   DatabaseStore,
   FileStore,
   MemoryStore,
+  type RedisLike,
+  RedisStore,
 } from './store'

@@ -98,6 +98,52 @@ describe('database cache store (via adapter)', () => {
   })
 })
 
+// Fake Redis client (implements `send`) so store logic is testable without a server.
+class FakeRedis {
+  readonly map = new Map<string, string>()
+  async send(command: string, args: string[]): Promise<unknown> {
+    const [key] = args
+    switch (command) {
+      case 'GET':
+        return this.map.get(key as string) ?? null
+      case 'SET':
+        this.map.set(key as string, args[1] as string)
+        return 'OK'
+      case 'DEL':
+        this.map.delete(key as string)
+        return 1
+      case 'INCRBY': {
+        const n = Number(this.map.get(key as string) ?? 0) + Number(args[1])
+        this.map.set(key as string, String(n))
+        return n
+      }
+      case 'DECRBY': {
+        const n = Number(this.map.get(key as string) ?? 0) - Number(args[1])
+        this.map.set(key as string, String(n))
+        return n
+      }
+      case 'FLUSHDB':
+        this.map.clear()
+        return 'OK'
+      default:
+        return null
+    }
+  }
+}
+
+describe('redis cache store (fake client — logic only)', () => {
+  test('get/put/increment/forget via RedisStore', async () => {
+    const { RedisStore } = require('../src/store') as typeof import('../src/store')
+    const c = new Repository(new RedisStore(new FakeRedis()))
+    await c.put('a', { n: 1 })
+    expect(await c.get('a')).toEqual({ n: 1 })
+    expect(await c.increment('hits', 2)).toBe(2)
+    expect(await c.get('hits')).toBe(2)
+    await c.forget('a')
+    expect(await c.has('a')).toBe(false)
+  })
+})
+
 describe('CacheManager + cache() helper', () => {
   test('resolves stores; cache() uses the default', async () => {
     const manager = new CacheManager({ default: 'memory', stores: { memory: { driver: 'memory' } } })

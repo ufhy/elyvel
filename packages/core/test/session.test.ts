@@ -93,6 +93,24 @@ describe('server-side session drivers (memory / file / database)', () => {
   }
 })
 
+describe('redis session store (fake client — logic only)', () => {
+  test('read/write round-trip + expiry', async () => {
+    const { RedisSessionStore } = require('../src/session') as typeof import('../src/session')
+    const map = new Map<string, string>()
+    const client = {
+      async send(command: string, args: string[]) {
+        if (command === 'GET') return map.get(args[0] as string) ?? null
+        if (command === 'SET') return void map.set(args[0] as string, args[1] as string)
+        return null
+      },
+    }
+    const store = new RedisSessionStore(client)
+    await store.write('sid1', { user: 7 }, 60)
+    expect(await store.read('sid1')).toEqual({ user: 7 })
+    expect(await store.read('missing')).toEqual({})
+  })
+})
+
 describe('session convenience methods', () => {
   test('push/pull/increment/decrement/remember/exists/missing', () => {
     const { Session } = require('../src/session') as typeof import('../src/session')

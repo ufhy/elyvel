@@ -269,6 +269,7 @@ export class Application {
         lifetime: cfg.lifetime ?? 7200,
         secret: secret ?? '',
         files: this.path(cfg.files ?? 'storage/framework/sessions'),
+        redisUrl: cfg.redisUrl,
         path: cfg.path ?? '/',
         domain: cfg.domain,
         secure: cfg.secure ?? false,

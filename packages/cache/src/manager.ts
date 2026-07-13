@@ -1,6 +1,7 @@
+import { RedisClient } from 'bun'
 import type { CacheConfig, CacheStoreConfig } from './config-schema'
 import { Repository } from './repository'
-import { DatabaseStore, FileStore, MemoryStore } from './store'
+import { DatabaseStore, FileStore, MemoryStore, RedisStore } from './store'
 
 /** Resolves named cache stores into {@link Repository} instances, à la Laravel's CacheManager. */
 export class CacheManager {
@@ -33,6 +34,10 @@ export class CacheManager {
     }
     if (cfg.driver === 'database') {
       return new Repository(new DatabaseStore())
+    }
+    if (cfg.driver === 'redis') {
+      const client = cfg.url ? new RedisClient(cfg.url) : new RedisClient()
+      return new Repository(new RedisStore(client, cfg.prefix ?? 'cache:'))
     }
     return new Repository(new MemoryStore())
   }

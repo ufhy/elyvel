@@ -68,9 +68,11 @@ export interface SessionConfig {
    * `cookie` (encrypted in the cookie, stateless), `memory` (dev/test), `file`
    * (server-side files), or `database`. Default `cookie`.
    */
-  driver?: 'cookie' | 'memory' | 'file' | 'database'
+  driver?: 'cookie' | 'memory' | 'file' | 'database' | 'redis'
   /** Directory for the `file` driver (relative to app root; default `storage/framework/sessions`). */
   files?: string
+  /** Connection URL for the `redis` driver (default: Bun's REDIS_URL / localhost). */
+  redisUrl?: string
   /** Session cookie name. Default `ravel_session`. */
   cookie?: string
   /** Cookie lifetime in seconds. Default 7200 (2h). */

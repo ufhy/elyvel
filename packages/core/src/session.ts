@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { Middleware, type MiddlewareContext } from './middleware'
 
@@ -166,12 +167,14 @@ function decrypt(payload: string, secret: string): Record<string, unknown> | nul
 }
 
 export interface ResolvedSessionConfig {
-  driver: 'cookie' | 'memory' | 'file' | 'database'
+  driver: 'cookie' | 'memory' | 'file' | 'database' | 'redis'
   cookie: string
   lifetime: number
   secret: string
   /** Filesystem directory for the `file` driver (resolved by the Application). */
   files: string
+  /** Connection URL for the `redis` driver (default: Bun's REDIS_URL / localhost). */
+  redisUrl?: string
   path: string
   domain?: string
   secure: boolean
@@ -266,11 +269,41 @@ class DatabaseSessionStore implements SessionStore {
   }
 }
 
-function makeStore(driver: ResolvedSessionConfig['driver'], files: string): SessionStore | null {
-  if (driver === 'file') return new FileSessionStore(files)
-  if (driver === 'database') return new DatabaseSessionStore()
-  if (driver === 'memory') return new MemorySessionStore()
-  return null // cookie driver has no server-side store
+/** Redis-backed session store (Bun's built-in Redis client). */
+export class RedisSessionStore implements SessionStore {
+  constructor(
+    private readonly client: { send(command: string, args: string[]): Promise<unknown> },
+    private readonly prefix = 'session:',
+  ) {}
+  async read(id: string): Promise<Record<string, unknown>> {
+    const raw = (await this.client.send('GET', [this.prefix + id])) as string | null
+    if (!raw) return {}
+    try {
+      const entry = JSON.parse(raw) as { data: Record<string, unknown>; expiresAt: number }
+      return Date.now() >= entry.expiresAt ? {} : entry.data
+    } catch {
+      return {}
+    }
+  }
+  async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
+    const payload = JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 })
+    await this.client.send('SET', [this.prefix + id, payload, 'EX', String(Math.max(1, Math.ceil(lifetime)))])
+  }
+}
+
+function makeStore(config: ResolvedSessionConfig): SessionStore | null {
+  switch (config.driver) {
+    case 'file':
+      return new FileSessionStore(config.files)
+    case 'database':
+      return new DatabaseSessionStore()
+    case 'memory':
+      return new MemorySessionStore()
+    case 'redis':
+      return new RedisSessionStore(config.redisUrl ? new RedisClient(config.redisUrl) : new RedisClient())
+    default:
+      return null // cookie driver has no server-side store
+  }
 }
 
 /**
@@ -279,7 +312,7 @@ function makeStore(driver: ResolvedSessionConfig['driver'], files: string): Sess
  * Application before routes when `config/session.ts` is present.
  */
 export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
-  const store = makeStore(config.driver, config.files)
+  const store = makeStore(config)
 
   // biome-ignore lint/suspicious/noExplicitAny: Elysia generics vary with derive/hooks
   const plugin: any = new Elysia({ name: 'ravel-session' })

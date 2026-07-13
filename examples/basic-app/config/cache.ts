@@ -10,5 +10,6 @@ export default defineCacheConfig({
     memory: { driver: 'memory' },
     file: { driver: 'file', path: 'storage/framework/cache' },
     database: { driver: 'database' }, // uses the `cache` table (wired in AppServiceProvider)
+    redis: { driver: 'redis', url: process.env.REDIS_URL }, // Bun's built-in Redis client
   },
 })

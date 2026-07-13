@@ -167,3 +167,41 @@ export class DatabaseStore implements CacheStore {
     return this.increment(key, -by)
   }
 }
+
+/** Minimal Redis client (Bun's built-in `RedisClient` satisfies this via `send`). */
+export interface RedisLike {
+  send(command: string, args: string[]): Promise<unknown>
+}
+
+/** Redis-backed cache. Uses Bun's built-in Redis client (no external dep). */
+export class RedisStore implements CacheStore {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly prefix = 'cache:',
+  ) {}
+
+  private k(key: string): string {
+    return this.prefix + key
+  }
+  async get<T = unknown>(key: string): Promise<T | undefined> {
+    const raw = (await this.client.send('GET', [this.k(key)])) as string | null
+    return raw === null || raw === undefined ? undefined : (JSON.parse(raw) as T)
+  }
+  async put(key: string, value: unknown, seconds?: number): Promise<void> {
+    const args = [this.k(key), JSON.stringify(value)]
+    if (seconds !== undefined) args.push('EX', String(Math.max(1, Math.ceil(seconds))))
+    await this.client.send('SET', args)
+  }
+  async forget(key: string): Promise<void> {
+    await this.client.send('DEL', [this.k(key)])
+  }
+  async flush(): Promise<void> {
+    await this.client.send('FLUSHDB', [])
+  }
+  async increment(key: string, by = 1): Promise<number> {
+    return Number(await this.client.send('INCRBY', [this.k(key), String(by)]))
+  }
+  async decrement(key: string, by = 1): Promise<number> {
+    return Number(await this.client.send('DECRBY', [this.k(key), String(by)]))
+  }
+}

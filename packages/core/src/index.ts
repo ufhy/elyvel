@@ -16,6 +16,7 @@ export {
   configureDatabaseSession,
   CsrfMiddleware,
   type ResolvedSessionConfig,
+  RedisSessionStore,
   Session,
   type SessionDbAdapter,
   sessionPlugin,
