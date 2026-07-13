@@ -2,6 +2,7 @@ import { CacheServiceProvider } from '@elysia-ravel/cache'
 import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
+import { EventServiceProvider } from '../app/providers/EventServiceProvider'
 
 /**
  * Application config. `defineAppConfig` pins the type, so your editor
@@ -15,5 +16,10 @@ export default defineAppConfig({
 
   port: Number(process.env.PORT ?? 3000),
 
-  providers: [EloquentServiceProvider, CacheServiceProvider, AppServiceProvider],
+  providers: [
+    EloquentServiceProvider,
+    CacheServiceProvider,
+    EventServiceProvider,
+    AppServiceProvider,
+  ],
 })

@@ -1,6 +1,8 @@
-import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
 import { Hash } from '@elysia-ravel/auth'
+import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
+import { event } from '@elysia-ravel/events'
 import { User } from '../models/User'
+import { UserRegistered } from '../events/UserRegistered'
 import { StoreUserRequest } from '../requests/StoreUserRequest'
 
 /**
@@ -26,6 +28,7 @@ export class UserController extends Controller {
       email: data.email,
       password: await Hash.make(String(data.password)),
     })
+    await event(new UserRegistered(String(data.email)))
     return ctx.status(201, user.toJSON())
   }
 
