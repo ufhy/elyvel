@@ -1,3 +1,4 @@
+import { BroadcastServiceProvider } from '@elysia-ravel/broadcasting'
 import { CacheServiceProvider } from '@elysia-ravel/cache'
 import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
@@ -29,6 +30,7 @@ export default defineAppConfig({
     ScheduleServiceProvider,
     MailServiceProvider,
     TelegramServiceProvider,
+    BroadcastServiceProvider,
     NotificationServiceProvider,
     AppServiceProvider,
   ],

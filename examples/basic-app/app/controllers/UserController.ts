@@ -36,7 +36,11 @@ export class UserController extends Controller {
     await dispatch(new SendWelcomeEmail(String(data.email)))
     // In-app (database) notification — the user row is the notifiable.
     await notify(
-      { id: user.getKey(), routeNotificationFor: (c) => (c === 'mail' ? String(data.email) : undefined) },
+      {
+        id: user.getKey(),
+        routeNotificationFor: (c) =>
+          c === 'mail' ? String(data.email) : c === 'broadcast' ? 'users' : undefined,
+      },
       new WelcomeNotification(String(data.name)),
     )
     return ctx.status(201, user.toJSON())

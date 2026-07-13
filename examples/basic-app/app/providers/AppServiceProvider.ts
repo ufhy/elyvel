@@ -15,8 +15,9 @@ import {
   Queue,
   registerJob,
 } from '@elysia-ravel/queue'
+import { BroadcastChannel } from '@elysia-ravel/broadcasting'
 import { Mail } from '@elysia-ravel/mail'
-import { configureDatabaseNotifications } from '@elysia-ravel/notifications'
+import { configureDatabaseNotifications, notifications } from '@elysia-ravel/notifications'
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
@@ -87,6 +88,9 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Let scheduled tasks email their captured output (Scheduler's emailOutputTo).
     configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).html(body).send())
+
+    // Register the broadcast notification channel (Bun WebSocket pub/sub).
+    notifications().channel('broadcast', new BroadcastChannel())
 
     // Persist database-channel notifications to the `notifications` table.
     configureDatabaseNotifications({

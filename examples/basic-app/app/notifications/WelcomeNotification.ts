@@ -6,9 +6,12 @@ export class WelcomeNotification extends Notification {
     super()
   }
   via(): string[] {
-    return ['database']
+    return ['database', 'broadcast']
   }
   override toDatabase() {
+    return { message: `Welcome aboard, ${this.name}!`, kind: 'welcome' }
+  }
+  override toBroadcast() {
     return { message: `Welcome aboard, ${this.name}!`, kind: 'welcome' }
   }
 }

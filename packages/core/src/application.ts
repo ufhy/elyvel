@@ -331,11 +331,32 @@ export class Application {
     const resolved =
       port ?? this.config.get<number>('app.port') ?? Number(process.env.PORT) ?? 3000
     // Serve through our own fetch so method spoofing runs before Elysia routes.
-    Bun.serve({ port: resolved, fetch: (request) => this.handle(request) })
+    // If a WebSocket handler is registered (e.g. broadcasting), upgrade handshakes.
+    const ws = this.wsHandler
+    const server = Bun.serve({
+      port: resolved,
+      websocket: ws?.handler,
+      fetch: (request, srv) => {
+        if (ws && srv.upgrade(request)) return undefined
+        return this.handle(request)
+      },
+    })
+    ws?.onServer?.(server)
     this.logger.info(`${this.config.get('app.name') ?? 'elysia-ravel'} listening`, {
       url: `http://localhost:${resolved}`,
     })
     return this
+  }
+
+  // biome-ignore lint/suspicious/noExplicitAny: Bun's WebSocketHandler/Server types
+  private wsHandler: { handler: any; onServer?: (server: any) => void } | null = null
+  /**
+   * Register a Bun WebSocket handler; `listen()` upgrades WS handshakes to it and
+   * calls `onServer` with the running server (used by broadcasting for pub/sub).
+   */
+  // biome-ignore lint/suspicious/noExplicitAny: Bun's WebSocketHandler/Server types
+  webSocket(handler: any, onServer?: (server: any) => void): void {
+    this.wsHandler = { handler, onServer }
   }
 
   /**
