@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { download, file, streamDownload } from '../src/http/file'
+import { staticFiles } from '../src/http/static'
 import { methodOverride } from '../src/http/method-override'
 import { expectsJson, wantsHtml } from '../src/http/negotiation'
 import { httpResponses } from '../src/http/plugin'
@@ -125,6 +126,28 @@ describe('file responses', () => {
     const res = await app().handle(new Request('http://localhost/inline'))
     expect(res.status).toBe(200)
     expect(await res.text()).toContain('"name"')
+  })
+})
+
+// ── static file serving ───────────────────────────────────────────────────────
+describe('staticFiles', () => {
+  const app = () => new Elysia().use(staticFiles({ prefix: '/assets', dir: '.' }))
+
+  test('serves an existing file', async () => {
+    const res = await app().handle(new Request('http://localhost/assets/package.json'))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('"workspaces"')
+  })
+
+  test('404s a missing file', async () => {
+    const res = await app().handle(new Request('http://localhost/assets/nope.xyz'))
+    expect(res.status).toBe(404)
+  })
+
+  test('does not serve files outside the served dir (traversal blocked)', async () => {
+    const res = await app().handle(new Request('http://localhost/assets/..%2f..%2fetc%2fpasswd'))
+    expect(res.status).not.toBe(200) // 403 (guard) or 404 (normalized) — never leaked
+    expect(await res.text()).not.toContain('root:')
   })
 })
 

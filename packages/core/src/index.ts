@@ -60,6 +60,7 @@ export {
 export { download, file, FileResponse, type FileSource, streamDownload } from './http/file'
 export { methodOverride } from './http/method-override'
 export { expectsJson, wantsHtml } from './http/negotiation'
+export { staticFiles, type StaticFilesOptions } from './http/static'
 export { httpResponses } from './http/plugin'
 export { back, RedirectResponse, redirect } from './http/redirect'
 export { Resource } from './http/resource'
