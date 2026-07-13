@@ -12,4 +12,4 @@ export {
   OptionalProp,
   type Page,
 } from './response'
-export { viteTags, type ViteOptions } from './vite'
+export { viteTags, type ViteOptions } from '@elysia-ravel/vite'
