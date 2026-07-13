@@ -97,6 +97,38 @@ describe('shared props', () => {
   })
 })
 
+describe('server-side rendering', () => {
+  const ssrApp = () =>
+    new Elysia()
+      .use(
+        inertia({
+          ssr: {
+            // fake SSR render — stands in for the built Vue bundle
+            render: (page) => ({
+              head: ['<title>SSR Home</title>'],
+              body: `<div id="app" data-page='${JSON.stringify(page)}'><main>SSR: ${String(page.props.name)}</main></div>`,
+            }),
+          },
+        }),
+      )
+      .get('/home', () => Inertia.render('Home', { name: 'Sam' }))
+
+  test('first load returns server-rendered markup + ssr head', async () => {
+    const res = await ssrApp().handle(new Request('http://localhost/home'))
+    const body = await res.text()
+    expect(res.headers.get('content-type')).toContain('text/html')
+    expect(body).toContain('<title>SSR Home</title>') // ssr head injected
+    expect(body).toContain('<main>SSR: Sam</main>') // rendered on the server, no JS needed
+    expect(body).toContain('data-page=') // still hydratable
+  })
+
+  test('XHR visit is unaffected by SSR (still JSON)', async () => {
+    const res = await ssrApp().handle(inertiaReq('/home'))
+    expect(res.headers.get('x-inertia')).toBe('true')
+    expect(((await res.json()) as { component: string }).component).toBe('Home')
+  })
+})
+
 describe('Inertia.location', () => {
   test('409 + X-Inertia-Location for XHR, 302 otherwise', async () => {
     const xhr = await build().handle(inertiaReq('/external'))

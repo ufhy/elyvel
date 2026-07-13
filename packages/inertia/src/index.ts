@@ -1,4 +1,4 @@
-export { type InertiaConfig, inertia } from './plugin'
+export { type InertiaConfig, inertia, type SsrOptions, type SsrResult } from './plugin'
 export {
   AlwaysProp,
   buildProps,

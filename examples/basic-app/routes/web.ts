@@ -30,5 +30,12 @@ export default route()
   )
   // Inertia SPA lane: the same server, but this page is a Vue component hydrated
   // on the client. Run `vite build` (or `vite` for HMR) to produce the assets.
-  .use(inertia({ vite: { entry: 'resources/js/app.ts' } }))
+  .use(
+    inertia({
+      vite: { entry: 'resources/js/app.ts' },
+      // Server-render the first load (falls back to client-only if the bundle
+      // isn't built). Build it with `vite build --ssr`.
+      ssr: { bundle: 'public/build/ssr/ssr.js' },
+    }),
+  )
   .get('/app', () => Inertia.render('Home', { message: 'Hello from Inertia + Vue' }))
