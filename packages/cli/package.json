@@ -13,7 +13,8 @@
   "dependencies": {
     "@elysia-ravel/core": "workspace:*",
     "@elysia-ravel/database": "workspace:*",
-    "@elysia-ravel/queue": "workspace:*"
+    "@elysia-ravel/queue": "workspace:*",
+    "@elysia-ravel/scheduler": "workspace:*"
   },
   "peerDependencies": {
     "elysia": ">=1.3.0"

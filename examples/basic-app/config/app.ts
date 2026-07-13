@@ -4,6 +4,7 @@ import { EloquentServiceProvider } from '@elysia-ravel/database'
 import { QueueServiceProvider } from '@elysia-ravel/queue'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 import { EventServiceProvider } from '../app/providers/EventServiceProvider'
+import { ScheduleServiceProvider } from '../app/providers/ScheduleServiceProvider'
 
 /**
  * Application config. `defineAppConfig` pins the type, so your editor
@@ -22,6 +23,7 @@ export default defineAppConfig({
     CacheServiceProvider,
     EventServiceProvider,
     QueueServiceProvider,
+    ScheduleServiceProvider,
     AppServiceProvider,
   ],
 })

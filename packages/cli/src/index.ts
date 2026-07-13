@@ -13,6 +13,7 @@ import {
 import { make } from './commands/make'
 import { queueWorkCommand } from './commands/queue'
 import { routeListCommand } from './commands/route'
+import { scheduleListCommand, scheduleRunCommand } from './commands/schedule'
 import { serve } from './commands/serve'
 
 const BANNER = `
@@ -35,6 +36,8 @@ Usage:
   ravel route:list                            List all registered HTTP routes
   ravel queue:work [--connection=<name>]      Process queued jobs
                    [--once|--stop-when-empty|--max=N] [--sleep=N] [--retry-after=N]
+  ravel schedule:run                          Run scheduled tasks that are due now
+  ravel schedule:list                         List scheduled tasks and their cron
 
   ravel make:controller <Name>                Generate a controller plugin
   ravel make:middleware <Name>                Generate a middleware plugin
@@ -121,6 +124,14 @@ async function main(): Promise<number> {
 
   if (command === 'queue:work') {
     return queueWorkCommand(flags)
+  }
+
+  if (command === 'schedule:run') {
+    return scheduleRunCommand()
+  }
+
+  if (command === 'schedule:list') {
+    return scheduleListCommand()
   }
 
   if (command.startsWith('make:')) {

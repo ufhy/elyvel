@@ -20,6 +20,7 @@
         "@elysia-ravel/database": "workspace:*",
         "@elysia-ravel/events": "workspace:*",
         "@elysia-ravel/queue": "workspace:*",
+        "@elysia-ravel/scheduler": "workspace:*",
         "@elysia-ravel/validation": "workspace:*",
         "elysia": "^1.3.0",
       },
@@ -51,6 +52,7 @@
         "@elysia-ravel/core": "workspace:*",
         "@elysia-ravel/database": "workspace:*",
         "@elysia-ravel/queue": "workspace:*",
+        "@elysia-ravel/scheduler": "workspace:*",
       },
       "peerDependencies": {
         "elysia": ">=1.3.0",
@@ -92,6 +94,13 @@
     },
     "packages/queue": {
       "name": "@elysia-ravel/queue",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+      },
+    },
+    "packages/scheduler": {
+      "name": "@elysia-ravel/scheduler",
       "version": "0.0.0",
       "peerDependencies": {
         "@elysia-ravel/core": "workspace:*",
@@ -142,6 +151,8 @@
     "@elysia-ravel/events": ["@elysia-ravel/events@workspace:packages/events"],
 
     "@elysia-ravel/queue": ["@elysia-ravel/queue@workspace:packages/queue"],
+
+    "@elysia-ravel/scheduler": ["@elysia-ravel/scheduler@workspace:packages/scheduler"],
 
     "@elysia-ravel/support": ["@elysia-ravel/support@workspace:packages/support"],
 
