@@ -11,6 +11,12 @@ export class ScheduleServiceProvider extends BaseScheduleServiceProvider {
       .everyMinute()
       .named('heartbeat')
 
+    // Sub-minute health check (only realized under `ravel schedule:work`).
+    schedule
+      .call(() => console.log('[schedule] 30s health check'))
+      .everyThirtySeconds()
+      .named('health-check')
+
     // Enqueue a digest job every day at 08:00 (Asia/Makassar), without overlap.
     schedule
       .call(() => dispatch(new SendWelcomeEmail('digest@example.com')))

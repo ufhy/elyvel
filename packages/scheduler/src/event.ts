@@ -13,6 +13,13 @@ export function setSchedulerEnvironment(env: string): void {
   schedulerEnvironment = env
 }
 
+/** Optional mailer backing emailOutputTo (no mail package is bundled). */
+type ScheduleMailer = (to: string, subject: string, body: string) => void | Promise<void>
+let scheduleMailer: ScheduleMailer | null = null
+export function configureScheduleMailer(mailer: ScheduleMailer): void {
+  scheduleMailer = mailer
+}
+
 /** Minutes since midnight for `HH:MM`. */
 function toMinutes(time: string): number {
   const [h, m] = time.split(':')
@@ -35,6 +42,10 @@ export class ScheduledEvent {
   private oneServer = false
   private background = false
   private envs: string[] | undefined
+  private repeatSeconds: number | undefined
+  private outputPath: string | undefined
+  private outputAppend = false
+  private emailTo: string | undefined
   private label: string | undefined
   private readonly beforeHooks: Array<() => void | Promise<void>> = []
   private readonly afterHooks: Array<() => void | Promise<void>> = []
@@ -55,6 +66,10 @@ export class ScheduledEvent {
   get runsInBackground(): boolean {
     return this.background
   }
+  /** Sub-minute repeat interval in seconds, or undefined for minute-granular. */
+  get repeatEverySeconds(): number | undefined {
+    return this.repeatSeconds
+  }
 
   // ── raw / naming ────────────────────────────────────────────────────────
   cron(expression: string): this {
@@ -74,6 +89,32 @@ export class ScheduledEvent {
 
   private set(index: 0 | 1 | 2 | 3 | 4, value: string): this {
     this.segments[index] = value
+    return this
+  }
+
+  // ── sub-minute frequencies (only realized under `schedule:work`) ────────────
+  everySecond(): this {
+    this.repeatSeconds = 1
+    return this
+  }
+  everyTwoSeconds(): this {
+    this.repeatSeconds = 2
+    return this
+  }
+  everyFiveSeconds(): this {
+    this.repeatSeconds = 5
+    return this
+  }
+  everyTenSeconds(): this {
+    this.repeatSeconds = 10
+    return this
+  }
+  everyFifteenSeconds(): this {
+    this.repeatSeconds = 15
+    return this
+  }
+  everyThirtySeconds(): this {
+    this.repeatSeconds = 30
     return this
   }
 
@@ -239,6 +280,74 @@ export class ScheduledEvent {
     return this
   }
 
+  // ── output & pings ──────────────────────────────────────────────────────────
+  /** Capture the task's console output to a file (overwrite). */
+  sendOutputTo(path: string): this {
+    this.outputPath = path
+    this.outputAppend = false
+    return this
+  }
+  /** Capture the task's console output to a file (append). */
+  appendOutputTo(path: string): this {
+    this.outputPath = path
+    this.outputAppend = true
+    return this
+  }
+  /** Email the task's captured output (needs configureScheduleMailer). */
+  emailOutputTo(address: string): this {
+    this.emailTo = address
+    return this
+  }
+  /** GET a URL before the task runs. */
+  pingBefore(url: string): this {
+    return this.before(() => void fetch(url).catch(() => {}))
+  }
+  /** GET a URL after the task runs. */
+  thenPing(url: string): this {
+    return this.after(() => void fetch(url).catch(() => {}))
+  }
+  /** GET a URL when the task succeeds. */
+  pingOnSuccess(url: string): this {
+    return this.onSuccess(() => void fetch(url).catch(() => {}))
+  }
+  /** GET a URL when the task fails. */
+  pingOnFailure(url: string): this {
+    return this.onFailure(() => void fetch(url).catch(() => {}))
+  }
+
+  /** Run the task, capturing console output to a file/email when configured. */
+  private async runTask(): Promise<void> {
+    if (!this.outputPath && !this.emailTo) {
+      await this.task()
+      return
+    }
+    const buffer: string[] = []
+    const original = { log: console.log, info: console.info, warn: console.warn, error: console.error }
+    const tee =
+      (fn: (...a: unknown[]) => void) =>
+      (...args: unknown[]) => {
+        buffer.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+        fn(...args)
+      }
+    console.log = tee(original.log)
+    console.info = tee(original.info)
+    console.warn = tee(original.warn)
+    console.error = tee(original.error)
+    try {
+      await this.task()
+    } finally {
+      Object.assign(console, original)
+      const output = buffer.join('\n')
+      if (this.outputPath) {
+        const existing = this.outputAppend ? await Bun.file(this.outputPath).text().catch(() => '') : ''
+        await Bun.write(this.outputPath, existing + output + (output ? '\n' : ''))
+      }
+      if (this.emailTo && scheduleMailer) {
+        await scheduleMailer(this.emailTo, `Scheduled task output: ${this.name}`, output)
+      }
+    }
+  }
+
   private withinWindow(date: Date, start: string, end: string): boolean {
     const p = partsInZone(date, this.tz)
     const nowMin = p.hour * 60 + p.minute
@@ -293,7 +402,7 @@ export class ScheduledEvent {
 
     for (const hook of this.beforeHooks) await hook()
     try {
-      await this.task()
+      await this.runTask()
       for (const hook of this.successHooks) await hook()
       return true
     } catch (error) {

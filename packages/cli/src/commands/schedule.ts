@@ -37,21 +37,16 @@ export async function scheduleRunCommand(): Promise<number> {
 export async function scheduleWorkCommand(): Promise<number> {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   const schedule = app.make(ScheduleToken)
-  console.log('Scheduler running. Ticks every minute — press Ctrl+C to stop.')
-  const tick = async () => {
-    const results = await schedule.run()
+  console.log('Scheduler running. Ticks every second (sub-minute aware) — press Ctrl+C to stop.')
+  // Tick once per second; Schedule.tick runs minute tasks on the boundary and
+  // sub-minute tasks at their aligned second.
+  for (;;) {
+    const results = await schedule.tick()
     for (const r of results) {
       if (r.error) console.error(`✗ ${r.name}`)
       else if (r.ran) console.log(`✓ ${r.name}`)
     }
-  }
-  await tick()
-  // align to the next minute, then every 60s
-  const msToNextMinute = 60000 - (Date.now() % 60000)
-  await new Promise((r) => setTimeout(r, msToNextMinute))
-  for (;;) {
-    await tick()
-    await new Promise((r) => setTimeout(r, 60000))
+    await new Promise((r) => setTimeout(r, 1000 - (Date.now() % 1000)))
   }
 }
 

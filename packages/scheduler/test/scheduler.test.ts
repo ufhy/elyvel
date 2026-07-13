@@ -1,8 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import { cronMatches, parseCron, parseCronField } from '../src/cron'
-import { ScheduledEvent, setSchedulerEnvironment } from '../src/event'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll } from 'bun:test'
+import { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from '../src/event'
 import { configureScheduleMutex, MemoryScheduleMutex } from '../src/mutex'
 import { Schedule } from '../src/schedule'
+
+const outDir = mkdtempSync(join(tmpdir(), 'sched-'))
+afterAll(() => rmSync(outDir, { recursive: true, force: true }))
 
 // ── cron field parsing ────────────────────────────────────────────────────────
 describe('parseCronField', () => {
@@ -222,6 +229,73 @@ describe('onOneServer / mutex-backed overlap', () => {
     expect(maxConcurrent).toBe(1)
     expect([a, b].filter(Boolean).length).toBe(1)
     configureScheduleMutex(new MemoryScheduleMutex()) // reset
+  })
+})
+
+// ── sub-minute scheduling ─────────────────────────────────────────────────────
+describe('sub-minute (Schedule.tick)', () => {
+  test('everyThirtySeconds runs at aligned seconds only', async () => {
+    const ran: number[] = []
+    const s = new Schedule()
+    s.call(() => void ran.push(1)).everyThirtySeconds()
+    await s.tick(new Date('2026-07-13T08:00:00Z')) // sec 0 → run
+    await s.tick(new Date('2026-07-13T08:00:15Z')) // sec 15 → skip
+    await s.tick(new Date('2026-07-13T08:00:30Z')) // sec 30 → run
+    expect(ran).toHaveLength(2)
+  })
+
+  test('minute-granular tasks tick only on the minute boundary', async () => {
+    const ran: number[] = []
+    const s = new Schedule()
+    s.call(() => void ran.push(1)).everyMinute()
+    await s.tick(new Date('2026-07-13T08:00:05Z')) // sec 5 → skip
+    await s.tick(new Date('2026-07-13T08:00:00Z')) // sec 0 → run
+    expect(ran).toHaveLength(1)
+  })
+})
+
+// ── output capture ────────────────────────────────────────────────────────────
+describe('output capture', () => {
+  test('sendOutputTo writes captured console output to a file', async () => {
+    const file = join(outDir, 'out.log')
+    const ev = new ScheduledEvent(() => {
+      console.log('hello from task')
+    }).sendOutputTo(file)
+    await ev.run()
+    expect(readFileSync(file, 'utf8')).toContain('hello from task')
+  })
+
+  test('emailOutputTo sends captured output via the configured mailer', async () => {
+    const sent: { to: string; body: string }[] = []
+    configureScheduleMailer((to, _subject, body) => void sent.push({ to, body }))
+    const ev = new ScheduledEvent(() => {
+      console.log('report line')
+    }).emailOutputTo('ops@example.com')
+    await ev.run()
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.to).toBe('ops@example.com')
+    expect(sent[0]?.body).toContain('report line')
+  })
+})
+
+// ── ping hooks ────────────────────────────────────────────────────────────────
+describe('ping hooks', () => {
+  test('pingBefore/thenPing register before/after hooks', async () => {
+    const calls: string[] = []
+    const originalFetch = globalThis.fetch
+    // @ts-expect-error minimal stub
+    globalThis.fetch = async (url: string) => {
+      calls.push(url)
+      return new Response('ok')
+    }
+    const ev = new ScheduledEvent(() => void calls.push('task'))
+      .pingBefore('http://x/before')
+      .thenPing('http://x/after')
+    await ev.run()
+    // allow the fire-and-forget fetches to settle
+    await new Promise((r) => setTimeout(r, 10))
+    expect(calls).toEqual(['http://x/before', 'task', 'http://x/after'])
+    globalThis.fetch = originalFetch
   })
 })
 

@@ -52,31 +52,62 @@ export class Schedule {
     return this.events.filter((e) => e.isDue(date))
   }
 
-  /** Run every event that should run now. Returns a per-event result log. */
+  /**
+   * Run every event due this minute (minute granularity; sub-minute events run
+   * once). Invoked by `schedule:run` from system cron once a minute.
+   */
   async run(date = new Date()): Promise<ScheduleRunResult[]> {
     const results: ScheduleRunResult[] = []
     for (const event of this.events) {
       if (!(await event.shouldRun(date))) continue
-      if (event.runsInBackground) {
-        // fire-and-forget; the event's own onFailure hooks handle errors
-        void event.run(date).catch(() => {})
-        results.push({ name: event.name, expression: event.expression, ran: true })
-        continue
-      }
-      try {
-        const ran = await event.run(date)
-        results.push({ name: event.name, expression: event.expression, ran })
-      } catch (error) {
-        results.push({ name: event.name, expression: event.expression, ran: true, error })
-      }
+      await this.execute(event, date, results)
     }
     return results
+  }
+
+  /**
+   * A single per-second tick for `schedule:work`: runs sub-minute events at
+   * their aligned second and minute-granular events on the minute boundary.
+   */
+  async tick(date = new Date()): Promise<ScheduleRunResult[]> {
+    const seconds = date.getSeconds()
+    const results: ScheduleRunResult[] = []
+    for (const event of this.events) {
+      const repeat = event.repeatEverySeconds
+      const aligned = repeat ? seconds % repeat === 0 : seconds === 0
+      if (!aligned) continue
+      if (!(await event.shouldRun(date))) continue
+      await this.execute(event, date, results)
+    }
+    return results
+  }
+
+  private async execute(event: ScheduledEvent, date: Date, results: ScheduleRunResult[]): Promise<void> {
+    if (event.runsInBackground) {
+      // fire-and-forget; the event's own onFailure hooks handle errors
+      void event.run(date).catch(() => {})
+      results.push({ name: event.name, expression: event.expression, ran: true })
+      return
+    }
+    try {
+      const ran = await event.run(date)
+      results.push({ name: event.name, expression: event.expression, ran })
+    } catch (error) {
+      results.push({ name: event.name, expression: event.expression, ran: true, error })
+    }
   }
 }
 
 async function runShell(command: string): Promise<void> {
-  const proc = Bun.spawn(['sh', '-c', command], { stdio: ['inherit', 'inherit', 'inherit'] })
-  const code = await proc.exited
+  // Pipe output through console.log so sendOutputTo/emailOutputTo can capture it.
+  const proc = Bun.spawn(['sh', '-c', command], { stdout: 'pipe', stderr: 'pipe' })
+  const [out, err, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ])
+  if (out.trim()) console.log(out.trimEnd())
+  if (err.trim()) console.error(err.trimEnd())
   if (code !== 0) throw new Error(`Scheduled command failed (exit ${code}): ${command}`)
 }
 
