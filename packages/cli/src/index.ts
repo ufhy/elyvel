@@ -15,6 +15,7 @@ import {
   queueFailedCommand,
   queueFlushCommand,
   queueForgetCommand,
+  queuePruneFailedCommand,
   queueRetryCommand,
   queueWorkCommand,
 } from './commands/queue'
@@ -47,6 +48,7 @@ Usage:
   ravel queue:retry <id> | --all              Re-queue failed jobs
   ravel queue:forget <id>                     Delete a failed job
   ravel queue:flush                           Delete all failed jobs
+  ravel queue:prune-failed [--hours=24]       Delete failed jobs older than N hours
   ravel schedule:run                          Run scheduled tasks that are due now
   ravel schedule:list                         List scheduled tasks and their cron
 
@@ -151,6 +153,10 @@ async function main(): Promise<number> {
 
   if (command === 'queue:flush') {
     return queueFlushCommand()
+  }
+
+  if (command === 'queue:prune-failed') {
+    return queuePruneFailedCommand(flags)
   }
 
   if (command === 'schedule:run') {

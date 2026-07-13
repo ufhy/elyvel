@@ -317,6 +317,71 @@ describe('retry reliability', () => {
   })
 })
 
+// ── chaining ──────────────────────────────────────────────────────────────────
+describe('job chaining', () => {
+  class ChainJob extends Job {
+    constructor(public tag = '') {
+      super()
+    }
+    handle(): void {
+      ran.push(this.tag)
+    }
+  }
+  registerJob(ChainJob)
+
+  test('chained jobs run in order after the head succeeds', async () => {
+    const store = new MemoryQueueStore()
+    const head = new ChainJob('a').chain([new ChainJob('b'), new ChainJob('c')])
+    await store.push(JSON.stringify(serializeJob(head)))
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(ran).toEqual(['a', 'b', 'c'])
+  })
+
+  test('a failing head does not dispatch the chain', async () => {
+    const store = new MemoryQueueStore()
+    const head = new FlakyJob().chain([new ChainJob('should-not-run')])
+    await store.push(JSON.stringify(serializeJob(head)))
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(ran).toEqual([]) // FlakyJob always throws; chain never fires
+  })
+})
+
+// ── lifecycle hooks ───────────────────────────────────────────────────────────
+describe('worker lifecycle hooks', () => {
+  test('onBeforeJob / onAfterJob fire around a successful job', async () => {
+    const before: string[] = []
+    const after: string[] = []
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('x'))))
+    await new Worker(store, {
+      onBeforeJob: (n) => before.push(n),
+      onAfterJob: (n) => after.push(n),
+    }).work({ stopWhenEmpty: true })
+    expect(before).toEqual(['RecordJob'])
+    expect(after).toEqual(['RecordJob'])
+  })
+
+  test('onAfterJob does not fire when the job fails', async () => {
+    const after: string[] = []
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new FlakyJob())))
+    await new Worker(store, { onAfterJob: (n) => after.push(n) }).work({ stopWhenEmpty: true })
+    expect(after).toEqual([])
+  })
+})
+
+// ── prune failed ──────────────────────────────────────────────────────────────
+describe('prune failed jobs', () => {
+  test('removes records older than the cutoff', async () => {
+    const adapter = new MemoryFailedJobStore()
+    await adapter.log({ id: 'old', connection: 'c', queue: 'q', body: '{}', exception: 'e', failedAt: 1000 })
+    await adapter.log({ id: 'fresh', connection: 'c', queue: 'q', body: '{}', exception: 'e', failedAt: Date.now() })
+    const removed = await adapter.prune(Date.now() - 3600 * 1000)
+    expect(removed).toBe(1)
+    expect((await adapter.all()).map((r) => r.id)).toEqual(['fresh'])
+  })
+})
+
 // ── job middleware ────────────────────────────────────────────────────────────
 describe('job middleware', () => {
   test('pipeline runs middleware around handle in order', async () => {

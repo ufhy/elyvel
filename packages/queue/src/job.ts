@@ -23,11 +23,20 @@ export abstract class Job {
   /** Distinguishes unique instances (e.g. a model id). Defaults to ''. */
   uniqueId?(): string
 
+  /** Jobs to dispatch, in order, after this one succeeds (set via {@link chain}). */
+  chainedJobs?: Job[]
+
   abstract handle(): void | Promise<void>
   failed?(error: unknown): void | Promise<void>
   /** Middleware wrapping `handle()` (e.g. WithoutOverlapping, RateLimited). */
   // biome-ignore lint/suspicious/noExplicitAny: avoids a circular import with middleware.ts
   middleware?(): any[]
+
+  /** Queue these jobs to run in sequence after this one completes successfully. */
+  chain(jobs: Job[]): this {
+    this.chainedJobs = jobs
+    return this
+  }
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: job classes have varied shapes
@@ -47,10 +56,20 @@ export interface SerializedJob {
   job: string
   data: Record<string, unknown>
   config: JobConfig
+  /** Remaining jobs to dispatch after this one succeeds. */
+  chain?: SerializedJob[]
 }
 
-/** Fields that are job configuration, not user payload. */
-const CONFIG_KEYS = new Set(['tries', 'backoff', 'timeout', 'maxExceptions', 'unique', 'uniqueFor'])
+/** Fields that are job configuration/plumbing, not user payload. */
+const CONFIG_KEYS = new Set([
+  'tries',
+  'backoff',
+  'timeout',
+  'maxExceptions',
+  'unique',
+  'uniqueFor',
+  'chainedJobs',
+])
 
 const registry = new Map<string, JobClass>()
 
@@ -72,7 +91,9 @@ export function serializeJob(job: Job): SerializedJob {
   if (job.maxExceptions !== undefined) config.maxExceptions = job.maxExceptions
   if (job.unique !== undefined) config.unique = job.unique
   if (job.uniqueFor !== undefined) config.uniqueFor = job.uniqueFor
-  return { job: job.constructor.name, data, config }
+  const result: SerializedJob = { job: job.constructor.name, data, config }
+  if (job.chainedJobs && job.chainedJobs.length > 0) result.chain = job.chainedJobs.map(serializeJob)
+  return result
 }
 
 /** Reconstruct a job instance (with its prototype/methods) from serialized data. */

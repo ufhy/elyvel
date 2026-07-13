@@ -7,6 +7,10 @@ import { uniqueKeyFor, uniqueLock } from './unique'
 export interface WorkerOptions {
   /** Seconds to wait before a failed job is retried. Default 0. */
   retryAfter?: number
+  /** Called before a job's handle() runs. */
+  onBeforeJob?: (name: string) => void
+  /** Called after a job's handle() succeeds. */
+  onAfterJob?: (name: string) => void
   /** Called when a job throws (each attempt). */
   onError?: (name: string, error: unknown, willRetry: boolean) => void
   /** Connection name recorded on failed jobs. Default 'default'. */
@@ -53,8 +57,11 @@ export class Worker {
       if (key) await uniqueLock()?.release(key)
     }
     try {
+      this.options.onBeforeJob?.(name)
       await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
       await willReleaseLock()
+      await this.dispatchChain(serialized, record.queue)
+      this.options.onAfterJob?.(name)
     } catch (error) {
       // Middleware asked to re-queue the job without burning an attempt (the
       // pop already incremented attempts, so decrement to net zero).
@@ -77,6 +84,15 @@ export class Worker {
       }
     }
     return true
+  }
+
+  /** After a job succeeds, enqueue the next job in its chain (carrying the rest). */
+  private async dispatchChain(serialized: SerializedJob, queue: string): Promise<void> {
+    if (!serialized.chain || serialized.chain.length === 0) return
+    const [next, ...rest] = serialized.chain
+    if (!next) return
+    if (rest.length > 0) next.chain = rest
+    await this.store.push(JSON.stringify(next), { queue })
   }
 
   /**

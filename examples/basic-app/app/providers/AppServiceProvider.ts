@@ -138,6 +138,11 @@ export class AppServiceProvider extends ServiceProvider {
       flush: async () => {
         await table('failed_jobs').truncate()
       },
+      prune: async (beforeEpochMs) => {
+        const stale = await table('failed_jobs').where('failed_at', '<', beforeEpochMs).count()
+        await table('failed_jobs').where('failed_at', '<', beforeEpochMs).delete()
+        return Number(stale)
+      },
     })
   }
 }

@@ -21,6 +21,8 @@ export interface FailedJobAdapter {
   find(id: string): Promise<FailedJobRecord | null>
   forget(id: string): Promise<boolean>
   flush(): Promise<void>
+  /** Delete records failed before `beforeEpochMs`; returns how many were removed. */
+  prune(beforeEpochMs: number): Promise<number>
 }
 
 /** Records and manages failed jobs. */
@@ -46,6 +48,10 @@ export class FailedJobRepository {
   flush(): Promise<void> {
     return this.adapter.flush()
   }
+  /** Delete failed jobs older than `hours`; returns how many were removed. */
+  prune(hours: number): Promise<number> {
+    return this.adapter.prune(Date.now() - hours * 3600 * 1000)
+  }
 }
 
 /** Built-in in-memory failed-job store (dev/tests). */
@@ -67,6 +73,11 @@ export class MemoryFailedJobStore implements FailedJobAdapter {
   }
   async flush(): Promise<void> {
     this.records = []
+  }
+  async prune(beforeEpochMs: number): Promise<number> {
+    const before = this.records.length
+    this.records = this.records.filter((r) => r.failedAt >= beforeEpochMs)
+    return before - this.records.length
   }
 }
 

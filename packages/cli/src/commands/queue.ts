@@ -131,3 +131,13 @@ export async function queueFlushCommand(): Promise<number> {
   console.log('Flushed all failed jobs.')
   return 0
 }
+
+/** `ravel queue:prune-failed [--hours=24]` — delete failed jobs older than N hours. */
+export async function queuePruneFailedCommand(flags: Record<string, string | boolean>): Promise<number> {
+  const { repo } = await bootFailed()
+  if (!repo) return notConfigured()
+  const hours = flags.hours ? Number(flags.hours) : 24
+  const pruned = await repo.prune(hours)
+  console.log(`Pruned ${pruned} failed job(s) older than ${hours}h.`)
+  return 0
+}
