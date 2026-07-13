@@ -389,7 +389,10 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
     case 'pg': {
       // postgres-js is an optional peer; only required when the pg driver is used.
       const { default: postgres } = await import('postgres')
-      const client = postgres(config.url)
+      // max:1 — our Connection is a single logical connection: BEGIN/…/COMMIT must
+      // run on the SAME socket. With a pool, transaction statements would scatter
+      // across connections (and postgres-js rejects unsafe BEGIN unless max:1).
+      const client = postgres(config.url, { max: 1 })
       return {
         dialect: 'pg',
         grammar: grammarFor('pg'),
