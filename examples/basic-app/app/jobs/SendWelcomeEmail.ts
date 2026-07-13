@@ -1,7 +1,9 @@
+import { Mail } from '@elysia-ravel/mail'
 import { Job } from '@elysia-ravel/queue'
 
 /**
- * Example job: pretend to send a welcome email. Public fields are serialized to
+ * Example job: send a welcome email off the queue (the realistic pattern —
+ * dispatch a job, the worker sends the mail). Public fields are serialized to
  * the queue and restored on the worker, so keep them JSON-friendly.
  */
 export class SendWelcomeEmail extends Job {
@@ -13,8 +15,10 @@ export class SendWelcomeEmail extends Job {
   }
 
   async handle(): Promise<void> {
-    // Real code would call a mailer here.
-    console.log(`[job] sending welcome email to ${this.email}`)
+    await Mail.to(this.email)
+      .subject('Welcome to Basic App!')
+      .html('<h1>Welcome 👋</h1><p>Thanks for signing up.</p>')
+      .send()
   }
 
   override failed(error: unknown): void {

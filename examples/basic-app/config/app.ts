@@ -1,6 +1,7 @@
 import { CacheServiceProvider } from '@elysia-ravel/cache'
 import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
+import { MailServiceProvider } from '@elysia-ravel/mail'
 import { QueueServiceProvider } from '@elysia-ravel/queue'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 import { EventServiceProvider } from '../app/providers/EventServiceProvider'
@@ -24,6 +25,7 @@ export default defineAppConfig({
     EventServiceProvider,
     QueueServiceProvider,
     ScheduleServiceProvider,
+    MailServiceProvider,
     AppServiceProvider,
   ],
 })

@@ -15,6 +15,8 @@ import {
   Queue,
   registerJob,
 } from '@elysia-ravel/queue'
+import { Mail } from '@elysia-ravel/mail'
+import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 import { User } from '../models/User'
@@ -81,6 +83,9 @@ export class AppServiceProvider extends ServiceProvider {
     // Log every job failure globally (bridge the queue's failing event).
     const queueLog = this.app.logger.child('queue')
     Queue.failing((name, error) => queueLog.error('job failed', { job: name, error: String(error) }))
+
+    // Let scheduled tasks email their captured output (Scheduler's emailOutputTo).
+    configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).html(body).send())
 
     // Serialize models as references and re-fetch them fresh on the worker.
     const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }> = { User }
