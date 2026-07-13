@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { expectsJson } from './http/negotiation'
 import { createLogger, type Logger } from './logger'
 
 interface RequestMeta {
@@ -72,9 +73,12 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
       // stays decoupled from the validation package.
       const status = (error as { status?: unknown }).status
       if (typeof status === 'number' && status >= 400 && status < 500) {
+        const errors = (error as { errors?: unknown }).errors
+        // A web (non-JSON) validation error is handled by the session plugin's
+        // onError, which redirects back with the errors flashed — let it run.
+        if (errors && status === 422 && !expectsJson(request)) return undefined
         set.status = status
         http.warn(`${request.method} ${pathname}`, { requestId, status })
-        const errors = (error as { errors?: unknown }).errors
         return errors ? { message, errors } : { message }
       }
 

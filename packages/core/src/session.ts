@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { join } from 'node:path'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
+import { expectsJson } from './http/negotiation'
 import { Middleware, type MiddlewareContext } from './middleware'
 
 const TOKEN_KEY = '_token'
@@ -330,34 +331,61 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       session.ensureToken()
       return { session, __sid: sid }
     })
-    .onAfterHandle({ as: 'global' }, async (ctx: Record<string, unknown>) => {
+    // Persist the session (aging flash) on the happy path.
+    .onAfterHandle({ as: 'global' }, (ctx: Record<string, unknown>) => persist(ctx))
+    // On error, onAfterHandle is skipped — but we still want the session saved,
+    // and web validation errors (422 + bag) to redirect back with the errors and
+    // old input flashed, instead of the API-style 422 JSON.
+    .onError({ as: 'global' }, async (ctx: Record<string, unknown>) => {
       const session = ctx.session as Session | undefined
-      if (!session) return
-      // biome-ignore lint/suspicious/noExplicitAny: Elysia cookie proxy
-      const cookie = ctx.cookie as any
-      session.ageFlashData()
+      const error = ctx.error as { status?: unknown; errors?: Record<string, unknown> } | undefined
+      const request = ctx.request as Request
 
-      let value: string
-      if (store) {
-        const sid = (ctx.__sid as string) || randomBytes(16).toString('hex')
-        await store.write(sid, session.toData(), config.lifetime)
-        value = sid
-      } else {
-        value = encrypt(session.toData(), config.secret) // cookie driver
+      const isValidation = error?.status === 422 && error.errors !== undefined
+      if (session && isValidation && !expectsJson(request)) {
+        session.flash('errors', error.errors)
+        const body = ctx.body
+        if (body && typeof body === 'object') session.flash('_old_input', body as Record<string, unknown>)
+        await persist(ctx)
+        // biome-ignore lint/suspicious/noExplicitAny: Elysia set proxy
+        const set = ctx.set as any
+        set.status = 303
+        set.headers.location = request.headers.get('referer') ?? '/'
+        return ''
       }
-      const base = {
-        path: config.path,
-        domain: config.domain,
-        secure: config.secure,
-        sameSite: config.sameSite,
-        ...(config.expireOnClose ? {} : { maxAge: config.lifetime }),
-      }
-      cookie[config.cookie].value = value
-      cookie[config.cookie].set({ ...base, httpOnly: config.httpOnly })
-      // Readable token cookie for SPA double-submit (Axios reads XSRF-TOKEN).
-      cookie['XSRF-TOKEN'].value = session.token()
-      cookie['XSRF-TOKEN'].set({ ...base, httpOnly: false })
+      await persist(ctx) // save any session changes even on other errors
+      return undefined
     })
+
+  /** Age flash data and write the session cookie / store (shared by the hooks above). */
+  async function persist(ctx: Record<string, unknown>): Promise<void> {
+    const session = ctx.session as Session | undefined
+    if (!session) return
+    // biome-ignore lint/suspicious/noExplicitAny: Elysia cookie proxy
+    const cookie = ctx.cookie as any
+    session.ageFlashData()
+
+    let value: string
+    if (store) {
+      const sid = (ctx.__sid as string) || randomBytes(16).toString('hex')
+      await store.write(sid, session.toData(), config.lifetime)
+      value = sid
+    } else {
+      value = encrypt(session.toData(), config.secret) // cookie driver
+    }
+    const base = {
+      path: config.path,
+      domain: config.domain,
+      secure: config.secure,
+      sameSite: config.sameSite,
+      ...(config.expireOnClose ? {} : { maxAge: config.lifetime }),
+    }
+    cookie[config.cookie].value = value
+    cookie[config.cookie].set({ ...base, httpOnly: config.httpOnly })
+    // Readable token cookie for SPA double-submit (Axios reads XSRF-TOKEN).
+    cookie['XSRF-TOKEN'].value = session.token()
+    cookie['XSRF-TOKEN'].set({ ...base, httpOnly: false })
+  }
 
   return plugin as Elysia
 }

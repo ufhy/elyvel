@@ -1,5 +1,5 @@
 import { cache } from '@elysia-ravel/cache'
-import { requestContext, resource, route } from '@elysia-ravel/core'
+import { requestContext, Resource, resource, route } from '@elysia-ravel/core'
 import HelloController from '../app/controllers/HelloController'
 import { UserController } from '../app/controllers/UserController'
 import { User } from '../app/models/User'
@@ -25,6 +25,12 @@ export default route('/api')
   .get('/health', ({ log }) => {
     log.info('health check')
     return { status: 'ok' }
+  })
+  // API resource envelope: `{ data: [...] }` — the same transformer could feed
+  // Inertia page props on the web lane.
+  .get('/users-resource', async () => {
+    const users = (await User.all()).toArray()
+    return Resource.collection(users, (u) => (u as User).toJSON())
   })
   // Cache demo: the user count is computed once, then served from cache for 60s.
   .get('/stats', async () => {

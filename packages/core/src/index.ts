@@ -57,6 +57,10 @@ export {
   type MiddlewareItem,
   route,
 } from './middleware'
+export { expectsJson, wantsHtml } from './http/negotiation'
+export { httpResponses } from './http/plugin'
+export { back, RedirectResponse, redirect } from './http/redirect'
+export { Resource } from './http/resource'
 export { requestContext, setRequestLogger } from './request-context'
 export { ServiceProvider } from './service-provider'
 export type { ServiceProviderClass } from './service-provider'

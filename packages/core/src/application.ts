@@ -24,6 +24,7 @@ import {
   registerMiddlewareRegistry,
 } from './middleware'
 import { ThrottleMiddleware } from './throttle'
+import { httpResponses } from './http/plugin'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
 import { CsrfMiddleware, type ResolvedSessionConfig, sessionPlugin } from './session'
@@ -119,6 +120,7 @@ export class Application {
     app.registerCoreBindings()
     app.registerHttpLogger()
     app.registerMiddleware()
+    app.registerHttpResponses()
     app.registerSession()
 
     const configured = app.config.get<ServiceProviderClass[]>('app.providers', [])
@@ -252,6 +254,11 @@ export class Application {
   }
 
   /** Mount the session plugin (before routes) when `config/session.ts` is present. */
+  /** Mount response normalization (redirects → 303) before the session plugin. */
+  private registerHttpResponses(): void {
+    this.elysia.use(httpResponses())
+  }
+
   private registerSession(): void {
     const cfg = this.config.get<SessionConfig | undefined>('session')
     if (!cfg) return
