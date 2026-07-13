@@ -1,0 +1,12 @@
+{
+  "name": "@elysia-ravel/telegram",
+  "version": "0.0.0",
+  "description": "Telegram Bot API client for elysia-ravel — send messages (and a notifications channel)",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "peerDependencies": { "@elysia-ravel/core": "workspace:*" }
+}

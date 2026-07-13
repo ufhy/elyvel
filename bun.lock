@@ -23,6 +23,7 @@
         "@elysia-ravel/mail": "workspace:*",
         "@elysia-ravel/queue": "workspace:*",
         "@elysia-ravel/scheduler": "workspace:*",
+        "@elysia-ravel/telegram": "workspace:*",
         "@elysia-ravel/validation": "workspace:*",
         "@elysia-ravel/view": "workspace:*",
         "@elysia-ravel/vite": "workspace:*",
@@ -141,6 +142,13 @@
       "name": "@elysia-ravel/support",
       "version": "0.0.0",
     },
+    "packages/telegram": {
+      "name": "@elysia-ravel/telegram",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+      },
+    },
     "packages/validation": {
       "name": "@elysia-ravel/validation",
       "version": "0.0.0",
@@ -214,6 +222,8 @@
     "@elysia-ravel/scheduler": ["@elysia-ravel/scheduler@workspace:packages/scheduler"],
 
     "@elysia-ravel/support": ["@elysia-ravel/support@workspace:packages/support"],
+
+    "@elysia-ravel/telegram": ["@elysia-ravel/telegram@workspace:packages/telegram"],
 
     "@elysia-ravel/validation": ["@elysia-ravel/validation@workspace:packages/validation"],
 

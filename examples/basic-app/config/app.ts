@@ -3,6 +3,7 @@ import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
 import { MailServiceProvider } from '@elysia-ravel/mail'
 import { QueueServiceProvider } from '@elysia-ravel/queue'
+import { TelegramServiceProvider } from '@elysia-ravel/telegram'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 import { EventServiceProvider } from '../app/providers/EventServiceProvider'
 import { ScheduleServiceProvider } from '../app/providers/ScheduleServiceProvider'
@@ -26,6 +27,7 @@ export default defineAppConfig({
     QueueServiceProvider,
     ScheduleServiceProvider,
     MailServiceProvider,
+    TelegramServiceProvider,
     AppServiceProvider,
   ],
 })

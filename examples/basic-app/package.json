@@ -17,6 +17,7 @@
     "@elysia-ravel/mail": "workspace:*",
     "@elysia-ravel/queue": "workspace:*",
     "@elysia-ravel/scheduler": "workspace:*",
+    "@elysia-ravel/telegram": "workspace:*",
     "@elysia-ravel/validation": "workspace:*",
     "@elysia-ravel/view": "workspace:*",
     "@elysia-ravel/vite": "workspace:*",
