@@ -25,6 +25,7 @@
         "@elysia-ravel/notifications": "workspace:*",
         "@elysia-ravel/queue": "workspace:*",
         "@elysia-ravel/scheduler": "workspace:*",
+        "@elysia-ravel/storage": "workspace:*",
         "@elysia-ravel/telegram": "workspace:*",
         "@elysia-ravel/validation": "workspace:*",
         "@elysia-ravel/view": "workspace:*",
@@ -164,6 +165,13 @@
         "@elysia-ravel/core": "workspace:*",
       },
     },
+    "packages/storage": {
+      "name": "@elysia-ravel/storage",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+      },
+    },
     "packages/support": {
       "name": "@elysia-ravel/support",
       "version": "0.0.0",
@@ -268,6 +276,8 @@
     "@elysia-ravel/queue": ["@elysia-ravel/queue@workspace:packages/queue"],
 
     "@elysia-ravel/scheduler": ["@elysia-ravel/scheduler@workspace:packages/scheduler"],
+
+    "@elysia-ravel/storage": ["@elysia-ravel/storage@workspace:packages/storage"],
 
     "@elysia-ravel/support": ["@elysia-ravel/support@workspace:packages/support"],
 

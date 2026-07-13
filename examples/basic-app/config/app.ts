@@ -5,6 +5,7 @@ import { EloquentServiceProvider } from '@elysia-ravel/database'
 import { MailServiceProvider } from '@elysia-ravel/mail'
 import { NotificationServiceProvider } from '@elysia-ravel/notifications'
 import { QueueServiceProvider } from '@elysia-ravel/queue'
+import { StorageServiceProvider } from '@elysia-ravel/storage'
 import { TelegramServiceProvider } from '@elysia-ravel/telegram'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 import { EventServiceProvider } from '../app/providers/EventServiceProvider'
@@ -25,6 +26,7 @@ export default defineAppConfig({
   providers: [
     EloquentServiceProvider,
     CacheServiceProvider,
+    StorageServiceProvider,
     EventServiceProvider,
     QueueServiceProvider,
     ScheduleServiceProvider,
