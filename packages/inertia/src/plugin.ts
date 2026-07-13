@@ -106,8 +106,23 @@ export function inertia(config: InertiaConfig = {}) {
     }
 
     const url = new URL(request.url)
-    const props = await buildProps(response, request, ctx.session)
-    const page: Page = { component: response.component, props, url: url.pathname + url.search, version }
+    const built = await buildProps(response, request, ctx.session)
+    const page: Page = {
+      component: response.component,
+      props: built.props,
+      url: url.pathname + url.search,
+      version,
+    }
+    if (built.deferredProps) page.deferredProps = built.deferredProps
+    if (built.mergeProps) page.mergeProps = built.mergeProps
+    if (built.deepMergeProps) page.deepMergeProps = built.deepMergeProps
+    if (built.prependProps) page.prependProps = built.prependProps
+    if (built.matchPropsOn) page.matchPropsOn = built.matchPropsOn
+    if (built.onceProps) page.onceProps = built.onceProps
+    if (built.rescuedProps) page.rescuedProps = built.rescuedProps
+    if (response.encryptHistoryFlag) page.encryptHistory = true
+    if (response.clearHistoryFlag) page.clearHistory = true
+    if (response.preserveFragmentFlag) page.preserveFragment = true
 
     if (isInertia) {
       ctx.set.headers['x-inertia'] = 'true'

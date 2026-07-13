@@ -97,6 +97,72 @@ describe('shared props', () => {
   })
 })
 
+describe('v2: deferred props', () => {
+  const app = () =>
+    new Elysia()
+      .use(inertia())
+      .get('/posts', () =>
+        Inertia.render('Posts', {
+          user: 'Sam',
+          comments: Inertia.defer(() => ['c1', 'c2']),
+          analytics: Inertia.defer(() => ['a1'], 'reports'),
+        }),
+      )
+
+  test('full visit omits deferred props and advertises them (grouped)', async () => {
+    const res = await app().handle(inertiaReq('/posts'))
+    const page = (await res.json()) as { props: Record<string, unknown>; deferredProps: Record<string, string[]> }
+    expect(page.props.user).toBe('Sam')
+    expect(page.props.comments).toBeUndefined() // deferred, not in initial payload
+    expect(page.deferredProps).toEqual({ default: ['comments'], reports: ['analytics'] })
+  })
+
+  test('partial reload resolves the requested deferred prop', async () => {
+    const res = await app().handle(
+      inertiaReq('/posts', { 'x-inertia-partial-component': 'Posts', 'x-inertia-partial-data': 'comments' }),
+    )
+    const page = (await res.json()) as { props: Record<string, unknown> }
+    expect(page.props.comments).toEqual(['c1', 'c2'])
+    expect(page.props.user).toBeUndefined() // not requested
+  })
+})
+
+describe('v2: merge props', () => {
+  test('merge/deepMerge/prepend + matchOn surface in the page object', async () => {
+    const app = new Elysia().use(inertia()).get('/feed', () =>
+      Inertia.render('Feed', {
+        posts: Inertia.merge(() => [{ id: 1 }]).matchOn('posts.id'),
+        chat: Inertia.deepMerge({ messages: [] }),
+        alerts: Inertia.merge(['a']).prepend(),
+      }),
+    )
+    const page = (await app.handle(inertiaReq('/feed')).then((r) => r.json())) as {
+      props: Record<string, unknown>
+      mergeProps: string[]
+      deepMergeProps: string[]
+      prependProps: string[]
+      matchPropsOn: string[]
+    }
+    expect(page.props.posts).toEqual([{ id: 1 }]) // still resolved into props
+    expect(page.mergeProps).toEqual(['posts'])
+    expect(page.deepMergeProps).toEqual(['chat'])
+    expect(page.prependProps).toEqual(['alerts'])
+    expect(page.matchPropsOn).toEqual(['posts.id'])
+  })
+})
+
+describe('v2: history flags', () => {
+  test('encryptHistory / clearHistory / preserveFragment set page flags', async () => {
+    const app = new Elysia()
+      .use(inertia())
+      .get('/secure', () => Inertia.render('Secure', {}).encryptHistory().clearHistory().preserveFragment())
+    const page = (await app.handle(inertiaReq('/secure')).then((r) => r.json())) as Record<string, unknown>
+    expect(page.encryptHistory).toBe(true)
+    expect(page.clearHistory).toBe(true)
+    expect(page.preserveFragment).toBe(true)
+  })
+})
+
 describe('server-side rendering', () => {
   const ssrApp = () =>
     new Elysia()
