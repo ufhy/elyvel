@@ -1,5 +1,6 @@
 import type { FailedJobRepository } from './failed'
 import { backoffFor, reconstructJob, type SerializedJob } from './job'
+import { ReleaseJob, runThroughMiddleware } from './middleware'
 import type { QueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
 
@@ -52,9 +53,15 @@ export class Worker {
       if (key) await uniqueLock()?.release(key)
     }
     try {
-      await withTimeout(Promise.resolve(job.handle()), job.timeout)
+      await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
       await willReleaseLock()
     } catch (error) {
+      // Middleware asked to re-queue the job without burning an attempt (the
+      // pop already incremented attempts, so decrement to net zero).
+      if (error instanceof ReleaseJob) {
+        await this.store.release({ ...record, attempts: record.attempts - 1 }, error.delaySeconds)
+        return true
+      }
       // Cap attempts by tries and (if set) maxExceptions — in our model every
       // failure is an exception, so the lower of the two wins.
       const cap = Math.min(job.tries ?? 1, job.maxExceptions ?? Number.POSITIVE_INFINITY)

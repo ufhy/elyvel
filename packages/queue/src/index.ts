@@ -18,6 +18,17 @@ export {
   serializeJob,
 } from './job'
 export {
+  configureRateLimiter,
+  type JobMiddleware,
+  MemoryRateLimiter,
+  RateLimited,
+  type RateLimiter,
+  rateLimiter,
+  ReleaseJob,
+  runThroughMiddleware,
+  WithoutOverlapping,
+} from './middleware'
+export {
   configureAfterCommit,
   type DispatchOptions,
   dispatch,

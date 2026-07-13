@@ -4,6 +4,14 @@ import { configureAfterCommit, dispatch, dispatchSync, QueueManager, setDefaultQ
 import { Job, registerJob, reconstructJob, serializeJob } from '../src/job'
 import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import {
+  configureRateLimiter,
+  type JobMiddleware,
+  MemoryRateLimiter,
+  RateLimited,
+  ReleaseJob,
+  runThroughMiddleware,
+} from '../src/middleware'
+import {
   configureDatabaseQueue,
   DatabaseQueueStore,
   MemoryQueueStore,
@@ -306,6 +314,99 @@ describe('retry reliability', () => {
     const rows = await failed.all()
     expect(rows).toHaveLength(1)
     expect(rows[0]?.exception).toContain('timed out')
+  })
+})
+
+// ── job middleware ────────────────────────────────────────────────────────────
+describe('job middleware', () => {
+  test('pipeline runs middleware around handle in order', async () => {
+    const trace: string[] = []
+    const mw = (tag: string): JobMiddleware => ({
+      async handle(_job, next) {
+        trace.push(`before:${tag}`)
+        await next()
+        trace.push(`after:${tag}`)
+      },
+    })
+    class MwJob extends Job {
+      override middleware() {
+        return [mw('a'), mw('b')]
+      }
+      handle(): void {
+        trace.push('handle')
+      }
+    }
+    await runThroughMiddleware(new MwJob(), () => Promise.resolve(new MwJob().handle()))
+    expect(trace).toEqual(['before:a', 'before:b', 'handle', 'after:b', 'after:a'])
+  })
+
+  test('a middleware can short-circuit by not calling next', async () => {
+    let ran = false
+    class GuardJob extends Job {
+      override middleware() {
+        return [{ handle: async () => {} }] // never calls next
+      }
+      handle(): void {
+        ran = true
+      }
+    }
+    await runThroughMiddleware(new GuardJob(), () => Promise.resolve(new GuardJob().handle()))
+    expect(ran).toBe(false)
+  })
+
+  test('RateLimited releases the job when over the limit (no attempt burned)', async () => {
+    configureRateLimiter(new MemoryRateLimiter())
+    class LimitedJob extends Job {
+      override tries = 3
+      override middleware() {
+        return [new RateLimited('emails', { maxAttempts: 1, perSeconds: 3600, releaseAfter: 0 })]
+      }
+      handle(): void {
+        ran.push('limited')
+      }
+    }
+    registerJob(LimitedJob)
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new LimitedJob())))
+    await store.push(JSON.stringify(serializeJob(new LimitedJob())))
+
+    // process both: first runs (1 hit), second is over-limit → released, not run
+    const w = new Worker(store)
+    await w.processNext() // runs #1
+    const before = await store.size()
+    await w.processNext() // #2 over limit → ReleaseJob → back on queue
+    expect(ran).toEqual(['limited'])
+    expect(await store.size()).toBe(before) // still queued, not failed
+  })
+
+  test('ReleaseJob from middleware does not count as a failure', async () => {
+    class ReleaseOnceJob extends Job {
+      override tries = 1
+      static releases = 0
+      override middleware() {
+        return [
+          {
+            async handle(_job, next) {
+              if (ReleaseOnceJob.releases === 0) {
+                ReleaseOnceJob.releases++
+                throw new ReleaseJob(0)
+              }
+              await next()
+            },
+          } satisfies JobMiddleware,
+        ]
+      }
+      handle(): void {
+        ran.push('released-then-ran')
+      }
+    }
+    registerJob(ReleaseOnceJob)
+    ReleaseOnceJob.releases = 0
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new ReleaseOnceJob())))
+    // first attempt released (attempt not burned), second runs despite tries=1
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(ran).toEqual(['released-then-ran'])
   })
 })
 

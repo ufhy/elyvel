@@ -25,6 +25,9 @@ export abstract class Job {
 
   abstract handle(): void | Promise<void>
   failed?(error: unknown): void | Promise<void>
+  /** Middleware wrapping `handle()` (e.g. WithoutOverlapping, RateLimited). */
+  // biome-ignore lint/suspicious/noExplicitAny: avoids a circular import with middleware.ts
+  middleware?(): any[]
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: job classes have varied shapes
