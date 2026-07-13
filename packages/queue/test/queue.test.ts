@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Bus, configureBatches, findBatch, MemoryBatchStore } from '../src/batch'
 import { configureJobEncryption } from '../src/encryption'
-import { Queue } from '../src/events'
+import { configureQueueEventDispatcher, Queue } from '../src/events'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
 import { configureAfterCommit, dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
 import { decodeBody, encodeBody, Job, registerJob, reconstructJob, serializeJob } from '../src/job'
@@ -560,6 +560,27 @@ describe('Queue lifecycle events', () => {
     expect(before).toContain('RecordJob')
     expect(after).toEqual(['RecordJob']) // only the successful one
     expect(failing.filter((n) => n === 'FlakyJob')).toHaveLength(3) // one per attempt
+    Queue.clearListeners()
+  })
+
+  test('bridges to a dispatcher as queue.processing/processed/failed', async () => {
+    Queue.clearListeners()
+    const dispatched: { name: string; payload: Record<string, unknown> }[] = []
+    configureQueueEventDispatcher((name, payload) => void dispatched.push({ name, payload }))
+
+    const store = new MemoryQueueStore()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('ok'))))
+    await store.push(JSON.stringify(serializeJob(new FlakyJob()))) // tries=3
+    await new Worker(store).work({ stopWhenEmpty: true })
+
+    const names = dispatched.map((d) => d.name)
+    expect(names).toContain('queue.processing')
+    expect(dispatched.find((d) => d.name === 'queue.processed')?.payload).toEqual({ job: 'RecordJob' })
+    const failed = dispatched.find((d) => d.name === 'queue.failed')
+    expect(failed?.payload.job).toBe('FlakyJob')
+    expect(failed?.payload.error).toBeDefined()
+
+    configureQueueEventDispatcher(() => {})
     Queue.clearListeners()
   })
 })

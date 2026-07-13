@@ -32,12 +32,28 @@ export const Queue = {
   },
 }
 
+/**
+ * Optional bridge so queue lifecycle events also flow through an app-wide event
+ * dispatcher (like the Eloquent bridge). Wire it once at boot, e.g.
+ * `configureQueueEventDispatcher((name, payload) => event(name, payload))`, then
+ * `listen('queue.failed', ...)`. Kept injectable so the queue package stays
+ * decoupled from `@elysia-ravel/events`.
+ */
+type QueueEventDispatcher = (eventName: string, payload: Record<string, unknown>) => void | Promise<void>
+let queueEventDispatcher: QueueEventDispatcher | null = null
+export function configureQueueEventDispatcher(dispatcher: QueueEventDispatcher): void {
+  queueEventDispatcher = dispatcher
+}
+
 export async function fireBefore(name: string): Promise<void> {
   for (const l of beforeListeners) await l(name)
+  if (queueEventDispatcher) await queueEventDispatcher('queue.processing', { job: name })
 }
 export async function fireAfter(name: string): Promise<void> {
   for (const l of afterListeners) await l(name)
+  if (queueEventDispatcher) await queueEventDispatcher('queue.processed', { job: name })
 }
 export async function fireFailing(name: string, error: unknown): Promise<void> {
   for (const l of failingListeners) await l(name, error)
+  if (queueEventDispatcher) await queueEventDispatcher('queue.failed', { job: name, error })
 }

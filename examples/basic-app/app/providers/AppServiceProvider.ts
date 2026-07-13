@@ -10,6 +10,7 @@ import {
   configureFailedJobs,
   configureJobEncryption,
   configureModelSerializer,
+  configureQueueEventDispatcher,
   configureRestartSignal,
   configureUniqueJobs,
   MemoryUniqueLock,
@@ -86,6 +87,12 @@ export class AppServiceProvider extends ServiceProvider {
     // Log every job failure globally (bridge the queue's failing event).
     const queueLog = this.app.logger.child('queue')
     Queue.failing((name, error) => queueLog.error('job failed', { job: name, error: String(error) }))
+
+    // Bridge queue lifecycle events to the app dispatcher (queue.processing /
+    // .processed / .failed) — one event bus for the whole app.
+    configureQueueEventDispatcher(async (name, payload) => {
+      await event(name, payload)
+    })
 
     // Let scheduled tasks email their captured output (Scheduler's emailOutputTo).
     configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).html(body).send())

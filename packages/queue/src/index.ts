@@ -19,7 +19,7 @@ export {
   MemoryFailedJobStore,
 } from './failed'
 export { configureJobEncryption } from './encryption'
-export { Queue } from './events'
+export { configureQueueEventDispatcher, Queue } from './events'
 export {
   backoffFor,
   CallQueuedClosure,
