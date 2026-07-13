@@ -16,6 +16,7 @@ import {
   registerJob,
 } from '@elysia-ravel/queue'
 import { Mail } from '@elysia-ravel/mail'
+import { configureDatabaseNotifications } from '@elysia-ravel/notifications'
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
@@ -86,6 +87,20 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Let scheduled tasks email their captured output (Scheduler's emailOutputTo).
     configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).html(body).send())
+
+    // Persist database-channel notifications to the `notifications` table.
+    configureDatabaseNotifications({
+      insert: async (r) => {
+        await table('notifications').insert({
+          id: r.id,
+          type: r.type,
+          notifiable_id: String(r.notifiableId),
+          data: JSON.stringify(r.data),
+          read_at: r.readAt,
+          created_at: r.createdAt,
+        })
+      },
+    })
 
     // Serialize models as references and re-fetch them fresh on the worker.
     const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }> = { User }

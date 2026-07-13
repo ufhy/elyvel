@@ -21,6 +21,7 @@
         "@elysia-ravel/events": "workspace:*",
         "@elysia-ravel/inertia": "workspace:*",
         "@elysia-ravel/mail": "workspace:*",
+        "@elysia-ravel/notifications": "workspace:*",
         "@elysia-ravel/queue": "workspace:*",
         "@elysia-ravel/scheduler": "workspace:*",
         "@elysia-ravel/telegram": "workspace:*",
@@ -124,6 +125,15 @@
         "@elysia-ravel/core": "workspace:*",
       },
     },
+    "packages/notifications": {
+      "name": "@elysia-ravel/notifications",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+        "@elysia-ravel/mail": "workspace:*",
+        "@elysia-ravel/telegram": "workspace:*",
+      },
+    },
     "packages/queue": {
       "name": "@elysia-ravel/queue",
       "version": "0.0.0",
@@ -216,6 +226,8 @@
     "@elysia-ravel/inertia": ["@elysia-ravel/inertia@workspace:packages/inertia"],
 
     "@elysia-ravel/mail": ["@elysia-ravel/mail@workspace:packages/mail"],
+
+    "@elysia-ravel/notifications": ["@elysia-ravel/notifications@workspace:packages/notifications"],
 
     "@elysia-ravel/queue": ["@elysia-ravel/queue@workspace:packages/queue"],
 

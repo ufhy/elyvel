@@ -1,9 +1,11 @@
 import { Hash } from '@elysia-ravel/auth'
 import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
 import { event } from '@elysia-ravel/events'
+import { notify } from '@elysia-ravel/notifications'
 import { dispatch } from '@elysia-ravel/queue'
 import { UserRegistered } from '../events/UserRegistered'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
+import { WelcomeNotification } from '../notifications/WelcomeNotification'
 import { User } from '../models/User'
 import { StoreUserRequest } from '../requests/StoreUserRequest'
 
@@ -32,6 +34,11 @@ export class UserController extends Controller {
     })
     await event(new UserRegistered(String(data.email)))
     await dispatch(new SendWelcomeEmail(String(data.email)))
+    // In-app (database) notification — the user row is the notifiable.
+    await notify(
+      { id: user.getKey(), routeNotificationFor: (c) => (c === 'mail' ? String(data.email) : undefined) },
+      new WelcomeNotification(String(data.name)),
+    )
     return ctx.status(201, user.toJSON())
   }
 

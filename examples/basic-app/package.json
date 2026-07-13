@@ -15,6 +15,7 @@
     "@elysia-ravel/events": "workspace:*",
     "@elysia-ravel/inertia": "workspace:*",
     "@elysia-ravel/mail": "workspace:*",
+    "@elysia-ravel/notifications": "workspace:*",
     "@elysia-ravel/queue": "workspace:*",
     "@elysia-ravel/scheduler": "workspace:*",
     "@elysia-ravel/telegram": "workspace:*",
