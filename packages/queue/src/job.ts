@@ -16,6 +16,12 @@ export abstract class Job {
   timeout?: number
   /** Fail after this many thrown exceptions, even if `tries` remains. */
   maxExceptions?: number
+  /** Only allow one instance of this job (per {@link uniqueId}) to be queued at a time. */
+  unique?: boolean
+  /** How long (seconds) the uniqueness lock is held. Default 3600. */
+  uniqueFor?: number
+  /** Distinguishes unique instances (e.g. a model id). Defaults to ''. */
+  uniqueId?(): string
 
   abstract handle(): void | Promise<void>
   failed?(error: unknown): void | Promise<void>
@@ -30,6 +36,8 @@ export interface JobConfig {
   backoff?: number | number[]
   timeout?: number
   maxExceptions?: number
+  unique?: boolean
+  uniqueFor?: number
 }
 
 export interface SerializedJob {
@@ -39,7 +47,7 @@ export interface SerializedJob {
 }
 
 /** Fields that are job configuration, not user payload. */
-const CONFIG_KEYS = new Set(['tries', 'backoff', 'timeout', 'maxExceptions'])
+const CONFIG_KEYS = new Set(['tries', 'backoff', 'timeout', 'maxExceptions', 'unique', 'uniqueFor'])
 
 const registry = new Map<string, JobClass>()
 
@@ -59,6 +67,8 @@ export function serializeJob(job: Job): SerializedJob {
   if (job.backoff !== undefined) config.backoff = job.backoff
   if (job.timeout !== undefined) config.timeout = job.timeout
   if (job.maxExceptions !== undefined) config.maxExceptions = job.maxExceptions
+  if (job.unique !== undefined) config.unique = job.unique
+  if (job.uniqueFor !== undefined) config.uniqueFor = job.uniqueFor
   return { job: job.constructor.name, data, config }
 }
 
@@ -74,6 +84,8 @@ export function reconstructJob(serialized: SerializedJob): Job {
   job.backoff = serialized.config.backoff
   job.timeout = serialized.config.timeout
   job.maxExceptions = serialized.config.maxExceptions
+  job.unique = serialized.config.unique
+  job.uniqueFor = serialized.config.uniqueFor
   return job
 }
 

@@ -4,6 +4,8 @@ export interface QueueConnectionConfig {
   url?: string
   /** Redis key / logical queue name (redis driver). */
   queue?: string
+  /** Default all dispatches on this connection to fire after the DB commits. */
+  afterCommit?: boolean
 }
 
 export interface QueueConfig {

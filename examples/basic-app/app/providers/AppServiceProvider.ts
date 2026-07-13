@@ -1,7 +1,14 @@
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
-import { table } from '@elysia-ravel/database'
-import { configureDatabaseQueue, configureFailedJobs, registerJob } from '@elysia-ravel/queue'
+import { afterCommit, table } from '@elysia-ravel/database'
+import {
+  configureAfterCommit,
+  configureDatabaseQueue,
+  configureFailedJobs,
+  configureUniqueJobs,
+  MemoryUniqueLock,
+  registerJob,
+} from '@elysia-ravel/queue'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 
@@ -54,6 +61,11 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Register job classes so the worker can reconstruct them from the queue.
     registerJob(SendWelcomeEmail)
+
+    // Dispatch-after-commit support + unique-job locking (in-memory here; back
+    // it with Redis for cross-process uniqueness in production).
+    configureAfterCommit((cb) => afterCommit(cb))
+    configureUniqueJobs(new MemoryUniqueLock())
 
     // Wire the `database` queue driver (config/queue.ts) to the `jobs` table.
     configureDatabaseQueue({

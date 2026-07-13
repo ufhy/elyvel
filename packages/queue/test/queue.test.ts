@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
-import { dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
+import { configureAfterCommit, dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
 import { Job, registerJob, reconstructJob, serializeJob } from '../src/job'
+import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import {
   configureDatabaseQueue,
   DatabaseQueueStore,
@@ -192,6 +193,63 @@ describe('failed jobs', () => {
     expect(await failed.all()).toHaveLength(2)
     await failed.flush()
     expect(await failed.all()).toHaveLength(0)
+  })
+})
+
+// ── afterCommit ───────────────────────────────────────────────────────────────
+describe('afterCommit dispatch', () => {
+  test('defers the push to the registered hook', async () => {
+    const deferred: Array<() => void | Promise<void>> = []
+    configureAfterCommit((cb) => deferred.push(cb))
+    const store = new MemoryQueueStore()
+    const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
+    // reach into the manager's resolved store
+    ;(m as unknown as { resolved: Map<string, unknown> }).resolved.set('memory', store)
+
+    await m.push(new RecordJob('deferred'), { afterCommit: true })
+    expect(await store.size()).toBe(0) // not pushed yet
+    for (const cb of deferred) await cb() // simulate commit
+    expect(await store.size()).toBe(1)
+    configureAfterCommit(() => {}) // reset hook
+  })
+})
+
+// ── unique jobs ───────────────────────────────────────────────────────────────
+describe('unique jobs', () => {
+  class UniqueJob extends Job {
+    override unique = true
+    constructor(public key = '') {
+      super()
+    }
+    override uniqueId(): string {
+      return this.key
+    }
+    handle(): void {}
+  }
+  registerJob(UniqueJob)
+
+  test('second dispatch is skipped while the first is queued', async () => {
+    configureUniqueJobs(new MemoryUniqueLock())
+    const store = new MemoryQueueStore()
+    const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
+    ;(m as unknown as { resolved: Map<string, unknown> }).resolved.set('memory', store)
+
+    await m.push(new UniqueJob('a'))
+    await m.push(new UniqueJob('a')) // duplicate → skipped
+    await m.push(new UniqueJob('b')) // different id → allowed
+    expect(await store.size()).toBe(2)
+  })
+
+  test('lock is released after processing, allowing re-dispatch', async () => {
+    configureUniqueJobs(new MemoryUniqueLock())
+    const store = new MemoryQueueStore()
+    const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
+    ;(m as unknown as { resolved: Map<string, unknown> }).resolved.set('memory', store)
+
+    await m.push(new UniqueJob('x'))
+    await new Worker(store).work({ stopWhenEmpty: true }) // processes → releases lock
+    await m.push(new UniqueJob('x')) // now allowed again
+    expect(await store.size()).toBe(1)
   })
 })
 

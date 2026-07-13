@@ -2,12 +2,27 @@ import { RedisClient } from 'bun'
 import type { QueueConfig, QueueConnectionConfig } from './config-schema'
 import { type Job, serializeJob } from './job'
 import { DatabaseQueueStore, MemoryQueueStore, type QueueStore, RedisQueueStore } from './store'
+import { uniqueKeyFor, uniqueLock } from './unique'
 
 export interface DispatchOptions {
   /** Delay before the job becomes available, in seconds. */
   delay?: number
   /** Target a non-default connection. */
   connection?: string
+  /**
+   * Defer the actual dispatch until the current DB transaction commits (and
+   * drop it on rollback). Requires {@link configureAfterCommit}. Overrides the
+   * connection's `afterCommit` default.
+   */
+  afterCommit?: boolean
+}
+
+/** Runs `callback` after the current DB transaction commits (or immediately). */
+type AfterCommitHook = (callback: () => void | Promise<void>) => void
+let afterCommitHook: AfterCommitHook | null = null
+/** Wire transaction-aware dispatching (e.g. to `@elysia-ravel/database`'s `afterCommit`). */
+export function configureAfterCommit(hook: AfterCommitHook): void {
+  afterCommitHook = hook
 }
 
 /** Resolves queue connections and dispatches jobs, à la Laravel's QueueManager. */
@@ -48,12 +63,35 @@ export class QueueManager {
 
   /** Dispatch a job: run inline on `sync`, otherwise enqueue. */
   async push(job: Job, options: DispatchOptions = {}): Promise<void> {
-    const store = this.store(options.connection)
-    if (store === 'sync') {
-      await job.handle()
+    // Unique jobs: skip the dispatch if a lock is already held.
+    const uniqueKey = uniqueKeyFor(job)
+    const lock = uniqueLock()
+    if (uniqueKey && lock) {
+      const acquired = await lock.acquire(uniqueKey, job.uniqueFor ?? 3600)
+      if (!acquired) return
+    }
+
+    const name = options.connection ?? this.defaultConnection
+    const store = this.store(name)
+    const doPush = async () => {
+      if (store === 'sync') {
+        try {
+          await job.handle()
+        } finally {
+          if (uniqueKey && lock) await lock.release(uniqueKey) // no worker to release it
+        }
+        return
+      }
+      await store.push(JSON.stringify(serializeJob(job)), options.delay ?? 0)
+    }
+
+    const connCfg = this.config.connections?.[name]
+    const useAfterCommit = options.afterCommit ?? connCfg?.afterCommit ?? false
+    if (useAfterCommit && afterCommitHook) {
+      afterCommitHook(doPush)
       return
     }
-    await store.push(JSON.stringify(serializeJob(job)), options.delay ?? 0)
+    await doPush()
   }
 
   /** Run a job immediately, bypassing the queue. */

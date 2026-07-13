@@ -69,6 +69,12 @@ export interface Connection {
   rollBack(): Promise<void>
   /** Current transaction nesting depth (0 = no open transaction). */
   transactionLevel(): number
+  /**
+   * Run `callback` after the outermost transaction commits. If no transaction
+   * is open, it runs immediately. Discarded on rollback. (à la Laravel's
+   * `DB::afterCommit` / `dispatch()->afterCommit()`.)
+   */
+  afterCommit(callback: () => void | Promise<void>): void
 }
 
 export interface SqliteConnectionConfig {
@@ -263,6 +269,7 @@ function withQueryLog(base: RawConnection): Connection {
     record(sql, bindings, () => base.statement(sql, bindings))
 
   let level = 0
+  const afterCommitCallbacks: Array<() => void | Promise<void>> = []
 
   return {
     dialect: base.dialect,
@@ -316,17 +323,29 @@ function withQueryLog(base: RawConnection): Connection {
     commit: async () => {
       if (level <= 1) await stmt('COMMIT') // nested commits fold into the outermost
       level = Math.max(0, level - 1)
+      if (level === 0 && afterCommitCallbacks.length > 0) {
+        const callbacks = afterCommitCallbacks.splice(0)
+        for (const cb of callbacks) await cb()
+      }
     },
     rollBack: async () => {
       if (level <= 1) {
         await stmt('ROLLBACK')
         level = 0
+        afterCommitCallbacks.length = 0 // discard pending after-commit work
       } else {
         await stmt(`ROLLBACK TO SAVEPOINT trans${level}`)
         level--
       }
     },
     transactionLevel: () => level,
+    afterCommit: (callback) => {
+      if (level === 0) {
+        void callback()
+      } else {
+        afterCommitCallbacks.push(callback)
+      }
+    },
   }
 }
 
@@ -472,6 +491,13 @@ export function commit(): Promise<void> {
 /** Roll back the current transaction level on the default connection. */
 export function rollBack(): Promise<void> {
   return useConnection().rollBack()
+}
+/**
+ * Run `callback` after the outermost transaction commits (immediately if none
+ * is open) on the default connection — à la Laravel's `DB::afterCommit`.
+ */
+export function afterCommit(callback: () => void | Promise<void>): void {
+  useConnection().afterCommit(callback)
 }
 
 /** Run a raw SQL query on the default connection and return rows. */

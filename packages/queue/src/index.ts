@@ -18,6 +18,7 @@ export {
   serializeJob,
 } from './job'
 export {
+  configureAfterCommit,
   type DispatchOptions,
   dispatch,
   dispatchSync,
@@ -36,4 +37,11 @@ export {
   type RedisLike,
   RedisQueueStore,
 } from './store'
+export {
+  configureUniqueJobs,
+  MemoryUniqueLock,
+  type UniqueLock,
+  uniqueKeyFor,
+  uniqueLock,
+} from './unique'
 export { Worker, type WorkerOptions } from './worker'

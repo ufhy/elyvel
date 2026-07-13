@@ -1,6 +1,7 @@
 export { EloquentCollection } from './eloquent-collection'
 export { Factory, type FactoryDefinition, defineFactory } from './factory'
 export {
+  afterCommit,
   beginTransaction,
   type Bindings,
   commit,

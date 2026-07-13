@@ -1,6 +1,7 @@
 import type { FailedJobRepository } from './failed'
 import { backoffFor, reconstructJob, type SerializedJob } from './job'
 import type { QueueStore } from './store'
+import { uniqueKeyFor, uniqueLock } from './unique'
 
 export interface WorkerOptions {
   /** Seconds to wait before a failed job is retried. Default 0. */
@@ -44,8 +45,13 @@ export class Worker {
     const serialized = JSON.parse(record.body) as SerializedJob
     const job = reconstructJob(serialized)
     const name = serialized.job
+    const willReleaseLock = async () => {
+      const key = uniqueKeyFor(job)
+      if (key) await uniqueLock()?.release(key)
+    }
     try {
       await withTimeout(Promise.resolve(job.handle()), job.timeout)
+      await willReleaseLock()
     } catch (error) {
       // Cap attempts by tries and (if set) maxExceptions — in our model every
       // failure is an exception, so the lower of the two wins.
@@ -58,6 +64,7 @@ export class Worker {
         await job.failed?.(error)
         const connection = this.options.connection ?? 'default'
         await this.options.failed?.log(connection, connection, record.body, error)
+        await willReleaseLock() // released on final failure, held across retries
       }
     }
     return true
