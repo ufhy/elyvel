@@ -1,5 +1,6 @@
 import { Hash } from '@elysia-ravel/auth'
 import { type MiddlewareContext, redirect, requestContext, route } from '@elysia-ravel/core'
+import { Inertia, inertia } from '@elysia-ravel/inertia'
 import { view } from '@elysia-ravel/view'
 import { User } from '../app/models/User'
 import { StoreUserRequest } from '../app/requests/StoreUserRequest'
@@ -27,3 +28,7 @@ export default route()
     },
     { middleware: ['csrf'] },
   )
+  // Inertia SPA lane: the same server, but this page is a Vue component hydrated
+  // on the client. Run `vite build` (or `vite` for HMR) to produce the assets.
+  .use(inertia({ vite: { entry: 'resources/js/app.ts' } }))
+  .get('/app', () => Inertia.render('Home', { message: 'Hello from Inertia + Vue' }))

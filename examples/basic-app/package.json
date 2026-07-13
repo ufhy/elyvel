@@ -13,13 +13,18 @@
     "@elysia-ravel/core": "workspace:*",
     "@elysia-ravel/database": "workspace:*",
     "@elysia-ravel/events": "workspace:*",
+    "@elysia-ravel/inertia": "workspace:*",
     "@elysia-ravel/queue": "workspace:*",
     "@elysia-ravel/scheduler": "workspace:*",
     "@elysia-ravel/validation": "workspace:*",
     "@elysia-ravel/view": "workspace:*",
-    "elysia": "^1.3.0"
+    "@inertiajs/vue3": "^2.0.0",
+    "elysia": "^1.3.0",
+    "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@elysia-ravel/cli": "workspace:*"
+    "@elysia-ravel/cli": "workspace:*",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "vite": "^6.0.0"
   }
 }
