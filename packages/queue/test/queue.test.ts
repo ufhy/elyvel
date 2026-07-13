@@ -5,6 +5,8 @@ import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
 import { configureAfterCommit, dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
 import { decodeBody, encodeBody, Job, registerJob, reconstructJob, serializeJob } from '../src/job'
 import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
+import { configureModelSerializer } from '../src/serializes-models'
+import { configureRestartSignal } from '../src/restart'
 import {
   configureRateLimiter,
   type JobMiddleware,
@@ -316,6 +318,74 @@ describe('retry reliability', () => {
     const rows = await failed.all()
     expect(rows).toHaveLength(1)
     expect(rows[0]?.exception).toContain('timed out')
+  })
+})
+
+// ── model serialization (re-fetch) ────────────────────────────────────────────
+describe('model serialization', () => {
+  // a fake model + store that re-fetches fresh values
+  const db: Record<string, { id: number; name: string }> = {
+    '1': { id: 1, name: 'fresh-alice' },
+    '2': { id: 2, name: 'fresh-bob' },
+  }
+  class FakeUser {
+    constructor(
+      public id: number,
+      public name: string,
+    ) {}
+  }
+
+  class ModelJob extends Job {
+    constructor(public user: FakeUser = new FakeUser(0, '')) {
+      super()
+    }
+    handle(): void {
+      ran.push((this.user as FakeUser).name)
+    }
+  }
+  registerJob(ModelJob)
+
+  test('stores a reference and re-fetches a fresh model on the worker', async () => {
+    configureModelSerializer({
+      dehydrate: (v) => (v instanceof FakeUser ? { model: 'FakeUser', id: v.id } : undefined),
+      hydrate: async (ref) => {
+        const row = db[String(ref.id)]
+        return row ? new FakeUser(row.id, row.name) : null
+      },
+    })
+
+    // the job is created with a STALE copy; the worker must re-fetch fresh
+    const serialized = serializeJob(new ModelJob(new FakeUser(1, 'stale-alice')))
+    expect(serialized.data.user).toEqual({ __ravel_model__: { model: 'FakeUser', id: 1 } })
+
+    const store = new MemoryQueueStore()
+    await store.push(encodeBody(serialized))
+    await new Worker(store).work({ stopWhenEmpty: true })
+    expect(ran).toEqual(['fresh-alice']) // re-fetched, not the stale name
+    configureModelSerializer({ dehydrate: () => undefined, hydrate: async () => null }) // reset
+  })
+})
+
+// ── graceful restart ──────────────────────────────────────────────────────────
+describe('queue:restart signal', () => {
+  test('worker stops when a restart is requested after it started', async () => {
+    let requestedAt: number | null = null
+    configureRestartSignal({
+      requestedAt: async () => requestedAt,
+      request: async () => {
+        requestedAt = Date.now() + 10_000 // in the future → newer than worker start
+      },
+    })
+    const store = new MemoryQueueStore()
+    // request restart BEFORE working; worker should exit immediately (0 processed)
+    await (async () => {
+      requestedAt = Date.now() + 10_000
+    })()
+    await store.push(JSON.stringify(serializeJob(new RecordJob('should-not-run'))))
+    const processed = await new Worker(store).work({ stopWhenEmpty: true })
+    expect(processed).toBe(0)
+    expect(ran).toEqual([])
+    configureRestartSignal({ requestedAt: async () => null, request: async () => {} }) // reset
   })
 })
 

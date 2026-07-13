@@ -1,5 +1,5 @@
 import { createApp } from '@elysia-ravel/core'
-import { failedJobs, QueueToken, Worker } from '@elysia-ravel/queue'
+import { failedJobs, QueueToken, restartSignal, Worker } from '@elysia-ravel/queue'
 
 /**
  * `ravel queue:work` — process jobs off a queue connection.
@@ -129,6 +129,22 @@ export async function queueFlushCommand(): Promise<number> {
   if (!repo) return notConfigured()
   await repo.flush()
   console.log('Flushed all failed jobs.')
+  return 0
+}
+
+/** `ravel queue:restart` — signal running workers to exit gracefully after their current job. */
+export async function queueRestartCommand(): Promise<number> {
+  await createApp({ basePath: process.cwd(), autoloadRoutes: false })
+  const signal = restartSignal()
+  if (!signal) {
+    console.error(
+      'Restart signalling is not configured. Wire it with configureRestartSignal(...) in a service provider\n' +
+        '(back it with the cache/db so the signal is visible across processes).',
+    )
+    return 1
+  }
+  await signal.request()
+  console.log('Broadcasting queue restart signal. Workers will exit after their current job.')
   return 0
 }
 

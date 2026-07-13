@@ -1,4 +1,5 @@
 import { decryptString, encryptString, isEncrypted } from './encryption'
+import { dehydrateData } from './serializes-models'
 
 /**
  * A queued job. Put your work in `handle()`; store data in public fields (they
@@ -91,6 +92,7 @@ export function serializeJob(job: Job): SerializedJob {
     if (CONFIG_KEYS.has(key)) continue
     data[key] = (job as unknown as Record<string, unknown>)[key]
   }
+  const serializedData = dehydrateData(data)
   const config: JobConfig = { tries: job.tries }
   if (job.backoff !== undefined) config.backoff = job.backoff
   if (job.timeout !== undefined) config.timeout = job.timeout
@@ -98,7 +100,7 @@ export function serializeJob(job: Job): SerializedJob {
   if (job.unique !== undefined) config.unique = job.unique
   if (job.uniqueFor !== undefined) config.uniqueFor = job.uniqueFor
   if (job.encrypt !== undefined) config.encrypt = job.encrypt
-  const result: SerializedJob = { job: job.constructor.name, data, config }
+  const result: SerializedJob = { job: job.constructor.name, data: serializedData, config }
   if (job.chainedJobs && job.chainedJobs.length > 0) result.chain = job.chainedJobs.map(serializeJob)
   return result
 }

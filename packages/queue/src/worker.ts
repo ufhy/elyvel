@@ -2,6 +2,8 @@ import { fireAfter, fireBefore, fireFailing } from './events'
 import type { FailedJobRepository } from './failed'
 import { backoffFor, decodeBody, encodeBody, reconstructJob, type SerializedJob } from './job'
 import { ReleaseJob, runThroughMiddleware } from './middleware'
+import { restartSignal } from './restart'
+import { hydrateModels } from './serializes-models'
 import type { QueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
 
@@ -40,6 +42,7 @@ function withTimeout<T>(promise: Promise<T>, seconds: number | undefined): Promi
 
 /** Pulls jobs off a {@link QueueStore} and runs them, with retries. */
 export class Worker {
+  private readonly startedAt = Date.now()
   constructor(
     private readonly store: QueueStore,
     private readonly options: WorkerOptions = {},
@@ -60,6 +63,7 @@ export class Worker {
     try {
       this.options.onBeforeJob?.(name)
       await fireBefore(name)
+      await hydrateModels(job as unknown as Record<string, unknown>) // re-fetch fresh models
       await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
       await willReleaseLock()
       await this.dispatchChain(serialized, record.queue)
@@ -107,6 +111,7 @@ export class Worker {
   async work(opts: { once?: boolean; stopWhenEmpty?: boolean; sleepMs?: number; max?: number } = {}): Promise<number> {
     let processed = 0
     while (true) {
+      if (await this.shouldRestart()) break // graceful queue:restart
       const did = await this.processNext()
       if (did) {
         processed++
@@ -117,5 +122,11 @@ export class Worker {
       await sleep(opts.sleepMs ?? 1000)
     }
     return processed
+  }
+
+  /** True once a restart has been requested after this worker started. */
+  private async shouldRestart(): Promise<boolean> {
+    const requestedAt = await restartSignal()?.requestedAt()
+    return requestedAt != null && requestedAt > this.startedAt
   }
 }

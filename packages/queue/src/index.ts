@@ -44,6 +44,13 @@ export {
   setDefaultQueue,
 } from './manager'
 export { QueueServiceProvider, QueueToken } from './provider'
+export { configureRestartSignal, type RestartSignal, restartSignal } from './restart'
+export {
+  configureModelSerializer,
+  type ModelReference,
+  type ModelSerializer,
+  modelSerializer,
+} from './serializes-models'
 export {
   configureDatabaseQueue,
   DatabaseQueueStore,

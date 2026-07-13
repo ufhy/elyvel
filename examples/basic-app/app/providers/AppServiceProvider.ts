@@ -1,11 +1,13 @@
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
-import { afterCommit, table } from '@elysia-ravel/database'
+import { afterCommit, Model, table } from '@elysia-ravel/database'
 import {
   configureAfterCommit,
   configureDatabaseQueue,
   configureFailedJobs,
   configureJobEncryption,
+  configureModelSerializer,
+  configureRestartSignal,
   configureUniqueJobs,
   MemoryUniqueLock,
   Queue,
@@ -13,6 +15,7 @@ import {
 } from '@elysia-ravel/queue'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
+import { User } from '../models/User'
 
 /**
  * The application's own service provider — the place to bind app-wide services
@@ -76,6 +79,25 @@ export class AppServiceProvider extends ServiceProvider {
     // Log every job failure globally (bridge the queue's failing event).
     const queueLog = this.app.logger.child('queue')
     Queue.failing((name, error) => queueLog.error('job failed', { job: name, error: String(error) }))
+
+    // Serialize models as references and re-fetch them fresh on the worker.
+    const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }> = { User }
+    configureModelSerializer({
+      dehydrate: (value) =>
+        value instanceof Model ? { model: value.constructor.name, id: value.getKey() } : undefined,
+      hydrate: async (ref) => (await models[ref.model]?.find(ref.id)) ?? null,
+    })
+
+    // Graceful worker restart (ravel queue:restart) via the cache table (cross-process).
+    configureRestartSignal({
+      requestedAt: async () => {
+        const row = await table('cache').where('key', 'queue:restart').first()
+        return row ? Number(row.value) : null
+      },
+      request: async () => {
+        await table('cache').updateOrInsert({ key: 'queue:restart' }, { value: String(Date.now()), expiration: null })
+      },
+    })
 
     // Wire the `database` queue driver (config/queue.ts) to the `jobs` table.
     configureDatabaseQueue({
