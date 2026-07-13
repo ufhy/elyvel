@@ -10,6 +10,31 @@ export interface ViewShared {
   flash: (key: string, fallback?: unknown) => unknown
   /** The CSRF token — embed with `csrfField(shared)` inside a form. */
   csrf: string
+  /** App-wide data registered with `View.share()` (e.g. app name, current user). */
+  globals: Record<string, unknown>
+}
+
+/** The framework-provided shared data (before `View.share` globals are merged in). */
+export type CoreShared = Omit<ViewShared, 'globals'>
+
+// ── globally shared view data (Laravel's View::share) ─────────────────────────
+const globalData = new Map<string, unknown | (() => unknown)>()
+
+export const View = {
+  /** Share data into every view (a value or a lazy producer). */
+  share(key: string, value: unknown | (() => unknown)): void {
+    globalData.set(key, value)
+  },
+  /** Clear shared globals (mainly for tests). */
+  flushShared(): void {
+    globalData.clear()
+  },
+}
+
+function resolveGlobals(): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of globalData) out[key] = typeof value === 'function' ? (value as () => unknown)() : value
+  return out
 }
 
 /** A view template: given props (and shared session data) it returns HTML. */
@@ -37,9 +62,9 @@ export class ViewResponse<P> {
     return this.httpStatus
   }
 
-  /** Render to an HTML string with the framework-provided shared data. */
-  render(shared: ViewShared): string {
-    return String(this.template(this.props, shared))
+  /** Render to an HTML string, merging `View.share` globals into the shared data. */
+  render(shared: CoreShared): string {
+    return String(this.template(this.props, { ...shared, globals: resolveGlobals() }))
   }
 }
 

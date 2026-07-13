@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { httpResponses } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { document, escape, html, raw } from '../src/html'
-import { csrfField, view, type ViewShared } from '../src/view'
+import { paginationLinks } from '../src/pagination'
+import { csrfField, View, view, type ViewShared } from '../src/view'
 
 // ── html tag (escaping) ───────────────────────────────────────────────────────
 describe('html tag', () => {
@@ -38,7 +39,7 @@ describe('view()', () => {
     ${csrfField(shared)}
   `
 
-  const shared: ViewShared = { errors: {}, old: (_k, d) => d, flash: (_k, d) => d, csrf: 'tok123' }
+  const shared: ViewShared = { errors: {}, old: (_k, d) => d, flash: (_k, d) => d, csrf: 'tok123', globals: {} }
 
   test('renders props + shared data', () => {
     const out = view(Page, { name: '<b>Sam</b>' }).render(shared)
@@ -52,6 +53,7 @@ describe('view()', () => {
       old: (k, d) => (k === 'email' ? 'a@b.com' : d),
       flash: (_k, d) => d,
       csrf: 't',
+      globals: {},
     }
     const out = view(Page, { name: 'Sam' }).render(withErrors)
     expect(out).toContain('<p class="err">The email is required</p>')
@@ -60,6 +62,40 @@ describe('view()', () => {
 
   test('status() sets the HTTP status', () => {
     expect(view(Page, { name: 'x' }).status(404).statusCode).toBe(404)
+  })
+})
+
+// ── View.share globals ────────────────────────────────────────────────────────
+describe('View.share', () => {
+  test('shared globals (value + lazy) are merged into every view', () => {
+    View.flushShared()
+    View.share('appName', 'Ravel')
+    View.share('now', () => 'computed')
+    const out = view((_p, s) => html`<span>${String(s.globals.appName)}:${String(s.globals.now)}</span>`).render({
+      errors: {},
+      old: (_k, d) => d,
+      flash: (_k, d) => d,
+      csrf: '',
+    })
+    expect(out).toBe('<span>Ravel:computed</span>')
+    View.flushShared()
+  })
+})
+
+// ── pagination links ──────────────────────────────────────────────────────────
+describe('paginationLinks', () => {
+  test('windowed page links with prev/next state', () => {
+    const out = paginationLinks({ currentPage: 3, lastPage: 5 }, { path: '/users', window: 1 }).toString()
+    expect(out).toContain('href="/users?page=2">&laquo; Previous')
+    expect(out).toContain('aria-current="page">3') // active current page, no link
+    expect(out).toContain('href="/users?page=4">Next &raquo;')
+    expect(out).not.toContain('page=6') // capped at lastPage
+  })
+  test('disables prev on first page and next on last', () => {
+    const first = paginationLinks({ currentPage: 1, lastPage: 3 }).toString()
+    expect(first).toContain('<span class="page disabled">&laquo; Previous')
+    const last = paginationLinks({ currentPage: 3, lastPage: 3 }).toString()
+    expect(last).toContain('<span class="page disabled">Next &raquo;')
   })
 })
 
