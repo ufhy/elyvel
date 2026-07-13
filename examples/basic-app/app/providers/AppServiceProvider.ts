@@ -1,6 +1,7 @@
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
-import { afterCommit, Model, table } from '@elysia-ravel/database'
+import { afterCommit, configureModelEventDispatcher, Model, table } from '@elysia-ravel/database'
+import { event } from '@elysia-ravel/events'
 import {
   type BatchRecord,
   configureAfterCommit,
@@ -88,6 +89,12 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Let scheduled tasks email their captured output (Scheduler's emailOutputTo).
     configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).html(body).send())
+
+    // Bridge Eloquent model events to the app dispatcher, so you can
+    // `listen('eloquent.created: User', ...)` (see EventServiceProvider).
+    configureModelEventDispatcher(async (name, model) => {
+      await event(name, model)
+    })
 
     // Register the broadcast notification channel (Bun WebSocket pub/sub).
     notifications().channel('broadcast', new BroadcastChannel())

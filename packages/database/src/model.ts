@@ -102,10 +102,24 @@ export type ModelEvent =
   | 'deleted'
   | 'restoring'
   | 'restored'
+  | 'retrieved'
   | 'pruning'
 
 type EventListener = (model: Model) => void | Promise<void>
 const MODEL_EVENTS = new WeakMap<Function, Map<ModelEvent, EventListener[]>>()
+
+/**
+ * Optional bridge so model lifecycle events also flow through an app-wide event
+ * dispatcher (à la Laravel's `eloquent.<event>: <Model>`). Wire it once at boot,
+ * e.g. `configureModelEventDispatcher((name, model) => event(name, model))`, then
+ * `listen('eloquent.created: User', ...)`. Kept injectable so the database
+ * package stays decoupled from `@elysia-ravel/events`.
+ */
+type ModelEventDispatcher = (eventName: string, model: Model) => void | Promise<void>
+let modelEventDispatcher: ModelEventDispatcher | null = null
+export function configureModelEventDispatcher(dispatcher: ModelEventDispatcher): void {
+  modelEventDispatcher = dispatcher
+}
 
 type ScopeFn = (qb: QueryBuilder) => void
 
@@ -728,6 +742,13 @@ export class Model {
     for (const c of chain) {
       for (const listener of MODEL_EVENTS.get(c)?.get(event) ?? []) await listener(this)
     }
+    // Bridge to the app-wide dispatcher: `eloquent.created: User`, etc.
+    if (modelEventDispatcher) await modelEventDispatcher(`eloquent.${event}: ${this.constructor.name}`, this)
+  }
+
+  /** Fire the `retrieved` event on freshly-hydrated models (called by the builder). */
+  static async fireRetrieved(models: Model[]): Promise<void> {
+    for (const model of models) await model.fireEvent('retrieved')
   }
 
   async save(): Promise<this> {

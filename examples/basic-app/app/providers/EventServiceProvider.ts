@@ -13,5 +13,11 @@ export class EventServiceProvider extends BaseEventServiceProvider {
         },
       ],
     ],
+    // Eloquent model events flow through the dispatcher too (bridged in
+    // AppServiceProvider). Observe any model's lifecycle by name:
+    [
+      'eloquent.created: User',
+      [(user) => console.log(`[event] user created #${(user as { id: number }).id}`)],
+    ],
   ]
 }

@@ -366,6 +366,7 @@ export class EloquentBuilder<M extends Model> {
     await this.resolveExistence()
     const rows = await this.qb.get()
     const models = rows.map((r) => this.hydrate(r))
+    await this.model.fireRetrieved(models)
 
     for (const name of this.countLoads) {
       if (models.length === 0) break

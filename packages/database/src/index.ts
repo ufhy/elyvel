@@ -41,6 +41,7 @@ export {
   type Attributes,
   type Cast,
   type CastType,
+  configureModelEventDispatcher,
   type CustomCast,
   Model,
   type ModelEvent,
