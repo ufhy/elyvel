@@ -1,2 +1,2 @@
 export { document, escape, Html, html, raw } from './html'
-export { csrfField, view, ViewResponse, type ViewShared, type ViewTemplate } from './view'
+export { csrfField, methodField, view, ViewResponse, type ViewShared, type ViewTemplate } from './view'

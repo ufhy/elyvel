@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
+import { methodOverride } from '../src/http/method-override'
 import { expectsJson, wantsHtml } from '../src/http/negotiation'
 import { httpResponses } from '../src/http/plugin'
 import { back, redirect } from '../src/http/redirect'
@@ -35,6 +36,49 @@ describe('Resource', () => {
       data: [{ id: 1 }],
       meta: { total: 1, perPage: 15 },
     })
+  })
+})
+
+// ── method spoofing ───────────────────────────────────────────────────────────
+describe('methodOverride', () => {
+  const post = (init: RequestInit = {}) => new Request('http://localhost/x', { method: 'POST', ...init })
+
+  test('X-HTTP-Method-Override header', async () => {
+    expect((await methodOverride(post({ headers: { 'x-http-method-override': 'PUT' } }))).method).toBe('PUT')
+  })
+  test('?_method query', async () => {
+    const req = new Request('http://localhost/x?_method=delete', { method: 'POST' })
+    expect((await methodOverride(req)).method).toBe('DELETE')
+  })
+  test('_method in a form body, body still readable', async () => {
+    const req = post({
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: '_method=PATCH&name=Sam',
+    })
+    const out = await methodOverride(req)
+    expect(out.method).toBe('PATCH')
+    expect(await out.text()).toContain('name=Sam') // body preserved for the handler
+  })
+  test('_method in JSON body', async () => {
+    const req = post({ headers: { 'content-type': 'application/json' }, body: JSON.stringify({ _method: 'PUT' }) })
+    expect((await methodOverride(req)).method).toBe('PUT')
+  })
+  test('leaves GET and unspoofable methods alone', async () => {
+    expect((await methodOverride(new Request('http://localhost/x'))).method).toBe('GET')
+    expect((await methodOverride(post({ headers: { 'x-http-method-override': 'GET' } }))).method).toBe('POST')
+  })
+  test('routes a spoofed POST to a PUT route', async () => {
+    const app = new Elysia().put('/items/:id', ({ params }) => ({ updated: params.id }))
+    const spoofed = await methodOverride(
+      new Request('http://localhost/items/7', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: '_method=PUT',
+      }),
+    )
+    const res = await app.handle(spoofed)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ updated: '7' })
   })
 })
 

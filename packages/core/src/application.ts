@@ -24,6 +24,7 @@ import {
   registerMiddlewareRegistry,
 } from './middleware'
 import { ThrottleMiddleware } from './throttle'
+import { methodOverride } from './http/method-override'
 import { httpResponses } from './http/plugin'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
@@ -329,11 +330,21 @@ export class Application {
   async listen(port?: number): Promise<Application> {
     const resolved =
       port ?? this.config.get<number>('app.port') ?? Number(process.env.PORT) ?? 3000
-    this.elysia.listen(resolved)
+    // Serve through our own fetch so method spoofing runs before Elysia routes.
+    Bun.serve({ port: resolved, fetch: (request) => this.handle(request) })
     this.logger.info(`${this.config.get('app.name') ?? 'elysia-ravel'} listening`, {
       url: `http://localhost:${resolved}`,
     })
     return this
+  }
+
+  /**
+   * Handle a request through the framework: apply HTTP method spoofing
+   * (`_method`) before delegating to Elysia's router. Used by {@link listen}
+   * and available for tests.
+   */
+  async handle(request: Request): Promise<Response> {
+    return this.elysia.handle(await methodOverride(request))
   }
 }
 

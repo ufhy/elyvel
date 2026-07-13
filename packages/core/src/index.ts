@@ -57,6 +57,7 @@ export {
   type MiddlewareItem,
   route,
 } from './middleware'
+export { methodOverride } from './http/method-override'
 export { expectsJson, wantsHtml } from './http/negotiation'
 export { httpResponses } from './http/plugin'
 export { back, RedirectResponse, redirect } from './http/redirect'

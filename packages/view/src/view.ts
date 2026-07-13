@@ -52,3 +52,8 @@ export function view<P = Record<string, never>>(template: ViewTemplate<P>, props
 export function csrfField(shared: ViewShared): Html {
   return html`<input type="hidden" name="_token" value="${shared.csrf}" />`
 }
+
+/** A hidden `_method` input to spoof PUT/PATCH/DELETE from an HTML form. */
+export function methodField(method: string): Html {
+  return html`<input type="hidden" name="_method" value="${method.toUpperCase()}" />`
+}
