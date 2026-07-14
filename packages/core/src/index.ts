@@ -87,7 +87,15 @@ export {
   type SingletonOptions,
 } from './routing'
 export { type CorsOptions, cors } from './cors'
-export { RateLimiter, rateLimiter, ThrottleMiddleware } from './throttle'
+export {
+  configureRateLimiterStore,
+  Limit,
+  MemoryRateLimiterStore,
+  RateLimiter,
+  rateLimiter,
+  type RateLimiterStore,
+  ThrottleMiddleware,
+} from './throttle'
 export { named, registerRouteNames, routeNameEntries, urlFor } from './url'
 
 // Re-export Elysia's schema builder so apps have one import for env/validation.

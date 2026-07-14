@@ -23,6 +23,7 @@ import {
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { configureAuthorization } from '../authorization'
+import { configureRateLimits } from '../rate-limits'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 import { User } from '../models/User'
 
@@ -37,6 +38,9 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Register authorization gates + policies (Note policy, `admin` ability).
     configureAuthorization()
+
+    // Back the rate limiter with the cache + register named limiters (throttle:api/login).
+    configureRateLimits()
 
     // Wire the `unique`/`exists` validation rules to the database.
     configureDbRules({
