@@ -1,9 +1,14 @@
+import { BroadcastChannel } from '@elysia-ravel/broadcasting'
 import { configureDatabaseCache } from '@elysia-ravel/cache'
-import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
-import { afterCommit, configureModelEventDispatcher, Model, table } from '@elysia-ravel/database'
+import { ServiceProvider, configureDatabaseSession } from '@elysia-ravel/core'
+import { Model, afterCommit, configureModelEventDispatcher, table } from '@elysia-ravel/database'
 import { event } from '@elysia-ravel/events'
+import { Mail } from '@elysia-ravel/mail'
+import { configureDatabaseNotifications, notifications } from '@elysia-ravel/notifications'
 import {
   type BatchRecord,
+  MemoryUniqueLock,
+  Queue,
   configureAfterCommit,
   configureBatches,
   configureDatabaseQueue,
@@ -13,15 +18,11 @@ import {
   configureQueueEventDispatcher,
   configureRestartSignal,
   configureUniqueJobs,
-  MemoryUniqueLock,
-  Queue,
   registerJob,
 } from '@elysia-ravel/queue'
-import { BroadcastChannel } from '@elysia-ravel/broadcasting'
-import { Mail } from '@elysia-ravel/mail'
-import { configureDatabaseNotifications, notifications } from '@elysia-ravel/notifications'
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
+import { configureAuthorization } from '../authorization'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 import { User } from '../models/User'
 
@@ -33,6 +34,9 @@ export class AppServiceProvider extends ServiceProvider {
   override boot(): void {
     const appName = this.app.config.get<string>('app.name')
     this.app.logger.child('app').info('application booted', { appName })
+
+    // Register authorization gates + policies (Note policy, `admin` ability).
+    configureAuthorization()
 
     // Wire the `unique`/`exists` validation rules to the database.
     configureDbRules({
@@ -48,7 +52,10 @@ export class AppServiceProvider extends ServiceProvider {
       read: async (key) => {
         const row = await table('cache').where('key', key).first()
         if (!row) return undefined
-        return { value: String(row.value), expiresAt: row.expiration == null ? null : Number(row.expiration) }
+        return {
+          value: String(row.value),
+          expiresAt: row.expiration == null ? null : Number(row.expiration),
+        }
       },
       write: async (key, value, expiresAt) => {
         await table('cache').updateOrInsert({ key }, { value, expiration: expiresAt })
@@ -86,7 +93,9 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Log every job failure globally (bridge the queue's failing event).
     const queueLog = this.app.logger.child('queue')
-    Queue.failing((name, error) => queueLog.error('job failed', { job: name, error: String(error) }))
+    Queue.failing((name, error) =>
+      queueLog.error('job failed', { job: name, error: String(error) }),
+    )
 
     // Bridge queue lifecycle events to the app dispatcher (queue.processing /
     // .processed / .failed) — one event bus for the whole app.
@@ -121,7 +130,8 @@ export class AppServiceProvider extends ServiceProvider {
     })
 
     // Serialize models as references and re-fetch them fresh on the worker.
-    const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }> = { User }
+    const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }> =
+      { User }
     configureModelSerializer({
       dehydrate: (value) =>
         value instanceof Model ? { model: value.constructor.name, id: value.getKey() } : undefined,
@@ -135,7 +145,10 @@ export class AppServiceProvider extends ServiceProvider {
         return row ? Number(row.value) : null
       },
       request: async () => {
-        await table('cache').updateOrInsert({ key: 'queue:restart' }, { value: String(Date.now()), expiration: null })
+        await table('cache').updateOrInsert(
+          { key: 'queue:restart' },
+          { value: String(Date.now()), expiration: null },
+        )
       },
     })
 
@@ -213,7 +226,8 @@ export class AppServiceProvider extends ServiceProvider {
         }
         return null
       },
-      count: async (queue) => (queue ? table('jobs').where('queue', queue).count() : table('jobs').count()),
+      count: async (queue) =>
+        queue ? table('jobs').where('queue', queue).count() : table('jobs').count(),
     })
 
     // Persist exhausted jobs to the `failed_jobs` table (ravel queue:failed/retry/…).

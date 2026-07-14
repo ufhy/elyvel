@@ -5,7 +5,16 @@ export { type EloquentAdapterOptions, eloquentAdapter } from './eloquent-adapter
 export { generateToken, hashToken } from './token'
 export { AuthManager, type AuthConfig, type Attempt, createAuth } from './manager'
 export { createGuard } from './guard'
-export { AuthorizationError, Gate, createGate } from './gate'
+export {
+  AuthorizationError,
+  createGate,
+  Gate,
+  gate,
+  GateForUser,
+  type Policy,
+  Response,
+  setDefaultGate,
+} from './gate'
 export type {
   Authenticatable,
   Awaitable,

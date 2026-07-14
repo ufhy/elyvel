@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { gate } from './gate'
 
 /** The parts of a Better Auth instance this plugin needs (kept loose to avoid deep generics). */
 export interface BetterAuthLike {
@@ -37,12 +38,24 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
           : request
         return auth.handler(req)
       })
-      // Derive the authenticated `user` + `authSession`. NB: not named `session`
-      // — that would clobber the framework's cookie-session (a Session instance).
+      // Derive the authenticated `user` + `authSession`, plus authorization
+      // helpers bound to that user (Laravel's `$user->can()` / `Gate::authorize`).
+      // NB: not named `session` — that would clobber the framework's cookie-session.
       // biome-ignore lint/suspicious/noExplicitAny: Elysia derive context varies
       .derive({ as: 'scoped' }, async ({ request }: any) => {
         const result = await auth.api.getSession({ headers: request.headers })
-        return { user: result?.user ?? null, authSession: result?.session ?? null }
+        const user = result?.user ?? null
+        const g = gate().forUser(user)
+        return {
+          user,
+          authSession: result?.session ?? null,
+          // biome-ignore lint/suspicious/noExplicitAny: ability args are heterogeneous
+          can: (ability: string, ...args: any[]) => g.allows(ability, ...args),
+          // biome-ignore lint/suspicious/noExplicitAny: ability args are heterogeneous
+          cannot: (ability: string, ...args: any[]) => g.denies(ability, ...args),
+          // biome-ignore lint/suspicious/noExplicitAny: ability args are heterogeneous
+          authorize: (ability: string, ...args: any[]) => g.authorize(ability, ...args),
+        }
       })
       .macro({
         auth(enabled: boolean) {
@@ -51,6 +64,26 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
             // biome-ignore lint/suspicious/noExplicitAny: derived user + status
             beforeHandle({ user, status }: any) {
               if (!user) return status(401, { message: 'Unauthenticated' })
+            },
+          }
+        },
+        // Guard a route by ability: `{ can: 'admin' }` or `{ can: ['update', ctx => ctx.post] }`.
+        // Resolver functions receive the request context; other values pass through as args.
+        // biome-ignore lint/suspicious/noExplicitAny: macro config is a string or a spec tuple
+        can(config: string | any[]) {
+          if (!config) return {}
+          return {
+            // biome-ignore lint/suspicious/noExplicitAny: Elysia context + derived user
+            beforeHandle(ctx: any) {
+              const [ability, ...resolvers] = Array.isArray(config) ? config : [config]
+              const args = resolvers.map((r) => (typeof r === 'function' ? r(ctx) : r))
+              if (
+                !gate()
+                  .forUser(ctx.user)
+                  .allows(ability, ...args)
+              ) {
+                return ctx.status(403, { message: 'This action is unauthorized.' })
+              }
             },
           }
         },
