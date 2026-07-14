@@ -6,7 +6,8 @@ A [elysia-ravel](https://github.com/ufhy/elysia-ravel) application.
 
 ```bash
 bun install
-cp .env.example .env      # then set APP_KEY
+cp .env.example .env
+bun run key:generate      # sets APP_KEY
 bun run migrate           # create the database
 bun run dev               # start the dev server
 ```

@@ -71,7 +71,8 @@ export async function newApp(rawName?: string): Promise<number> {
   console.log('\nNext steps:')
   console.log(`  cd ${rawName}`)
   console.log('  bun install')
-  console.log('  cp .env.example .env   # then set APP_KEY')
+  console.log('  cp .env.example .env')
+  console.log('  bun run key:generate   # sets APP_KEY')
   console.log('  bun run migrate')
   console.log('  bun run dev')
   return 0

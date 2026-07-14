@@ -11,6 +11,7 @@ import {
   statusCommand,
 } from './commands/db'
 import { install } from './commands/install'
+import { keyGenerate } from './commands/key'
 import { make } from './commands/make'
 import { newApp } from './commands/new'
 import {
@@ -37,6 +38,7 @@ ravel — the elysia-ravel CLI
 Usage:
   ravel new <name>                            Scaffold a new elysia-ravel app
   ravel install auth                          Add the auth kit (Better Auth + Vue UI) to the app
+  ravel key:generate [--show]                 Set APP_KEY in .env (or print with --show)
   ravel serve [--entry <path>] [--no-watch]   Start the dev server
 
   ravel migrate                               Run pending migrations
@@ -106,6 +108,10 @@ async function main(): Promise<number> {
 
   if (command === 'install') {
     return install(rest[0])
+  }
+
+  if (command === 'key:generate') {
+    return keyGenerate(flags)
   }
 
   if (command === 'serve') {
