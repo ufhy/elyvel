@@ -11,6 +11,7 @@ import {
   statusCommand,
 } from './commands/db'
 import { make } from './commands/make'
+import { newApp } from './commands/new'
 import {
   queueFailedCommand,
   queueFlushCommand,
@@ -33,6 +34,7 @@ const BANNER = `
 ravel — the elysia-ravel CLI
 
 Usage:
+  ravel new <name>                            Scaffold a new elysia-ravel app
   ravel serve [--entry <path>] [--no-watch]   Start the dev server
 
   ravel migrate                               Run pending migrations
@@ -94,6 +96,10 @@ async function main(): Promise<number> {
   if (!command || command === 'help' || flags.help) {
     console.log(BANNER)
     return command ? 0 : 1
+  }
+
+  if (command === 'new') {
+    return newApp(rest[0])
   }
 
   if (command === 'serve') {

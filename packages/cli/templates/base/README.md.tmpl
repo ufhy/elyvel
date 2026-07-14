@@ -1,0 +1,25 @@
+# {{appName}}
+
+A [elysia-ravel](https://github.com/ufhy/elysia-ravel) application.
+
+## Getting started
+
+```bash
+bun install
+cp .env.example .env      # then set APP_KEY
+bun run migrate           # create the database
+bun run dev               # start the dev server
+```
+
+## Layout
+
+```
+config/       Application configuration (app, database, session)
+app/          Models, providers, and your domain code
+routes/       HTTP routes (auto-mounted)
+database/     Migrations and seeders
+server.ts     Entry point — boots the framework
+```
+
+Add code with the CLI: `ravel make:model Post`, `ravel make:controller PostController`,
+`ravel make:migration create_posts_table`, `ravel make:policy Post --model`.
