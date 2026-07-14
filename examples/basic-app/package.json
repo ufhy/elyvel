@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "ravel serve",
-    "start": "bun run server.ts"
+    "start": "bun run server.ts",
+    "key:generate": "ravel key:generate"
   },
   "dependencies": {
     "@elysia-ravel/auth": "workspace:*",
