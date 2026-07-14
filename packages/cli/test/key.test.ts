@@ -41,7 +41,14 @@ describe('ravel key:generate', () => {
     expect(env()).toBe('APP_KEY=keep-me\n') // unchanged
   })
 
-  test('errors when there is no .env', async () => {
+  test('seeds .env from .env.example when .env is missing', async () => {
+    writeFileSync(join(dir, '.env.example'), 'APP_NAME="X"\nAPP_KEY=\n')
+    expect(await keyGenerate()).toBe(0)
+    expect(existsSync(join(dir, '.env'))).toBe(true)
+    expect(env()).toMatch(/APP_KEY=base64:/)
+  })
+
+  test('errors when there is neither .env nor .env.example', async () => {
     expect(await keyGenerate()).toBe(1)
   })
 

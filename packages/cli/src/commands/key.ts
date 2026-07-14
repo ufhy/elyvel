@@ -22,8 +22,14 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
 
   const envPath = join(process.cwd(), '.env')
   if (!existsSync(envPath)) {
-    console.error('✗ No .env file found. Create one first:\n    cp .env.example .env')
-    return 1
+    // Seed .env from .env.example if present, otherwise there's nothing to key.
+    const example = join(process.cwd(), '.env.example')
+    if (!existsSync(example)) {
+      console.error('✗ No .env or .env.example found. Run this inside your app directory.')
+      return 1
+    }
+    await Bun.write(envPath, await readFile(example, 'utf8'))
+    console.log('  created .env from .env.example')
   }
 
   const env = await readFile(envPath, 'utf8')

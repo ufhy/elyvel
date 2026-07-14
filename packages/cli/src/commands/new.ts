@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
@@ -67,12 +68,18 @@ export async function newApp(rawName?: string): Promise<number> {
     count++
   }
 
-  console.log(`✓ Created ${vars.appName} in ${rawName}/ (${count} files)`)
+  // Create .env from .env.example with a fresh APP_KEY, so the app runs immediately.
+  const envExample = join(target, '.env.example')
+  if (existsSync(envExample)) {
+    const key = `base64:${randomBytes(32).toString('base64')}`
+    const content = (await readFile(envExample, 'utf8')).replace(/^APP_KEY=.*$/m, `APP_KEY=${key}`)
+    await Bun.write(join(target, '.env'), content)
+  }
+
+  console.log(`✓ Created ${vars.appName} in ${rawName}/ (${count} files, .env + APP_KEY set)`)
   console.log('\nNext steps:')
   console.log(`  cd ${rawName}`)
   console.log('  bun install')
-  console.log('  cp .env.example .env')
-  console.log('  bun run key:generate   # sets APP_KEY')
   console.log('  bun run migrate')
   console.log('  bun run dev')
   return 0

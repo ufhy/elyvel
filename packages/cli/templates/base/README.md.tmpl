@@ -4,13 +4,15 @@ A [elysia-ravel](https://github.com/ufhy/elysia-ravel) application.
 
 ## Getting started
 
+`ravel new` already created your `.env` with a generated `APP_KEY`.
+
 ```bash
 bun install
-cp .env.example .env
-bun run key:generate      # sets APP_KEY
 bun run migrate           # create the database
 bun run dev               # start the dev server
 ```
+
+(Rotate the key anytime with `bun run key:generate`.)
 
 ## Layout
 

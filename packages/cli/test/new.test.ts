@@ -39,6 +39,12 @@ describe('ravel new', () => {
     }
   })
 
+  test('creates .env with a generated APP_KEY (ready to run)', async () => {
+    await newApp('keyed')
+    expect(existsSync(join(dir, 'keyed', '.env'))).toBe(true)
+    expect(readFileSync(join(dir, 'keyed', '.env'), 'utf8')).toMatch(/^APP_KEY=base64:.+/m)
+  })
+
   test('substitutes the name (kebab) and appName (Title Case)', async () => {
     await newApp('My Blog')
     const pkg = JSON.parse(read('My Blog', 'package.json'))
