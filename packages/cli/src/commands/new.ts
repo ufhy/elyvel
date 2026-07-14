@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { install } from './install'
+import { scaffoldAuthKit } from '../auth-kit'
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'base')
 
@@ -81,7 +81,7 @@ export async function newApp(rawName?: string): Promise<number> {
 
   // Full-stack by default: apply the auth kit (Better Auth + Inertia/Vue UI).
   // Everything comes from the installer — no manual package/file edits.
-  await install('auth', target, true)
+  await scaffoldAuthKit(target, true)
 
   console.log('\nNext steps:')
   console.log(`  cd ${rawName}`)

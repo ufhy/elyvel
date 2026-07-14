@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates')
+const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates')
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
 
 /** Packages the auth kit adds to the host app (merged into package.json). */
@@ -66,15 +66,7 @@ async function registerMailProvider(cwd: string): Promise<boolean> {
  * Internal helper composed by `ravel new` — not a standalone CLI command.
  * `quiet` suppresses the trailing "Next steps" (new prints them once).
  */
-export async function install(
-  feature?: string,
-  cwd: string = process.cwd(),
-  quiet = false,
-): Promise<number> {
-  if (feature !== 'auth') {
-    console.error(`Unknown installer "${feature ?? ''}". Available: auth`)
-    return 1
-  }
+export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false): Promise<number> {
   if (!existsSync(join(cwd, 'config', 'app.ts'))) {
     console.error(
       '✗ Not an elysia-ravel app (no config/app.ts). Run this inside your app directory.',
