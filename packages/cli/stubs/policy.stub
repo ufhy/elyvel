@@ -1,12 +1,18 @@
-import { createGate } from '@elysia-ravel/auth'
+import { Response } from '@elysia-ravel/auth'
 
 /**
- * {{class}} — authorization abilities for the `{{resource}}` resource.
- * Check with `{{camel}}.authorize('{{resource}}.update', user, resource)`.
+ * {{class}} — authorization policy for the {{resource}} resource. Each method is
+ * an ability: it receives the authenticated user (or `null`) plus any context,
+ * and returns a boolean or a {@link Response} (for a message / custom status).
+ *
+ * Register it in a provider, then check it:
+ *   gate.policy(Model, new {{class}}())
+ *   gate.forUser(user).authorize('update', resource)
  */
-export const {{camel}} = createGate()
-  .define('{{resource}}.view', (_user) => true)
-  .define('{{resource}}.update', (_user) => false)
-  .define('{{resource}}.delete', (_user) => false)
+export class {{class}} {
+  update(user: { id: unknown } | null, resource: { authorId: unknown }): boolean | Response {
+    return user?.id === resource.authorId ? Response.allow() : Response.deny()
+  }
+}
 
-export default {{camel}}
+export default {{class}}

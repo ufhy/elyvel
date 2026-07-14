@@ -1,5 +1,5 @@
 import { relative } from 'node:path'
-import { makeNames, type Names } from '../naming'
+import { type Names, makeNames } from '../naming'
 import { join, renderStub, writeGenerated } from '../stub'
 
 interface Blueprint {
@@ -24,8 +24,7 @@ function migrationTable(snake: string): string {
   return snake.replace(/^create_/, '').replace(/_table$/, '') || 'table_name'
 }
 
-const timestamp = () =>
-  new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+const timestamp = () => new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
 
 const blueprints: Record<string, Blueprint> = {
   controller: {
@@ -71,7 +70,11 @@ const blueprints: Record<string, Blueprint> = {
 }
 
 /** Handle `make:<type> <Name>`, returning an exit code. */
-export async function make(type: string, rawName?: string): Promise<number> {
+export async function make(
+  type: string,
+  rawName?: string,
+  flags: Record<string, string | boolean> = {},
+): Promise<number> {
   const blueprint = blueprints[type]
   if (!blueprint) {
     console.error(
@@ -86,10 +89,20 @@ export async function make(type: string, rawName?: string): Promise<number> {
 
   const names = makeNames(rawName, blueprint.suffix)
   const target = join(process.cwd(), blueprint.dir, blueprint.filename(names))
-  const vars = { ...names, ...blueprint.vars?.(names) }
+  let stub = blueprint.stub
+  let vars: Record<string, string | undefined> = { ...names, ...blueprint.vars?.(names) }
+
+  // `make:policy <Name> --model[=Model]` scaffolds the full resource method set.
+  // A bare `--model` infers the model from the policy name (PostPolicy → Post).
+  if (type === 'policy' && flags.model) {
+    const modelRaw =
+      typeof flags.model === 'string' ? flags.model : names.snake.replace(/_policy$/, '')
+    stub = 'policy-model'
+    vars = { ...vars, Model: makeNames(modelRaw).class }
+  }
 
   try {
-    const contents = await renderStub(blueprint.stub, vars)
+    const contents = await renderStub(stub, vars)
     await writeGenerated(target, contents)
     console.log(`✓ Created ${relative(process.cwd(), target)}`)
     return 0

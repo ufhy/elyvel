@@ -66,7 +66,7 @@ Usage:
   ravel make:model <Name>                     Generate a model + table schema
   ravel make:migration <name>                 Generate a migration
   ravel make:seeder <Name>                    Generate a seeder
-  ravel make:policy <Name>                    Generate an authorization policy
+  ravel make:policy <Name> [--model[=Model]]  Generate an authorization policy
 `
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
@@ -189,7 +189,7 @@ async function main(): Promise<number> {
   }
 
   if (command.startsWith('make:')) {
-    return make(command.slice('make:'.length), rest[0])
+    return make(command.slice('make:'.length), rest[0], flags)
   }
 
   console.error(`Unknown command "${command}".`)

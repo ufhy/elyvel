@@ -1,0 +1,48 @@
+import { Response } from '@elysia-ravel/auth'
+import type { {{Model}} } from '../models/{{Model}}'
+
+/**
+ * {{class}} — authorization policy for {{Model}}. Register it in a provider:
+ *   gate.policy({{Model}}, new {{class}}())
+ *
+ * Each method returns a boolean or a {@link Response} (message / custom status).
+ * `viewAny`/`create` take only the user; the rest also receive the model.
+ */
+export class {{class}} {
+  /** List any {{Model}} records. */
+  viewAny(_user: { id: unknown } | null): boolean {
+    return false
+  }
+
+  /** View a single {{Model}}. */
+  view(_user: { id: unknown } | null, _model: {{Model}}): boolean {
+    return false
+  }
+
+  /** Create a {{Model}}. */
+  create(_user: { id: unknown } | null): boolean {
+    return false
+  }
+
+  /** Update a {{Model}}. */
+  update(_user: { id: unknown } | null, _model: {{Model}}): boolean | Response {
+    return false
+  }
+
+  /** Delete a {{Model}}. */
+  delete(_user: { id: unknown } | null, _model: {{Model}}): boolean | Response {
+    return false
+  }
+
+  /** Restore a soft-deleted {{Model}}. */
+  restore(_user: { id: unknown } | null, _model: {{Model}}): boolean {
+    return false
+  }
+
+  /** Permanently delete a {{Model}}. */
+  forceDelete(_user: { id: unknown } | null, _model: {{Model}}): boolean {
+    return false
+  }
+}
+
+export default {{class}}
