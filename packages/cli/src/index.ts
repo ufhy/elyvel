@@ -38,7 +38,7 @@ ravel — the elysia-ravel CLI
 Usage:
   ravel new <name>                            Scaffold a new elysia-ravel app
   ravel install auth                          Add the auth kit (Better Auth + Vue UI) to the app
-  ravel key:generate [--show]                 Set APP_KEY in .env (or print with --show)
+  ravel key:generate [--show] [--force]       Set APP_KEY in .env (--show prints; --force overwrites in prod)
   ravel serve [--entry <path>] [--no-watch]   Start the dev server
 
   ravel migrate                               Run pending migrations

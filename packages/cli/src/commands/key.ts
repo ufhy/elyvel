@@ -3,14 +3,15 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-/** A fresh application key — `base64:` + 32 random bytes (Laravel's format). */
+/** A fresh application key — `base64:` + 64 random bytes (Laravel's format). */
 function generateKey(): string {
-  return `base64:${randomBytes(32).toString('base64')}`
+  return `base64:${randomBytes(64).toString('base64')}`
 }
 
 /**
- * `ravel key:generate [--show]` — set APP_KEY in the app's `.env`
- * (Laravel's `key:generate`). `--show` just prints a key without writing.
+ * `ravel key:generate [--show] [--force]` — set APP_KEY in the app's `.env`
+ * (Laravel's `key:generate`). `--show` prints a key without writing; `--force`
+ * allows overwriting an existing key when APP_ENV=production.
  */
 export async function keyGenerate(flags: Record<string, string | boolean> = {}): Promise<number> {
   const key = generateKey()
@@ -33,6 +34,23 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
   }
 
   const env = await readFile(envPath, 'utf8')
+
+  // Guard (Laravel's confirmToProceed): overwriting an existing key only needs
+  // confirmation in production. Rotating the key logs out every session and
+  // makes `encrypted` columns unreadable — so in production require --force.
+  const currentKey = env.match(/^APP_KEY=(.*)$/m)?.[1]?.trim() ?? ''
+  const appEnv = (env.match(/^APP_ENV=(.*)$/m)?.[1] ?? process.env.APP_ENV ?? 'local')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+  if (currentKey.length > 0 && appEnv === 'production' && !flags.force) {
+    console.error(
+      '✗ APP_KEY is already set and APP_ENV=production.\n' +
+        '  Rotating it invalidates all sessions and makes `encrypted` columns\n' +
+        '  unreadable. Re-run with --force if you really mean to.',
+    )
+    return 1
+  }
+
   // Replace an existing APP_KEY= line, or append one if it's missing.
   const next = /^APP_KEY=.*$/m.test(env)
     ? env.replace(/^APP_KEY=.*$/m, `APP_KEY=${key}`)

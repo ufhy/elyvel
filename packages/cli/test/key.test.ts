@@ -52,13 +52,36 @@ describe('ravel key:generate', () => {
     expect(await keyGenerate()).toBe(1)
   })
 
-  test('generated keys are unique + base64 32 bytes', async () => {
+  test('production: refuses to overwrite an existing key without --force', async () => {
+    writeFileSync(join(dir, '.env'), 'APP_ENV=production\nAPP_KEY=base64:existing\n')
+    expect(await keyGenerate()).toBe(1)
+    expect(env()).toContain('APP_KEY=base64:existing') // untouched
+  })
+
+  test('production: --force overwrites; empty key never needs --force', async () => {
+    writeFileSync(join(dir, '.env'), 'APP_ENV=production\nAPP_KEY=base64:existing\n')
+    expect(await keyGenerate({ force: true })).toBe(0)
+    expect(env()).not.toContain('base64:existing')
+
+    // an empty key in production is fine to set without --force
+    writeFileSync(join(dir, '.env'), 'APP_ENV=production\nAPP_KEY=\n')
+    expect(await keyGenerate()).toBe(0)
+    expect(env()).toMatch(/APP_KEY=base64:/)
+  })
+
+  test('local: overwrites an existing key without --force', async () => {
+    writeFileSync(join(dir, '.env'), 'APP_ENV=local\nAPP_KEY=base64:old\n')
+    expect(await keyGenerate()).toBe(0)
+    expect(env()).not.toContain('base64:old')
+  })
+
+  test('generated keys are unique + base64 64 bytes', async () => {
     writeFileSync(join(dir, '.env'), 'APP_KEY=\n')
     await keyGenerate()
     const a = env().match(/APP_KEY=(base64:.+)/)?.[1] ?? ''
     await keyGenerate()
     const b = env().match(/APP_KEY=(base64:.+)/)?.[1] ?? ''
     expect(a).not.toBe(b)
-    expect(Buffer.from(a.replace('base64:', ''), 'base64').length).toBe(32)
+    expect(Buffer.from(a.replace('base64:', ''), 'base64').length).toBe(64)
   })
 })
