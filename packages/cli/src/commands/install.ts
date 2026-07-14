@@ -62,9 +62,9 @@ async function registerMailProvider(cwd: string): Promise<boolean> {
 }
 
 /**
- * `ravel install auth` — scaffold the auth kit (Better Auth + Inertia/Vue UI) into
- * the app. `quiet` suppresses the trailing "Next steps" (used when `ravel new`
- * composes it, so the steps are printed once).
+ * Scaffold the auth kit (Better Auth + Inertia/Vue UI) into an app directory.
+ * Internal helper composed by `ravel new` — not a standalone CLI command.
+ * `quiet` suppresses the trailing "Next steps" (new prints them once).
  */
 export async function install(
   feature?: string,
