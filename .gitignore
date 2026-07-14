@@ -16,3 +16,4 @@ examples/*/storage/
 **/public/build/
 # Playwright MCP scratch
 .playwright-mcp/
+.claude/settings.json
