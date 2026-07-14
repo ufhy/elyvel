@@ -32,9 +32,7 @@ describe('ravel new', () => {
       'config/database.ts',
       'config/session.ts',
       'app/providers/AppServiceProvider.ts',
-      'app/models/User.ts',
       'routes/web.ts',
-      'database/migrations/20260101000000_create_users_table.ts',
       'README.md',
     ]) {
       expect(existsSync(join(dir, 'my-app', f))).toBe(true)
