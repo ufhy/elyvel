@@ -1,0 +1,35 @@
+{
+  "name": "vue-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "build:ssr": "vite build --ssr",
+    "dev": "ravel serve",
+    "start": "bun server.ts",
+    "migrate": "ravel migrate",
+    "migrate:fresh": "ravel migrate:fresh"
+  },
+  "dependencies": {
+    "@elysia-ravel/auth": "workspace:*",
+    "@elysia-ravel/inertia": "workspace:*",
+    "@elysia-ravel/mail": "workspace:*",
+    "@elysia-ravel/view": "workspace:*",
+    "@elysia-ravel/vite": "workspace:*",
+    "@inertiajs/vue3": "^2.0.0",
+    "@vue/server-renderer": "^3.5.0",
+    "better-auth": "^1.3.0",
+    "vue": "^3.5.0",
+    "@elysia-ravel/core": "workspace:*",
+    "@elysia-ravel/database": "workspace:*",
+    "elysia": "^1.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.0",
+    "@elysia-ravel/cli": "workspace:*"
+  }
+}

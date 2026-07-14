@@ -10,6 +10,7 @@ import {
   seedCommand,
   statusCommand,
 } from './commands/db'
+import { install } from './commands/install'
 import { make } from './commands/make'
 import { newApp } from './commands/new'
 import {
@@ -35,6 +36,7 @@ ravel — the elysia-ravel CLI
 
 Usage:
   ravel new <name>                            Scaffold a new elysia-ravel app
+  ravel install auth                          Add the auth kit (Better Auth + Vue UI) to the app
   ravel serve [--entry <path>] [--no-watch]   Start the dev server
 
   ravel migrate                               Run pending migrations
@@ -100,6 +102,10 @@ async function main(): Promise<number> {
 
   if (command === 'new') {
     return newApp(rest[0])
+  }
+
+  if (command === 'install') {
+    return install(rest[0])
   }
 
   if (command === 'serve') {
