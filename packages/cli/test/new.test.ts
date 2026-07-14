@@ -39,6 +39,25 @@ describe('ravel new', () => {
     }
   })
 
+  test('includes the auth kit by default (full-stack)', async () => {
+    await newApp('kit-app')
+    // auth files scaffolded by the composed installer
+    for (const f of [
+      'app/better-auth.ts',
+      'config/mail.ts',
+      'routes/auth.ts',
+      'resources/js/Pages/auth/Login.vue',
+      'vite.config.ts',
+    ]) {
+      expect(existsSync(join(dir, 'kit-app', f))).toBe(true)
+    }
+    const pkg = JSON.parse(read('kit-app', 'package.json'))
+    expect(pkg.dependencies['better-auth']).toBeDefined()
+    expect(pkg.dependencies['@elysia-ravel/auth']).toBeDefined()
+    // MailServiceProvider auto-registered
+    expect(read('kit-app', 'config/app.ts')).toContain('MailServiceProvider')
+  })
+
   test('creates .env with a generated APP_KEY (ready to run)', async () => {
     await newApp('keyed')
     expect(existsSync(join(dir, 'keyed', '.env'))).toBe(true)

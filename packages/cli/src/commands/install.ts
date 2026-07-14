@@ -61,13 +61,20 @@ async function registerMailProvider(cwd: string): Promise<boolean> {
   return true
 }
 
-/** `ravel install auth` — scaffold the auth kit (Better Auth + Inertia/Vue UI) into the app. */
-export async function install(feature?: string): Promise<number> {
+/**
+ * `ravel install auth` — scaffold the auth kit (Better Auth + Inertia/Vue UI) into
+ * the app. `quiet` suppresses the trailing "Next steps" (used when `ravel new`
+ * composes it, so the steps are printed once).
+ */
+export async function install(
+  feature?: string,
+  cwd: string = process.cwd(),
+  quiet = false,
+): Promise<number> {
   if (feature !== 'auth') {
     console.error(`Unknown installer "${feature ?? ''}". Available: auth`)
     return 1
   }
-  const cwd = process.cwd()
   if (!existsSync(join(cwd, 'config', 'app.ts'))) {
     console.error(
       '✗ Not an elysia-ravel app (no config/app.ts). Run this inside your app directory.',
@@ -104,10 +111,12 @@ export async function install(feature?: string): Promise<number> {
     )
     console.log("      import { MailServiceProvider } from '@elysia-ravel/mail'")
   }
-  console.log('\nNext steps:')
-  console.log('  bun install')
-  console.log('  bun run migrate      # creates the Better Auth tables')
-  console.log('  bun run build        # build the Inertia/Vue assets (or `bun run dev` for HMR)')
-  console.log('  bun run dev')
+  if (!quiet) {
+    console.log('\nNext steps:')
+    console.log('  bun install')
+    console.log('  bun run migrate      # creates the Better Auth tables')
+    console.log('  bun run build        # build the Inertia/Vue assets (or `bun run dev` for HMR)')
+    console.log('  bun run dev')
+  }
   return 0
 }

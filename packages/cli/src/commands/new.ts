@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { install } from './install'
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'base')
 
@@ -77,10 +78,16 @@ export async function newApp(rawName?: string): Promise<number> {
   }
 
   console.log(`✓ Created ${vars.appName} in ${rawName}/ (${count} files, .env + APP_KEY set)`)
+
+  // Full-stack by default: apply the auth kit (Better Auth + Inertia/Vue UI).
+  // Everything comes from the installer — no manual package/file edits.
+  await install('auth', target, true)
+
   console.log('\nNext steps:')
   console.log(`  cd ${rawName}`)
   console.log('  bun install')
   console.log('  bun run migrate')
+  console.log('  bun run build   # build the Inertia/Vue assets (or `bun run dev` for HMR)')
   console.log('  bun run dev')
   return 0
 }
