@@ -15,8 +15,11 @@ const auth = betterAuth({
   secret: 'test-secret-please-change-please',
   baseURL: 'http://localhost',
 })
-// biome-ignore lint/suspicious/noExplicitAny: derived user in context
-const app: any = new Elysia().use(betterAuthPlugin(auth)).get('/me', ({ user }: any) => user, { auth: true })
+const app: any = new Elysia()
+  .use(betterAuthPlugin(auth))
+  // biome-ignore lint/suspicious/noExplicitAny: derived user in context
+  .get('/me', ({ user }: any) => user, { auth: true })
+  .get('/verified-only', () => ({ ok: true }), { verified: true })
 
 // Fresh in-memory DB + Better Auth tables for each test (isolated).
 beforeEach(async () => {
@@ -51,6 +54,16 @@ describe('Better Auth over the Eloquent adapter', () => {
     const me = await app.handle(new Request('http://localhost/me', { headers: { cookie } }))
     expect(me.status).toBe(200)
     expect(((await me.json()) as { email: string }).email).toBe('grace@x.test')
+  })
+
+  test('verified macro: 401 guest, 403 when email is unverified', async () => {
+    const res = await signUp('mia@x.test')
+    const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]
+
+    expect((await app.handle(new Request('http://localhost/verified-only'))).status).toBe(401)
+    // freshly signed-up user is not email-verified yet → 403
+    const blocked = await app.handle(new Request('http://localhost/verified-only', { headers: { cookie } }))
+    expect(blocked.status).toBe(403)
   })
 
   test('sign-in verifies credentials via the adapter', async () => {

@@ -67,6 +67,19 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
             },
           }
         },
+        // Require an authenticated AND email-verified user (Laravel's `verified`
+        // middleware): 401 for guests, 403 when the email isn't verified yet.
+        verified(enabled: boolean) {
+          if (!enabled) return {}
+          return {
+            // biome-ignore lint/suspicious/noExplicitAny: derived user + status
+            beforeHandle({ user, status }: any) {
+              if (!user) return status(401, { message: 'Unauthenticated' })
+              if (!user.emailVerified)
+                return status(403, { message: 'Your email address is not verified.' })
+            },
+          }
+        },
         // Guard a route by ability: `{ can: 'admin' }` or `{ can: ['update', ctx => ctx.post] }`.
         // Resolver functions receive the request context; other values pass through as args.
         // biome-ignore lint/suspicious/noExplicitAny: macro config is a string or a spec tuple
