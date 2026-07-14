@@ -3,7 +3,7 @@ import { S3Client } from 'bun'
 import { existsSync, statSync } from 'node:fs'
 import { appendFile, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
 import { chmod } from 'node:fs/promises'
-import { dirname, extname, join, posix } from 'node:path'
+import { dirname, extname, join, posix, resolve, sep } from 'node:path'
 import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 
 /** Raw content accepted by write operations. */
@@ -63,6 +63,9 @@ export interface FilesystemDisk {
   deleteDirectory(path: string): Promise<boolean>
 }
 
+/** Thrown when a path would escape its disk root / scope prefix — always fatal. */
+export class PathEscapeError extends Error {}
+
 // ── shared helpers ─────────────────────────────────────────────────────────
 const secondsUntil = (expiresIn: Date | number): number =>
   typeof expiresIn === 'number' ? expiresIn : Math.max(0, Math.round((expiresIn.getTime() - Date.now()) / 1000))
@@ -115,11 +118,19 @@ export class LocalDisk implements FilesystemDisk {
   }
 
   private full(path: string): string {
-    return join(this.root, path)
+    // Resolve and confirm the result stays inside the disk root — a `../`
+    // traversal (e.g. `../../etc/passwd`) must never escape the sandbox.
+    const rootAbs = resolve(this.root)
+    const full = resolve(rootAbs, path)
+    if (full !== rootAbs && !full.startsWith(rootAbs + sep)) {
+      throw new PathEscapeError(`[elysia-ravel] Path "${path}" escapes the disk root.`)
+    }
+    return full
   }
 
   private fail(error: unknown): false {
-    if (this.shouldThrow) throw error
+    // A traversal attempt is always fatal, regardless of the `throw` config.
+    if (this.shouldThrow || error instanceof PathEscapeError) throw error
     return false
   }
 
@@ -204,8 +215,9 @@ export class LocalDisk implements FilesystemDisk {
   async delete(paths: string | string[]): Promise<boolean> {
     let ok = true
     for (const p of Array.isArray(paths) ? paths : [paths]) {
+      const full = this.full(p) // traversal guard — throws before any unlink
       try {
-        await unlink(this.full(p))
+        await unlink(full)
       } catch {
         ok = false
       }
@@ -475,7 +487,14 @@ export class ScopedDisk implements FilesystemDisk {
   ) {}
 
   private p(path: string): string {
-    return posix.join(this.prefix, path)
+    // Confirm the joined path stays under the scope prefix — a `../` must not
+    // let a scoped (e.g. per-tenant) disk reach a sibling's files.
+    const base = this.prefix.replace(/\/+$/, '')
+    const joined = posix.normalize(posix.join(base, path))
+    if (joined !== base && !joined.startsWith(`${base}/`)) {
+      throw new PathEscapeError(`[elysia-ravel] Path "${path}" escapes the scoped prefix "${this.prefix}".`)
+    }
+    return joined
   }
   private strip(path: string): string {
     const base = `${this.prefix.replace(/\/$/, '')}/`

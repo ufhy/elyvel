@@ -160,6 +160,22 @@ describe('throw option', () => {
   })
 })
 
+describe('path traversal is blocked', () => {
+  test('LocalDisk rejects `../` escapes on read and write', async () => {
+    const disk = makeDisk()
+    await expect(disk.get('../../etc/passwd')).rejects.toThrow(/escapes the disk root/)
+    await expect(disk.put('../outside.txt', 'x')).rejects.toThrow(/escapes the disk root/)
+    await expect(disk.delete('../../secret')).rejects.toThrow(/escapes the disk root/)
+  })
+
+  test('LocalDisk allows normalized in-root paths', async () => {
+    const disk = makeDisk()
+    // a `..` that resolves back inside the root is fine
+    await disk.put('a/b/c.txt', 'ok')
+    expect(await disk.get('a/b/../b/c.txt')).toBe('ok')
+  })
+})
+
 describe('ScopedDisk', () => {
   test('prefixes every path and strips it from listings', async () => {
     const base = makeDisk()
@@ -174,6 +190,16 @@ describe('ScopedDisk', () => {
     await scoped.put('b.txt', 'B')
     expect(await base.get('tenants/acme/b.txt')).toBe('B')
     expect((await scoped.files()).sort()).toEqual(['a.txt', 'b.txt'])
+  })
+
+  test('rejects `../` that would escape the scope prefix (tenant isolation)', async () => {
+    const manager = new FilesystemManager({
+      disks: { base: { driver: 'local', root: freshRoot() } },
+    })
+    const scoped = manager.build({ driver: 'scoped', disk: 'base', prefix: 'tenants/acme' })
+    // async IIFE turns the guard's (synchronous) throw into a rejection for the matcher
+    await expect((async () => scoped.get('../beta/secret.txt'))()).rejects.toThrow(/escapes the scoped prefix/)
+    await expect((async () => scoped.put('../../root.txt', 'x'))()).rejects.toThrow(/escapes the scoped prefix/)
   })
 })
 

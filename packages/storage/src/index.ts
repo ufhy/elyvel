@@ -12,6 +12,7 @@ export {
   type Contents,
   type FilesystemDisk,
   LocalDisk,
+  PathEscapeError,
   S3Disk,
   ScopedDisk,
   type Storable,

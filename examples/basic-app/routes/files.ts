@@ -14,7 +14,10 @@ export default route()
     return { path, url: disk.url(path), size: await disk.size(path) }
   })
   .get('/files', async () => ({ files: await storage('public').allFiles('uploads') }))
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia wildcard params
-  .get('/files/download/*', ({ params }: any) =>
-    storage('public').download(`uploads/${params['*']}`),
-  )
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia wildcard params + status
+  .get('/files/download/*', ({ params, status }: any) => {
+    const rel = params['*']
+    // Reject path traversal before it reaches the disk (defense in depth).
+    if (rel.includes('..')) return status(404, { message: 'Not found' })
+    return storage('public').download(`uploads/${rel}`)
+  })
