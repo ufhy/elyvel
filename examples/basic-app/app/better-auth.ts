@@ -30,7 +30,9 @@ export const auth = betterAuth({
         .send()
     },
   },
-  secret:
-    process.env.BETTER_AUTH_SECRET ?? process.env.APP_KEY ?? 'dev-only-secret-change-me-please!',
+  // Session-signing secret. Required — the app already refuses to boot without
+  // APP_KEY (cookie session driver), so this is always set in practice. Never
+  // ship a hardcoded fallback: a known secret means forgeable sessions.
+  secret: process.env.BETTER_AUTH_SECRET ?? process.env.APP_KEY,
   baseURL: process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
 })
