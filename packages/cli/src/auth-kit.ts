@@ -13,16 +13,16 @@ const AUTH_DEPS: Record<string, string> = {
   '@elysia-ravel/mail': 'workspace:*',
   '@elysia-ravel/view': 'workspace:*',
   '@elysia-ravel/vite': 'workspace:*',
-  '@inertiajs/vue3': '^2.0.0',
+  '@inertiajs/vue3': '^3.0.0',
   '@vue/server-renderer': '^3.5.0',
-  'better-auth': '^1.3.0',
+  'better-auth': '^1.6.0',
   vue: '^3.5.0',
 }
 const AUTH_DEV_DEPS: Record<string, string> = {
   '@tailwindcss/vite': '^4.0.0',
-  '@vitejs/plugin-vue': '^5.2.0',
+  '@vitejs/plugin-vue': '^6.0.0',
   tailwindcss: '^4.0.0',
-  vite: '^6.0.0',
+  vite: '^8.0.0',
 }
 
 function outputPath(rel: string): string {
