@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { ref } from 'vue'
-import AuthLayout from '../../Layouts/AuthLayout.vue'
 import UiAlert from '../../components/UiAlert.vue'
 import UiButton from '../../components/UiButton.vue'
 import UiInput from '../../components/UiInput.vue'
+import AuthLayout from '../../Layouts/AuthLayout.vue'
 import { authApi } from '../../lib/auth'
 
 const name = ref('')

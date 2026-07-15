@@ -3,16 +3,16 @@ import { join } from 'node:path'
 import { createApp } from '@elysia-ravel/core'
 import {
   type Connection,
-  DatabaseToken,
-  type Model,
-  type SeederClass,
   countRows,
+  DatabaseToken,
   freshMigrate,
   listTables,
+  type Model,
   migrate,
   openConnectionCount,
   rollback,
   runSeeders,
+  type SeederClass,
   status,
   tableColumns,
 } from '@elysia-ravel/database'

@@ -1,9 +1,9 @@
 import { cache } from '@elysia-ravel/cache'
 import {
+  configureRateLimiterStore,
   Limit,
   RateLimiter,
   type RateLimiterStore,
-  configureRateLimiterStore,
 } from '@elysia-ravel/core'
 
 /**

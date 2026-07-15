@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3'
 import { ref } from 'vue'
-import AuthLayout from '../../Layouts/AuthLayout.vue'
 import UiAlert from '../../components/UiAlert.vue'
 import UiButton from '../../components/UiButton.vue'
+import AuthLayout from '../../Layouts/AuthLayout.vue'
 import { authApi } from '../../lib/auth'
 
 const page = usePage()

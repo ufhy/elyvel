@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FilesystemManager, LocalDisk, fakeStorage, storage } from '../src/index'
+import { FilesystemManager, fakeStorage, LocalDisk, storage } from '../src/index'
 
 const roots: string[] = []
 const freshRoot = (): string => {

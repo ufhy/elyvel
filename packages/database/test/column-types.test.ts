@@ -66,7 +66,7 @@ describe('native Postgres types (pglite)', () => {
       occurred_at: '2026-01-02T03:04:05.000Z',
     })
     const row = await new QueryBuilder(conn, 'events').first()
-    expect((row?.payload as { kind: string }).kind).toBe('click') // jsonb returns parsed object
+    expect((row!.payload as { kind: string }).kind).toBe('click') // jsonb returns parsed object
     expect(new Date(row?.occurred_at as string).toISOString()).toBe('2026-01-02T03:04:05.000Z')
   })
 })

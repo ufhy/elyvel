@@ -1,2 +1,2 @@
-export { spa, type SpaOptions } from './spa'
-export { viteTags, type ViteOptions } from './tags'
+export { type SpaOptions, spa } from './spa'
+export { type ViteOptions, viteTags } from './tags'

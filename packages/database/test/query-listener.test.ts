@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import {
+  createConnection,
   type QueryErrored,
   type QueryExecuted,
-  createConnection,
   setConnection,
 } from '../src/connection'
 import { Model } from '../src/model'

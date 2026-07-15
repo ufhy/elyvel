@@ -1,5 +1,5 @@
 import { createApp } from '@elysia-ravel/core'
-import { QueueToken, Worker, failedJobs, restartSignal } from '@elysia-ravel/queue'
+import { failedJobs, QueueToken, restartSignal, Worker } from '@elysia-ravel/queue'
 
 /**
  * `ravel queue:work` — process jobs off a queue connection.

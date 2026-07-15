@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { SchemaBuilder, createConnection, setConnection, table } from '@elysia-ravel/database'
+import { createConnection, SchemaBuilder, setConnection, table } from '@elysia-ravel/database'
 import { betterAuth } from 'better-auth'
 import { Elysia } from 'elysia'
 import { betterAuthPlugin } from '../src/better-auth'

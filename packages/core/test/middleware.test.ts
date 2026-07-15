@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import {
-  Middleware,
-  type MiddlewareContext,
   globalMiddlewarePlugin,
   group,
+  Middleware,
+  type MiddlewareContext,
   registerMiddlewareRegistry,
   route,
 } from '../src/middleware'

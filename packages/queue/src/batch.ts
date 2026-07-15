@@ -198,7 +198,6 @@ async function runCallback(
   error?: unknown,
 ): Promise<void> {
   if (!source) return
-  // biome-ignore lint/security/noGlobalEval: developer-authored batch callback, same trust as their code
   const fn = new Function(`return (${source})`)() as BatchCallback
   await fn(batch, error)
 }

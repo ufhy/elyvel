@@ -1,14 +1,12 @@
 import { BroadcastChannel } from '@elysia-ravel/broadcasting'
 import { configureDatabaseCache } from '@elysia-ravel/cache'
-import { ServiceProvider, configureDatabaseSession } from '@elysia-ravel/core'
-import { Model, afterCommit, configureModelEventDispatcher, table } from '@elysia-ravel/database'
+import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
+import { afterCommit, configureModelEventDispatcher, Model, table } from '@elysia-ravel/database'
 import { event } from '@elysia-ravel/events'
 import { Mail } from '@elysia-ravel/mail'
 import { configureDatabaseNotifications, notifications } from '@elysia-ravel/notifications'
 import {
   type BatchRecord,
-  MemoryUniqueLock,
-  Queue,
   configureAfterCommit,
   configureBatches,
   configureDatabaseQueue,
@@ -18,6 +16,8 @@ import {
   configureQueueEventDispatcher,
   configureRestartSignal,
   configureUniqueJobs,
+  MemoryUniqueLock,
+  Queue,
   registerJob,
 } from '@elysia-ravel/queue'
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'

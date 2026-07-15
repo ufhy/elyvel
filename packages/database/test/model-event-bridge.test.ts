@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection } from '../src/connection'
-import { Model, configureModelEventDispatcher } from '../src/model'
+import { configureModelEventDispatcher, Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 
 class Thing extends Model {

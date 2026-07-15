@@ -19,7 +19,7 @@ describe('redaction', () => {
       list: [{ authorization: 'Bearer x' }],
     })
 
-    const ctx = cap.entries[0]?.context as Record<string, any>
+    const ctx = cap.entries[0]!.context as Record<string, any>
     expect(ctx.email).toBe('a@b.com')
     expect(ctx.Password).toBe('[REDACTED]')
     expect(ctx.nested.token).toBe('[REDACTED]')
@@ -32,7 +32,7 @@ describe('redaction', () => {
     const log = new Logger({ level: 'info', transports: [cap], redact: ['ssn'] })
     log.info('x', { ssn: '123', password: 'not-masked-now' })
 
-    const ctx = cap.entries[0]?.context as Record<string, any>
+    const ctx = cap.entries[0]!.context as Record<string, any>
     expect(ctx.ssn).toBe('[REDACTED]')
     expect(ctx.password).toBe('not-masked-now')
   })
@@ -49,7 +49,7 @@ describe('redaction', () => {
       note: 'card 4111 1111 1111 1111 on file',
     })
 
-    const ctx = cap.entries[0]?.context as Record<string, any>
+    const ctx = cap.entries[0]!.context as Record<string, any>
     expect(ctx.header).toBe('[REDACTED]')
     expect(ctx.note).toContain('[REDACTED]')
     expect(ctx.note).not.toContain('4111')
@@ -60,7 +60,7 @@ describe('redaction', () => {
     const log = new Logger({ level: 'info', transports: [cap], redactJson: true })
     log.info('webhook', { payload: JSON.stringify({ user: 'ada', password: 'hunter2' }) })
 
-    const payload = (cap.entries[0]?.context as Record<string, any>).payload as string
+    const payload = (cap.entries[0]!.context as Record<string, any>).payload as string
     const parsed = JSON.parse(payload)
     expect(parsed.password).toBe('[REDACTED]')
     expect(parsed.user).toBe('ada')
@@ -70,7 +70,7 @@ describe('redaction', () => {
     const cap = new Capture()
     const log = new Logger({ level: 'info', transports: [cap], redactJson: true })
     log.info('x', { note: 'just a plain sentence' })
-    expect((cap.entries[0]?.context as Record<string, any>).note).toBe('just a plain sentence')
+    expect((cap.entries[0]!.context as Record<string, any>).note).toBe('just a plain sentence')
   })
 })
 
@@ -81,7 +81,7 @@ describe('bindings', () => {
     log.info('a', { x: 1 })
     log.info('b')
 
-    expect(cap.entries[0]?.context).toMatchObject({ requestId: 'r-1', x: 1 })
+    expect(cap.entries[0]!.context).toMatchObject({ requestId: 'r-1', x: 1 })
     expect(cap.entries[1]?.context).toMatchObject({ requestId: 'r-1' })
   })
 
@@ -89,6 +89,6 @@ describe('bindings', () => {
     const cap = new Capture()
     const log = new Logger({ level: 'info', transports: [cap] }).withBindings({ scope: 'base' })
     log.info('a', { scope: 'call' })
-    expect((cap.entries[0]?.context as Record<string, unknown>).scope).toBe('call')
+    expect((cap.entries[0]!.context as Record<string, unknown>).scope).toBe('call')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { AuthorizationError, Response, createGate, gate, setDefaultGate } from '../src/gate'
+import { AuthorizationError, createGate, gate, Response, setDefaultGate } from '../src/gate'
 
 interface User {
   id: number

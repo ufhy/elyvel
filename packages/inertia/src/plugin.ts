@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { type ViteOptions, viteTags } from '@elysia-ravel/vite'
 import { Elysia } from 'elysia'
-import { InertiaLocation, InertiaResponse, type Page, buildProps } from './response'
+import { buildProps, InertiaLocation, InertiaResponse, type Page } from './response'
 
 /** What an Inertia SSR bundle's default export returns for a page. */
 export interface SsrResult {

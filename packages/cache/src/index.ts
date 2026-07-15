@@ -1,5 +1,5 @@
 export { type CacheConfig, type CacheStoreConfig, defineCacheConfig } from './config-schema'
-export { cache, CacheManager, setDefaultCache } from './manager'
+export { CacheManager, cache, setDefaultCache } from './manager'
 export { CacheServiceProvider, CacheToken } from './provider'
 export { Repository } from './repository'
 export {

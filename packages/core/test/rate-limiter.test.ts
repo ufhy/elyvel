@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { registerMiddlewareRegistry, route } from '../src/middleware'
-import { Limit, RateLimiter, ThrottleMiddleware, rateLimiter } from '../src/throttle'
+import { Limit, RateLimiter, rateLimiter, ThrottleMiddleware } from '../src/throttle'
 
 beforeEach(() => rateLimiter.clear())
 

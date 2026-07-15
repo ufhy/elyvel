@@ -114,8 +114,8 @@ for (const d of dialects) {
       await Comment.create({ commentable_id: video.id, commentable_type: 'Video', body: 'c' })
 
       const comments = await Comment.query().with('commentable').orderBy('id').get()
-      expect((comments.get(0)?.getRelation('commentable') as Post).title).toBe('P')
-      expect((comments.get(1)?.getRelation('commentable') as Video).title).toBe('V')
+      expect((comments.get(0)!.getRelation('commentable') as Post).title).toBe('P')
+      expect((comments.get(1)!.getRelation('commentable') as Video).title).toBe('V')
     })
 
     test('hasManyThrough', async () => {

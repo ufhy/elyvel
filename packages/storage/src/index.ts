@@ -18,5 +18,5 @@ export {
   type Storable,
   type TemporaryUrlOptions,
 } from './disk'
-export { fakeStorage, FilesystemManager, setDefaultStorage, storage } from './manager'
+export { FilesystemManager, fakeStorage, setDefaultStorage, storage } from './manager'
 export { StorageServiceProvider, StorageToken } from './provider'

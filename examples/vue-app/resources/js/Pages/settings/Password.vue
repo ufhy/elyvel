@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import AppLayout from '../../Layouts/AppLayout.vue'
 import UiAlert from '../../components/UiAlert.vue'
 import UiButton from '../../components/UiButton.vue'
 import UiInput from '../../components/UiInput.vue'
+import AppLayout from '../../Layouts/AppLayout.vue'
 import { authApi } from '../../lib/auth'
 
 const current = ref('')

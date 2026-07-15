@@ -21,7 +21,6 @@ describe('createApp', () => {
   test('merges providers passed via options', async () => {
     let booted = false
     class InlineProvider {
-      constructor(private readonly app: any) {}
       register() {}
       boot() {
         booted = true

@@ -1,12 +1,13 @@
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
-import { EloquentBuilder } from './eloquent-builder'
 import type { EagerConstraint } from './eloquent-builder'
+import { EloquentBuilder } from './eloquent-builder'
 import { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
 import {
   BelongsTo,
   BelongsToMany,
+  eagerLoad,
   HasMany,
   HasManyThrough,
   HasOne,
@@ -14,7 +15,6 @@ import {
   MorphMany,
   MorphOne,
   MorphTo,
-  eagerLoad,
 } from './relations'
 
 export type Attributes = Record<string, unknown>

@@ -1,11 +1,10 @@
-import { describe, expect, test } from 'bun:test'
-import { afterAll } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { cronMatches, parseCron, parseCronField } from '../src/cron'
-import { ScheduledEvent, configureScheduleMailer, setSchedulerEnvironment } from '../src/event'
-import { MemoryScheduleMutex, configureScheduleMutex } from '../src/mutex'
+import { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from '../src/event'
+import { configureScheduleMutex, MemoryScheduleMutex } from '../src/mutex'
 import { Schedule } from '../src/schedule'
 
 const outDir = mkdtempSync(join(tmpdir(), 'sched-'))

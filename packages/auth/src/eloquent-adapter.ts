@@ -1,6 +1,6 @@
 import { table } from '@elysia-ravel/database'
-import { createAdapterFactory } from 'better-auth/adapters'
 import type { CleanedWhere } from 'better-auth/adapters'
+import { createAdapterFactory } from 'better-auth/adapters'
 
 type QB = ReturnType<typeof table>
 type Row = Record<string, any>

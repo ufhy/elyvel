@@ -151,7 +151,6 @@ export class CallQueuedClosure extends Job {
     super()
   }
   handle(): void | Promise<void> {
-    // biome-ignore lint/security/noGlobalEval: developer-authored closure, same trust as their own code
     const fn = new Function(`return (${this.source})`)() as () => void | Promise<void>
     return fn()
   }

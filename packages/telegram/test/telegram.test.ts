@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { TelegramClient } from '../src/client'
-import { Telegram, setDefaultTelegram } from '../src/manager'
+import { setDefaultTelegram, Telegram } from '../src/manager'
 
 // A local fake Telegram Bot API — captures requests so we can assert a real
 // round-trip (client → HTTP → server) without hitting api.telegram.org.

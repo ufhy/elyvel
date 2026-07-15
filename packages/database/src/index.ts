@@ -1,12 +1,12 @@
-export { EloquentCollection } from './eloquent-collection'
-export { Factory, type FactoryDefinition, defineFactory } from './factory'
+export { Collection, LazyCollection } from '@elysia-ravel/support'
+export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export {
   afterCommit,
-  beginTransaction,
   type Bindings,
-  commit,
+  beginTransaction,
   type Connection,
   type ConnectionConfig,
+  commit,
   createConnection,
   hasConnection,
   type PgliteConnectionConfig,
@@ -19,14 +19,13 @@ export {
   raw,
   rawStatement,
   rollBack,
-  setConnection,
   type SqliteConnectionConfig,
+  setConnection,
   startRequestScope,
   transaction,
   unprepared,
   useConnection,
 } from './connection'
-export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export { setEncryptionKey } from './crypto'
 export { EloquentServiceProvider } from './database-provider'
 export {
@@ -36,16 +35,9 @@ export {
   type Paginator,
   type SimplePaginator,
 } from './eloquent-builder'
+export { EloquentCollection } from './eloquent-collection'
+export { defineFactory, Factory, type FactoryDefinition } from './factory'
 export type { ColumnDefinition, ColumnType, Dialect, Grammar } from './grammar'
-export {
-  type Attributes,
-  type Cast,
-  type CastType,
-  configureModelEventDispatcher,
-  type CustomCast,
-  Model,
-  type ModelEvent,
-} from './model'
 export {
   type ColumnInfo,
   countRows,
@@ -54,6 +46,15 @@ export {
   tableColumns,
 } from './inspect'
 export { freshMigrate, loadMigrations, type Migration, migrate, rollback, status } from './migrator'
+export {
+  type Attributes,
+  type Cast,
+  type CastType,
+  type CustomCast,
+  configureModelEventDispatcher,
+  Model,
+  type ModelEvent,
+} from './model'
 export {
   type CursorRowPaginator,
   JoinClauseBuilder,
@@ -78,4 +79,3 @@ export {
 export { Blueprint, SchemaBuilder } from './schema'
 export { runSeeders, Seeder, type SeederClass } from './seeder'
 export { DatabaseToken } from './tokens'
-export { Collection, LazyCollection } from '@elysia-ravel/support'

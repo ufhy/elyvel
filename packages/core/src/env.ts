@@ -1,5 +1,4 @@
-import type { TObject, TSchema } from '@sinclair/typebox'
-import type { Static } from '@sinclair/typebox'
+import type { Static, TObject, TSchema } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 
 /**

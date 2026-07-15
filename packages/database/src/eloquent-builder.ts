@@ -2,7 +2,7 @@ import { LazyCollection } from '@elysia-ravel/support'
 import { EloquentCollection } from './eloquent-collection'
 import type { Model } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
-import { type Relation, eagerLoad } from './relations'
+import { eagerLoad, type Relation } from './relations'
 
 type Row = Record<string, unknown>
 /** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */

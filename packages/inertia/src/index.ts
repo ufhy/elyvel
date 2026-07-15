@@ -1,3 +1,4 @@
+export { type ViteOptions, viteTags } from '@elysia-ravel/vite'
 export { type InertiaConfig, inertia, type SsrOptions, type SsrResult } from './plugin'
 export {
   AlwaysProp,
@@ -12,4 +13,3 @@ export {
   OptionalProp,
   type Page,
 } from './response'
-export { viteTags, type ViteOptions } from '@elysia-ravel/vite'

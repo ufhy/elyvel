@@ -1,4 +1,4 @@
-import { Response, createGate, setDefaultGate } from '@elysia-ravel/auth'
+import { createGate, Response, setDefaultGate } from '@elysia-ravel/auth'
 
 /** The Better Auth user shape the gate reasons about (a plain session object). */
 export interface AuthUser {

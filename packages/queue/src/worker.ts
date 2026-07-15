@@ -1,7 +1,7 @@
 import { isBatchCancelled, recordBatchedJob } from './batch'
 import { fireAfter, fireBefore, fireFailing } from './events'
 import type { FailedJobRepository } from './failed'
-import { type SerializedJob, backoffFor, decodeBody, encodeBody, reconstructJob } from './job'
+import { backoffFor, decodeBody, encodeBody, reconstructJob, type SerializedJob } from './job'
 import { ReleaseJob, runThroughMiddleware } from './middleware'
 import { restartSignal } from './restart'
 import { hydrateModels } from './serializes-models'

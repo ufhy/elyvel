@@ -3,7 +3,7 @@ import { httpResponses } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { document, escape, html, raw } from '../src/html'
 import { paginationLinks } from '../src/pagination'
-import { View, type ViewShared, csrfField, view } from '../src/view'
+import { csrfField, View, type ViewShared, view } from '../src/view'
 
 // ── html tag (escaping) ───────────────────────────────────────────────────────
 describe('html tag', () => {

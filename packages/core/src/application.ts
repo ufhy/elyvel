@@ -13,16 +13,16 @@ import {
   DailyFileTransport,
   FileTransport,
   type LogChannelConfig,
+  Logger,
+  LoggerToken,
   type LogLevel,
   LogManager,
   LogManagerToken,
-  Logger,
-  LoggerToken,
   type Transport,
 } from './logger'
 import {
-  type MiddlewareConfig,
   globalMiddlewarePlugin,
+  type MiddlewareConfig,
   registerMiddlewareRegistry,
 } from './middleware'
 import { requestContext, setRequestLogger } from './request-context'
@@ -50,6 +50,7 @@ function installProcessLogging(logger: Logger): void {
     process.exit(1)
   })
 }
+
 import type { ServiceProvider, ServiceProviderClass } from './service-provider'
 
 export interface CreateAppOptions {

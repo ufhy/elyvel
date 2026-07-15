@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
-import { type Logger, createLogger } from './logger'
+import { createLogger, type Logger } from './logger'
 
 interface RequestMeta {
   start: number

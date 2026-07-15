@@ -1,6 +1,6 @@
 import { RedisClient } from 'bun'
 import type { QueueConfig, QueueConnectionConfig } from './config-schema'
-import { CallQueuedClosure, type Job, encodeBody, serializeJob } from './job'
+import { CallQueuedClosure, encodeBody, type Job, serializeJob } from './job'
 import { DatabaseQueueStore, MemoryQueueStore, type QueueStore, RedisQueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
 

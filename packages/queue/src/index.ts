@@ -2,14 +2,16 @@ export {
   Batch,
   type BatchAdapter,
   type BatchRecord,
-  batchAdapter,
   Bus,
+  batchAdapter,
   configureBatches,
   findBatch,
   MemoryBatchStore,
   PendingBatch,
 } from './batch'
-export { type QueueConfig, type QueueConnectionConfig, defineQueueConfig } from './config-schema'
+export { defineQueueConfig, type QueueConfig, type QueueConnectionConfig } from './config-schema'
+export { configureJobEncryption } from './encryption'
+export { configureQueueEventDispatcher, Queue } from './events'
 export {
   configureFailedJobs,
   type FailedJobAdapter,
@@ -18,8 +20,6 @@ export {
   failedJobs,
   MemoryFailedJobStore,
 } from './failed'
-export { configureJobEncryption } from './encryption'
-export { configureQueueEventDispatcher, Queue } from './events'
 export {
   backoffFor,
   CallQueuedClosure,
@@ -34,17 +34,6 @@ export {
   serializeJob,
 } from './job'
 export {
-  configureRateLimiter,
-  type JobMiddleware,
-  MemoryRateLimiter,
-  RateLimited,
-  type RateLimiter,
-  rateLimiter,
-  ReleaseJob,
-  runThroughMiddleware,
-  WithoutOverlapping,
-} from './middleware'
-export {
   configureAfterCommit,
   type Dispatchable,
   type DispatchOptions,
@@ -54,6 +43,17 @@ export {
   queueManager,
   setDefaultQueue,
 } from './manager'
+export {
+  configureRateLimiter,
+  type JobMiddleware,
+  MemoryRateLimiter,
+  RateLimited,
+  type RateLimiter,
+  ReleaseJob,
+  rateLimiter,
+  runThroughMiddleware,
+  WithoutOverlapping,
+} from './middleware'
 export { QueueServiceProvider, QueueToken } from './provider'
 export { configureRestartSignal, type RestartSignal, restartSignal } from './restart'
 export {

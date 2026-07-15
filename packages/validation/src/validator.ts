@@ -1,5 +1,5 @@
-import { type SizeKind, formatMessage } from './messages'
-import { RULES, isEmpty } from './rules'
+import { formatMessage, type SizeKind } from './messages'
+import { isEmpty, RULES } from './rules'
 import { type ErrorBag, ValidationException } from './validation-exception'
 
 export type Data = Record<string, unknown>
@@ -63,7 +63,9 @@ function expandKey(key: string, data: Data): string[] {
       if (seg === '*') {
         const target = getValue(data, prefix)
         if (Array.isArray(target)) {
-          target.forEach((_, i) => next.push(prefix ? `${prefix}.${i}` : String(i)))
+          target.forEach((_, i) => {
+            next.push(prefix ? `${prefix}.${i}` : String(i))
+          })
         } else if (target && typeof target === 'object') {
           for (const k of Object.keys(target)) next.push(prefix ? `${prefix}.${k}` : k)
         }

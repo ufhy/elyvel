@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type ArrayTransport, MailManager, Message, setDefaultMailer } from '@elysia-ravel/mail'
-import { TelegramClient, setDefaultTelegram } from '@elysia-ravel/telegram'
+import { setDefaultTelegram, TelegramClient } from '@elysia-ravel/telegram'
 import { DatabaseChannel, MailChannel, TelegramChannel } from '../src/channels'
 import {
   ArrayChannel,
+  configureDatabaseNotifications,
   type Notifiable,
   Notification,
   NotificationManager,
   type StoredNotification,
-  configureDatabaseNotifications,
 } from '../src/index'
 
 // A notifiable user with per-channel routes.

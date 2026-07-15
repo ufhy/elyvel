@@ -20,7 +20,9 @@
     "@elysia-ravel/support": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "postgres": { "optional": true }
+    "postgres": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "postgres": "^3.4.9"

@@ -1,35 +1,35 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { Bus, MemoryBatchStore, configureBatches, findBatch } from '../src/batch'
+import { Bus, configureBatches, findBatch, MemoryBatchStore } from '../src/batch'
 import { configureJobEncryption } from '../src/encryption'
-import { Queue, configureQueueEventDispatcher } from '../src/events'
+import { configureQueueEventDispatcher, Queue } from '../src/events'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
-import { Job, decodeBody, encodeBody, reconstructJob, registerJob, serializeJob } from '../src/job'
+import { decodeBody, encodeBody, Job, reconstructJob, registerJob, serializeJob } from '../src/job'
 import {
-  QueueManager,
   configureAfterCommit,
   dispatch,
   dispatchSync,
+  QueueManager,
   setDefaultQueue,
 } from '../src/manager'
 import {
+  configureRateLimiter,
   type JobMiddleware,
   MemoryRateLimiter,
   RateLimited,
   ReleaseJob,
-  configureRateLimiter,
   runThroughMiddleware,
 } from '../src/middleware'
 import { configureRestartSignal } from '../src/restart'
 import { configureModelSerializer } from '../src/serializes-models'
 import {
+  configureDatabaseQueue,
   DatabaseQueueStore,
   MemoryQueueStore,
   type QueueDbAdapter,
   type RedisLike,
   RedisQueueStore,
-  configureDatabaseQueue,
 } from '../src/store'
-import { MemoryUniqueLock, configureUniqueJobs } from '../src/unique'
+import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import { Worker } from '../src/worker'
 
 // ── test jobs ───────────────────────────────────────────────────────────────

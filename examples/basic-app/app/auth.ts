@@ -1,4 +1,4 @@
-import { Hash, createAuth } from '@elysia-ravel/auth'
+import { createAuth, Hash } from '@elysia-ravel/auth'
 import { PersonalAccessToken } from './models/PersonalAccessToken'
 import { User } from './models/User'
 

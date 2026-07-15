@@ -1,8 +1,8 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "ignore": ["dist", "node_modules"] },
-  "organizeImports": { "enabled": true },
+  "files": { "includes": ["**", "!**/dist", "!**/node_modules"] },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -12,7 +12,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "off",
         "noShadowRestrictedNames": "off",
@@ -23,11 +23,20 @@
         "useImportType": "error",
         "noNonNullAssertion": "off",
         "useTemplate": "off",
-        "noUnusedTemplateLiteral": "off"
+        "noUnusedTemplateLiteral": "off",
+        "useVueMultiWordComponentNames": "off"
       }
     }
   },
   "javascript": {
     "formatter": { "quoteStyle": "single", "semicolons": "asNeeded", "trailingCommas": "all" }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.vue"],
+      "linter": {
+        "rules": { "correctness": { "noUnusedImports": "off", "noUnusedVariables": "off" } }
+      }
+    }
+  ]
 }

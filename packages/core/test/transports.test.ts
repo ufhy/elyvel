@@ -8,8 +8,8 @@ import {
   DailyFileTransport,
   FileTransport,
   type LogEntry,
-  LogManager,
   Logger,
+  LogManager,
   type Transport,
 } from '../src/logger'
 

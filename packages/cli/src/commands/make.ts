@@ -1,5 +1,5 @@
 import { relative } from 'node:path'
-import { type Names, makeNames } from '../naming'
+import { makeNames, type Names } from '../naming'
 import { join, renderStub, writeGenerated } from '../stub'
 
 interface Blueprint {

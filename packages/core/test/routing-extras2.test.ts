@@ -3,7 +3,7 @@ import { Elysia } from 'elysia'
 import { cors } from '../src/cors'
 import { registerMiddlewareRegistry, route } from '../src/middleware'
 import { fallback } from '../src/routing'
-import { ThrottleMiddleware, rateLimiter } from '../src/throttle'
+import { rateLimiter, ThrottleMiddleware } from '../src/throttle'
 import { clearRouteNames, named, urlFor } from '../src/url'
 
 describe('throttle middleware', () => {
