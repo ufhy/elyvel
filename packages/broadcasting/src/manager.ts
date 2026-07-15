@@ -8,7 +8,9 @@ export function setDefaultBroadcaster(broadcaster: Broadcaster): void {
 
 export function broadcaster(): Broadcaster {
   if (!defaultBroadcaster) {
-    throw new Error('[elysia-ravel] Broadcasting is not configured. Register BroadcastServiceProvider.')
+    throw new Error(
+      '[elysia-ravel] Broadcasting is not configured. Register BroadcastServiceProvider.',
+    )
   }
   return defaultBroadcaster
 }

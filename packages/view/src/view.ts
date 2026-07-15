@@ -33,7 +33,8 @@ export const View = {
 
 function resolveGlobals(): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const [key, value] of globalData) out[key] = typeof value === 'function' ? (value as () => unknown)() : value
+  for (const [key, value] of globalData)
+    out[key] = typeof value === 'function' ? (value as () => unknown)() : value
   return out
 }
 
@@ -69,7 +70,10 @@ export class ViewResponse<P> {
 }
 
 /** Render a view template with props (Laravel's `view()`). */
-export function view<P = Record<string, never>>(template: ViewTemplate<P>, props: P = {} as P): ViewResponse<P> {
+export function view<P = Record<string, never>>(
+  template: ViewTemplate<P>,
+  props: P = {} as P,
+): ViewResponse<P> {
   return new ViewResponse(template, props)
 }
 

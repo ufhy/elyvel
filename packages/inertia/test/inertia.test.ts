@@ -19,7 +19,9 @@ const build = (config = {}) =>
     .get('/external', () => Inertia.location('https://example.com'))
 
 const inertiaReq = (path: string, headers: Record<string, string> = {}) =>
-  new Request(`http://localhost${path}`, { headers: { 'x-inertia': 'true', 'x-inertia-version': '', ...headers } })
+  new Request(`http://localhost${path}`, {
+    headers: { 'x-inertia': 'true', 'x-inertia-version': '', ...headers },
+  })
 
 describe('first (non-XHR) load', () => {
   test('returns an HTML document embedding the page object', async () => {
@@ -33,7 +35,9 @@ describe('first (non-XHR) load', () => {
   })
 
   test('vite tags inject the dev client + entry when no manifest', async () => {
-    const res = await build({ vite: { entry: 'resources/js/app.ts' } }).handle(new Request('http://localhost/home'))
+    const res = await build({ vite: { entry: 'resources/js/app.ts' } }).handle(
+      new Request('http://localhost/home'),
+    )
     const body = await res.text()
     expect(body).toContain('http://localhost:5173/@vite/client')
     expect(body).toContain('http://localhost:5173/resources/js/app.ts')
@@ -46,7 +50,11 @@ describe('inertia XHR visit', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('x-inertia')).toBe('true')
     expect(res.headers.get('vary')).toBe('X-Inertia')
-    const page = (await res.json()) as { component: string; props: Record<string, unknown>; url: string }
+    const page = (await res.json()) as {
+      component: string
+      props: Record<string, unknown>
+      url: string
+    }
     expect(page.component).toBe('Home')
     expect(page.props.name).toBe('Sam')
     expect(page.props.errors).toEqual({}) // errors always shared
@@ -56,12 +64,16 @@ describe('inertia XHR visit', () => {
 
 describe('asset versioning', () => {
   test('version mismatch → 409 with X-Inertia-Location', async () => {
-    const res = await build({ version: 'v2' }).handle(inertiaReq('/home', { 'x-inertia-version': 'v1' }))
+    const res = await build({ version: 'v2' }).handle(
+      inertiaReq('/home', { 'x-inertia-version': 'v1' }),
+    )
     expect(res.status).toBe(409)
     expect(res.headers.get('x-inertia-location')).toBe('http://localhost/home')
   })
   test('matching version → 200', async () => {
-    const res = await build({ version: 'v2' }).handle(inertiaReq('/home', { 'x-inertia-version': 'v2' }))
+    const res = await build({ version: 'v2' }).handle(
+      inertiaReq('/home', { 'x-inertia-version': 'v2' }),
+    )
     expect(res.status).toBe(200)
   })
 })
@@ -69,7 +81,10 @@ describe('asset versioning', () => {
 describe('partial reloads', () => {
   test('only requested props are returned; always kept; optional included when asked', async () => {
     const res = await build().handle(
-      inertiaReq('/lazy', { 'x-inertia-partial-component': 'Lazy', 'x-inertia-partial-data': 'maybe' }),
+      inertiaReq('/lazy', {
+        'x-inertia-partial-component': 'Lazy',
+        'x-inertia-partial-data': 'maybe',
+      }),
     )
     const page = (await res.json()) as { props: Record<string, unknown> }
     expect(page.props.maybe).toBe('M') // optional, explicitly requested
@@ -99,19 +114,20 @@ describe('shared props', () => {
 
 describe('v2: deferred props', () => {
   const app = () =>
-    new Elysia()
-      .use(inertia())
-      .get('/posts', () =>
-        Inertia.render('Posts', {
-          user: 'Sam',
-          comments: Inertia.defer(() => ['c1', 'c2']),
-          analytics: Inertia.defer(() => ['a1'], 'reports'),
-        }),
-      )
+    new Elysia().use(inertia()).get('/posts', () =>
+      Inertia.render('Posts', {
+        user: 'Sam',
+        comments: Inertia.defer(() => ['c1', 'c2']),
+        analytics: Inertia.defer(() => ['a1'], 'reports'),
+      }),
+    )
 
   test('full visit omits deferred props and advertises them (grouped)', async () => {
     const res = await app().handle(inertiaReq('/posts'))
-    const page = (await res.json()) as { props: Record<string, unknown>; deferredProps: Record<string, string[]> }
+    const page = (await res.json()) as {
+      props: Record<string, unknown>
+      deferredProps: Record<string, string[]>
+    }
     expect(page.props.user).toBe('Sam')
     expect(page.props.comments).toBeUndefined() // deferred, not in initial payload
     expect(page.deferredProps).toEqual({ default: ['comments'], reports: ['analytics'] })
@@ -119,7 +135,10 @@ describe('v2: deferred props', () => {
 
   test('partial reload resolves the requested deferred prop', async () => {
     const res = await app().handle(
-      inertiaReq('/posts', { 'x-inertia-partial-component': 'Posts', 'x-inertia-partial-data': 'comments' }),
+      inertiaReq('/posts', {
+        'x-inertia-partial-component': 'Posts',
+        'x-inertia-partial-data': 'comments',
+      }),
     )
     const page = (await res.json()) as { props: Record<string, unknown> }
     expect(page.props.comments).toEqual(['c1', 'c2'])
@@ -155,8 +174,13 @@ describe('v2: history flags', () => {
   test('encryptHistory / clearHistory / preserveFragment set page flags', async () => {
     const app = new Elysia()
       .use(inertia())
-      .get('/secure', () => Inertia.render('Secure', {}).encryptHistory().clearHistory().preserveFragment())
-    const page = (await app.handle(inertiaReq('/secure')).then((r) => r.json())) as Record<string, unknown>
+      .get('/secure', () =>
+        Inertia.render('Secure', {}).encryptHistory().clearHistory().preserveFragment(),
+      )
+    const page = (await app.handle(inertiaReq('/secure')).then((r) => r.json())) as Record<
+      string,
+      unknown
+    >
     expect(page.encryptHistory).toBe(true)
     expect(page.clearHistory).toBe(true)
     expect(page.preserveFragment).toBe(true)

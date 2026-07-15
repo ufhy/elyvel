@@ -8,7 +8,9 @@ export function setDefaultTelegram(client: TelegramClient): void {
 
 export function telegram(): TelegramClient {
   if (!defaultClient) {
-    throw new Error('[elysia-ravel] Telegram is not configured. Register TelegramServiceProvider / set a token.')
+    throw new Error(
+      '[elysia-ravel] Telegram is not configured. Register TelegramServiceProvider / set a token.',
+    )
   }
   return defaultClient
 }
@@ -22,7 +24,10 @@ export const Telegram = {
   /** Compose to a specific chat: `Telegram.to(id).message('hi')`. */
   to(chatId: string | number) {
     return {
-      message(text: string, options: Omit<TelegramMessage, 'chatId' | 'text'> = {}): Promise<unknown> {
+      message(
+        text: string,
+        options: Omit<TelegramMessage, 'chatId' | 'text'> = {},
+      ): Promise<unknown> {
         return telegram().sendMessage({ chatId, text, ...options })
       },
     }

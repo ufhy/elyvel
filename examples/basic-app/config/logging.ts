@@ -1,4 +1,4 @@
-import { defineLoggingConfig, REDACT_PATTERNS } from '@elysia-ravel/core'
+import { REDACT_PATTERNS, defineLoggingConfig } from '@elysia-ravel/core'
 
 /**
  * Logging config.

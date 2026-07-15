@@ -74,7 +74,8 @@ export class ScheduledEvent {
   // ── raw / naming ────────────────────────────────────────────────────────
   cron(expression: string): this {
     const parts = expression.trim().split(/\s+/)
-    if (parts.length !== 5) throw new Error(`Cron expression must have 5 fields, got "${expression}"`)
+    if (parts.length !== 5)
+      throw new Error(`Cron expression must have 5 fields, got "${expression}"`)
     this.segments = parts as [string, string, string, string, string]
     return this
   }
@@ -322,7 +323,12 @@ export class ScheduledEvent {
       return
     }
     const buffer: string[] = []
-    const original = { log: console.log, info: console.info, warn: console.warn, error: console.error }
+    const original = {
+      log: console.log,
+      info: console.info,
+      warn: console.warn,
+      error: console.error,
+    }
     const tee =
       (fn: (...a: unknown[]) => void) =>
       (...args: unknown[]) => {
@@ -339,7 +345,11 @@ export class ScheduledEvent {
       Object.assign(console, original)
       const output = buffer.join('\n')
       if (this.outputPath) {
-        const existing = this.outputAppend ? await Bun.file(this.outputPath).text().catch(() => '') : ''
+        const existing = this.outputAppend
+          ? await Bun.file(this.outputPath)
+              .text()
+              .catch(() => '')
+          : ''
         await Bun.write(this.outputPath, existing + output + (output ? '\n' : ''))
       }
       if (this.emailTo && scheduleMailer) {

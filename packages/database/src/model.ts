@@ -1,13 +1,12 @@
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
+import type { EagerConstraint } from './eloquent-builder'
 import { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
-import type { EagerConstraint } from './eloquent-builder'
 import {
   BelongsTo,
   BelongsToMany,
-  eagerLoad,
   HasMany,
   HasManyThrough,
   HasOne,
@@ -15,6 +14,7 @@ import {
   MorphMany,
   MorphOne,
   MorphTo,
+  eagerLoad,
 } from './relations'
 
 export type Attributes = Record<string, unknown>
@@ -222,7 +222,6 @@ export class Model {
   /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
   static casts: Record<string, Cast> = {}
   /** Named local scopes: `{ active: (q) => q.where('active', 1) }`. */
-  // biome-ignore lint/suspicious/noExplicitAny: scope callbacks receive the model's own builder
   static scopes: Record<string, (query: EloquentBuilder<any>, ...args: unknown[]) => void> = {}
 
   /** Register a model event listener (creating/created/updating/…/deleted). */
@@ -277,6 +276,7 @@ export class Model {
 
   constructor(attributes: Attributes = {}) {
     this.fill(attributes) // respects $fillable/$guarded
+    // biome-ignore lint/correctness/noConstructorReturn: Active Record returns a Proxy for dynamic attribute access
     return new Proxy(this, proxyHandler)
   }
 
@@ -450,10 +450,7 @@ export class Model {
   }
 
   /** Delete rows by primary key(s). Returns the number deleted. */
-  static async destroy<M extends Model>(
-    this: ModelClass<M>,
-    ...ids: unknown[]
-  ): Promise<number> {
+  static async destroy<M extends Model>(this: ModelClass<M>, ...ids: unknown[]): Promise<number> {
     const flat = ids.flat()
     let deleted = 0
     for (const id of flat) {
@@ -605,10 +602,18 @@ export class Model {
   }
 
   /** Polymorphic one-to-many (related.<morph>_id/_type point back here). */
-  morphMany<R extends Model>(related: ModelClass<R>, morphName: string, localKey = 'id'): MorphMany<R> {
+  morphMany<R extends Model>(
+    related: ModelClass<R>,
+    morphName: string,
+    localKey = 'id',
+  ): MorphMany<R> {
     return new MorphMany<R>(this, related, morphName, localKey)
   }
-  morphOne<R extends Model>(related: ModelClass<R>, morphName: string, localKey = 'id'): MorphOne<R> {
+  morphOne<R extends Model>(
+    related: ModelClass<R>,
+    morphName: string,
+    localKey = 'id',
+  ): MorphOne<R> {
     return new MorphOne<R>(this, related, morphName, localKey)
   }
   /** Inverse polymorphic relation; `typeMap` resolves `<morph>_type` → model. */
@@ -679,7 +684,9 @@ export class Model {
   async load(...paths: (string | Record<string, EagerConstraint>)[]): Promise<this> {
     for (const spec of paths) {
       if (typeof spec === 'string') await eagerLoad([this], spec)
-      else for (const [path, constrain] of Object.entries(spec)) await eagerLoad([this], path, constrain)
+      else
+        for (const [path, constrain] of Object.entries(spec))
+          await eagerLoad([this], path, constrain)
     }
     return this
   }
@@ -747,7 +754,8 @@ export class Model {
       for (const listener of MODEL_EVENTS.get(c)?.get(event) ?? []) await listener(this)
     }
     // Bridge to the app-wide dispatcher: `eloquent.created: User`, etc.
-    if (modelEventDispatcher) await modelEventDispatcher(`eloquent.${event}: ${this.constructor.name}`, this)
+    if (modelEventDispatcher)
+      await modelEventDispatcher(`eloquent.${event}: ${this.constructor.name}`, this)
   }
 
   /** Fire the `retrieved` event on freshly-hydrated models (called by the builder). */

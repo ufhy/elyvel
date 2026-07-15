@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import {
-  type MiddlewareContext,
   Middleware,
+  type MiddlewareContext,
   registerMiddlewareRegistry,
   route,
 } from '../src/middleware'
@@ -52,7 +52,9 @@ describe('route({ middleware }) group bundling', () => {
     )
     expect((await app.handle(new Request('http://localhost/admin/a'))).status).toBe(401)
     expect((await app.handle(new Request('http://localhost/admin/b'))).status).toBe(401)
-    const ok = await app.handle(new Request('http://localhost/admin/a', { headers: { 'x-key': '1' } }))
+    const ok = await app.handle(
+      new Request('http://localhost/admin/a', { headers: { 'x-key': '1' } }),
+    )
     expect(await ok.text()).toBe('a')
   })
 })

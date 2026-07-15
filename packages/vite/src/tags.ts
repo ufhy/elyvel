@@ -28,10 +28,15 @@ export function viteTags(options: ViteOptions): string {
 
   if (existsSync(manifestPath)) {
     try {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, ManifestChunk>
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<
+        string,
+        ManifestChunk
+      >
       const chunk = manifest[options.entry]
       if (chunk) {
-        const css = (chunk.css ?? []).map((f) => `<link rel="stylesheet" href="${base}${f}">`).join('')
+        const css = (chunk.css ?? [])
+          .map((f) => `<link rel="stylesheet" href="${base}${f}">`)
+          .join('')
         return `${css}<script type="module" src="${base}${chunk.file}"></script>`
       }
     } catch {

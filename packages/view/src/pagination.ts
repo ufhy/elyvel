@@ -18,9 +18,14 @@ export function paginationLinks(
   const path = options.path ?? ''
   const win = options.window ?? 2
 
-  const link = (page: number, label: string, state: { active?: boolean; disabled?: boolean } = {}): Html => {
+  const link = (
+    page: number,
+    label: string,
+    state: { active?: boolean; disabled?: boolean } = {},
+  ): Html => {
     if (state.disabled) return html`<span class="page disabled">${raw(label)}</span>`
-    if (state.active) return html`<span class="page active" aria-current="page">${raw(label)}</span>`
+    if (state.active)
+      return html`<span class="page active" aria-current="page">${raw(label)}</span>`
     return html`<a class="page" href="${path}?page=${page}">${raw(label)}</a>`
   }
 

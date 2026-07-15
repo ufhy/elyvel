@@ -14,10 +14,8 @@ interface LogCall {
 function stubApp(config: Record<string, unknown>) {
   const calls: LogCall[] = []
   const requestHooks: (() => void)[] = []
-  const record =
-    (level: string) =>
-    (message: string, context?: Record<string, unknown>) =>
-      calls.push({ level, message, context })
+  const record = (level: string) => (message: string, context?: Record<string, unknown>) =>
+    calls.push({ level, message, context })
   const sqlChannel = { error: record('error'), debug: record('debug'), warn: record('warn') }
 
   const app = {

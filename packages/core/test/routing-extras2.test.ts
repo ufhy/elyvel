@@ -3,7 +3,7 @@ import { Elysia } from 'elysia'
 import { cors } from '../src/cors'
 import { registerMiddlewareRegistry, route } from '../src/middleware'
 import { fallback } from '../src/routing'
-import { rateLimiter, ThrottleMiddleware } from '../src/throttle'
+import { ThrottleMiddleware, rateLimiter } from '../src/throttle'
 import { clearRouteNames, named, urlFor } from '../src/url'
 
 describe('throttle middleware', () => {
@@ -27,7 +27,9 @@ describe('throttle middleware', () => {
 })
 
 describe('cors', () => {
-  const app = new Elysia().use(cors({ origin: 'https://app.test', credentials: true })).get('/', () => 'ok')
+  const app = new Elysia()
+    .use(cors({ origin: 'https://app.test', credentials: true }))
+    .get('/', () => 'ok')
 
   test('sets CORS headers on responses', async () => {
     const res = await app.handle(new Request('http://localhost/'))

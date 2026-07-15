@@ -8,8 +8,10 @@ import { getSchema } from 'better-auth/db'
  * Call it from a migration: `await migrateBetterAuth(schema, auth.options)`.
  * Returns the created table names.
  */
-export async function migrateBetterAuth(schema: SchemaBuilder, options: BetterAuthOptions): Promise<string[]> {
-  // biome-ignore lint/suspicious/noExplicitAny: Better Auth's schema/field shapes
+export async function migrateBetterAuth(
+  schema: SchemaBuilder,
+  options: BetterAuthOptions,
+): Promise<string[]> {
   const tables = getSchema(options) as Record<string, { fields: Record<string, any> }>
   const created: string[] = []
   for (const [name, def] of Object.entries(tables)) {

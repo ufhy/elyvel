@@ -8,7 +8,6 @@ import { RateLimiter, route } from '@elysia-ravel/core'
 export default route()
   .get('/throttled', () => ({ ok: true }), { middleware: 'throttle:api' })
   .get('/login-attempt', () => ({ ok: true }), { middleware: 'throttle:login' })
-  // biome-ignore lint/suspicious/noExplicitAny: derived request + status
   .post('/otp', async ({ request, status }: any) => {
     const ip = request.headers.get('x-forwarded-for') ?? 'global'
     const sent = await RateLimiter.attempt(`otp:${ip}`, 2, () => ({ sent: true }), 60)

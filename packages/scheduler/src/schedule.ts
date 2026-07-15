@@ -44,7 +44,9 @@ export class Schedule {
 
   /** Schedule a `ravel <command>` invocation. */
   command(ravelCommand: string): ScheduledEvent {
-    return this.add(new ScheduledEvent(() => runShell(`ravel ${ravelCommand}`)).named(`ravel ${ravelCommand}`))
+    return this.add(
+      new ScheduledEvent(() => runShell(`ravel ${ravelCommand}`)).named(`ravel ${ravelCommand}`),
+    )
   }
 
   /** Events whose cron expression is due at `date` (ignores when/skip). */
@@ -82,7 +84,11 @@ export class Schedule {
     return results
   }
 
-  private async execute(event: ScheduledEvent, date: Date, results: ScheduleRunResult[]): Promise<void> {
+  private async execute(
+    event: ScheduledEvent,
+    date: Date,
+    results: ScheduleRunResult[],
+  ): Promise<void> {
     if (event.runsInBackground) {
       // fire-and-forget; the event's own onFailure hooks handle errors
       void event.run(date).catch(() => {})

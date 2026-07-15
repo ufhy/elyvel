@@ -4,31 +4,31 @@ import { Elysia } from 'elysia'
 import { type ConfigData, ConfigRepository, ConfigToken } from './config'
 import type { SessionConfig } from './config-schema'
 import { Container, type Token } from './container'
+import { setAppTimezone } from './datetime'
+import { methodOverride } from './http/method-override'
+import { httpResponses } from './http/plugin'
 import {
   BufferedFileTransport,
   ConsoleTransport,
   DailyFileTransport,
   FileTransport,
   type LogChannelConfig,
-  Logger,
+  type LogLevel,
   LogManager,
   LogManagerToken,
-  type LogLevel,
+  Logger,
   LoggerToken,
   type Transport,
 } from './logger'
-import { setAppTimezone } from './datetime'
 import {
-  globalMiddlewarePlugin,
   type MiddlewareConfig,
+  globalMiddlewarePlugin,
   registerMiddlewareRegistry,
 } from './middleware'
-import { ThrottleMiddleware } from './throttle'
-import { methodOverride } from './http/method-override'
-import { httpResponses } from './http/plugin'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
 import { CsrfMiddleware, type ResolvedSessionConfig, sessionPlugin } from './session'
+import { ThrottleMiddleware } from './throttle'
 
 type ChannelConfig = LogChannelConfig
 
@@ -147,7 +147,9 @@ export class Application {
       const glob = new Bun.Glob('*.{ts,js}')
       for await (const file of glob.scan({ cwd: configDir, onlyFiles: true })) {
         const namespace = file.replace(/\.(ts|js)$/, '')
-        const module = (await import(join(configDir, file))) as { default?: Record<string, unknown> }
+        const module = (await import(join(configDir, file))) as {
+          default?: Record<string, unknown>
+        }
         if (module.default) data[namespace] = module.default
       }
     }
@@ -160,9 +162,9 @@ export class Application {
     const pretty = this.config.get<boolean>('logging.pretty') ?? !isProduction
     const level = this.config.get<LogLevel>('logging.level') ?? 'info'
     const redact = this.config.get<string[] | undefined>('logging.redact')
-    const redactPatterns = (this.config.get<string[] | undefined>('logging.redactPatterns') ?? []).map(
-      (p) => new RegExp(p, 'g'),
-    )
+    const redactPatterns = (
+      this.config.get<string[] | undefined>('logging.redactPatterns') ?? []
+    ).map((p) => new RegExp(p, 'g'))
     const redactJson = this.config.get<boolean | undefined>('logging.redactJson')
     const base = { level, redact, redactPatterns, redactJson }
 
@@ -183,7 +185,9 @@ export class Application {
       channels = new Map()
       for (const [name, cfg] of Object.entries(channelConfigs)) {
         const transports =
-          cfg.driver === 'stack' ? resolve(cfg.channels ?? []) : (transportsByChannel.get(name) ?? [])
+          cfg.driver === 'stack'
+            ? resolve(cfg.channels ?? [])
+            : (transportsByChannel.get(name) ?? [])
         channels.set(name, new Logger({ ...base, level: cfg.level ?? level, transports }))
       }
 
@@ -328,8 +332,7 @@ export class Application {
    * explicit arg → `config('app.port')` → `PORT` env → 3000.
    */
   async listen(port?: number): Promise<Application> {
-    const resolved =
-      port ?? this.config.get<number>('app.port') ?? Number(process.env.PORT) ?? 3000
+    const resolved = port ?? this.config.get<number>('app.port') ?? Number(process.env.PORT) ?? 3000
     // Serve through our own fetch so method spoofing runs before Elysia routes.
     // If a WebSocket handler is registered (e.g. broadcasting), upgrade handshakes.
     const ws = this.wsHandler
@@ -348,13 +351,11 @@ export class Application {
     return this
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: Bun's WebSocketHandler/Server types
   private wsHandler: { handler: any; onServer?: (server: any) => void } | null = null
   /**
    * Register a Bun WebSocket handler; `listen()` upgrades WS handshakes to it and
    * calls `onServer` with the running server (used by broadcasting for pub/sub).
    */
-  // biome-ignore lint/suspicious/noExplicitAny: Bun's WebSocketHandler/Server types
   webSocket(handler: any, onServer?: (server: any) => void): void {
     this.wsHandler = { handler, onServer }
   }

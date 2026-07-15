@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { cronMatches, parseCron, parseCronField } from '../src/cron'
+import { afterAll } from 'bun:test'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll } from 'bun:test'
-import { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from '../src/event'
-import { configureScheduleMutex, MemoryScheduleMutex } from '../src/mutex'
+import { cronMatches, parseCron, parseCronField } from '../src/cron'
+import { ScheduledEvent, configureScheduleMailer, setSchedulerEnvironment } from '../src/event'
+import { MemoryScheduleMutex, configureScheduleMutex } from '../src/mutex'
 import { Schedule } from '../src/schedule'
 
 const outDir = mkdtempSync(join(tmpdir(), 'sched-'))
@@ -70,7 +70,8 @@ describe('cronMatches', () => {
 
 // ── frequency builders ─────────────────────────────────────────────────────────
 describe('ScheduledEvent frequencies', () => {
-  const expr = (build: (e: ScheduledEvent) => ScheduledEvent) => build(new ScheduledEvent(() => {})).expression
+  const expr = (build: (e: ScheduledEvent) => ScheduledEvent) =>
+    build(new ScheduledEvent(() => {})).expression
   test('common frequencies build the right cron', () => {
     expect(expr((e) => e.everyMinute())).toBe('* * * * *')
     expect(expr((e) => e.everyFiveMinutes())).toBe('*/5 * * * *')
@@ -99,12 +100,18 @@ describe('when / skip / withoutOverlapping', () => {
   const monday0800 = new Date('2026-07-13T08:00:00Z')
 
   test('when gates execution', async () => {
-    const ev = new ScheduledEvent(() => {}).cron('0 8 * * *').timezone('UTC').when(() => false)
+    const ev = new ScheduledEvent(() => {})
+      .cron('0 8 * * *')
+      .timezone('UTC')
+      .when(() => false)
     expect(ev.isDue(monday0800)).toBe(true)
     expect(await ev.shouldRun(monday0800)).toBe(false)
   })
   test('skip prevents execution', async () => {
-    const ev = new ScheduledEvent(() => {}).cron('0 8 * * *').timezone('UTC').skip(() => true)
+    const ev = new ScheduledEvent(() => {})
+      .cron('0 8 * * *')
+      .timezone('UTC')
+      .skip(() => true)
     expect(await ev.shouldRun(monday0800)).toBe(false)
   })
   test('withoutOverlapping blocks a concurrent run', async () => {
@@ -154,14 +161,23 @@ describe('between / unlessBetween / environments / background', () => {
   const monday0800 = new Date('2026-07-13T08:00:00Z')
 
   test('between gates by time-of-day', async () => {
-    const inWindow = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').between('08:00', '09:00')
-    const outWindow = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').between('09:00', '10:00')
+    const inWindow = new ScheduledEvent(() => {})
+      .everyMinute()
+      .timezone('UTC')
+      .between('08:00', '09:00')
+    const outWindow = new ScheduledEvent(() => {})
+      .everyMinute()
+      .timezone('UTC')
+      .between('09:00', '10:00')
     expect(await inWindow.shouldRun(monday0800)).toBe(true)
     expect(await outWindow.shouldRun(monday0800)).toBe(false)
   })
 
   test('unlessBetween is the inverse', async () => {
-    const ev = new ScheduledEvent(() => {}).everyMinute().timezone('UTC').unlessBetween('08:00', '09:00')
+    const ev = new ScheduledEvent(() => {})
+      .everyMinute()
+      .timezone('UTC')
+      .unlessBetween('08:00', '09:00')
     expect(await ev.shouldRun(monday0800)).toBe(false)
   })
 
@@ -203,8 +219,16 @@ describe('onOneServer / mutex-backed overlap', () => {
   test('onOneServer lets only one claimant run per tick', async () => {
     configureScheduleMutex(new MemoryScheduleMutex()) // shared mutex simulates one server pool
     const ranA: string[] = []
-    const evA = new ScheduledEvent(() => void ranA.push('A')).cron('0 8 * * *').timezone('UTC').named('job').onOneServer()
-    const evB = new ScheduledEvent(() => void ranA.push('B')).cron('0 8 * * *').timezone('UTC').named('job').onOneServer()
+    const evA = new ScheduledEvent(() => void ranA.push('A'))
+      .cron('0 8 * * *')
+      .timezone('UTC')
+      .named('job')
+      .onOneServer()
+    const evB = new ScheduledEvent(() => void ranA.push('B'))
+      .cron('0 8 * * *')
+      .timezone('UTC')
+      .named('job')
+      .onOneServer()
     // same name + same tick → second is skipped
     expect(await evA.run(monday0800)).toBe(true)
     expect(await evB.run(monday0800)).toBe(false)
@@ -306,8 +330,14 @@ describe('Schedule.run', () => {
   test('runs only due tasks and collects results', async () => {
     const ran: string[] = []
     const s = new Schedule()
-    s.call(() => void ran.push('due')).cron('0 8 * * *').timezone('UTC').named('due')
-    s.call(() => void ran.push('not-due')).cron('0 9 * * *').timezone('UTC').named('not-due')
+    s.call(() => void ran.push('due'))
+      .cron('0 8 * * *')
+      .timezone('UTC')
+      .named('due')
+    s.call(() => void ran.push('not-due'))
+      .cron('0 9 * * *')
+      .timezone('UTC')
+      .named('not-due')
 
     const results = await s.run(monday0800)
     expect(ran).toEqual(['due'])
@@ -324,7 +354,9 @@ describe('Schedule.run', () => {
     })
       .everyMinute()
       .named('boom')
-    s.call(() => void ran.push('after')).everyMinute().named('after')
+    s.call(() => void ran.push('after'))
+      .everyMinute()
+      .named('after')
 
     const results = await s.run(monday0800)
     expect(ran).toEqual(['after'])
@@ -333,8 +365,12 @@ describe('Schedule.run', () => {
 
   test('dueEvents filters by cron only', () => {
     const s = new Schedule()
-    s.call(() => {}).cron('0 8 * * *').timezone('UTC')
-    s.call(() => {}).cron('0 9 * * *').timezone('UTC')
+    s.call(() => {})
+      .cron('0 8 * * *')
+      .timezone('UTC')
+    s.call(() => {})
+      .cron('0 9 * * *')
+      .timezone('UTC')
     expect(s.dueEvents(monday0800)).toHaveLength(1)
   })
 })

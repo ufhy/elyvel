@@ -48,7 +48,8 @@ interface ParsedCron {
 /** Parse a 5-field cron expression into matcher sets. */
 export function parseCron(expression: string): ParsedCron {
   const fields = expression.trim().split(/\s+/)
-  if (fields.length !== 5) throw new Error(`Cron expression must have 5 fields, got "${expression}"`)
+  if (fields.length !== 5)
+    throw new Error(`Cron expression must have 5 fields, got "${expression}"`)
   const [minute, hour, dayOfMonth, month, dayOfWeek] = fields.map((f, i) => {
     const [lo, hi] = FIELD_RANGES[i] as [number, number]
     // normalize Sunday-as-7 in the day-of-week field
@@ -59,7 +60,10 @@ export function parseCron(expression: string): ParsedCron {
 }
 
 /** Calendar parts of `date` in the given IANA timezone (default local). */
-export function partsInZone(date: Date, timezone?: string): {
+export function partsInZone(
+  date: Date,
+  timezone?: string,
+): {
   minute: number
   hour: number
   dayOfMonth: number
@@ -85,7 +89,15 @@ export function partsInZone(date: Date, timezone?: string): {
     weekday: 'short',
   })
   const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]))
-  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  }
   return {
     minute: Number(parts.minute),
     hour: Number(parts.hour === '24' ? '0' : parts.hour), // some locales emit 24 for midnight

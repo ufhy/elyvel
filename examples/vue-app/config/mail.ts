@@ -7,7 +7,10 @@ import { defineMailConfig } from '@elysia-ravel/mail'
  */
 export default defineMailConfig({
   default: process.env.MAIL_MAILER ?? 'log',
-  from: { email: process.env.MAIL_FROM ?? 'no-reply@example.com', name: process.env.APP_NAME ?? 'App' },
+  from: {
+    email: process.env.MAIL_FROM ?? 'no-reply@example.com',
+    name: process.env.APP_NAME ?? 'App',
+  },
   mailers: {
     log: { transport: 'log' },
     smtp: {

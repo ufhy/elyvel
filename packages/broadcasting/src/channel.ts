@@ -1,4 +1,10 @@
-import { type Channel, type Notifiable, type Notification, notifiableKey, routeFor } from '@elysia-ravel/notifications'
+import {
+  type Channel,
+  type Notifiable,
+  type Notification,
+  notifiableKey,
+  routeFor,
+} from '@elysia-ravel/notifications'
 import { broadcaster } from './manager'
 
 /**
@@ -11,7 +17,8 @@ export class BroadcastChannel implements Channel {
     if (!notification.toBroadcast) return
     const payload = notification.toBroadcast(notifiable)
     const route = routeFor(notifiable, 'broadcast')
-    const channel = route !== undefined ? String(route) : `notifications.${String(notifiableKey(notifiable))}`
+    const channel =
+      route !== undefined ? String(route) : `notifications.${String(notifiableKey(notifiable))}`
     await broadcaster().broadcast([channel], notification.constructor.name, payload)
   }
 }

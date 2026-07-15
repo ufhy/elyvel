@@ -16,10 +16,7 @@ describe('defineEnv', () => {
   })
 
   test('applies defaults for absent variables', () => {
-    const env = defineEnv(
-      t.Object({ PORT: t.Number({ default: 3000 }) }),
-      {},
-    )
+    const env = defineEnv(t.Object({ PORT: t.Number({ default: 3000 }) }), {})
     expect(env.PORT).toBe(3000)
   })
 
@@ -32,8 +29,8 @@ describe('defineEnv', () => {
   })
 
   test('throws with a readable message when required vars are missing', () => {
-    expect(() =>
-      defineEnv(t.Object({ SECRET: t.String() }), {}),
-    ).toThrow(/Invalid environment variables/)
+    expect(() => defineEnv(t.Object({ SECRET: t.String() }), {})).toThrow(
+      /Invalid environment variables/,
+    )
   })
 })

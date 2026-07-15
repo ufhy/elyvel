@@ -12,7 +12,8 @@ describe('viteTags', () => {
 })
 
 describe('spa()', () => {
-  const app = () => new Elysia().use(spa({ entry: 'resources/js/spa.ts', prefix: '/dashboard', buildDir: '.' }))
+  const app = () =>
+    new Elysia().use(spa({ entry: 'resources/js/spa.ts', prefix: '/dashboard', buildDir: '.' }))
 
   test('serves the SPA shell (root div + vite tags) at the prefix', async () => {
     const res = await app().handle(new Request('http://localhost/dashboard'))

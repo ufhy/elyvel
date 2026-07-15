@@ -63,7 +63,11 @@ for (const d of dialects) {
 
     test('when applies conditionally', async () => {
       const dev = async (flag: boolean) =>
-        (await Person.query().when(flag, (q) => q.where('role', 'dev')).get()).count()
+        (
+          await Person.query()
+            .when(flag, (q) => q.where('role', 'dev'))
+            .get()
+        ).count()
       expect(await dev(true)).toBe(3)
       expect(await dev(false)).toBe(4)
     })

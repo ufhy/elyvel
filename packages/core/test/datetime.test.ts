@@ -16,7 +16,11 @@ describe('timezone helpers', () => {
 
   test('formatDate accepts a per-call timezone override', () => {
     setAppTimezone('UTC')
-    const s = formatDate(instant, { timeZone: 'America/New_York', hour: '2-digit', hour12: false }, 'en-US')
+    const s = formatDate(
+      instant,
+      { timeZone: 'America/New_York', hour: '2-digit', hour12: false },
+      'en-US',
+    )
     expect(s).toContain('19') // 00:00 UTC → 19:00 previous day in New York (UTC-5)
   })
 

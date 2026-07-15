@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection, transaction, useConnection } from '../src/connection'
-import { SchemaBuilder } from '../src/schema'
 import { table } from '../src/query-builder'
+import { SchemaBuilder } from '../src/schema'
 
 const dialects = [
   { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },

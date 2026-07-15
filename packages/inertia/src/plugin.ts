@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
+import { type ViteOptions, viteTags } from '@elysia-ravel/vite'
 import { Elysia } from 'elysia'
-import { viteTags, type ViteOptions } from '@elysia-ravel/vite'
-import { buildProps, InertiaLocation, InertiaResponse, type Page } from './response'
+import { InertiaLocation, InertiaResponse, type Page, buildProps } from './response'
 
 /** What an Inertia SSR bundle's default export returns for a page. */
 export interface SsrResult {
@@ -37,12 +37,24 @@ export interface InertiaConfig {
 }
 
 const escapeAttr = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;')
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;')
 
-function defaultHtml(opts: { pageJson: string; rootId: string; head: string; ssr?: SsrResult }): string {
+function defaultHtml(opts: {
+  pageJson: string
+  rootId: string
+  head: string
+  ssr?: SsrResult
+}): string {
   // With SSR, `ssr.body` already contains the rendered `<div id=app data-page>`;
   // otherwise emit an empty root div the client fills.
-  const app = opts.ssr ? opts.ssr.body : `<div id="${opts.rootId}" data-page="${escapeAttr(opts.pageJson)}"></div>`
+  const app = opts.ssr
+    ? opts.ssr.body
+    : `<div id="${opts.rootId}" data-page="${escapeAttr(opts.pageJson)}"></div>`
   const ssrHead = opts.ssr ? opts.ssr.head.join('') : ''
   return (
     `<!doctype html><html><head><meta charset="utf-8">` +
@@ -53,7 +65,9 @@ function defaultHtml(opts: { pageJson: string; rootId: string; head: string; ssr
 
 /** Import + cache an SSR bundle's default render function. */
 let ssrRenderCache: ((page: Page) => Promise<SsrResult> | SsrResult) | null = null
-async function loadSsrRender(bundle: string): Promise<((page: Page) => Promise<SsrResult> | SsrResult) | null> {
+async function loadSsrRender(
+  bundle: string,
+): Promise<((page: Page) => Promise<SsrResult> | SsrResult) | null> {
   if (ssrRenderCache) return ssrRenderCache
   const abs = isAbsolute(bundle) ? bundle : resolve(process.cwd(), bundle)
   if (!existsSync(abs)) return null
@@ -70,13 +84,13 @@ async function loadSsrRender(bundle: string): Promise<((page: Page) => Promise<S
  */
 export function inertia(config: InertiaConfig = {}) {
   const rootId = config.rootId ?? 'app'
-  const resolveVersion = () => (typeof config.version === 'function' ? config.version() : (config.version ?? ''))
+  const resolveVersion = () =>
+    typeof config.version === 'function' ? config.version() : (config.version ?? '')
   const renderHtml = config.html ?? ((o) => defaultHtml(o))
   const head = config.vite ? viteTags(config.vite) : ''
 
   // Scoped so mounting `.use(inertia())` in a route file applies to that file's
   // routes (like requestContext/auth.guard) — no app-level global mount needed.
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia context varies with hooks
   return new Elysia({ name: 'ravel-inertia' }).onAfterHandle({ as: 'scoped' }, async (ctx: any) => {
     const response = ctx.response
     const request = ctx.request as Request
@@ -99,7 +113,11 @@ export function inertia(config: InertiaConfig = {}) {
     const version = resolveVersion()
 
     // Asset version changed between navigations → tell the client to hard-reload.
-    if (isInertia && request.method === 'GET' && (request.headers.get('x-inertia-version') ?? '') !== version) {
+    if (
+      isInertia &&
+      request.method === 'GET' &&
+      (request.headers.get('x-inertia-version') ?? '') !== version
+    ) {
       ctx.set.status = 409
       ctx.set.headers['x-inertia-location'] = request.url
       return ''
@@ -134,7 +152,8 @@ export function inertia(config: InertiaConfig = {}) {
     let ssr: SsrResult | undefined
     if (config.ssr) {
       try {
-        const render = config.ssr.render ?? (config.ssr.bundle ? await loadSsrRender(config.ssr.bundle) : null)
+        const render =
+          config.ssr.render ?? (config.ssr.bundle ? await loadSsrRender(config.ssr.bundle) : null)
         if (render) ssr = await render(page)
       } catch {
         ssr = undefined // fall back to client-only rendering

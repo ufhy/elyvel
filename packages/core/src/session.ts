@@ -27,7 +27,8 @@ export class Session {
 
   /** Ensure a CSRF token exists (called when the session starts). */
   ensureToken(): void {
-    if (typeof this.data[TOKEN_KEY] !== 'string') this.data[TOKEN_KEY] = randomBytes(20).toString('hex')
+    if (typeof this.data[TOKEN_KEY] !== 'string')
+      this.data[TOKEN_KEY] = randomBytes(20).toString('hex')
   }
   token(): string {
     return this.data[TOKEN_KEY] as string
@@ -158,9 +159,16 @@ function encrypt(data: Record<string, unknown>, secret: string): string {
 function decrypt(payload: string, secret: string): Record<string, unknown> | null {
   try {
     const [iv, tag, enc] = payload.split('.')
-    const decipher = createDecipheriv('aes-256-gcm', keyFrom(secret), Buffer.from(iv as string, 'base64url'))
+    const decipher = createDecipheriv(
+      'aes-256-gcm',
+      keyFrom(secret),
+      Buffer.from(iv as string, 'base64url'),
+    )
     decipher.setAuthTag(Buffer.from(tag as string, 'base64url'))
-    const out = Buffer.concat([decipher.update(Buffer.from(enc as string, 'base64url')), decipher.final()])
+    const out = Buffer.concat([
+      decipher.update(Buffer.from(enc as string, 'base64url')),
+      decipher.final(),
+    ])
     return JSON.parse(out.toString('utf8'))
   } catch {
     return null
@@ -288,7 +296,12 @@ export class RedisSessionStore implements SessionStore {
   }
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     const payload = JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 })
-    await this.client.send('SET', [this.prefix + id, payload, 'EX', String(Math.max(1, Math.ceil(lifetime)))])
+    await this.client.send('SET', [
+      this.prefix + id,
+      payload,
+      'EX',
+      String(Math.max(1, Math.ceil(lifetime))),
+    ])
   }
 }
 
@@ -301,7 +314,9 @@ function makeStore(config: ResolvedSessionConfig): SessionStore | null {
     case 'memory':
       return new MemorySessionStore()
     case 'redis':
-      return new RedisSessionStore(config.redisUrl ? new RedisClient(config.redisUrl) : new RedisClient())
+      return new RedisSessionStore(
+        config.redisUrl ? new RedisClient(config.redisUrl) : new RedisClient(),
+      )
     default:
       return null // cookie driver has no server-side store
   }
@@ -315,7 +330,6 @@ function makeStore(config: ResolvedSessionConfig): SessionStore | null {
 export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
   const store = makeStore(config)
 
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia generics vary with derive/hooks
   const plugin: any = new Elysia({ name: 'ravel-session' })
     .derive({ as: 'global' }, async ({ cookie }) => {
       const raw = cookie[config.cookie]?.value as string | undefined
@@ -345,9 +359,9 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       if (session && isValidation && !expectsJson(request)) {
         session.flash('errors', error.errors)
         const body = ctx.body
-        if (body && typeof body === 'object') session.flash('_old_input', body as Record<string, unknown>)
+        if (body && typeof body === 'object')
+          session.flash('_old_input', body as Record<string, unknown>)
         await persist(ctx)
-        // biome-ignore lint/suspicious/noExplicitAny: Elysia set proxy
         const set = ctx.set as any
         set.status = 303
         set.headers.location = request.headers.get('referer') ?? '/'
@@ -361,7 +375,6 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
   async function persist(ctx: Record<string, unknown>): Promise<void> {
     const session = ctx.session as Session | undefined
     if (!session) return
-    // biome-ignore lint/suspicious/noExplicitAny: Elysia cookie proxy
     const cookie = ctx.cookie as any
     session.ageFlashData()
 
@@ -396,9 +409,7 @@ function requestToken(ctx: MiddlewareContext): string | undefined {
   const fromBody = body && typeof body === 'object' ? body._token : undefined
   if (typeof fromBody === 'string') return fromBody
   return (
-    ctx.request.headers.get('x-csrf-token') ??
-    ctx.request.headers.get('x-xsrf-token') ??
-    undefined
+    ctx.request.headers.get('x-csrf-token') ?? ctx.request.headers.get('x-xsrf-token') ?? undefined
   )
 }
 

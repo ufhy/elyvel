@@ -1,5 +1,5 @@
-import { AsyncLocalStorage } from 'node:async_hooks'
 import { Database } from 'bun:sqlite'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { type Dialect, type Grammar, grammarFor } from './grammar'
 
 /**

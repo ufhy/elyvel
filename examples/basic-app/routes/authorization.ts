@@ -11,10 +11,8 @@ import { auth } from '../app/better-auth'
 export default route()
   .use(betterAuthPlugin(auth))
   // model-less gate via the `can` macro
-  // biome-ignore lint/suspicious/noExplicitAny: derived user
   .get('/admin', ({ user }: any) => ({ ok: true, user: user.email }), { auth: true, can: 'admin' })
   // create a note owned by the current user (spread to a plain object for JSON)
-  // biome-ignore lint/suspicious/noExplicitAny: derived user + body
   .post(
     '/notes',
     ({ user, body }: any) => ({ ...notes.create(user.id, body?.title ?? 'Untitled') }),
@@ -23,7 +21,6 @@ export default route()
     },
   )
   // policy check in the handler: only the author may update
-  // biome-ignore lint/suspicious/noExplicitAny: derived authorize + params/body/status
   .put(
     '/notes/:id',
     ({ params, body, authorize, status }: any) => {

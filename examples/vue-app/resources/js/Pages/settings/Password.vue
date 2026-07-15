@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import AppLayout from '../../Layouts/AppLayout.vue'
 import UiAlert from '../../components/UiAlert.vue'
 import UiButton from '../../components/UiButton.vue'
 import UiInput from '../../components/UiInput.vue'
 import { authApi } from '../../lib/auth'
-import AppLayout from '../../Layouts/AppLayout.vue'
 
 const current = ref('')
 const next = ref('')

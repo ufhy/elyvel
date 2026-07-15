@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection } from '../src/connection'
 import { type EloquentBuilder, Model } from '../src'
+import { createConnection, setConnection } from '../src/connection'
 import { SchemaBuilder } from '../src/schema'
 
 class Log extends Model {

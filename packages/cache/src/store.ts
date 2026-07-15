@@ -89,7 +89,10 @@ export class FileStore implements CacheStore {
     return this.read(key)?.value as T | undefined
   }
   async put(key: string, value: unknown, seconds?: number): Promise<void> {
-    this.write(key, { value, expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined })
+    this.write(key, {
+      value,
+      expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined,
+    })
   }
   async forget(key: string): Promise<void> {
     const file = this.path(key)
@@ -129,7 +132,9 @@ export function configureDatabaseCache(adapter: CacheDbAdapter): void {
 }
 function requireAdapter(): CacheDbAdapter {
   if (!dbAdapter) {
-    throw new Error('[elysia-ravel] database cache store needs configureDatabaseCache(...) at boot.')
+    throw new Error(
+      '[elysia-ravel] database cache store needs configureDatabaseCache(...) at boot.',
+    )
   }
   return dbAdapter
 }

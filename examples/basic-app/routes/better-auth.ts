@@ -9,8 +9,6 @@ import { auth } from '../app/better-auth'
  */
 export default route()
   .use(betterAuthPlugin(auth))
-  // biome-ignore lint/suspicious/noExplicitAny: derived user in context
   .get('/account', ({ user }: any) => user, { auth: true })
   // `{ verified: true }` also requires a verified email (403 otherwise).
-  // biome-ignore lint/suspicious/noExplicitAny: derived user in context
   .get('/billing', ({ user }: any) => ({ plan: 'pro', email: user.email }), { verified: true })

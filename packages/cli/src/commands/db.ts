@@ -3,16 +3,16 @@ import { join } from 'node:path'
 import { createApp } from '@elysia-ravel/core'
 import {
   type Connection,
-  countRows,
   DatabaseToken,
+  type Model,
+  type SeederClass,
+  countRows,
   freshMigrate,
   listTables,
   migrate,
-  type Model,
   openConnectionCount,
   rollback,
   runSeeders,
-  type SeederClass,
   status,
   tableColumns,
 } from '@elysia-ravel/database'
@@ -65,7 +65,9 @@ export async function seedCommand(): Promise<number> {
   const seederPath = app.path('database/seeders/DatabaseSeeder.ts')
 
   if (!existsSync(seederPath)) {
-    console.error('No database/seeders/DatabaseSeeder.ts found. Create one with: ravel make:seeder Database')
+    console.error(
+      'No database/seeders/DatabaseSeeder.ts found. Create one with: ravel make:seeder Database',
+    )
     return 1
   }
 
@@ -177,7 +179,9 @@ export async function dbMonitorCommand(max = 100): Promise<number> {
   const connection = conn as Connection
   const count = await openConnectionCount(connection)
   if (count === null) {
-    console.log(`Connection monitoring is only supported on Postgres (dialect: ${connection.dialect}).`)
+    console.log(
+      `Connection monitoring is only supported on Postgres (dialect: ${connection.dialect}).`,
+    )
     return 0
   }
   console.log(`Open connections: ${count} / ${max}`)

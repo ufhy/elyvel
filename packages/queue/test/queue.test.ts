@@ -1,29 +1,35 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { Bus, configureBatches, findBatch, MemoryBatchStore } from '../src/batch'
+import { Bus, MemoryBatchStore, configureBatches, findBatch } from '../src/batch'
 import { configureJobEncryption } from '../src/encryption'
-import { configureQueueEventDispatcher, Queue } from '../src/events'
+import { Queue, configureQueueEventDispatcher } from '../src/events'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
-import { configureAfterCommit, dispatch, dispatchSync, QueueManager, setDefaultQueue } from '../src/manager'
-import { decodeBody, encodeBody, Job, registerJob, reconstructJob, serializeJob } from '../src/job'
-import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
-import { configureModelSerializer } from '../src/serializes-models'
-import { configureRestartSignal } from '../src/restart'
+import { Job, decodeBody, encodeBody, reconstructJob, registerJob, serializeJob } from '../src/job'
 import {
-  configureRateLimiter,
+  QueueManager,
+  configureAfterCommit,
+  dispatch,
+  dispatchSync,
+  setDefaultQueue,
+} from '../src/manager'
+import {
   type JobMiddleware,
   MemoryRateLimiter,
   RateLimited,
   ReleaseJob,
+  configureRateLimiter,
   runThroughMiddleware,
 } from '../src/middleware'
+import { configureRestartSignal } from '../src/restart'
+import { configureModelSerializer } from '../src/serializes-models'
 import {
-  configureDatabaseQueue,
   DatabaseQueueStore,
   MemoryQueueStore,
   type QueueDbAdapter,
-  RedisQueueStore,
   type RedisLike,
+  RedisQueueStore,
+  configureDatabaseQueue,
 } from '../src/store'
+import { MemoryUniqueLock, configureUniqueJobs } from '../src/unique'
 import { Worker } from '../src/worker'
 
 // ── test jobs ───────────────────────────────────────────────────────────────
@@ -99,7 +105,9 @@ describe('job serialization', () => {
   })
 
   test('reconstruct throws for unknown job', () => {
-    expect(() => reconstructJob({ job: 'Nope', data: {}, config: { tries: 1 } })).toThrow(/Unknown job "Nope"/)
+    expect(() => reconstructJob({ job: 'Nope', data: {}, config: { tries: 1 } })).toThrow(
+      /Unknown job "Nope"/,
+    )
   })
 })
 
@@ -575,7 +583,9 @@ describe('Queue lifecycle events', () => {
 
     const names = dispatched.map((d) => d.name)
     expect(names).toContain('queue.processing')
-    expect(dispatched.find((d) => d.name === 'queue.processed')?.payload).toEqual({ job: 'RecordJob' })
+    expect(dispatched.find((d) => d.name === 'queue.processed')?.payload).toEqual({
+      job: 'RecordJob',
+    })
     const failed = dispatched.find((d) => d.name === 'queue.failed')
     expect(failed?.payload.job).toBe('FlakyJob')
     expect(failed?.payload.error).toBeDefined()
@@ -642,8 +652,22 @@ describe('worker lifecycle hooks', () => {
 describe('prune failed jobs', () => {
   test('removes records older than the cutoff', async () => {
     const adapter = new MemoryFailedJobStore()
-    await adapter.log({ id: 'old', connection: 'c', queue: 'q', body: '{}', exception: 'e', failedAt: 1000 })
-    await adapter.log({ id: 'fresh', connection: 'c', queue: 'q', body: '{}', exception: 'e', failedAt: Date.now() })
+    await adapter.log({
+      id: 'old',
+      connection: 'c',
+      queue: 'q',
+      body: '{}',
+      exception: 'e',
+      failedAt: 1000,
+    })
+    await adapter.log({
+      id: 'fresh',
+      connection: 'c',
+      queue: 'q',
+      body: '{}',
+      exception: 'e',
+      failedAt: Date.now(),
+    })
     const removed = await adapter.prune(Date.now() - 3600 * 1000)
     expect(removed).toBe(1)
     expect((await adapter.all()).map((r) => r.id)).toEqual(['fresh'])
@@ -821,7 +845,13 @@ describe('RedisQueueStore (fake client — logic only)', () => {
 // ── database store (fake adapter) ─────────────────────────────────────────────
 describe('DatabaseQueueStore (fake adapter)', () => {
   test('push/takeReady/count via the injected adapter', async () => {
-    const rows: { id: string; body: string; attempts: number; availableAt: number; queue: string }[] = []
+    const rows: {
+      id: string
+      body: string
+      attempts: number
+      availableAt: number
+      queue: string
+    }[] = []
     const adapter: QueueDbAdapter = {
       insert: async (id, body, attempts, availableAt, queue) => {
         rows.push({ id, body, attempts, availableAt, queue })

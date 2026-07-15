@@ -23,7 +23,10 @@ export class Factory<M extends Model> {
     return new this.model({ ...this.definition(0), ...overrides })
   }
   make(overrides: Attributes = {}): M[] {
-    return Array.from({ length: this.n }, (_, i) => new this.model({ ...this.definition(i), ...overrides }))
+    return Array.from(
+      { length: this.n },
+      (_, i) => new this.model({ ...this.definition(i), ...overrides }),
+    )
   }
   createOne(overrides: Attributes = {}): Promise<M> {
     return this.model.create({ ...this.definition(0), ...overrides })

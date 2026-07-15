@@ -22,20 +22,14 @@ describe('nested / wildcard / distinct', () => {
   })
 
   test('distinct flags duplicates', async () => {
-    const bag = await Validator.make(
-      { ids: [1, 2, 2] },
-      { 'ids.*': 'distinct' },
-    ).errors()
+    const bag = await Validator.make({ ids: [1, 2, 2] }, { 'ids.*': 'distinct' }).errors()
     expect(bag['ids.1']).toBeDefined()
     expect(bag['ids.2']).toBeDefined()
     expect(bag['ids.0']).toBeUndefined()
   })
 
   test('array:keys restricts allowed keys', async () => {
-    const bag = await Validator.make(
-      { opts: { a: 1, z: 9 } },
-      { opts: 'array:a,b' },
-    ).errors()
+    const bag = await Validator.make({ opts: { a: 1, z: 9 } }, { opts: 'array:a,b' }).errors()
     expect(bag.opts).toBeDefined() // z not allowed
   })
 })
@@ -69,10 +63,7 @@ describe('custom rules', () => {
 
 describe('flow: bail / exclude / sometimes / after / safe', () => {
   test('bail stops at first failure', async () => {
-    const bag = await Validator.make(
-      { pw: 'x' },
-      { pw: 'bail|min:8|regex:^[0-9]+$' },
-    ).errors()
+    const bag = await Validator.make({ pw: 'x' }, { pw: 'bail|min:8|regex:^[0-9]+$' }).errors()
     expect(bag.pw).toHaveLength(1) // only the first failure
   })
 
@@ -110,17 +101,18 @@ describe('flow: bail / exclude / sometimes / after / safe', () => {
 
 describe('new rules batch', () => {
   test('conditional + comparison + string/number', async () => {
+    expect(await Validator.make({ a: 'x', b: '' }, { b: 'required_unless:a,y' }).fails()).toBe(true) // a!==y → b required
     expect(
-      await Validator.make({ a: 'x', b: '' }, { b: 'required_unless:a,y' }).fails(),
-    ).toBe(true) // a!==y → b required
-    expect(
-      await Validator.make({ start: '2020-01-01', end: '2019-01-01' }, {
-        end: 'after_or_equal:start',
-      }).fails(),
+      await Validator.make(
+        { start: '2020-01-01', end: '2019-01-01' },
+        {
+          end: 'after_or_equal:start',
+        },
+      ).fails(),
     ).toBe(true)
-    expect(
-      await Validator.make({ d: '2020-13-01' }, { d: 'date_format:Y-m-d' }).fails(),
-    ).toBe(false) // matches Y-m-d shape (format check, not calendar)
+    expect(await Validator.make({ d: '2020-13-01' }, { d: 'date_format:Y-m-d' }).fails()).toBe(
+      false,
+    ) // matches Y-m-d shape (format check, not calendar)
     expect(await Validator.make({ n: '1.239' }, { n: 'decimal:2' }).fails()).toBe(true)
     expect(await Validator.make({ n: 9 }, { n: 'multiple_of:3' }).passes()).toBe(true)
     expect(await Validator.make({ s: 'AbC' }, { s: 'uppercase' }).fails()).toBe(true)

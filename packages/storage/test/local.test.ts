@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FilesystemManager, fakeStorage, LocalDisk, storage } from '../src/index'
+import { FilesystemManager, LocalDisk, fakeStorage, storage } from '../src/index'
 
 const roots: string[] = []
 const freshRoot = (): string => {
@@ -10,7 +10,8 @@ const freshRoot = (): string => {
   roots.push(root)
   return root
 }
-const makeDisk = () => new LocalDisk({ driver: 'local', root: freshRoot(), url: '/storage', visibility: 'public' })
+const makeDisk = () =>
+  new LocalDisk({ driver: 'local', root: freshRoot(), url: '/storage', visibility: 'public' })
 
 afterAll(() => {
   for (const r of roots) if (existsSync(r)) rmSync(r, { recursive: true, force: true })
@@ -92,7 +93,9 @@ describe('LocalDisk — metadata + url', () => {
 
   test('temporaryUrl is unsupported on local (clear error)', async () => {
     const disk = makeDisk()
-    await expect(disk.temporaryUrl('x.txt', 60)).rejects.toThrow(/not supported by the local driver/)
+    await expect(disk.temporaryUrl('x.txt', 60)).rejects.toThrow(
+      /not supported by the local driver/,
+    )
   })
 })
 
@@ -109,7 +112,9 @@ describe('LocalDisk — visibility', () => {
 describe('LocalDisk — uploads (putFile/putFileAs)', () => {
   test('putFileAs stores a Blob under the given name', async () => {
     const disk = makeDisk()
-    const blob = new File([new Uint8Array([9, 8, 7])], 'upload.bin', { type: 'application/octet-stream' })
+    const blob = new File([new Uint8Array([9, 8, 7])], 'upload.bin', {
+      type: 'application/octet-stream',
+    })
     const path = await disk.putFileAs('uploads', blob, 'named.bin')
     expect(path).toBe('uploads/named.bin')
     expect(Array.from(await disk.getBytes(path))).toEqual([9, 8, 7])
@@ -198,8 +203,12 @@ describe('ScopedDisk', () => {
     })
     const scoped = manager.build({ driver: 'scoped', disk: 'base', prefix: 'tenants/acme' })
     // async IIFE turns the guard's (synchronous) throw into a rejection for the matcher
-    await expect((async () => scoped.get('../beta/secret.txt'))()).rejects.toThrow(/escapes the scoped prefix/)
-    await expect((async () => scoped.put('../../root.txt', 'x'))()).rejects.toThrow(/escapes the scoped prefix/)
+    await expect((async () => scoped.get('../beta/secret.txt'))()).rejects.toThrow(
+      /escapes the scoped prefix/,
+    )
+    await expect((async () => scoped.put('../../root.txt', 'x'))()).rejects.toThrow(
+      /escapes the scoped prefix/,
+    )
   })
 })
 

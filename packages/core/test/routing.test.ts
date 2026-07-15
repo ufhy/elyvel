@@ -62,7 +62,9 @@ describe('resource routing', () => {
     )
     expect(await patched.json()).toEqual({ id: 3, updated: true })
 
-    const put = await app.handle(new Request('http://localhost/posts/3', { method: 'PUT', headers: json, body: '{}' }))
+    const put = await app.handle(
+      new Request('http://localhost/posts/3', { method: 'PUT', headers: json, body: '{}' }),
+    )
     expect(await put.json()).toEqual({ id: 3, updated: true })
 
     const deleted = await app.handle(new Request('http://localhost/posts/3', { method: 'DELETE' }))

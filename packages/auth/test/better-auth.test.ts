@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, SchemaBuilder, setConnection, table } from '@elysia-ravel/database'
+import { SchemaBuilder, createConnection, setConnection, table } from '@elysia-ravel/database'
 import { betterAuth } from 'better-auth'
 import { Elysia } from 'elysia'
 import { betterAuthPlugin } from '../src/better-auth'
@@ -17,7 +17,6 @@ const auth = betterAuth({
 })
 const app: any = new Elysia()
   .use(betterAuthPlugin(auth))
-  // biome-ignore lint/suspicious/noExplicitAny: derived user in context
   .get('/me', ({ user }: any) => user, { auth: true })
   .get('/verified-only', () => ({ ok: true }), { verified: true })
 
@@ -62,7 +61,9 @@ describe('Better Auth over the Eloquent adapter', () => {
 
     expect((await app.handle(new Request('http://localhost/verified-only'))).status).toBe(401)
     // freshly signed-up user is not email-verified yet → 403
-    const blocked = await app.handle(new Request('http://localhost/verified-only', { headers: { cookie } }))
+    const blocked = await app.handle(
+      new Request('http://localhost/verified-only', { headers: { cookie } }),
+    )
     expect(blocked.status).toBe(403)
   })
 

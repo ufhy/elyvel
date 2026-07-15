@@ -53,7 +53,6 @@ export class AuthorizationError extends Error {
   }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: gate/policy arguments are heterogeneous by design
 type Args = any[]
 type Raw = boolean | Response
 type BeforeHook<U> = (user: U | null, ability: string, args: Args) => Raw | null | undefined
@@ -70,13 +69,11 @@ interface AbilityOptions {
 }
 
 /** A constructor usable as a policy key. */
-// biome-ignore lint/suspicious/noExplicitAny: any model constructor
 type ModelCtor = abstract new (...args: any[]) => any
 /**
  * A policy: an object whose methods are abilities for a model, with an optional
  * `before` filter. Implement it on a plain class — method names are the abilities.
  */
-// biome-ignore lint/suspicious/noExplicitAny: policy user type is caller-defined
 export interface Policy<U = any> {
   before?: (user: U | null, ability: string) => Raw | null | undefined
 }
@@ -274,7 +271,6 @@ export function createGate<U extends Authenticatable = Authenticatable>(): Gate<
 }
 
 // ── process-wide default gate (configured in a service provider) ─────────────
-// biome-ignore lint/suspicious/noExplicitAny: default gate is user-type-agnostic
 let defaultGate: Gate<any> | null = null
 
 export function setDefaultGate<U extends Authenticatable>(instance: Gate<U>): void {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { TelegramClient } from '../src/client'
-import { setDefaultTelegram, Telegram } from '../src/manager'
+import { Telegram, setDefaultTelegram } from '../src/manager'
 
 // A local fake Telegram Bot API — captures requests so we can assert a real
 // round-trip (client → HTTP → server) without hitting api.telegram.org.
@@ -46,7 +46,10 @@ describe('TelegramClient (live, local fake API)', () => {
   test('surfaces API errors', async () => {
     // point at a path the fake server answers ok, but simulate ok:false by using a token
     // the server treats normally — instead assert the ok:false branch via a bad response:
-    const bad = Bun.serve({ port: 0, fetch: () => Response.json({ ok: false, description: 'Unauthorized' }) })
+    const bad = Bun.serve({
+      port: 0,
+      fetch: () => Response.json({ ok: false, description: 'Unauthorized' }),
+    })
     try {
       const client = new TelegramClient({ token: 'X', apiBase: `http://localhost:${bad.port}` })
       await expect(client.sendMessage({ chatId: 1, text: 'x' })).rejects.toThrow(/Unauthorized/)
@@ -58,6 +61,10 @@ describe('TelegramClient (live, local fake API)', () => {
   test('Telegram.to(id).message() via the default client', async () => {
     setDefaultTelegram(new TelegramClient({ token: 'FACADE', apiBase }))
     await Telegram.to(7).message('hi there', { disableNotification: true })
-    expect(received.at(-1)?.body).toMatchObject({ chat_id: 7, text: 'hi there', disable_notification: true })
+    expect(received.at(-1)?.body).toMatchObject({
+      chat_id: 7,
+      text: 'hi there',
+      disable_notification: true,
+    })
   })
 })

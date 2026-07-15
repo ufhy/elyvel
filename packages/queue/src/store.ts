@@ -34,7 +34,13 @@ const now = () => Date.now()
 
 /** In-memory queue (per-process; dev/tests). */
 export class MemoryQueueStore implements QueueStore {
-  private entries: { id: string; body: string; attempts: number; availableAt: number; queue: string }[] = []
+  private entries: {
+    id: string
+    body: string
+    attempts: number
+    availableAt: number
+    queue: string
+  }[] = []
   async push(body: string, options: PushOptions = {}): Promise<void> {
     this.entries.push({
       id: randomUUID(),
@@ -88,8 +94,17 @@ export class RedisQueueStore implements QueueStore {
   }
   async push(body: string, options: PushOptions = {}): Promise<void> {
     const queue = options.queue ?? DEFAULT_QUEUE
-    const member = JSON.stringify({ id: randomUUID(), body, attempts: options.attempts ?? 0, queue })
-    await this.client.send('ZADD', [this.key(queue), String(now() + (options.delaySeconds ?? 0) * 1000), member])
+    const member = JSON.stringify({
+      id: randomUUID(),
+      body,
+      attempts: options.attempts ?? 0,
+      queue,
+    })
+    await this.client.send('ZADD', [
+      this.key(queue),
+      String(now() + (options.delaySeconds ?? 0) * 1000),
+      member,
+    ])
   }
   async pop(queues: string[] = [DEFAULT_QUEUE]): Promise<QueuedRecord | null> {
     for (const queue of queues) {
@@ -105,13 +120,27 @@ export class RedisQueueStore implements QueueStore {
       if (!member) continue
       await this.client.send('ZREM', [this.key(queue), member])
       const parsed = JSON.parse(member)
-      return { id: parsed.id, body: parsed.body, attempts: parsed.attempts + 1, queue: parsed.queue ?? queue }
+      return {
+        id: parsed.id,
+        body: parsed.body,
+        attempts: parsed.attempts + 1,
+        queue: parsed.queue ?? queue,
+      }
     }
     return null
   }
   async release(record: QueuedRecord, delaySeconds: number): Promise<void> {
-    const member = JSON.stringify({ id: record.id, body: record.body, attempts: record.attempts, queue: record.queue })
-    await this.client.send('ZADD', [this.key(record.queue), String(now() + delaySeconds * 1000), member])
+    const member = JSON.stringify({
+      id: record.id,
+      body: record.body,
+      attempts: record.attempts,
+      queue: record.queue,
+    })
+    await this.client.send('ZADD', [
+      this.key(record.queue),
+      String(now() + delaySeconds * 1000),
+      member,
+    ])
   }
   async size(queue: string = DEFAULT_QUEUE): Promise<number> {
     return Number(await this.client.send('ZCARD', [this.key(queue)]))
@@ -120,9 +149,18 @@ export class RedisQueueStore implements QueueStore {
 
 /** DB adapter for the `database` queue driver (kept DB-agnostic, wired by the app). */
 export interface QueueDbAdapter {
-  insert(id: string, body: string, attempts: number, availableAt: number, queue: string): Promise<void>
+  insert(
+    id: string,
+    body: string,
+    attempts: number,
+    availableAt: number,
+    queue: string,
+  ): Promise<void>
   /** Atomically take the earliest ready job among `queues` (in priority order) and remove it. */
-  takeReady(now: number, queues: string[]): Promise<{ id: string; body: string; attempts: number; queue: string } | null>
+  takeReady(
+    now: number,
+    queues: string[],
+  ): Promise<{ id: string; body: string; attempts: number; queue: string } | null>
   count(queue?: string): Promise<number>
 }
 
@@ -131,7 +169,8 @@ export function configureDatabaseQueue(adapter: QueueDbAdapter): void {
   dbAdapter = adapter
 }
 function requireAdapter(): QueueDbAdapter {
-  if (!dbAdapter) throw new Error('[elysia-ravel] database queue needs configureDatabaseQueue(...).')
+  if (!dbAdapter)
+    throw new Error('[elysia-ravel] database queue needs configureDatabaseQueue(...).')
   return dbAdapter
 }
 
@@ -150,7 +189,13 @@ export class DatabaseQueueStore implements QueueStore {
     return row ? { id: row.id, body: row.body, attempts: row.attempts + 1, queue: row.queue } : null
   }
   async release(record: QueuedRecord, delaySeconds: number): Promise<void> {
-    await requireAdapter().insert(record.id, record.body, record.attempts, now() + delaySeconds * 1000, record.queue)
+    await requireAdapter().insert(
+      record.id,
+      record.body,
+      record.attempts,
+      now() + delaySeconds * 1000,
+      record.queue,
+    )
   }
   async size(queue?: string): Promise<number> {
     return requireAdapter().count(queue)

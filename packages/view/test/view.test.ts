@@ -3,7 +3,7 @@ import { httpResponses } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { document, escape, html, raw } from '../src/html'
 import { paginationLinks } from '../src/pagination'
-import { csrfField, View, view, type ViewShared } from '../src/view'
+import { View, type ViewShared, csrfField, view } from '../src/view'
 
 // ── html tag (escaping) ───────────────────────────────────────────────────────
 describe('html tag', () => {
@@ -18,7 +18,9 @@ describe('html tag', () => {
   })
   test('renders arrays element-by-element and drops null/false', () => {
     const items = ['a', 'b']
-    expect(html`<ul>${items.map((i) => html`<li>${i}</li>`)}</ul>`.toString()).toBe('<ul><li>a</li><li>b</li></ul>')
+    expect(html`<ul>${items.map((i) => html`<li>${i}</li>`)}</ul>`.toString()).toBe(
+      '<ul><li>a</li><li>b</li></ul>',
+    )
     expect(html`${null}${false}${undefined}x`.toString()).toBe('x')
   })
   test('escape() and document()', () => {
@@ -39,7 +41,13 @@ describe('view()', () => {
     ${csrfField(shared)}
   `
 
-  const shared: ViewShared = { errors: {}, old: (_k, d) => d, flash: (_k, d) => d, csrf: 'tok123', globals: {} }
+  const shared: ViewShared = {
+    errors: {},
+    old: (_k, d) => d,
+    flash: (_k, d) => d,
+    csrf: 'tok123',
+    globals: {},
+  }
 
   test('renders props + shared data', () => {
     const out = view(Page, { name: '<b>Sam</b>' }).render(shared)
@@ -71,7 +79,9 @@ describe('View.share', () => {
     View.flushShared()
     View.share('appName', 'Ravel')
     View.share('now', () => 'computed')
-    const out = view((_p, s) => html`<span>${String(s.globals.appName)}:${String(s.globals.now)}</span>`).render({
+    const out = view(
+      (_p, s) => html`<span>${String(s.globals.appName)}:${String(s.globals.now)}</span>`,
+    ).render({
       errors: {},
       old: (_k, d) => d,
       flash: (_k, d) => d,
@@ -85,7 +95,10 @@ describe('View.share', () => {
 // ── pagination links ──────────────────────────────────────────────────────────
 describe('paginationLinks', () => {
   test('windowed page links with prev/next state', () => {
-    const out = paginationLinks({ currentPage: 3, lastPage: 5 }, { path: '/users', window: 1 }).toString()
+    const out = paginationLinks(
+      { currentPage: 3, lastPage: 5 },
+      { path: '/users', window: 1 },
+    ).toString()
     expect(out).toContain('href="/users?page=2">&laquo; Previous')
     expect(out).toContain('aria-current="page">3') // active current page, no link
     expect(out).toContain('href="/users?page=4">Next &raquo;')
@@ -104,7 +117,9 @@ describe('view response via httpResponses', () => {
   test('handler returning view() → text/html body', async () => {
     const app = new Elysia()
       .use(httpResponses())
-      .get('/', () => view((props: { who: string }) => html`<h1>Hi ${props.who}</h1>`, { who: 'World' }))
+      .get('/', () =>
+        view((props: { who: string }) => html`<h1>Hi ${props.who}</h1>`, { who: 'World' }),
+      )
 
     const res = await app.handle(new Request('http://localhost/'))
     expect(res.status).toBe(200)

@@ -45,8 +45,9 @@ for (const d of dialects) {
       await Post.create({ user_id: bob.id })
     })
 
-    const names = async (b: { get: () => Promise<{ pluck: (k: 'name') => { all: () => string[] } }> }) =>
-      (await b.get()).pluck('name').all().sort()
+    const names = async (b: {
+      get: () => Promise<{ pluck: (k: 'name') => { all: () => string[] } }>
+    }) => (await b.get()).pluck('name').all().sort()
 
     test('has / count operators', async () => {
       expect(await User.query().has('posts').count()).toBe(2)

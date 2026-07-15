@@ -5,8 +5,8 @@ import { notify } from '@elysia-ravel/notifications'
 import { dispatch } from '@elysia-ravel/queue'
 import { UserRegistered } from '../events/UserRegistered'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
-import { WelcomeNotification } from '../notifications/WelcomeNotification'
 import { User } from '../models/User'
+import { WelcomeNotification } from '../notifications/WelcomeNotification'
 import { StoreUserRequest } from '../requests/StoreUserRequest'
 
 /**

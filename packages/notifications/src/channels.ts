@@ -10,7 +10,11 @@ export interface Channel {
 
 /** Collects notifications in memory (tests / debugging). */
 export class ArrayChannel implements Channel {
-  readonly sent: { notifiable: Notifiable; notification: Notification; data: Record<string, unknown> }[] = []
+  readonly sent: {
+    notifiable: Notifiable
+    notification: Notification
+    data: Record<string, unknown>
+  }[] = []
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
     const data = notification.toArray?.(notifiable) ?? notification.toDatabase?.(notifiable) ?? {}
     this.sent.push({ notifiable, notification, data })
@@ -61,7 +65,10 @@ export function configureDatabaseNotifications(adapter: NotificationDbAdapter): 
 
 export class DatabaseChannel implements Channel {
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
-    if (!dbAdapter) throw new Error('[elysia-ravel] database notifications need configureDatabaseNotifications(...).')
+    if (!dbAdapter)
+      throw new Error(
+        '[elysia-ravel] database notifications need configureDatabaseNotifications(...).',
+      )
     const data = notification.toDatabase?.(notifiable) ?? notification.toArray?.(notifiable) ?? {}
     await dbAdapter.insert({
       id: randomUUID(),

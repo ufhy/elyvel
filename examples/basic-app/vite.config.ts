@@ -13,7 +13,12 @@ export default defineConfig(({ isSsrBuild }) => ({
   publicDir: false, // we serve /build ourselves; outDir lives under public/
 
   build: isSsrBuild
-    ? { ssr: true, outDir: 'public/build/ssr', emptyOutDir: true, rollupOptions: { input: 'resources/js/ssr.ts' } }
+    ? {
+        ssr: true,
+        outDir: 'public/build/ssr',
+        emptyOutDir: true,
+        rollupOptions: { input: 'resources/js/ssr.ts' },
+      }
     : {
         manifest: true,
         outDir: 'public/build',

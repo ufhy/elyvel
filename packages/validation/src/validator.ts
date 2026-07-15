@@ -1,5 +1,5 @@
-import { formatMessage, type SizeKind } from './messages'
-import { isEmpty, RULES } from './rules'
+import { type SizeKind, formatMessage } from './messages'
+import { RULES, isEmpty } from './rules'
 import { type ErrorBag, ValidationException } from './validation-exception'
 
 export type Data = Record<string, unknown>
@@ -77,7 +77,11 @@ function expandKey(key: string, data: Data): string[] {
 }
 
 function isRuleObject(entry: unknown): entry is RuleObject {
-  return typeof entry === 'object' && entry !== null && typeof (entry as RuleObject).validate === 'function'
+  return (
+    typeof entry === 'object' &&
+    entry !== null &&
+    typeof (entry as RuleObject).validate === 'function'
+  )
 }
 
 function splitRules(fieldRules: string | RuleEntry[]): {
@@ -136,8 +140,11 @@ const FLOW = new Set([
  * dot/`*` nested paths and custom closures), yielding a Laravel-shaped error bag.
  */
 export class Validator {
-  private readonly conditional: { fields: string[]; rules: Rules; when: (data: Data) => boolean }[] =
-    []
+  private readonly conditional: {
+    fields: string[]
+    rules: Rules
+    when: (data: Data) => boolean
+  }[] = []
   private readonly afterHooks: ((v: { add: (field: string, message: string) => void }) => void)[] =
     []
   private excluded = new Set<string>()
@@ -207,7 +214,15 @@ export class Validator {
           if (name === 'distinct') {
             const dupes = distinctValues?.filter((x) => x === value).length ?? 0
             if (dupes > 1) {
-              add(formatMessage({ rule: 'distinct', attribute: path, args, sizeKind: kind, ...this.opts() }))
+              add(
+                formatMessage({
+                  rule: 'distinct',
+                  attribute: path,
+                  args,
+                  sizeKind: kind,
+                  ...this.opts(),
+                }),
+              )
               failed = true
               if (bail) break
             }
@@ -220,7 +235,9 @@ export class Validator {
 
           const ok = await rule.validate(value, args, this.data, path, kind)
           if (!ok) {
-            add(formatMessage({ rule: name, attribute: path, args, sizeKind: kind, ...this.opts() }))
+            add(
+              formatMessage({ rule: name, attribute: path, args, sizeKind: kind, ...this.opts() }),
+            )
             failed = true
             if (bail) break
           }
@@ -280,9 +297,14 @@ export class Validator {
   safe() {
     const data = this.validated()
     return {
-      only: (keys: string[]) => Object.fromEntries(keys.filter((k) => k in data).map((k) => [k, data[k]])),
+      only: (keys: string[]) =>
+        Object.fromEntries(keys.filter((k) => k in data).map((k) => [k, data[k]])),
       except: (keys: string[]) =>
-        Object.fromEntries(Object.keys(data).filter((k) => !keys.includes(k)).map((k) => [k, data[k]])),
+        Object.fromEntries(
+          Object.keys(data)
+            .filter((k) => !keys.includes(k))
+            .map((k) => [k, data[k]]),
+        ),
     }
   }
 }

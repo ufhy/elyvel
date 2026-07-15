@@ -1,5 +1,5 @@
 import { cache } from '@elysia-ravel/cache'
-import { requestContext, Resource, resource, route } from '@elysia-ravel/core'
+import { Resource, requestContext, resource, route } from '@elysia-ravel/core'
 import HelloController from '../app/controllers/HelloController'
 import { UserController } from '../app/controllers/UserController'
 import { User } from '../app/models/User'
@@ -38,7 +38,6 @@ export default route('/api')
     return { users }
   })
   // Session demo: a per-visitor counter persisted in the (cookie) session.
-  // biome-ignore lint/suspicious/noExplicitAny: derived session
   .get('/visits', ({ session }: any) => {
     const count = (session.get('visits') ?? 0) + 1
     session.put('visits', count)
@@ -47,5 +46,4 @@ export default route('/api')
   // Route-level aliases — `json` rejects non-JSON writes; `throttle` rate-limits (built-in).
   .post('/echo', ({ body }) => ({ echoed: body }), { middleware: ['json', 'throttle:5,1'] })
   // `csrf` (built-in) protects this write — needs a valid session token.
-  // biome-ignore lint/suspicious/noExplicitAny: derived session
   .post('/secure', ({ body }: any) => ({ ok: true, body }), { middleware: ['json', 'csrf'] })

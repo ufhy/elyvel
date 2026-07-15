@@ -1,4 +1,3 @@
-// biome-ignore lint/suspicious/noExplicitAny: events carry arbitrary payload shapes
 type AnyEvent = any
 type EventClass<E = AnyEvent> = new (...args: any[]) => E
 /** Event identifier: a class constructor or a string name. */
@@ -186,7 +185,9 @@ export function dispatcher(): Dispatcher {
 export function event<E extends object>(event: E): Promise<unknown[]>
 export function event(name: string, payload?: AnyEvent): Promise<unknown[]>
 export function event(event: object | string, payload?: AnyEvent): Promise<unknown[]> {
-  return typeof event === 'string' ? dispatcher().dispatch(event, payload) : dispatcher().dispatch(event)
+  return typeof event === 'string'
+    ? dispatcher().dispatch(event, payload)
+    : dispatcher().dispatch(event)
 }
 
 /** Register a listener on the default dispatcher. */

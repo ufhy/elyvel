@@ -25,7 +25,8 @@ export class MailManager {
   private build(name: string): Transport {
     const cfg: MailTransportConfig | undefined =
       this.config.mailers?.[name] ?? (name === 'log' ? { transport: 'log' } : undefined)
-    if (!cfg) throw new Error(`[elysia-ravel] Mail transport "${name}" is not defined in config/mail.ts.`)
+    if (!cfg)
+      throw new Error(`[elysia-ravel] Mail transport "${name}" is not defined in config/mail.ts.`)
     switch (cfg.transport) {
       case 'array':
         return new ArrayTransport()
@@ -109,7 +110,9 @@ export function mailManager(): MailManager {
 /** The Mail helper (Laravel's `Mail` facade). */
 export const Mail = {
   to(...addresses: Address[]): PendingMail {
-    return mailManager().compose().to(...addresses)
+    return mailManager()
+      .compose()
+      .to(...addresses)
   },
   mailer(name: string): PendingMail {
     return mailManager().compose(name)

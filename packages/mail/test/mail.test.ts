@@ -3,13 +3,20 @@ import { SMTPServer } from 'smtp-server'
 import { Mailable } from '../src/mailable'
 import { Mail, MailManager, setDefaultMailer } from '../src/manager'
 import { Message } from '../src/message'
-import { ArrayTransport, LogTransport, SmtpTransport } from '../src/transports'
+import { type ArrayTransport, LogTransport, SmtpTransport } from '../src/transports'
 
 describe('array transport + fluent Mail', () => {
   test('captures the composed message', async () => {
-    const manager = new MailManager({ default: 'array', mailers: { array: { transport: 'array' } } })
+    const manager = new MailManager({
+      default: 'array',
+      mailers: { array: { transport: 'array' } },
+    })
     setDefaultMailer(manager)
-    await Mail.to('a@b.com').cc({ email: 'c@b.com', name: 'Cee' }).subject('Hi').html('<p>Hello</p>').send()
+    await Mail.to('a@b.com')
+      .cc({ email: 'c@b.com', name: 'Cee' })
+      .subject('Hi')
+      .html('<p>Hello</p>')
+      .send()
 
     const sent = (manager.transport('array') as ArrayTransport).sent
     expect(sent).toHaveLength(1)
@@ -44,7 +51,10 @@ describe('Mailable', () => {
   }
 
   test('build() configures the message', async () => {
-    const manager = new MailManager({ default: 'array', mailers: { array: { transport: 'array' } } })
+    const manager = new MailManager({
+      default: 'array',
+      mailers: { array: { transport: 'array' } },
+    })
     setDefaultMailer(manager)
     await Mail.to('sam@x.test').send(new WelcomeMail('Sam'))
     const sent = (manager.transport('array') as ArrayTransport).sent[0]
@@ -81,7 +91,11 @@ describe('SMTP transport (live, local)', () => {
     await new Promise<void>((resolve) => server.listen(port, resolve))
     try {
       const transport = new SmtpTransport({ host: 'localhost', port, secure: false })
-      const message = new Message().from('sender@app.test').to('rcpt@x.test').subject('Live SMTP').html('<b>hi</b>')
+      const message = new Message()
+        .from('sender@app.test')
+        .to('rcpt@x.test')
+        .subject('Live SMTP')
+        .html('<b>hi</b>')
       await transport.send(message)
       expect(raw).toContain('Subject: Live SMTP')
       expect(raw).toContain('rcpt@x.test')

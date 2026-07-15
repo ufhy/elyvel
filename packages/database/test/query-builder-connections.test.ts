@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection } from '../src/connection'
-import { SchemaBuilder } from '../src/schema'
 import { table } from '../src/query-builder'
+import { SchemaBuilder } from '../src/schema'
 
 describe('query builder — multiple connections', () => {
   beforeEach(async () => {

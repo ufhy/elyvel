@@ -2,11 +2,10 @@ import { LazyCollection } from '@elysia-ravel/support'
 import { EloquentCollection } from './eloquent-collection'
 import type { Model } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
-import { eagerLoad, type Relation } from './relations'
+import { type Relation, eagerLoad } from './relations'
 
 type Row = Record<string, unknown>
 /** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */
-// biome-ignore lint/suspicious/noExplicitAny: constraint receives the related model's builder
 export type EagerConstraint = (query: any) => void
 
 function compareCount(value: number, operator: string, target: number): boolean {
@@ -58,7 +57,8 @@ export interface CursorPaginator<M extends Model> {
 export class EloquentBuilder<M extends Model> {
   private readonly eagerLoads: { path: string; constrain?: EagerConstraint }[] = []
   private readonly countLoads: string[] = []
-  private readonly aggLoads: { name: string; fn: 'sum' | 'avg' | 'min' | 'max'; column: string }[] = []
+  private readonly aggLoads: { name: string; fn: 'sum' | 'avg' | 'min' | 'max'; column: string }[] =
+    []
   private readonly hasSpecs: {
     name: string
     constrain?: EagerConstraint
@@ -83,7 +83,9 @@ export class EloquentBuilder<M extends Model> {
   with(...specs: (string | Record<string, EagerConstraint>)[]): this {
     for (const spec of specs) {
       if (typeof spec === 'string') this.eagerLoads.push({ path: spec })
-      else for (const [path, constrain] of Object.entries(spec)) this.eagerLoads.push({ path, constrain })
+      else
+        for (const [path, constrain] of Object.entries(spec))
+          this.eagerLoads.push({ path, constrain })
     }
     return this
   }
@@ -139,11 +141,19 @@ export class EloquentBuilder<M extends Model> {
     if (fn) fn(this as unknown as EloquentBuilder<Model>, ...args)
     return this
   }
-  where(column: string | ((q: QueryBuilder) => void), operatorOrValue?: unknown, value?: unknown): this {
+  where(
+    column: string | ((q: QueryBuilder) => void),
+    operatorOrValue?: unknown,
+    value?: unknown,
+  ): this {
     this.qb.where(column, operatorOrValue, value)
     return this
   }
-  orWhere(column: string | ((q: QueryBuilder) => void), operatorOrValue?: unknown, value?: unknown): this {
+  orWhere(
+    column: string | ((q: QueryBuilder) => void),
+    operatorOrValue?: unknown,
+    value?: unknown,
+  ): this {
     this.qb.orWhere(column, operatorOrValue, value)
     return this
   }
@@ -404,7 +414,10 @@ export class EloquentBuilder<M extends Model> {
       await resolve()
       let page = 0
       while (true) {
-        const rows = await qb.offset(page * chunkSize).limit(chunkSize).get()
+        const rows = await qb
+          .offset(page * chunkSize)
+          .limit(chunkSize)
+          .get()
         if (rows.length === 0) break
         for (const row of rows) yield hydrate(row)
         if (rows.length < chunkSize) break

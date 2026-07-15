@@ -1,9 +1,9 @@
-import { download, type FileResponse } from '@elysia-ravel/core'
-import { S3Client } from 'bun'
 import { existsSync, statSync } from 'node:fs'
 import { appendFile, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
 import { chmod } from 'node:fs/promises'
 import { dirname, extname, join, posix, resolve, sep } from 'node:path'
+import { type FileResponse, download } from '@elysia-ravel/core'
+import { S3Client } from 'bun'
 import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 
 /** Raw content accepted by write operations. */
@@ -30,7 +30,12 @@ export interface FilesystemDisk {
 
   put(path: string, contents: Contents, visibility?: Visibility): Promise<boolean>
   putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string>
-  putFileAs(directory: string, file: Storable, name: string, visibility?: Visibility): Promise<string>
+  putFileAs(
+    directory: string,
+    file: Storable,
+    name: string,
+    visibility?: Visibility,
+  ): Promise<string>
   prepend(path: string, data: string): Promise<boolean>
   append(path: string, data: string): Promise<boolean>
   copy(from: string, to: string): Promise<boolean>
@@ -43,7 +48,11 @@ export interface FilesystemDisk {
   mimeType(path: string): Promise<string | undefined>
   path(path: string): string
   url(path: string): string
-  temporaryUrl(path: string, expiresIn: Date | number, options?: TemporaryUrlOptions): Promise<string>
+  temporaryUrl(
+    path: string,
+    expiresIn: Date | number,
+    options?: TemporaryUrlOptions,
+  ): Promise<string>
   temporaryUploadUrl(
     path: string,
     expiresIn: Date | number,
@@ -68,28 +77,41 @@ export class PathEscapeError extends Error {}
 
 // ── shared helpers ─────────────────────────────────────────────────────────
 const secondsUntil = (expiresIn: Date | number): number =>
-  typeof expiresIn === 'number' ? expiresIn : Math.max(0, Math.round((expiresIn.getTime() - Date.now()) / 1000))
+  typeof expiresIn === 'number'
+    ? expiresIn
+    : Math.max(0, Math.round((expiresIn.getTime() - Date.now()) / 1000))
 
 /** A random, extension-preserving filename (Laravel's `hashName`). */
-const hashName = (ext: string): string => `${crypto.randomUUID().replace(/-/g, '')}${ext ? `.${ext}` : ''}`
+const hashName = (ext: string): string =>
+  `${crypto.randomUUID().replace(/-/g, '')}${ext ? `.${ext}` : ''}`
 
 /** Extension for a Storable, from a File name or Blob type. */
 const extensionOf = (file: Storable): string => {
-  if (typeof file === 'object' && file !== null && 'path' in file && typeof file.path === 'string') {
+  if (
+    typeof file === 'object' &&
+    file !== null &&
+    'path' in file &&
+    typeof file.path === 'string'
+  ) {
     return extname(file.path).replace(/^\./, '')
   }
   if (file instanceof Blob) {
     const name = (file as File).name
     if (name) return extname(name).replace(/^\./, '')
     const sub = file.type.split('/')[1]
-    return sub ? sub.split(';')[0] ?? '' : ''
+    return sub ? (sub.split(';')[0] ?? '') : ''
   }
   return ''
 }
 
 /** Normalize a Storable into something Bun.write / S3 can consume. */
 async function toBytes(file: Storable): Promise<Contents> {
-  if (typeof file === 'object' && file !== null && 'path' in file && typeof (file as { path: string }).path === 'string') {
+  if (
+    typeof file === 'object' &&
+    file !== null &&
+    'path' in file &&
+    typeof (file as { path: string }).path === 'string'
+  ) {
     return await Bun.file((file as { path: string }).path).arrayBuffer()
   }
   return file as Contents
@@ -112,8 +134,14 @@ export class LocalDisk implements FilesystemDisk {
     this.defaultVisibility = config.visibility ?? 'private'
     this.shouldThrow = config.throw ?? false
     this.perms = {
-      file: { public: config.permissions?.file?.public ?? 0o644, private: config.permissions?.file?.private ?? 0o600 },
-      dir: { public: config.permissions?.dir?.public ?? 0o755, private: config.permissions?.dir?.private ?? 0o700 },
+      file: {
+        public: config.permissions?.file?.public ?? 0o644,
+        private: config.permissions?.file?.private ?? 0o600,
+      },
+      dir: {
+        public: config.permissions?.dir?.public ?? 0o755,
+        private: config.permissions?.dir?.private ?? 0o700,
+      },
     }
   }
 
@@ -170,7 +198,12 @@ export class LocalDisk implements FilesystemDisk {
     return this.putFileAs(directory, file, hashName(extensionOf(file)), visibility)
   }
 
-  async putFileAs(directory: string, file: Storable, name: string, visibility?: Visibility): Promise<string> {
+  async putFileAs(
+    directory: string,
+    file: Storable,
+    name: string,
+    visibility?: Visibility,
+  ): Promise<string> {
     const target = posix.join(directory, name)
     await this.put(target, await toBytes(file), visibility)
     return target
@@ -245,7 +278,11 @@ export class LocalDisk implements FilesystemDisk {
     return `${this.baseUrl}/${path.replace(/^\//, '')}`
   }
 
-  async temporaryUrl(_path: string, _expiresIn: Date | number, _options?: TemporaryUrlOptions): Promise<string> {
+  async temporaryUrl(
+    _path: string,
+    _expiresIn: Date | number,
+    _options?: TemporaryUrlOptions,
+  ): Promise<string> {
     throw new Error(
       '[elysia-ravel] temporaryUrl is not supported by the local driver. Use the s3 driver, or serve files through a signed route.',
     )
@@ -256,7 +293,9 @@ export class LocalDisk implements FilesystemDisk {
     _expiresIn: Date | number,
     _options?: TemporaryUrlOptions,
   ): Promise<{ url: string; headers: Record<string, string> }> {
-    throw new Error('[elysia-ravel] temporaryUploadUrl is not supported by the local driver. Use the s3 driver.')
+    throw new Error(
+      '[elysia-ravel] temporaryUploadUrl is not supported by the local driver. Use the s3 driver.',
+    )
   }
 
   async getVisibility(path: string): Promise<Visibility> {
@@ -277,7 +316,11 @@ export class LocalDisk implements FilesystemDisk {
     return download(this.full(path), name)
   }
 
-  private async list(directory: string, recursive: boolean, want: 'files' | 'dirs'): Promise<string[]> {
+  private async list(
+    directory: string,
+    recursive: boolean,
+    want: 'files' | 'dirs',
+  ): Promise<string[]> {
     const base = this.full(directory)
     if (!existsSync(base)) return []
     const entries = await readdir(base, { withFileTypes: true, recursive })
@@ -286,8 +329,19 @@ export class LocalDisk implements FilesystemDisk {
       const isDir = e.isDirectory()
       if ((want === 'files' && isDir) || (want === 'dirs' && !isDir)) continue
       // node returns `parentPath` on recursive reads; build a disk-relative posix path.
-      const parent = (e as { parentPath?: string; path?: string }).parentPath ?? (e as { path?: string }).path ?? base
-      const rel = posix.join(directory, parent.slice(base.length).replace(/^[/\\]/, '').split(/[/\\]/).join('/'), e.name)
+      const parent =
+        (e as { parentPath?: string; path?: string }).parentPath ??
+        (e as { path?: string }).path ??
+        base
+      const rel = posix.join(
+        directory,
+        parent
+          .slice(base.length)
+          .replace(/^[/\\]/, '')
+          .split(/[/\\]/)
+          .join('/'),
+        e.name,
+      )
       out.push(rel.replace(/^\//, ''))
     }
     return out
@@ -308,7 +362,10 @@ export class LocalDisk implements FilesystemDisk {
 
   async makeDirectory(path: string): Promise<boolean> {
     try {
-      await mkdir(this.full(path), { recursive: true, mode: this.perms.dir[this.defaultVisibility] })
+      await mkdir(this.full(path), {
+        recursive: true,
+        mode: this.perms.dir[this.defaultVisibility],
+      })
       return true
     } catch (error) {
       return this.fail(error)
@@ -380,7 +437,12 @@ export class S3Disk implements FilesystemDisk {
   async putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string> {
     return this.putFileAs(directory, file, hashName(extensionOf(file)), visibility)
   }
-  async putFileAs(directory: string, file: Storable, name: string, visibility?: Visibility): Promise<string> {
+  async putFileAs(
+    directory: string,
+    file: Storable,
+    name: string,
+    visibility?: Visibility,
+  ): Promise<string> {
     const target = posix.join(directory, name)
     await this.put(target, await toBytes(file), visibility)
     return target
@@ -423,15 +485,27 @@ export class S3Disk implements FilesystemDisk {
   url(path: string): string {
     return `${this.baseUrl}/${path.replace(/^\//, '')}`
   }
-  async temporaryUrl(path: string, expiresIn: Date | number, options: TemporaryUrlOptions = {}): Promise<string> {
-    return this.client.presign(path, { expiresIn: secondsUntil(expiresIn), method: 'GET', ...options })
+  async temporaryUrl(
+    path: string,
+    expiresIn: Date | number,
+    options: TemporaryUrlOptions = {},
+  ): Promise<string> {
+    return this.client.presign(path, {
+      expiresIn: secondsUntil(expiresIn),
+      method: 'GET',
+      ...options,
+    })
   }
   async temporaryUploadUrl(
     path: string,
     expiresIn: Date | number,
     options: TemporaryUrlOptions = {},
   ): Promise<{ url: string; headers: Record<string, string> }> {
-    const url = this.client.presign(path, { expiresIn: secondsUntil(expiresIn), method: 'PUT', ...options })
+    const url = this.client.presign(path, {
+      expiresIn: secondsUntil(expiresIn),
+      method: 'PUT',
+      ...options,
+    })
     return { url, headers: {} }
   }
 
@@ -446,13 +520,21 @@ export class S3Disk implements FilesystemDisk {
     return download(this.url(path), name)
   }
 
-  private async keys(directory: string, recursive: boolean, want: 'files' | 'dirs'): Promise<string[]> {
+  private async keys(
+    directory: string,
+    recursive: boolean,
+    want: 'files' | 'dirs',
+  ): Promise<string[]> {
     const prefix = directory ? `${directory.replace(/\/$/, '')}/` : ''
     const result = await this.client.list({ prefix, ...(recursive ? {} : { delimiter: '/' }) })
     if (want === 'dirs') {
-      return (result.commonPrefixes ?? []).map((p: { prefix: string }) => p.prefix.replace(/\/$/, ''))
+      return (result.commonPrefixes ?? []).map((p: { prefix: string }) =>
+        p.prefix.replace(/\/$/, ''),
+      )
     }
-    return (result.contents ?? []).map((c: { key: string }) => c.key).filter((k: string) => !k.endsWith('/'))
+    return (result.contents ?? [])
+      .map((c: { key: string }) => c.key)
+      .filter((k: string) => !k.endsWith('/'))
   }
   files(directory = ''): Promise<string[]> {
     return this.keys(directory, false, 'files')
@@ -492,7 +574,9 @@ export class ScopedDisk implements FilesystemDisk {
     const base = this.prefix.replace(/\/+$/, '')
     const joined = posix.normalize(posix.join(base, path))
     if (joined !== base && !joined.startsWith(`${base}/`)) {
-      throw new PathEscapeError(`[elysia-ravel] Path "${path}" escapes the scoped prefix "${this.prefix}".`)
+      throw new PathEscapeError(
+        `[elysia-ravel] Path "${path}" escapes the scoped prefix "${this.prefix}".`,
+      )
     }
     return joined
   }

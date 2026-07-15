@@ -145,6 +145,7 @@ export class PendingBatch {
     this.failuresAllowed = allow
     return this
   }
+  // biome-ignore lint/suspicious/noThenProperty: Bus.batch fluent API (Laravel parity), not a thenable
   then(callback: BatchCallback): this {
     this.thenCb = callback
     return this
@@ -191,7 +192,11 @@ export const Bus = {
 }
 
 // ── worker-side hooks ─────────────────────────────────────────────────────────
-async function runCallback(source: string | undefined, batch: Batch, error?: unknown): Promise<void> {
+async function runCallback(
+  source: string | undefined,
+  batch: Batch,
+  error?: unknown,
+): Promise<void> {
   if (!source) return
   // biome-ignore lint/security/noGlobalEval: developer-authored batch callback, same trust as their code
   const fn = new Function(`return (${source})`)() as BatchCallback
@@ -209,7 +214,11 @@ export async function isBatchCancelled(id: string): Promise<boolean> {
  * Record a batched job's outcome and fire batch callbacks as thresholds are hit.
  * Called by the worker after a job that carries a `batchId`.
  */
-export async function recordBatchedJob(id: string, success: boolean, error?: unknown): Promise<void> {
+export async function recordBatchedJob(
+  id: string,
+  success: boolean,
+  error?: unknown,
+): Promise<void> {
   if (!adapter) return
   const record = await adapter.recordJobResult(id, success)
   if (!record) return

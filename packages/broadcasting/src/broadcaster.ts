@@ -1,6 +1,10 @@
 /** Pushes an event on one or more channels to subscribers. */
 export interface Broadcaster {
-  broadcast(channels: string[], event: string, payload: Record<string, unknown>): void | Promise<void>
+  broadcast(
+    channels: string[],
+    event: string,
+    payload: Record<string, unknown>,
+  ): void | Promise<void>
 }
 
 /** Logs broadcasts instead of sending them (dev). */

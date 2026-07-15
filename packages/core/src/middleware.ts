@@ -128,7 +128,6 @@ export function route(prefix?: string, options: { middleware?: string[] } = {}) 
   // The before hooks short-circuit at runtime by returning the guard's response,
   // but are typed `=> Promise<void>` so Elysia (and therefore Eden) does NOT fold
   // that response into every route's response type — keeping end-to-end types clean.
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia infers the ctx type
   type Hook = (context: any) => Promise<void>
   const base = new Elysia(prefix ? { prefix } : {}).macro({
     middleware(names: string | string[]) {
@@ -169,7 +168,6 @@ export function group(name: string): Elysia {
   const plugins = items.filter(isElysia)
   const guards = items.filter((i): i is Guard => !isElysia(i))
 
-  // biome-ignore lint/suspicious/noExplicitAny: composing Elysia plugins of varied generics
   let plugin: any = new Elysia({ name: `ravel-group-${name}` })
   for (const p of plugins) plugin = plugin.use(p)
   if (guards.length) {
@@ -194,7 +192,6 @@ export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
   const plugins = items.filter(isElysia)
   const guards = items.filter((i): i is MiddlewareClass => !isElysia(i))
 
-  // biome-ignore lint/suspicious/noExplicitAny: composing Elysia plugins of varied generics
   let plugin: any = new Elysia({ name: 'ravel-global-middleware' })
   for (const p of plugins) plugin = plugin.use(p)
   if (guards.length) {

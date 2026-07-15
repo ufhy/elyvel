@@ -36,8 +36,7 @@ export const DEFAULT_MESSAGES: Record<string, string | Record<SizeKind, string>>
   json: 'The :attribute field must be a valid JSON string.',
   alpha: 'The :attribute field must only contain letters.',
   alpha_num: 'The :attribute field must only contain letters and numbers.',
-  alpha_dash:
-    'The :attribute field must only contain letters, numbers, dashes, and underscores.',
+  alpha_dash: 'The :attribute field must only contain letters, numbers, dashes, and underscores.',
   ascii: 'The :attribute field must only contain single-byte alphanumeric characters.',
   uppercase: 'The :attribute field must be uppercase.',
   lowercase: 'The :attribute field must be lowercase.',

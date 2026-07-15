@@ -1,5 +1,5 @@
 import { createApp } from '@elysia-ravel/core'
-import { failedJobs, QueueToken, restartSignal, Worker } from '@elysia-ravel/queue'
+import { QueueToken, Worker, failedJobs, restartSignal } from '@elysia-ravel/queue'
 
 /**
  * `ravel queue:work` — process jobs off a queue connection.
@@ -26,7 +26,8 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
     return 1
   }
 
-  const queues = typeof flags.queue === 'string' ? flags.queue.split(',').map((q) => q.trim()) : undefined
+  const queues =
+    typeof flags.queue === 'string' ? flags.queue.split(',').map((q) => q.trim()) : undefined
 
   const worker = new Worker(store, {
     retryAfter: flags['retry-after'] ? Number(flags['retry-after']) : 0,
@@ -44,7 +45,9 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
   const max = flags.max ? Number(flags.max) : undefined
   const sleepMs = flags.sleep ? Number(flags.sleep) * 1000 : 1000
 
-  console.log(`Processing jobs on "${connection ?? 'default'}"${once ? ' (once)' : stopWhenEmpty ? ' until empty' : '...'}`)
+  console.log(
+    `Processing jobs on "${connection ?? 'default'}"${once ? ' (once)' : stopWhenEmpty ? ' until empty' : '...'}`,
+  )
   const processed = await worker.work({ once, stopWhenEmpty, max, sleepMs })
   if (once || stopWhenEmpty || max) console.log(`Done. Processed ${processed} job(s).`)
   return 0
@@ -82,7 +85,10 @@ export async function queueFailedCommand(): Promise<number> {
 }
 
 /** `ravel queue:retry <id>` or `--all` — re-queue failed jobs. */
-export async function queueRetryCommand(id: string | undefined, flags: Record<string, string | boolean>): Promise<number> {
+export async function queueRetryCommand(
+  id: string | undefined,
+  flags: Record<string, string | boolean>,
+): Promise<number> {
   const { app, repo } = await bootFailed()
   if (!repo) return notConfigured()
   const manager = app.make(QueueToken)
@@ -149,7 +155,9 @@ export async function queueRestartCommand(): Promise<number> {
 }
 
 /** `ravel queue:prune-failed [--hours=24]` — delete failed jobs older than N hours. */
-export async function queuePruneFailedCommand(flags: Record<string, string | boolean>): Promise<number> {
+export async function queuePruneFailedCommand(
+  flags: Record<string, string | boolean>,
+): Promise<number> {
   const { repo } = await bootFailed()
   if (!repo) return notConfigured()
   const hours = flags.hours ? Number(flags.hours) : 24

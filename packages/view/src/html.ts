@@ -55,7 +55,8 @@ export function document(options: {
   body: Html | string
   lang?: string
 }): Html {
-  const head = options.head instanceof Html ? options.head.value : options.head ? escape(options.head) : ''
+  const head =
+    options.head instanceof Html ? options.head.value : options.head ? escape(options.head) : ''
   const body = options.body instanceof Html ? options.body.value : escape(String(options.body))
   return new Html(
     `<!doctype html><html lang="${escape(options.lang ?? 'en')}"><head>` +

@@ -11,7 +11,6 @@ class Secret extends Model {
   static override timestamps = false
   static override casts = { payload: 'encrypted' } as const
   declare id: number
-  // biome-ignore lint/suspicious/noExplicitAny: exercising encrypted cast with mixed shapes
   declare payload: any
 }
 

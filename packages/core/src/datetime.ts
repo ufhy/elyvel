@@ -32,9 +32,10 @@ export function formatDate(
   options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' },
   locale?: string,
 ): string {
-  return new Intl.DateTimeFormat(locale, { timeZone: options.timeZone ?? appTimezone, ...options }).format(
-    toDate(value),
-  )
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: options.timeZone ?? appTimezone,
+    ...options,
+  }).format(toDate(value))
 }
 
 /** The date/time parts of an instant in the app timezone (or an override). */

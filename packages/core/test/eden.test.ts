@@ -1,6 +1,6 @@
+import { describe, expect, test } from 'bun:test'
 import { treaty } from '@elysiajs/eden'
 import { Elysia } from 'elysia'
-import { describe, expect, test } from 'bun:test'
 import { route } from '../src/middleware'
 
 /**

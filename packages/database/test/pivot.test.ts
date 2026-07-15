@@ -68,7 +68,6 @@ for (const d of dialects) {
       await user.roles().attach(admin.id)
 
       const users = await User.query().with('roles').get()
-      // biome-ignore lint/suspicious/noExplicitAny: walking loaded relations in a test
       const roles = users.first()?.getRelation('roles') as any
       const pivot = roles.first()?.getRelation('pivot') as Record<string, unknown>
       expect(Number(pivot?.role_id)).toBe(admin.id)

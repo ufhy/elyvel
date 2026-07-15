@@ -35,15 +35,11 @@ export abstract class FormRequest {
   }
 
   /** Authorize, then validate `ctx.body`. Returns validated data or throws. */
-  static async validate<T extends FormRequest>(
-    this: new () => T,
-    ctx: RequestLike,
-  ): Promise<Data> {
+  static async validate<T extends FormRequest>(this: new () => T, ctx: RequestLike): Promise<Data> {
     const instance = new this()
     if (!(await instance.authorize(ctx))) throw new AuthorizationException()
 
-    const data: Data =
-      ctx.body && typeof ctx.body === 'object' ? (ctx.body as Data) : {}
+    const data: Data = ctx.body && typeof ctx.body === 'object' ? (ctx.body as Data) : {}
     const options: ValidatorOptions = {
       messages: instance.messages(),
       attributes: instance.attributes(),

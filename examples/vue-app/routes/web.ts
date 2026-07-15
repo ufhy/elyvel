@@ -5,4 +5,6 @@ import { route } from '@elysia-ravel/core'
  * the framework serializes it to JSON; return `view(...)` / `Inertia.render(...)`
  * for HTML. See the docs to add controllers, middleware, and validation.
  */
-export default route().get('/', () => ({ message: 'Welcome to Vue App — powered by elysia-ravel.' }))
+export default route().get('/', () => ({
+  message: 'Welcome to Vue App — powered by elysia-ravel.',
+}))

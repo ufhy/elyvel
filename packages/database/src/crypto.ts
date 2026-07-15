@@ -12,7 +12,9 @@ export function setEncryptionKey(secret: string): void {
 
 function requireKey(): Buffer {
   if (!key) {
-    throw new Error('[eloquent] Encryption key not set. Configure `app.key` to use encrypted casts.')
+    throw new Error(
+      '[eloquent] Encryption key not set. Configure `app.key` to use encrypted casts.',
+    )
   }
   return key
 }
@@ -28,7 +30,11 @@ export function encrypt(plaintext: string): string {
 
 export function decrypt(payload: string): string {
   const [iv, tag, enc] = payload.split(':')
-  const decipher = createDecipheriv('aes-256-gcm', requireKey(), Buffer.from(iv as string, 'base64'))
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    requireKey(),
+    Buffer.from(iv as string, 'base64'),
+  )
   decipher.setAuthTag(Buffer.from(tag as string, 'base64'))
   return Buffer.concat([
     decipher.update(Buffer.from(enc as string, 'base64')),

@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { download, file, streamDownload } from '../src/http/file'
-import { staticFiles } from '../src/http/static'
 import { methodOverride } from '../src/http/method-override'
 import { expectsJson, wantsHtml } from '../src/http/negotiation'
 import { httpResponses } from '../src/http/plugin'
 import { back, redirect } from '../src/http/redirect'
 import { Resource } from '../src/http/resource'
+import { staticFiles } from '../src/http/static'
 import { requestContext } from '../src/request-context'
 import { type ResolvedSessionConfig, sessionPlugin } from '../src/session'
 
@@ -43,10 +43,13 @@ describe('Resource', () => {
 
 // ── method spoofing ───────────────────────────────────────────────────────────
 describe('methodOverride', () => {
-  const post = (init: RequestInit = {}) => new Request('http://localhost/x', { method: 'POST', ...init })
+  const post = (init: RequestInit = {}) =>
+    new Request('http://localhost/x', { method: 'POST', ...init })
 
   test('X-HTTP-Method-Override header', async () => {
-    expect((await methodOverride(post({ headers: { 'x-http-method-override': 'PUT' } }))).method).toBe('PUT')
+    expect(
+      (await methodOverride(post({ headers: { 'x-http-method-override': 'PUT' } }))).method,
+    ).toBe('PUT')
   })
   test('?_method query', async () => {
     const req = new Request('http://localhost/x?_method=delete', { method: 'POST' })
@@ -62,14 +65,19 @@ describe('methodOverride', () => {
     expect(await out.text()).toContain('name=Sam') // body preserved for the handler
   })
   test('JSON bodies are left untouched (spoof via header/query, not JSON body)', async () => {
-    const req = post({ headers: { 'content-type': 'application/json' }, body: JSON.stringify({ _method: 'PUT' }) })
+    const req = post({
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ _method: 'PUT' }),
+    })
     const out = await methodOverride(req)
     expect(out.method).toBe('POST')
     expect(await out.text()).toContain('_method') // body intact, not consumed
   })
   test('leaves GET and unspoofable methods alone', async () => {
     expect((await methodOverride(new Request('http://localhost/x'))).method).toBe('GET')
-    expect((await methodOverride(post({ headers: { 'x-http-method-override': 'GET' } }))).method).toBe('POST')
+    expect(
+      (await methodOverride(post({ headers: { 'x-http-method-override': 'GET' } }))).method,
+    ).toBe('POST')
   })
   test('routes a spoofed POST to a PUT route', async () => {
     const app = new Elysia().put('/items/:id', ({ params }) => ({ updated: params.id }))
@@ -91,7 +99,9 @@ describe('file responses', () => {
   const app = () =>
     new Elysia()
       .use(httpResponses())
-      .get('/export', () => streamDownload('users.csv', 'id,name\n1,Sam\n', { contentType: 'text/csv' }))
+      .get('/export', () =>
+        streamDownload('users.csv', 'id,name\n1,Sam\n', { contentType: 'text/csv' }),
+      )
       .get('/logo', () => download('package.json', 'pkg.json', { contentType: 'application/json' }))
       .get('/stream', () =>
         streamDownload(

@@ -18,7 +18,8 @@ export class FilesystemManager {
     let disk = this.disks.get(key)
     if (!disk) {
       const cfg = this.config.disks?.[key]
-      if (!cfg) throw new Error(`[elysia-ravel] Disk "${key}" is not defined in config/filesystems.ts.`)
+      if (!cfg)
+        throw new Error(`[elysia-ravel] Disk "${key}" is not defined in config/filesystems.ts.`)
       disk = this.resolve(cfg)
       this.disks.set(key, disk)
     }
@@ -46,7 +47,8 @@ export function setDefaultStorage(manager: FilesystemManager): void {
 
 /** The default disk (or a named disk). */
 export function storage(disk?: string): FilesystemDisk {
-  if (!defaultManager) throw new Error('[elysia-ravel] Storage is not configured. Register StorageServiceProvider.')
+  if (!defaultManager)
+    throw new Error('[elysia-ravel] Storage is not configured. Register StorageServiceProvider.')
   return defaultManager.disk(disk)
 }
 

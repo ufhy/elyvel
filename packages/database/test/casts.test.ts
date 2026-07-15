@@ -9,7 +9,6 @@ class Setting extends Model {
   static override casts = { active: 'boolean', meta: 'json', count: 'int' } as const
   declare id: number
   declare active: boolean
-  // biome-ignore lint/suspicious/noExplicitAny: exercising json cast with mixed shapes
   declare meta: any
   declare count: number
 }

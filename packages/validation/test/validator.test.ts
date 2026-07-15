@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { configureDbRules } from '../src/db-rules'
 import { FormRequest } from '../src/form-request'
 import { ValidationException } from '../src/validation-exception'
-import { validate, Validator } from '../src/validator'
+import { Validator, validate } from '../src/validator'
 
 describe('Validator — rules', () => {
   test('required rejects missing, null, and empty string (Laravel semantics)', async () => {
@@ -49,7 +49,10 @@ describe('Validator — rules', () => {
     const bag = await Validator.make(
       { email: '' },
       { email: 'required' },
-      { messages: { 'email.required': 'We need your :attribute!' }, attributes: { email: 'email address' } },
+      {
+        messages: { 'email.required': 'We need your :attribute!' },
+        attributes: { email: 'email address' },
+      },
     ).errors()
     expect(bag.email?.[0]).toBe('We need your email address!')
   })

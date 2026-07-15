@@ -2,7 +2,8 @@ import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
 import { ArrayChannel, DatabaseChannel, MailChannel, TelegramChannel } from './channels'
 import { NotificationManager, setDefaultNotifications } from './manager'
 
-export const NotificationToken: Token<NotificationManager> = token<NotificationManager>('notifications')
+export const NotificationToken: Token<NotificationManager> =
+  token<NotificationManager>('notifications')
 
 /**
  * Boots notifications: registers the built-in channels (array/mail/telegram/

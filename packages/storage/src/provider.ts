@@ -15,7 +15,9 @@ export class StorageServiceProvider extends ServiceProvider {
     const disks: Record<string, DiskConfig> = {}
     for (const [name, disk] of Object.entries(config.disks ?? {})) {
       disks[name] =
-        disk.driver === 'local' ? { ...disk, root: this.app.path(disk.root ?? 'storage/app') } : disk
+        disk.driver === 'local'
+          ? { ...disk, root: this.app.path(disk.root ?? 'storage/app') }
+          : disk
     }
     const manager = new FilesystemManager({ ...config, disks })
     setDefaultStorage(manager)

@@ -1,15 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { ArrayTransport, MailManager, Message, setDefaultMailer } from '@elysia-ravel/mail'
-import { setDefaultTelegram, TelegramClient } from '@elysia-ravel/telegram'
+import { type ArrayTransport, MailManager, Message, setDefaultMailer } from '@elysia-ravel/mail'
+import { TelegramClient, setDefaultTelegram } from '@elysia-ravel/telegram'
+import { DatabaseChannel, MailChannel, TelegramChannel } from '../src/channels'
 import {
   ArrayChannel,
-  configureDatabaseNotifications,
-  NotificationManager,
-  Notification,
   type Notifiable,
+  Notification,
+  NotificationManager,
   type StoredNotification,
+  configureDatabaseNotifications,
 } from '../src/index'
-import { DatabaseChannel, MailChannel, TelegramChannel } from '../src/channels'
 
 // A notifiable user with per-channel routes.
 const user: Notifiable = {
@@ -56,7 +56,9 @@ beforeAll(() => {
       return Response.json({ ok: true, result: {} })
     },
   })
-  setDefaultTelegram(new TelegramClient({ token: 'T', apiBase: `http://localhost:${tgServer.port}` }))
+  setDefaultTelegram(
+    new TelegramClient({ token: 'T', apiBase: `http://localhost:${tgServer.port}` }),
+  )
 })
 afterAll(() => tgServer.stop(true))
 
@@ -86,7 +88,11 @@ describe('multi-channel dispatch', () => {
     // telegram → routed to chat 555 via the local fake API
     expect(telegramCalls.at(-1)).toMatchObject({ chat_id: 555, text: 'Invoice paid: 99' })
     // database → stored with type + data + notifiable id
-    expect(stored[0]).toMatchObject({ type: 'InvoicePaid', notifiableId: 7, data: { kind: 'invoice.paid' } })
+    expect(stored[0]).toMatchObject({
+      type: 'InvoicePaid',
+      notifiableId: 7,
+      data: { kind: 'invoice.paid' },
+    })
     expect(stored[0]?.readAt).toBeNull()
   })
 
@@ -100,7 +106,9 @@ describe('multi-channel dispatch', () => {
       }
     }
     const array = new ArrayChannel()
-    const manager = new NotificationManager().channel('array', array).channel('mail', new MailChannel())
+    const manager = new NotificationManager()
+      .channel('array', array)
+      .channel('mail', new MailChannel())
     await manager.send(user, new OnlyArray())
     expect(array.sent).toHaveLength(1)
   })

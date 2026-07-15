@@ -58,7 +58,12 @@ export async function hydrateModels(job: Record<string, unknown>): Promise<void>
 }
 
 async function resolve(value: unknown): Promise<unknown> {
-  if (serializer && value && typeof value === 'object' && MARKER in (value as Record<string, unknown>)) {
+  if (
+    serializer &&
+    value &&
+    typeof value === 'object' &&
+    MARKER in (value as Record<string, unknown>)
+  ) {
     return serializer.hydrate((value as Record<string, ModelReference>)[MARKER] as ModelReference)
   }
   return value

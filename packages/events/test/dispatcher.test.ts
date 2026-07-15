@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import {
-  configureEventAfterCommit,
   Dispatcher,
   EventFake,
+  type Subscriber,
+  configureEventAfterCommit,
   fakeEvents,
   restoreEvents,
-  type Subscriber,
 } from '../src/dispatcher'
 
 class UserRegistered {

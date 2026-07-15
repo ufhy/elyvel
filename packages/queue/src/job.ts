@@ -36,7 +36,6 @@ export abstract class Job {
   abstract handle(): void | Promise<void>
   failed?(error: unknown): void | Promise<void>
   /** Middleware wrapping `handle()` (e.g. WithoutOverlapping, RateLimited). */
-  // biome-ignore lint/suspicious/noExplicitAny: avoids a circular import with middleware.ts
   middleware?(): any[]
 
   /** Queue these jobs to run in sequence after this one completes successfully. */
@@ -46,7 +45,6 @@ export abstract class Job {
   }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: job classes have varied shapes
 export type JobClass = new (...args: any[]) => Job
 
 /** Runtime config carried with a serialized job (not part of its payload). */
@@ -106,7 +104,8 @@ export function serializeJob(job: Job): SerializedJob {
   if (job.encrypt !== undefined) config.encrypt = job.encrypt
   if (job.batchId !== undefined) config.batchId = job.batchId
   const result: SerializedJob = { job: job.constructor.name, data: serializedData, config }
-  if (job.chainedJobs && job.chainedJobs.length > 0) result.chain = job.chainedJobs.map(serializeJob)
+  if (job.chainedJobs && job.chainedJobs.length > 0)
+    result.chain = job.chainedJobs.map(serializeJob)
   return result
 }
 
@@ -114,7 +113,9 @@ export function serializeJob(job: Job): SerializedJob {
 export function reconstructJob(serialized: SerializedJob): Job {
   const cls = registry.get(serialized.job)
   if (!cls) {
-    throw new Error(`[elysia-ravel] Unknown job "${serialized.job}". Register it with registerJob(${serialized.job}).`)
+    throw new Error(
+      `[elysia-ravel] Unknown job "${serialized.job}". Register it with registerJob(${serialized.job}).`,
+    )
   }
   const job = Object.create(cls.prototype) as Job
   Object.assign(job, serialized.data)

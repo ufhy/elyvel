@@ -91,7 +91,6 @@ export function resource(
   const param = options.param ?? 'id'
   const idPath = `/:${param}`
   const label = path.replace(/^\//, '').replace(/\/$/, '') || 'resource'
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia route generics vary per call
   let r: any = route(path)
 
   const opts = (action: ResourceAction) => {
@@ -115,7 +114,9 @@ export function resource(
     return async (ctx) => {
       const model = await resolveModel(ctx)
       if (model === null || model === undefined) {
-        return options.onMissing ? options.onMissing(ctx) : ctx.status(404, { message: `${label} not found` })
+        return options.onMissing
+          ? options.onMissing(ctx)
+          : ctx.status(404, { message: `${label} not found` })
       }
       ctx.model = model
       return handler(ctx)
@@ -205,7 +206,6 @@ export function singleton(
       ? all.filter((a) => !options.except?.includes(a))
       : all
 
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia route generics vary per call
   let r: any = route(path)
   const mwOf = (action: SingletonAction) => {
     const mw = options.middleware
@@ -267,7 +267,6 @@ export function invoke(Controller: InvokableClass): RouteHandler {
  * root. Runs whenever no other route matches.
  */
 export function fallback(handler: RouteHandler): Elysia {
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia's response generic varies with the hook
   const plugin: any = new Elysia({ name: 'ravel-fallback' }).onError({ as: 'global' }, (ctx) => {
     if (ctx.code === 'NOT_FOUND') return handler(ctx as unknown as MiddlewareContext)
   })

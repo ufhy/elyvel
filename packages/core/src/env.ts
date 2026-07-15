@@ -1,6 +1,6 @@
 import type { TObject, TSchema } from '@sinclair/typebox'
-import { Value } from '@sinclair/typebox/value'
 import type { Static } from '@sinclair/typebox'
+import { Value } from '@sinclair/typebox/value'
 
 /**
  * Validate and coerce `process.env` against a TypeBox schema, failing fast at
@@ -16,7 +16,10 @@ import type { Static } from '@sinclair/typebox'
  * }))
  * env.PORT // typed as number
  */
-export function defineEnv<T extends TObject>(schema: T, source: Record<string, unknown> = process.env): Static<T> {
+export function defineEnv<T extends TObject>(
+  schema: T,
+  source: Record<string, unknown> = process.env,
+): Static<T> {
   // Coerce strings ("3000", "true") into the schema's target primitives.
   const converted = Value.Convert(schema, source)
   const cleaned = Value.Clean(schema, converted)

@@ -25,12 +25,19 @@ export class FileResponse {
 }
 
 /** Serve a file (by path) inline — rendered in the browser when possible. */
-export function file(path: string, options: { contentType?: string; name?: string } = {}): FileResponse {
+export function file(
+  path: string,
+  options: { contentType?: string; name?: string } = {},
+): FileResponse {
   return new FileResponse(path, { disposition: 'inline', fromPath: true, ...options })
 }
 
 /** Send a file (by path) as a download; the filename defaults to the path's basename. */
-export function download(path: string, name?: string, options: { contentType?: string } = {}): FileResponse {
+export function download(
+  path: string,
+  name?: string,
+  options: { contentType?: string } = {},
+): FileResponse {
   return new FileResponse(path, { disposition: 'attachment', fromPath: true, name, ...options })
 }
 

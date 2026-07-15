@@ -210,6 +210,7 @@ export const RULES: Record<string, Rule> = {
   alpha: { validate: (v) => /^[A-Za-z]+$/.test(String(v)) },
   alpha_num: { validate: (v) => /^[A-Za-z0-9]+$/.test(String(v)) },
   alpha_dash: { validate: (v) => /^[A-Za-z0-9_-]+$/.test(String(v)) },
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: the ascii rule validates the full ASCII range \x00-\x7F
   ascii: { validate: (v) => /^[\x00-\x7F]*$/.test(String(v)) },
   uppercase: { validate: (v) => String(v) === String(v).toUpperCase() },
   lowercase: { validate: (v) => String(v) === String(v).toLowerCase() },
@@ -230,7 +231,9 @@ export const RULES: Record<string, Rule> = {
   doesnt_end_with: { validate: (v, args) => !args.some((a) => String(v).endsWith(a)) },
 
   // numbers
-  digits: { validate: (v, args) => /^\d+$/.test(String(v)) && String(v).length === Number(args[0]) },
+  digits: {
+    validate: (v, args) => /^\d+$/.test(String(v)) && String(v).length === Number(args[0]),
+  },
   digits_between: {
     validate: (v, args) => {
       const s = String(v)

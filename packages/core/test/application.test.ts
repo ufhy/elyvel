@@ -21,14 +21,12 @@ describe('createApp', () => {
   test('merges providers passed via options', async () => {
     let booted = false
     class InlineProvider {
-      // biome-ignore lint/suspicious/noExplicitAny: minimal test double
       constructor(private readonly app: any) {}
       register() {}
       boot() {
         booted = true
       }
     }
-    // biome-ignore lint/suspicious/noExplicitAny: passing a structural provider
     await createApp({ basePath, autoloadRoutes: false, providers: [InlineProvider as any] })
     expect(booted).toBe(true)
   })

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection } from '../src/connection'
-import { configureModelEventDispatcher, Model } from '../src/model'
+import { Model, configureModelEventDispatcher } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 
 class Thing extends Model {
@@ -64,7 +64,8 @@ describe('Eloquent model events → dispatcher bridge', () => {
     const row = await SoftThing.create({ name: 's' })
     bridged.length = 0
     const order: string[] = []
-    for (const e of ['deleting', 'trashed', 'deleted'] as const) SoftThing.on(e, () => void order.push(e))
+    for (const e of ['deleting', 'trashed', 'deleted'] as const)
+      SoftThing.on(e, () => void order.push(e))
 
     await row.delete()
     expect(order).toEqual(['deleting', 'trashed', 'deleted'])
@@ -76,12 +77,16 @@ describe('Eloquent model events → dispatcher bridge', () => {
     const row = await SoftThing.create({ name: 'f' })
     bridged.length = 0
     const order: string[] = []
-    for (const e of ['forceDeleting', 'forceDeleted'] as const) SoftThing.on(e, () => void order.push(e))
+    for (const e of ['forceDeleting', 'forceDeleted'] as const)
+      SoftThing.on(e, () => void order.push(e))
 
     await row.forceDelete()
     expect(order).toEqual(['forceDeleting', 'forceDeleted'])
     expect(bridged).toEqual(
-      expect.arrayContaining(['eloquent.forceDeleting: SoftThing', 'eloquent.forceDeleted: SoftThing']),
+      expect.arrayContaining([
+        'eloquent.forceDeleting: SoftThing',
+        'eloquent.forceDeleted: SoftThing',
+      ]),
     )
   })
 

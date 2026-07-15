@@ -5,7 +5,8 @@
  */
 export function expectsJson(request: Request): boolean {
   // Explicit AJAX clients.
-  if ((request.headers.get('x-requested-with') ?? '').toLowerCase() === 'xmlhttprequest') return true
+  if ((request.headers.get('x-requested-with') ?? '').toLowerCase() === 'xmlhttprequest')
+    return true
   // Inertia is a web (HTML/SPA) posture, handled separately — never plain JSON here.
   if (request.headers.get('x-inertia')) return false
 

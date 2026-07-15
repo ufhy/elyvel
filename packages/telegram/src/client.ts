@@ -31,7 +31,11 @@ export class TelegramClient {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(params),
     })
-    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string; result?: T }
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean
+      description?: string
+      result?: T
+    }
     if (!res.ok || data.ok === false) {
       throw new Error(`[elysia-ravel] Telegram ${method} failed: ${data.description ?? res.status}`)
     }
@@ -43,7 +47,9 @@ export class TelegramClient {
     const m: TelegramMessage = typeof message === 'string' ? { text: message } : message
     const chatId = m.chatId ?? this.options.defaultChatId
     if (chatId === undefined) {
-      throw new Error('[elysia-ravel] Telegram sendMessage needs a chatId (or config.defaultChatId).')
+      throw new Error(
+        '[elysia-ravel] Telegram sendMessage needs a chatId (or config.defaultChatId).',
+      )
     }
     return this.call('sendMessage', {
       chat_id: chatId,

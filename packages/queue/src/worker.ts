@@ -1,7 +1,7 @@
 import { isBatchCancelled, recordBatchedJob } from './batch'
 import { fireAfter, fireBefore, fireFailing } from './events'
 import type { FailedJobRepository } from './failed'
-import { backoffFor, decodeBody, encodeBody, reconstructJob, type SerializedJob } from './job'
+import { type SerializedJob, backoffFor, decodeBody, encodeBody, reconstructJob } from './job'
 import { ReleaseJob, runThroughMiddleware } from './middleware'
 import { restartSignal } from './restart'
 import { hydrateModels } from './serializes-models'
@@ -92,7 +92,10 @@ export class Worker {
       this.options.onError?.(name, error, willRetry)
       await fireFailing(name, error)
       if (willRetry) {
-        await this.store.release(record, backoffFor(job, record.attempts, this.options.retryAfter ?? 0))
+        await this.store.release(
+          record,
+          backoffFor(job, record.attempts, this.options.retryAfter ?? 0),
+        )
       } else {
         await job.failed?.(error)
         const connection = this.options.connection ?? 'default'
@@ -118,7 +121,9 @@ export class Worker {
    * returns (great for tests/CI); otherwise it polls forever every `sleepMs`.
    * Returns the number of jobs processed.
    */
-  async work(opts: { once?: boolean; stopWhenEmpty?: boolean; sleepMs?: number; max?: number } = {}): Promise<number> {
+  async work(
+    opts: { once?: boolean; stopWhenEmpty?: boolean; sleepMs?: number; max?: number } = {},
+  ): Promise<number> {
     let processed = 0
     while (true) {
       if (await this.shouldRestart()) break // graceful queue:restart

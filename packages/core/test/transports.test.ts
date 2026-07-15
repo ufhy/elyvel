@@ -1,15 +1,15 @@
+import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { gunzipSync } from 'node:zlib'
-import { describe, expect, test } from 'bun:test'
 import {
   BufferedFileTransport,
   DailyFileTransport,
   FileTransport,
   type LogEntry,
-  Logger,
   LogManager,
+  Logger,
   type Transport,
 } from '../src/logger'
 
@@ -123,7 +123,13 @@ describe('LogManager', () => {
   test('routes channel() to the right logger and throws on unknown', () => {
     const a = new Logger({ level: 'info' })
     const b = new Logger({ level: 'info' })
-    const manager = new LogManager(new Map([['a', a], ['b', b]]), a)
+    const manager = new LogManager(
+      new Map([
+        ['a', a],
+        ['b', b],
+      ]),
+      a,
+    )
 
     expect(manager.default).toBe(a)
     expect(manager.channel('b')).toBe(b)

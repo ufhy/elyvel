@@ -38,7 +38,10 @@ for (const d of dialects) {
     test('fresh drops all tables and re-runs', async () => {
       const conn = await d.connect()
       await migrate(conn, dir)
-      await conn.statement(`INSERT INTO ${conn.grammar.wrap('things')} (name) VALUES (${conn.grammar.placeholder(0)})`, ['stale'])
+      await conn.statement(
+        `INSERT INTO ${conn.grammar.wrap('things')} (name) VALUES (${conn.grammar.placeholder(0)})`,
+        ['stale'],
+      )
       expect(await freshMigrate(conn, dir)).toEqual(['0001_create_things'])
       const rows = await conn.select<{ c: number | string }>('SELECT COUNT(*) AS c FROM things')
       expect(Number(rows[0]?.c)).toBe(0)

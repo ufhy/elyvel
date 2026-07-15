@@ -17,20 +17,22 @@ export function staticFiles(options: StaticFilesOptions) {
   const prefix = (options.prefix ?? '').replace(/\/+$/, '')
   const root = resolve(process.cwd(), options.dir)
 
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia context varies with params
-  return new Elysia({ name: `ravel-static-${prefix || 'root'}` }).get(`${prefix}/*`, async ({ params, set }: any) => {
-    const rel = (params['*'] ?? '') as string
-    const target = resolve(root, rel)
-    // Stay inside the served directory (block ../ traversal).
-    if (target !== root && !target.startsWith(`${root}/`)) {
-      set.status = 403
-      return 'Forbidden'
-    }
-    const bunFile = Bun.file(target)
-    if (!(await bunFile.exists())) {
-      set.status = 404
-      return 'Not Found'
-    }
-    return bunFile
-  })
+  return new Elysia({ name: `ravel-static-${prefix || 'root'}` }).get(
+    `${prefix}/*`,
+    async ({ params, set }: any) => {
+      const rel = (params['*'] ?? '') as string
+      const target = resolve(root, rel)
+      // Stay inside the served directory (block ../ traversal).
+      if (target !== root && !target.startsWith(`${root}/`)) {
+        set.status = 403
+        return 'Forbidden'
+      }
+      const bunFile = Bun.file(target)
+      if (!(await bunFile.exists())) {
+        set.status = 404
+        return 'Not Found'
+      }
+      return bunFile
+    },
+  )
 }

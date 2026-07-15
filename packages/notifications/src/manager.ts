@@ -36,7 +36,10 @@ export function notifications(): NotificationManager {
 }
 
 /** Send a notification (Laravel's `Notification::send` / `$user->notify()`). */
-export function notify(notifiable: Notifiable | Notifiable[], notification: Notification): Promise<void> {
+export function notify(
+  notifiable: Notifiable | Notifiable[],
+  notification: Notification,
+): Promise<void> {
   return Array.isArray(notifiable)
     ? notifications().sendMany(notifiable, notification)
     : notifications().send(notifiable, notification)

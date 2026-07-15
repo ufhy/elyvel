@@ -1,6 +1,6 @@
 import { staticFiles } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
-import { viteTags, type ViteOptions } from './tags'
+import { type ViteOptions, viteTags } from './tags'
 
 export interface SpaOptions extends ViteOptions {
   /** URL prefix the SPA is mounted at (client-side routes live under it). Default `/`. */
@@ -42,13 +42,13 @@ export function spa(options: SpaOptions) {
   const render = options.html ?? defaultShell
   const shell = () => render({ head, rootId, title: options.title })
 
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia context varies with hooks
   const serveShell = ({ set }: any) => {
     set.headers['content-type'] = 'text/html; charset=utf-8'
     return shell()
   }
 
   const app = new Elysia({ name: `ravel-spa-${prefix || 'root'}` })
-  if (options.assets !== false) app.use(staticFiles({ prefix: base, dir: options.buildDir ?? 'public/build' }))
+  if (options.assets !== false)
+    app.use(staticFiles({ prefix: base, dir: options.buildDir ?? 'public/build' }))
   return app.get(prefix || '/', serveShell).get(`${prefix}/*`, serveShell)
 }

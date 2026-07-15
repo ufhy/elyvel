@@ -436,10 +436,16 @@ export class MorphMany<R extends Model> extends Relation<R> {
     }
   }
   async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
-    const query = this.related.query().select(this.idField).where(this.typeField, this.parent.constructor.name)
+    const query = this.related
+      .query()
+      .select(this.idField)
+      .where(this.typeField, this.parent.constructor.name)
     constrain?.(query)
     const rows = await query.get()
-    return { column: this.localKey, values: [...new Set(rows.all().map((m) => m.getAttribute(this.idField)))] }
+    return {
+      column: this.localKey,
+      values: [...new Set(rows.all().map((m) => m.getAttribute(this.idField)))],
+    }
   }
   override async existenceCounts(constrain?: RelationConstraint<R>) {
     const query = this.related
@@ -541,7 +547,10 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
     const rows = await this.throughRows(parents.map((p) => p.getAttribute(this.localKey)))
     const throughToParent = new Map<string, string>()
     for (const t of rows) {
-      throughToParent.set(String(t.getAttribute(this.secondLocalKey)), String(t.getAttribute(this.firstKey)))
+      throughToParent.set(
+        String(t.getAttribute(this.secondLocalKey)),
+        String(t.getAttribute(this.firstKey)),
+      )
     }
     const throughIds = rows.map((t) => t.getAttribute(this.secondLocalKey))
     const far = throughIds.length

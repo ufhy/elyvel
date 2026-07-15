@@ -1,17 +1,20 @@
+import { afterAll, describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, test } from 'bun:test'
 import { CacheManager, cache, setDefaultCache } from '../src/manager'
-import { FileStore, MemoryStore } from '../src/store'
 import { Repository } from '../src/repository'
+import { FileStore, MemoryStore } from '../src/store'
 
 const dir = mkdtempSync(join(tmpdir(), 'cache-'))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
 const stores = [
   { name: 'memory', make: () => new Repository(new MemoryStore()) },
-  { name: 'file', make: () => new Repository(new FileStore(join(dir, Math.random().toString(36).slice(2)))) },
+  {
+    name: 'file',
+    make: () => new Repository(new FileStore(join(dir, Math.random().toString(36).slice(2)))),
+  },
 ] as const
 
 for (const s of stores) {
@@ -79,8 +82,8 @@ for (const s of stores) {
 
 describe('database cache store (via adapter)', () => {
   test('get/put/remember/increment through an injected adapter', async () => {
-    const { DatabaseStore, configureDatabaseCache } =
-      require('../src/store') as typeof import('../src/store')
+    const store = require('../src/store') as typeof import('../src/store')
+    const { DatabaseStore, configureDatabaseCache } = store
     const rows = new Map<string, { value: string; expiresAt: number | null }>()
     configureDatabaseCache({
       read: async (key) => rows.get(key),
@@ -146,7 +149,10 @@ describe('redis cache store (fake client — logic only)', () => {
 
 describe('CacheManager + cache() helper', () => {
   test('resolves stores; cache() uses the default', async () => {
-    const manager = new CacheManager({ default: 'memory', stores: { memory: { driver: 'memory' } } })
+    const manager = new CacheManager({
+      default: 'memory',
+      stores: { memory: { driver: 'memory' } },
+    })
     setDefaultCache(manager)
     await cache().put('hello', 'world')
     expect(await cache().get('hello')).toBe('world')

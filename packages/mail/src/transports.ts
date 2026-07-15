@@ -1,4 +1,4 @@
-import { formatAddress, type Message } from './message'
+import { type Message, formatAddress } from './message'
 
 /** A mail transport — turns a composed {@link Message} into a delivered email. */
 export interface Transport {

@@ -39,7 +39,10 @@ export const Queue = {
  * `listen('queue.failed', ...)`. Kept injectable so the queue package stays
  * decoupled from `@elysia-ravel/events`.
  */
-type QueueEventDispatcher = (eventName: string, payload: Record<string, unknown>) => void | Promise<void>
+type QueueEventDispatcher = (
+  eventName: string,
+  payload: Record<string, unknown>,
+) => void | Promise<void>
 let queueEventDispatcher: QueueEventDispatcher | null = null
 export function configureQueueEventDispatcher(dispatcher: QueueEventDispatcher): void {
   queueEventDispatcher = dispatcher

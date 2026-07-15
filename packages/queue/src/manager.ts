@@ -1,6 +1,6 @@
 import { RedisClient } from 'bun'
 import type { QueueConfig, QueueConnectionConfig } from './config-schema'
-import { CallQueuedClosure, encodeBody, type Job, serializeJob } from './job'
+import { CallQueuedClosure, type Job, encodeBody, serializeJob } from './job'
 import { DatabaseQueueStore, MemoryQueueStore, type QueueStore, RedisQueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
 
@@ -9,7 +9,9 @@ export type Dispatchable = Job | (() => void | Promise<void>)
 
 /** Normalize a dispatchable into a Job (wrapping closures). */
 function toJob(dispatchable: Dispatchable): Job {
-  return typeof dispatchable === 'function' ? new CallQueuedClosure(dispatchable.toString()) : dispatchable
+  return typeof dispatchable === 'function'
+    ? new CallQueuedClosure(dispatchable.toString())
+    : dispatchable
 }
 
 export interface DispatchOptions {
@@ -58,14 +60,20 @@ export class QueueManager {
   private build(name: string): QueueStore | 'sync' {
     const cfg: QueueConnectionConfig | undefined =
       this.config.connections?.[name] ?? (name === 'sync' ? { driver: 'sync' } : undefined)
-    if (!cfg) throw new Error(`[elysia-ravel] Queue connection "${name}" is not defined in config/queue.ts.`)
+    if (!cfg)
+      throw new Error(
+        `[elysia-ravel] Queue connection "${name}" is not defined in config/queue.ts.`,
+      )
     switch (cfg.driver) {
       case 'memory':
         return new MemoryQueueStore()
       case 'database':
         return new DatabaseQueueStore()
       case 'redis':
-        return new RedisQueueStore(cfg.url ? new RedisClient(cfg.url) : new RedisClient(), cfg.queue ?? 'queues')
+        return new RedisQueueStore(
+          cfg.url ? new RedisClient(cfg.url) : new RedisClient(),
+          cfg.queue ?? 'queues',
+        )
       default:
         return 'sync'
     }
@@ -93,7 +101,10 @@ export class QueueManager {
         }
         return
       }
-      await store.push(encodeBody(serializeJob(job)), { delaySeconds: options.delay ?? 0, queue: options.queue })
+      await store.push(encodeBody(serializeJob(job)), {
+        delaySeconds: options.delay ?? 0,
+        queue: options.queue,
+      })
     }
 
     const connCfg = this.config.connections?.[name]

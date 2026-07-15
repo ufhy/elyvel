@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, type Connection, raw, setConnection } from '../src/connection'
+import { type Connection, createConnection, raw, setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
@@ -59,7 +59,10 @@ for (const d of dialects) {
     })
 
     test('raw() helper runs arbitrary SQL', async () => {
-      const rows = await raw<{ c: number | string }>('SELECT COUNT(*) AS c FROM users WHERE age > $1'.replace('$1', conn.grammar.placeholder(0)), [30])
+      const rows = await raw<{ c: number | string }>(
+        'SELECT COUNT(*) AS c FROM users WHERE age > $1'.replace('$1', conn.grammar.placeholder(0)),
+        [30],
+      )
       expect(Number(rows[0]?.c)).toBe(2)
     })
 

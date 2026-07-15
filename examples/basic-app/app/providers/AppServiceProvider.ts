@@ -23,9 +23,9 @@ import {
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { configureAuthorization } from '../authorization'
-import { configureRateLimits } from '../rate-limits'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 import { User } from '../models/User'
+import { configureRateLimits } from '../rate-limits'
 
 /**
  * The application's own service provider — the place to bind app-wide services

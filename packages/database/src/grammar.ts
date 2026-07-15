@@ -115,14 +115,18 @@ export abstract class Grammar {
   }
   compileDropForeign(table: string, name: string): string {
     if (this.dialect !== 'pg') {
-      throw new Error('[eloquent] dropForeign is not supported on SQLite (rebuild the table instead).')
+      throw new Error(
+        '[eloquent] dropForeign is not supported on SQLite (rebuild the table instead).',
+      )
     }
     return `ALTER TABLE ${this.wrap(table)} DROP CONSTRAINT ${this.wrap(name)}`
   }
   /** Modify a column's type/nullability/default. Postgres only (SQLite can't ALTER type). */
   compileChangeColumn(table: string, column: ColumnDefinition): string[] {
     if (this.dialect !== 'pg') {
-      throw new Error('[eloquent] Column change() is not supported on SQLite (rebuild the table instead).')
+      throw new Error(
+        '[eloquent] Column change() is not supported on SQLite (rebuild the table instead).',
+      )
     }
     const t = this.wrap(table)
     const col = this.wrap(column.name)

@@ -20,9 +20,7 @@ import { DatabaseToken } from './tokens'
 export class EloquentServiceProvider extends ServiceProvider {
   override async register(): Promise<void> {
     const name = this.app.config.get<string>('database.default', 'sqlite')
-    const config = this.app.config.get<ConnectionConfig | undefined>(
-      `database.connections.${name}`,
-    )
+    const config = this.app.config.get<ConnectionConfig | undefined>(`database.connections.${name}`)
     if (!config) {
       throw new Error(
         `[elysia-ravel] Database connection "${name}" is not defined in config/database.ts.`,
@@ -73,7 +71,10 @@ export class EloquentServiceProvider extends ServiceProvider {
     const slowMs = this.app.config.get<number | undefined>('database.slowMs')
     if (slowMs && slowMs > 0) {
       connection.whenQueryingForLongerThan(slowMs, ({ ms }) => {
-        sql.warn('slow request query time', { totalMs: connection.getTotalQueryDuration(), lastMs: ms })
+        sql.warn('slow request query time', {
+          totalMs: connection.getTotalQueryDuration(),
+          lastMs: ms,
+        })
       })
       this.app.elysia.onRequest(() => connection.resetTotalQueryDuration())
     }

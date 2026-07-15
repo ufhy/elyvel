@@ -94,7 +94,8 @@ export class Collection<T> implements Iterable<T> {
   }
 
   private numbers(by?: keyof T | ((item: T) => number)): number[] {
-    const select = typeof by === 'function' ? by : by ? (i: T) => Number(i[by]) : (i: T) => Number(i)
+    const select =
+      typeof by === 'function' ? by : by ? (i: T) => Number(i[by]) : (i: T) => Number(i)
     return this.items.map(select)
   }
   sum(by?: keyof T | ((item: T) => number)): number {

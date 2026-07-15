@@ -7,14 +7,12 @@ import { storage } from '@elysia-ravel/storage'
  * lists what's been stored; `GET /files/download/*` streams a file back.
  */
 export default route()
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia multipart body
   .post('/files', async ({ body }: any) => {
     const disk = storage('public')
     const path = await disk.putFile('uploads', body.file, 'public')
     return { path, url: disk.url(path), size: await disk.size(path) }
   })
   .get('/files', async () => ({ files: await storage('public').allFiles('uploads') }))
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia wildcard params + status
   .get('/files/download/*', ({ params, status }: any) => {
     const rel = params['*']
     // Reject path traversal before it reaches the disk (defense in depth).

@@ -1,5 +1,8 @@
 import { dispatch } from '@elysia-ravel/queue'
-import { ScheduleServiceProvider as BaseScheduleServiceProvider, type Schedule } from '@elysia-ravel/scheduler'
+import {
+  ScheduleServiceProvider as BaseScheduleServiceProvider,
+  type Schedule,
+} from '@elysia-ravel/scheduler'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 
 /** Define the application's scheduled tasks here (à la Laravel's console Kernel). */

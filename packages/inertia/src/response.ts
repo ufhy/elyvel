@@ -190,7 +190,8 @@ export async function buildProps(
   const rescuedProps: string[] = []
 
   const excludedByPartial = (key: string, isAlways: boolean) =>
-    !isAlways && ((only.length > 0 && !only.includes(key)) || (except.length > 0 && except.includes(key)))
+    !isAlways &&
+    ((only.length > 0 && !only.includes(key)) || (except.length > 0 && except.includes(key)))
 
   for (const [key, value] of Object.entries(merged)) {
     if (value instanceof DeferProp) {

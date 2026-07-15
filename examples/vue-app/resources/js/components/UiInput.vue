@@ -1,5 +1,11 @@
 <script setup lang="ts">
-defineProps<{ label: string; type?: string; modelValue: string; autocomplete?: string; placeholder?: string }>()
+defineProps<{
+  label: string
+  type?: string
+  modelValue: string
+  autocomplete?: string
+  placeholder?: string
+}>()
 defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>
 

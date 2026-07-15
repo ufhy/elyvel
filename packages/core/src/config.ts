@@ -13,7 +13,7 @@ export type ConfigData = Record<string, Record<string, unknown>>
  * Applications sharpen the return types by augmenting {@link ConfigSchema}
  * via declaration merging (see the example app).
  */
-export interface ConfigSchema {}
+export type ConfigSchema = {}
 
 export class ConfigRepository {
   constructor(private readonly data: ConfigData) {}
