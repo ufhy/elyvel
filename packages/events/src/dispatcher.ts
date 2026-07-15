@@ -1,3 +1,5 @@
+import { isQueuedListener, listenerQueuerHook } from './queued-listener'
+
 type AnyEvent = any
 type EventClass<E = AnyEvent> = new (...args: any[]) => E
 /** Event identifier: a class constructor or a string name. */
@@ -20,7 +22,18 @@ function keyOf(event: EventKey): string {
 function nameOfInstance(event: object): string {
   return (event as { constructor: { name: string } }).constructor.name
 }
-function invoke(listener: Listener, event: AnyEvent, name: string): unknown {
+async function invoke(listener: Listener, event: AnyEvent, name: string): Promise<unknown> {
+  // A ShouldQueue listener is pushed to the queue (via the wired queuer) instead
+  // of running inline — unless shouldQueue(event) opts out, or no queuer is set.
+  if (isQueuedListener(listener)) {
+    const queuer = listenerQueuerHook()
+    const shouldQueue = (listener as { shouldQueue?: (e: AnyEvent) => boolean }).shouldQueue
+    if (queuer && shouldQueue?.(event) !== false) {
+      await queuer(listener, event, name)
+      return undefined
+    }
+    return listener.handle(event, name) // no queuer configured → run inline
+  }
   return typeof listener === 'function' ? listener(event, name) : listener.handle(event, name)
 }
 

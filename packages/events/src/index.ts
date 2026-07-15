@@ -13,3 +13,11 @@ export {
   setDefaultDispatcher,
 } from './dispatcher'
 export { DispatcherToken, EventServiceProvider } from './provider'
+export {
+  configureListenerQueuer,
+  isQueuedListener,
+  type ListenerJobContext,
+  type ListenerQueuer,
+  QueuedListener,
+  QueuedListenerAfterCommit,
+} from './queued-listener'

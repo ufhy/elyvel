@@ -2,7 +2,7 @@ import { BroadcastChannel } from '@elysia-ravel/broadcasting'
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
 import { afterCommit, configureModelEventDispatcher, Model, table } from '@elysia-ravel/database'
-import { event } from '@elysia-ravel/events'
+import { configureListenerQueuer, event } from '@elysia-ravel/events'
 import { Mail } from '@elysia-ravel/mail'
 import { configureDatabaseNotifications, notifications } from '@elysia-ravel/notifications'
 import {
@@ -18,12 +18,15 @@ import {
   configureUniqueJobs,
   MemoryUniqueLock,
   Queue,
+  queueListener,
   registerJob,
+  registerListener,
 } from '@elysia-ravel/queue'
 import { configureScheduleMailer } from '@elysia-ravel/scheduler'
 import { configureDbRules } from '@elysia-ravel/validation'
 import { configureAuthorization } from '../authorization'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
+import { SendWelcomeEmailListener } from '../listeners/SendWelcomeEmailListener'
 import { User } from '../models/User'
 import { configureRateLimits } from '../rate-limits'
 
@@ -85,6 +88,11 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Register job classes so the worker can reconstruct them from the queue.
     registerJob(SendWelcomeEmail)
+
+    // Queued event listeners: push ShouldQueue listeners onto the queue, and
+    // register their classes so the worker can reconstruct them.
+    configureListenerQueuer(queueListener)
+    registerListener(SendWelcomeEmailListener)
 
     // Dispatch-after-commit support + unique-job locking (in-memory here; back
     // it with Redis for cross-process uniqueness in production).

@@ -33,6 +33,7 @@ export {
   type SerializedJob,
   serializeJob,
 } from './job'
+export { ListenerJob, queueListener, registerListener } from './listener-job'
 export {
   configureAfterCommit,
   type Dispatchable,
