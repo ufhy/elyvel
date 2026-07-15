@@ -1,7 +1,7 @@
 {
   "name": "@elysia-ravel/database",
   "version": "0.0.0",
-  "description": "A Laravel Eloquent-style Active Record ORM for Bun (SQLite + Postgres)",
+  "description": "A Laravel Eloquent-style Active Record ORM for Bun (SQLite + Postgres + MySQL)",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -22,9 +22,17 @@
   "peerDependenciesMeta": {
     "postgres": {
       "optional": true
+    },
+    "kysely": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "kysely": "^0.29.3",
+    "mysql2": "^3.23.0",
     "postgres": "^3.4.9"
   }
 }

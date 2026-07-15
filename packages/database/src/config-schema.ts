@@ -3,7 +3,7 @@ import type { ConnectionConfig } from './connection'
 /**
  * Shape of `config/database.ts`. Author it with {@link defineDatabaseConfig}
  * for autocomplete + typo-safety. Each connection is a discriminated union on
- * `driver` (`sqlite` | `pg` | `pglite`).
+ * `driver` (`sqlite` | `pg` | `pglite` | `mysql`).
  */
 export interface DatabaseConfig {
   default: string

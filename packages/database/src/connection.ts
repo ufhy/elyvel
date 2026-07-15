@@ -33,6 +33,12 @@ export interface Connection {
   statement(sql: string, bindings?: Bindings): Promise<void>
   /** Run raw SQL with no bindings (e.g. multi-statement DDL), à la `DB::unprepared`. */
   unprepared(sql: string): Promise<void>
+  /**
+   * Run an INSERT and return the new auto-increment id. Only present on
+   * RETURNING-less dialects (MySQL) — the query builder uses it to emulate
+   * `INSERT ... RETURNING`. Returns `null` when the row had no generated id.
+   */
+  insertGetId?(sql: string, bindings?: Bindings): Promise<number | bigint | null>
   close(): Promise<void>
   /** Start recording executed queries. */
   enableQueryLog(): void
@@ -104,10 +110,29 @@ export interface PgliteConnectionConfig {
   write?: { dataDir?: string }
   sticky?: boolean
 }
+/** A MySQL host: a connection URL, or discrete fields (URL wins when both given). */
+export interface MysqlHostConfig {
+  url?: string
+  host?: string
+  port?: number
+  user?: string
+  password?: string
+  database?: string
+}
+export interface MysqlConnectionConfig extends MysqlHostConfig {
+  driver: 'mysql'
+  /** Read replica(s). Reads route here (round-robin if several); writes to {@link write}. */
+  read?: MysqlHostConfig | MysqlHostConfig[]
+  /** Write host. Falls back to the base config when omitted. */
+  write?: MysqlHostConfig
+  /** After a write in a request, route that request's reads to the write host. */
+  sticky?: boolean
+}
 export type ConnectionConfig =
   | SqliteConnectionConfig
   | PostgresConnectionConfig
   | PgliteConnectionConfig
+  | MysqlConnectionConfig
 
 /** Connections opened via createConnection, tracked so tests can close them all. */
 const opened: Connection[] = []
@@ -139,7 +164,7 @@ export async function createConnection(config: ConnectionConfig): Promise<Connec
 
 type RawConnection = Pick<
   Connection,
-  'dialect' | 'grammar' | 'select' | 'statement' | 'unprepared' | 'close'
+  'dialect' | 'grammar' | 'select' | 'statement' | 'unprepared' | 'close' | 'insertGetId'
 >
 
 type ConfigOverride = Record<string, unknown> | undefined
@@ -222,6 +247,12 @@ function composeReadWrite(
       markWrite()
       return write.unprepared(sql)
     },
+    insertGetId: write.insertGetId
+      ? (sql, bindings) => {
+          markWrite()
+          return write.insertGetId!(sql, bindings)
+        }
+      : undefined,
     close: async () => {
       await Promise.all([read.close(), write.close()])
     },
@@ -283,6 +314,12 @@ function withQueryLog(base: RawConnection): Connection {
       return stmt(b.sql, b.bindings)
     },
     unprepared: (sql) => record(sql, [], () => base.unprepared(sql)),
+    insertGetId: base.insertGetId
+      ? (sql, bindings = []) => {
+          const b = bindNamed(sql, bindings, base.grammar)
+          return record(b.sql, b.bindings, () => base.insertGetId!(b.sql, b.bindings))
+        }
+      : undefined,
     close: () => base.close(),
     enableQueryLog: () => {
       logging = true
@@ -427,6 +464,65 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         },
       }
     }
+
+    case 'mysql': {
+      // kysely + mysql2 are optional peers; only required when the mysql driver is used.
+      const { createPool } = await import('mysql2')
+      const { CompiledQuery, Kysely, MysqlDialect } = await import('kysely')
+      const pool = createPool({
+        ...mysqlPoolOptions(config),
+        // One physical connection: BEGIN/…/COMMIT and LAST_INSERT_ID() are
+        // session-scoped and must not scatter across a pool (à la pg's max:1).
+        connectionLimit: 1,
+        // Map TINYINT(1) → boolean so our boolean columns round-trip cleanly.
+        typeCast(field, next) {
+          if (field.type === 'TINY' && field.length === 1) return field.string() === '1'
+          return next()
+        },
+      })
+      const db = new Kysely<Record<string, never>>({ dialect: new MysqlDialect({ pool }) })
+      const run = (sql: string, bindings: unknown[] = []) =>
+        db.executeQuery(CompiledQuery.raw(sql, bindings))
+      return {
+        dialect: 'mysql',
+        grammar: grammarFor('mysql'),
+        select: async (sql, bindings = []) => (await run(sql, bindings as unknown[])).rows as never,
+        statement: async (sql, bindings = []) => {
+          await run(sql, bindings as unknown[])
+        },
+        unprepared: async (sql) => {
+          await run(sql)
+        },
+        insertGetId: async (sql, bindings = []) => {
+          const { insertId } = await run(sql, bindings as unknown[])
+          return insertId === undefined ? null : (insertId as bigint)
+        },
+        close: async () => {
+          await db.destroy()
+        },
+      }
+    }
+  }
+}
+
+/** mysql2 pool options from a MySQL connection config (a URL overrides discrete fields). */
+function mysqlPoolOptions(config: MysqlConnectionConfig): Record<string, unknown> {
+  if (config.url) {
+    const u = new URL(config.url)
+    return {
+      host: u.hostname || 'localhost',
+      port: u.port ? Number(u.port) : 3306,
+      user: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+      database: u.pathname.replace(/^\//, ''),
+    }
+  }
+  return {
+    host: config.host ?? 'localhost',
+    port: config.port ?? 3306,
+    user: config.user,
+    password: config.password,
+    database: config.database,
   }
 }
 

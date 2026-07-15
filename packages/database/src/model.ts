@@ -786,7 +786,7 @@ export class Model {
         this.attributes[self.createdAtColumn] ??= now
         this.attributes[self.updatedAtColumn] ??= now
       }
-      const row = await qb().insert(this.toStorage(this.attributes))
+      const row = await qb().insert(this.toStorage(this.attributes), self.primaryKey)
       this.attributes = { ...this.attributes, ...row } // pick up generated id/defaults
       this.changes = { ...this.attributes }
       this.exists = true

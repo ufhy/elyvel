@@ -9,6 +9,8 @@ export {
   commit,
   createConnection,
   hasConnection,
+  type MysqlConnectionConfig,
+  type MysqlHostConfig,
   type PgliteConnectionConfig,
   type PostgresConnectionConfig,
   type QueryErrored,

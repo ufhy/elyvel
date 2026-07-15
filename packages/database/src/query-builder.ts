@@ -628,21 +628,39 @@ export class QueryBuilder {
     const g = this.connection.grammar
     const col = g.wrap(w.column)
     const ph = this.bind(w.value, bindings)
-    const pg = this.connection.dialect === 'pg'
+    const dialect = this.connection.dialect
     // On pg our date columns are TEXT (cross-dialect ISO strings), so cast before extract.
     const ts = `${col}::timestamp`
-    switch (w.part) {
-      case 'date':
-        return `${pg ? `${col}::date` : `date(${col})`} ${w.operator} ${ph}`
-      case 'time':
-        return `${pg ? `${col}::time` : `strftime('%H:%M:%S', ${col})`} ${w.operator} ${ph}`
-      case 'year':
-        return `${pg ? `extract(year from ${ts})` : `cast(strftime('%Y', ${col}) as integer)`} ${w.operator} ${ph}`
-      case 'month':
-        return `${pg ? `extract(month from ${ts})` : `cast(strftime('%m', ${col}) as integer)`} ${w.operator} ${ph}`
-      default: // day
-        return `${pg ? `extract(day from ${ts})` : `cast(strftime('%d', ${col}) as integer)`} ${w.operator} ${ph}`
+    const expr = (): string => {
+      if (dialect === 'mysql') {
+        switch (w.part) {
+          case 'date':
+            return `date(${col})`
+          case 'time':
+            return `time(${col})`
+          case 'year':
+            return `year(${col})`
+          case 'month':
+            return `month(${col})`
+          default:
+            return `dayofmonth(${col})`
+        }
+      }
+      const pg = dialect === 'pg'
+      switch (w.part) {
+        case 'date':
+          return pg ? `${col}::date` : `date(${col})`
+        case 'time':
+          return pg ? `${col}::time` : `strftime('%H:%M:%S', ${col})`
+        case 'year':
+          return pg ? `extract(year from ${ts})` : `cast(strftime('%Y', ${col}) as integer)`
+        case 'month':
+          return pg ? `extract(month from ${ts})` : `cast(strftime('%m', ${col}) as integer)`
+        default:
+          return pg ? `extract(day from ${ts})` : `cast(strftime('%d', ${col}) as integer)`
+      }
     }
+    return `${expr()} ${w.operator} ${ph}`
   }
 
   private jsonContainsSql(w: WhereClause, bindings: unknown[]): string {
@@ -651,6 +669,10 @@ export class QueryBuilder {
     if (this.connection.dialect === 'pg') {
       const ph = this.bind(JSON.stringify(w.value), bindings)
       return `${col} @> ${ph}::jsonb`
+    }
+    if (this.connection.dialect === 'mysql') {
+      const ph = this.bind(JSON.stringify(w.value), bindings)
+      return `json_contains(${col}, ${ph})`
     }
     const ph = this.bind(w.value, bindings)
     return `EXISTS (SELECT 1 FROM json_each(${col}) WHERE json_each.value = ${ph})`
@@ -795,7 +817,7 @@ export class QueryBuilder {
     if (this.offsetValue !== undefined) sql += ` OFFSET ${this.offsetValue}`
     for (const u of this.unions)
       sql += ` UNION ${u.all ? 'ALL ' : ''}${u.query.compileSelect(bindings)}`
-    if (this.lock && this.connection.dialect === 'pg') sql += ` ${this.lock}`
+    if (this.lock && this.connection.dialect !== 'sqlite') sql += ` ${this.lock}`
     return sql
   }
 
@@ -968,9 +990,15 @@ export class QueryBuilder {
   }
 
   // ── writes ────────────────────────────────────────────────────────────────
-  async insert(values: Row): Promise<Row> {
+  /**
+   * Insert one row and return it (with generated id + DB defaults). `key` is the
+   * primary key column, used only on RETURNING-less dialects (MySQL) to re-select
+   * the inserted row; models pass their own `primaryKey`.
+   */
+  async insert(values: Row, key = 'id'): Promise<Row> {
     const g = this.connection.grammar
     const columns = Object.keys(values)
+    if (!g.supportsReturning) return this.insertEmulatingReturning(values, columns, key)
     if (columns.length === 0) {
       const rows = await this.connection.select<Row>(
         `INSERT INTO ${g.wrap(this.table)} DEFAULT VALUES RETURNING *`,
@@ -983,6 +1011,41 @@ export class QueryBuilder {
     const sql = `INSERT INTO ${g.wrap(this.table)} (${cols}) VALUES (${phs}) RETURNING *`
     const rows = await this.connection.select<Row>(sql, bindings)
     return rows[0] as Row
+  }
+
+  /**
+   * Emulate `INSERT ... RETURNING *` on dialects without it (MySQL): run the
+   * INSERT, take the generated id (or a client-supplied key), then re-select the
+   * row so the caller still gets DB defaults + the id.
+   */
+  private async insertEmulatingReturning(
+    values: Row,
+    columns: string[],
+    key: string,
+  ): Promise<Row> {
+    const g = this.connection.grammar
+    let sql: string
+    let bindings: unknown[]
+    if (columns.length === 0) {
+      sql = `INSERT INTO ${g.wrap(this.table)} () VALUES ()`
+      bindings = []
+    } else {
+      bindings = Object.values(values)
+      const cols = columns.map((c) => g.wrap(c)).join(', ')
+      const phs = columns.map((_, i) => g.placeholder(i)).join(', ')
+      sql = `INSERT INTO ${g.wrap(this.table)} (${cols}) VALUES (${phs})`
+    }
+
+    let insertId: number | bigint | null = null
+    if (this.connection.insertGetId) insertId = await this.connection.insertGetId(sql, bindings)
+    else await this.connection.statement(sql, bindings)
+
+    const keyValue = values[key] ?? insertId ?? undefined
+    if (keyValue !== undefined) {
+      const row = await new QueryBuilder(this.connection, this.table).where(key, keyValue).first()
+      if (row) return row
+    }
+    return insertId == null ? { ...values } : { ...values, [key]: insertId }
   }
 
   async update(values: Row): Promise<void> {
@@ -1032,13 +1095,15 @@ export class QueryBuilder {
     await this.connection.statement(sql, bindings)
   }
 
-  /** Empty the table. Uses TRUNCATE on Postgres, DELETE on SQLite. */
+  /** Empty the table. Uses TRUNCATE on Postgres/MySQL, DELETE on SQLite. */
   async truncate(): Promise<void> {
     const g = this.connection.grammar
     if (this.connection.dialect === 'pg') {
       await this.connection.statement(
         `TRUNCATE TABLE ${g.wrap(this.table)} RESTART IDENTITY CASCADE`,
       )
+    } else if (this.connection.dialect === 'mysql') {
+      await this.connection.statement(`TRUNCATE TABLE ${g.wrap(this.table)}`)
     } else {
       await this.connection.statement(`DELETE FROM ${g.wrap(this.table)}`)
       await this.connection.statement(`DELETE FROM sqlite_sequence WHERE name = ?`, [this.table])
@@ -1053,12 +1118,20 @@ export class QueryBuilder {
     const tuples = rows.map(
       (row) => `(${columns.map((c) => this.bind((row as Row)[c], bindings)).join(', ')})`,
     )
+    const head = `INSERT INTO ${g.wrap(this.table)} (${columns.map((c) => g.wrap(c)).join(', ')}) VALUES ${tuples.join(', ')}`
+    // MySQL matches on any unique key (no conflict target) and references the new
+    // row via VALUES()/an alias; Postgres/SQLite name the conflict columns + `excluded`.
+    if (this.connection.dialect === 'mysql') {
+      const setClause = update.map((c) => `${g.wrap(c)} = VALUES(${g.wrap(c)})`).join(', ')
+      await this.connection.statement(`${head} ON DUPLICATE KEY UPDATE ${setClause}`, bindings)
+      return
+    }
     const conflict = uniqueBy.map((c) => g.wrap(c)).join(', ')
     const setClause = update.map((c) => `${g.wrap(c)} = excluded.${g.wrap(c)}`).join(', ')
-    const sql =
-      `INSERT INTO ${g.wrap(this.table)} (${columns.map((c) => g.wrap(c)).join(', ')}) VALUES ${tuples.join(', ')}` +
-      ` ON CONFLICT (${conflict}) DO UPDATE SET ${setClause}`
-    await this.connection.statement(sql, bindings)
+    await this.connection.statement(
+      `${head} ON CONFLICT (${conflict}) DO UPDATE SET ${setClause}`,
+      bindings,
+    )
   }
 
   private valueTuples(rows: Row[], columns: string[], bindings: unknown[]): string {
@@ -1089,8 +1162,14 @@ export class QueryBuilder {
     const bindings: unknown[] = []
     const values = this.valueTuples(rows, columns, bindings)
     const cols = columns.map((c) => g.wrap(c)).join(', ')
-    const prefix = this.connection.dialect === 'sqlite' ? 'INSERT OR IGNORE INTO' : 'INSERT INTO'
-    const suffix = this.connection.dialect === 'pg' ? ' ON CONFLICT DO NOTHING' : ''
+    const dialect = this.connection.dialect
+    const prefix =
+      dialect === 'sqlite'
+        ? 'INSERT OR IGNORE INTO'
+        : dialect === 'mysql'
+          ? 'INSERT IGNORE INTO'
+          : 'INSERT INTO'
+    const suffix = dialect === 'pg' ? ' ON CONFLICT DO NOTHING' : ''
     await this.connection.statement(
       `${prefix} ${g.wrap(this.table)} (${cols}) VALUES ${values}${suffix}`,
       bindings,

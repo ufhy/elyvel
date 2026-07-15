@@ -2,8 +2,8 @@
 
 A Laravel Eloquent-style Active Record ORM for [Bun](https://bun.sh), built for the
 [elysia-ravel](../../README.md) framework. Define your models and migrations once
-and run them unchanged on **SQLite** or **Postgres** — switching databases is a
-config change, not a rewrite.
+and run them unchanged on **SQLite**, **Postgres**, or **MySQL** — switching
+databases is a config change, not a rewrite.
 
 - **Active Record models** with dirty tracking, events, accessors, and casts
 - **Fluent query builder** (joins, subqueries, aggregates, unions, locking)
@@ -15,7 +15,8 @@ config change, not a rewrite.
 - **Read/write connection split** and **model pruning** for production
 
 Drivers: `bun:sqlite` (built in), `@electric-sql/pglite` (embedded Postgres, WASM),
-and `postgres` (real Postgres server, optional peer dependency).
+`postgres` (real Postgres server, optional peer dependency), and `mysql`
+(MySQL/MariaDB via `kysely` + `mysql2`, both optional peer dependencies).
 
 ---
 

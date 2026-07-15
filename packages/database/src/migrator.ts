@@ -82,6 +82,12 @@ async function userTables(conn: Connection): Promise<string[]> {
     )
     return rows.map((r) => r.name)
   }
+  if (conn.dialect === 'mysql') {
+    const rows = await conn.select<{ name: string }>(
+      `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'`,
+    )
+    return rows.map((r) => r.name)
+  }
   const rows = await conn.select<{ name: string }>(
     `SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public'`,
   )
@@ -123,10 +129,13 @@ export async function status(
 export async function freshMigrate(conn: Connection, dir: string): Promise<string[]> {
   const tables = await userTables(conn)
   const cascade = conn.dialect === 'pg' ? ' CASCADE' : ''
+  // Disable FK enforcement so tables can be dropped in any order.
   if (conn.dialect === 'sqlite') await conn.statement('PRAGMA foreign_keys = OFF;')
+  if (conn.dialect === 'mysql') await conn.statement('SET FOREIGN_KEY_CHECKS = 0;')
   for (const name of tables) {
     await conn.statement(`DROP TABLE IF EXISTS ${conn.grammar.wrap(name)}${cascade}`)
   }
   if (conn.dialect === 'sqlite') await conn.statement('PRAGMA foreign_keys = ON;')
+  if (conn.dialect === 'mysql') await conn.statement('SET FOREIGN_KEY_CHECKS = 1;')
   return migrate(conn, dir)
 }

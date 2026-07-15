@@ -1,4 +1,4 @@
-export type Dialect = 'sqlite' | 'pg'
+export type Dialect = 'sqlite' | 'pg' | 'mysql'
 
 export type ColumnType =
   | 'id'
@@ -61,6 +61,8 @@ export interface IndexDefinition {
  */
 export abstract class Grammar {
   abstract readonly dialect: Dialect
+  /** Whether `INSERT ... RETURNING *` is supported (false on MySQL — emulated). */
+  readonly supportsReturning: boolean = true
   abstract placeholder(index: number): string
   protected abstract columnType(column: ColumnDefinition): string
 
@@ -114,19 +116,24 @@ export abstract class Grammar {
     return `DROP INDEX ${this.wrap(name)}`
   }
   compileDropForeign(table: string, name: string): string {
-    if (this.dialect !== 'pg') {
+    if (this.dialect === 'sqlite') {
       throw new Error(
         '[eloquent] dropForeign is not supported on SQLite (rebuild the table instead).',
       )
     }
-    return `ALTER TABLE ${this.wrap(table)} DROP CONSTRAINT ${this.wrap(name)}`
+    const keyword = this.dialect === 'mysql' ? 'FOREIGN KEY' : 'CONSTRAINT'
+    return `ALTER TABLE ${this.wrap(table)} DROP ${keyword} ${this.wrap(name)}`
   }
-  /** Modify a column's type/nullability/default. Postgres only (SQLite can't ALTER type). */
+  /** Modify a column's type/nullability/default. Not supported on SQLite (can't ALTER type). */
   compileChangeColumn(table: string, column: ColumnDefinition): string[] {
-    if (this.dialect !== 'pg') {
+    if (this.dialect === 'sqlite') {
       throw new Error(
         '[eloquent] Column change() is not supported on SQLite (rebuild the table instead).',
       )
+    }
+    // MySQL restates the whole column definition in one MODIFY COLUMN statement.
+    if (this.dialect === 'mysql') {
+      return [`ALTER TABLE ${this.wrap(table)} MODIFY COLUMN ${this.compileColumn(column)}`]
     }
     const t = this.wrap(table)
     const col = this.wrap(column.name)
@@ -253,6 +260,74 @@ class PostgresGrammar extends Grammar {
   }
 }
 
+class MysqlGrammar extends Grammar {
+  readonly dialect = 'mysql' as const
+  // MySQL has no RETURNING — the query builder emulates it via LAST_INSERT_ID.
+  override readonly supportsReturning = false
+  placeholder(): string {
+    return '?'
+  }
+  override wrap(identifier: string): string {
+    return identifier
+      .split('.')
+      .map((part) => (part === '*' ? part : `\`${part.replace(/`/g, '``')}\``))
+      .join('.')
+  }
+  protected columnType(c: ColumnDefinition): string {
+    switch (c.type) {
+      case 'id':
+        return 'BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY'
+      case 'smallInteger':
+        return 'SMALLINT'
+      case 'integer':
+        return 'INT'
+      case 'bigInteger':
+        return 'BIGINT'
+      case 'float':
+        return 'FLOAT'
+      case 'double':
+        return 'DOUBLE'
+      case 'decimal':
+        return `DECIMAL(${c.precision ?? 10}, ${c.scale ?? 2})`
+      case 'boolean':
+        return 'TINYINT(1)'
+      case 'char':
+        return `CHAR(${c.length ?? 255})`
+      case 'string':
+      case 'enum':
+        return `VARCHAR(${c.length ?? 255})`
+      case 'uuid':
+        return 'CHAR(36)'
+      case 'text':
+        return 'TEXT'
+      case 'mediumText':
+        return 'MEDIUMTEXT'
+      case 'longText':
+        return 'LONGTEXT'
+      case 'binary':
+        return 'BLOB'
+      case 'time':
+        return 'TIME'
+      // json/date/timestamp/datetime stay TEXT so values are ISO strings and
+      // identical across dialects (model casts handle them), mirroring Postgres.
+      // jsonb maps to MySQL's native JSON; timestampTz to UTC-normalized TIMESTAMP.
+      case 'jsonb':
+        return 'JSON'
+      case 'timestampTz':
+        return 'TIMESTAMP'
+      default:
+        return 'TEXT'
+    }
+  }
+}
+
 export function grammarFor(dialect: Dialect): Grammar {
-  return dialect === 'pg' ? new PostgresGrammar() : new SqliteGrammar()
+  switch (dialect) {
+    case 'pg':
+      return new PostgresGrammar()
+    case 'mysql':
+      return new MysqlGrammar()
+    default:
+      return new SqliteGrammar()
+  }
 }
