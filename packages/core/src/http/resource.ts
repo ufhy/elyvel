@@ -24,7 +24,7 @@ export const Resource = {
   paginated<T>(
     paginator: { data: T[] } & Record<string, unknown>,
     transform?: (item: T) => unknown,
-  ): { data: unknown[]; meta: Record<string, unknown> } {
+  ): { data: unknown[], meta: Record<string, unknown> } {
     const { data, ...meta } = paginator
     return { data: transform ? data.map(transform) : data, meta }
   },

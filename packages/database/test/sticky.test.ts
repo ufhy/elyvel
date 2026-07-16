@@ -1,8 +1,9 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import type { Connection } from '../src/connection'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type Connection, createConnection, startRequestScope } from '../src/connection'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { createConnection, startRequestScope } from '../src/connection'
 
 // Two distinct SQLite files seeded differently prove which host a read hit.
 describe('read/write sticky (per-request)', () => {
@@ -24,7 +25,7 @@ describe('read/write sticky (per-request)', () => {
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
   const readName = (c: Connection) =>
-    c.select<{ name: string }>('SELECT name FROM t ORDER BY id LIMIT 1').then((r) => r[0]?.name)
+    c.select<{ name: string }>('SELECT name FROM t ORDER BY id LIMIT 1').then(r => r[0]?.name)
 
   test('reads hit the replica until a write occurs in the request', async () => {
     const conn = await createConnection({

@@ -11,7 +11,7 @@ interface Post {
 
 const gate = createGate<User>()
   .define('post.update', (user, post: Post) => !!user && user.id === post.authorId)
-  .define('admin', (user) => user?.role === 'admin')
+  .define('admin', user => user?.role === 'admin')
 
 describe('Gate', () => {
   test('allows when the ability passes', () => {

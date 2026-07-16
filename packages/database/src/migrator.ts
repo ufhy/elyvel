@@ -1,6 +1,6 @@
+import type { Connection } from './connection'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Connection } from './connection'
 import { SchemaBuilder } from './schema'
 
 /**
@@ -22,7 +22,7 @@ async function ensureLedger(conn: Connection): Promise<void> {
 }
 async function ranNames(conn: Connection): Promise<Set<string>> {
   const rows = await conn.select<{ name: string }>(`SELECT name FROM ${TABLE}`)
-  return new Set(rows.map((r) => r.name))
+  return new Set(rows.map(r => r.name))
 }
 async function nextBatch(conn: Connection): Promise<number> {
   const rows = await conn.select<{ b: number | string }>(
@@ -37,11 +37,13 @@ interface LoadedMigration {
 }
 
 export async function loadMigrations(dir: string): Promise<LoadedMigration[]> {
-  if (!existsSync(dir)) return []
+  if (!existsSync(dir))
+    return []
   const glob = new Bun.Glob('*.{ts,js}')
   const names: string[] = []
   for await (const file of glob.scan({ cwd: dir, onlyFiles: true })) {
-    if (!file.endsWith('.d.ts')) names.push(file)
+    if (!file.endsWith('.d.ts'))
+      names.push(file)
   }
   names.sort()
 
@@ -60,7 +62,7 @@ export async function migrate(conn: Connection, dir: string): Promise<string[]> 
   const ran = await ranNames(conn)
   const batch = await nextBatch(conn)
   const schema = new SchemaBuilder(conn)
-  const pending = (await loadMigrations(dir)).filter((m) => !ran.has(m.name))
+  const pending = (await loadMigrations(dir)).filter(m => !ran.has(m.name))
   const g = conn.grammar
 
   const applied: string[] = []
@@ -80,35 +82,37 @@ async function userTables(conn: Connection): Promise<string[]> {
     const rows = await conn.select<{ name: string }>(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
     )
-    return rows.map((r) => r.name)
+    return rows.map(r => r.name)
   }
   if (conn.dialect === 'mysql') {
     const rows = await conn.select<{ name: string }>(
       `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'`,
     )
-    return rows.map((r) => r.name)
+    return rows.map(r => r.name)
   }
   const rows = await conn.select<{ name: string }>(
     `SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public'`,
   )
-  return rows.map((r) => r.name)
+  return rows.map(r => r.name)
 }
 
 /** Roll back the most recent batch (runs `down` in reverse, clears ledger rows). */
 export async function rollback(conn: Connection, dir: string): Promise<string[]> {
   await ensureLedger(conn)
-  const rows = await conn.select<{ name: string; batch: number | string }>(
+  const rows = await conn.select<{ name: string, batch: number | string }>(
     `SELECT name, batch FROM ${TABLE}`,
   )
-  if (rows.length === 0) return []
-  const maxBatch = Math.max(...rows.map((r) => Number(r.batch)))
-  const inBatch = new Set(rows.filter((r) => Number(r.batch) === maxBatch).map((r) => r.name))
+  if (rows.length === 0)
+    return []
+  const maxBatch = Math.max(...rows.map(r => Number(r.batch)))
+  const inBatch = new Set(rows.filter(r => Number(r.batch) === maxBatch).map(r => r.name))
 
   const schema = new SchemaBuilder(conn)
   const g = conn.grammar
   const rolledBack: string[] = []
   for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
-    if (!inBatch.has(name)) continue
+    if (!inBatch.has(name))
+      continue
     await migration.down(schema)
     await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
     rolledBack.push(name)
@@ -120,22 +124,26 @@ export async function rollback(conn: Connection, dir: string): Promise<string[]>
 export async function status(
   conn: Connection,
   dir: string,
-): Promise<{ name: string; ran: boolean }[]> {
+): Promise<{ name: string, ran: boolean }[]> {
   await ensureLedger(conn)
   const ran = await ranNames(conn)
-  return (await loadMigrations(dir)).map((m) => ({ name: m.name, ran: ran.has(m.name) }))
+  return (await loadMigrations(dir)).map(m => ({ name: m.name, ran: ran.has(m.name) }))
 }
 
 export async function freshMigrate(conn: Connection, dir: string): Promise<string[]> {
   const tables = await userTables(conn)
   const cascade = conn.dialect === 'pg' ? ' CASCADE' : ''
   // Disable FK enforcement so tables can be dropped in any order.
-  if (conn.dialect === 'sqlite') await conn.statement('PRAGMA foreign_keys = OFF;')
-  if (conn.dialect === 'mysql') await conn.statement('SET FOREIGN_KEY_CHECKS = 0;')
+  if (conn.dialect === 'sqlite')
+    await conn.statement('PRAGMA foreign_keys = OFF;')
+  if (conn.dialect === 'mysql')
+    await conn.statement('SET FOREIGN_KEY_CHECKS = 0;')
   for (const name of tables) {
     await conn.statement(`DROP TABLE IF EXISTS ${conn.grammar.wrap(name)}${cascade}`)
   }
-  if (conn.dialect === 'sqlite') await conn.statement('PRAGMA foreign_keys = ON;')
-  if (conn.dialect === 'mysql') await conn.statement('SET FOREIGN_KEY_CHECKS = 1;')
+  if (conn.dialect === 'sqlite')
+    await conn.statement('PRAGMA foreign_keys = ON;')
+  if (conn.dialect === 'mysql')
+    await conn.statement('SET FOREIGN_KEY_CHECKS = 1;')
   return migrate(conn, dir)
 }

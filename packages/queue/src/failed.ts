@@ -36,18 +36,23 @@ export class FailedJobRepository {
     await this.adapter.log({ id, connection, queue, body, exception, failedAt: Date.now() })
     return id
   }
+
   all(): Promise<FailedJobRecord[]> {
     return this.adapter.all()
   }
+
   find(id: string): Promise<FailedJobRecord | null> {
     return this.adapter.find(id)
   }
+
   forget(id: string): Promise<boolean> {
     return this.adapter.forget(id)
   }
+
   flush(): Promise<void> {
     return this.adapter.flush()
   }
+
   /** Delete failed jobs older than `hours`; returns how many were removed. */
   prune(hours: number): Promise<number> {
     return this.adapter.prune(Date.now() - hours * 3600 * 1000)
@@ -60,23 +65,28 @@ export class MemoryFailedJobStore implements FailedJobAdapter {
   async log(record: FailedJobRecord): Promise<void> {
     this.records.push(record)
   }
+
   async all(): Promise<FailedJobRecord[]> {
     return [...this.records]
   }
+
   async find(id: string): Promise<FailedJobRecord | null> {
-    return this.records.find((r) => r.id === id) ?? null
+    return this.records.find(r => r.id === id) ?? null
   }
+
   async forget(id: string): Promise<boolean> {
     const before = this.records.length
-    this.records = this.records.filter((r) => r.id !== id)
+    this.records = this.records.filter(r => r.id !== id)
     return this.records.length < before
   }
+
   async flush(): Promise<void> {
     this.records = []
   }
+
   async prune(beforeEpochMs: number): Promise<number> {
     const before = this.records.length
-    this.records = this.records.filter((r) => r.failedAt >= beforeEpochMs)
+    this.records = this.records.filter(r => r.failedAt >= beforeEpochMs)
     return before - this.records.length
   }
 }

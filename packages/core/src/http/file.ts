@@ -27,7 +27,7 @@ export class FileResponse {
 /** Serve a file (by path) inline — rendered in the browser when possible. */
 export function file(
   path: string,
-  options: { contentType?: string; name?: string } = {},
+  options: { contentType?: string, name?: string } = {},
 ): FileResponse {
   return new FileResponse(path, { disposition: 'inline', fromPath: true, ...options })
 }

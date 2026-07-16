@@ -71,7 +71,7 @@ for (const d of dialects) {
       expect(
         (await user.roles().get())
           .all()
-          .map((r) => r.id)
+          .map(r => r.id)
           .sort(),
       ).toEqual([b.id])
 

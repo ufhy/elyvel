@@ -1,9 +1,10 @@
-import { describe, expect, test } from 'bun:test'
+import type { ViewShared } from '../src/view'
 import { httpResponses } from '@elysia-ravel/core'
+import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { document, escape, html, raw } from '../src/html'
 import { paginationLinks } from '../src/pagination'
-import { csrfField, View, type ViewShared, view } from '../src/view'
+import { csrfField, View, view } from '../src/view'
 
 // ── html tag (escaping) ───────────────────────────────────────────────────────
 describe('html tag', () => {
@@ -18,7 +19,7 @@ describe('html tag', () => {
   })
   test('renders arrays element-by-element and drops null/false', () => {
     const items = ['a', 'b']
-    expect(html`<ul>${items.map((i) => html`<li>${i}</li>`)}</ul>`.toString()).toBe(
+    expect(html`<ul>${items.map(i => html`<li>${i}</li>`)}</ul>`.toString()).toBe(
       '<ul><li>a</li><li>b</li></ul>',
     )
     expect(html`${null}${false}${undefined}x`.toString()).toBe('x')
@@ -118,8 +119,7 @@ describe('view response via httpResponses', () => {
     const app = new Elysia()
       .use(httpResponses())
       .get('/', () =>
-        view((props: { who: string }) => html`<h1>Hi ${props.who}</h1>`, { who: 'World' }),
-      )
+        view((props: { who: string }) => html`<h1>Hi ${props.who}</h1>`, { who: 'World' }))
 
     const res = await app.handle(new Request('http://localhost/'))
     expect(res.status).toBe(200)

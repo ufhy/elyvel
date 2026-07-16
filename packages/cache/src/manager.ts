@@ -1,5 +1,5 @@
-import { RedisClient } from 'bun'
 import type { CacheConfig, CacheStoreConfig } from './config-schema'
+import { RedisClient } from 'bun'
 import { Repository } from './repository'
 import { DatabaseStore, FileStore, MemoryStore, RedisStore } from './store'
 
@@ -24,8 +24,8 @@ export class CacheManager {
   }
 
   private build(name: string): Repository {
-    const cfg: CacheStoreConfig | undefined =
-      this.config.stores?.[name] ?? (name === 'memory' ? { driver: 'memory' } : undefined)
+    const cfg: CacheStoreConfig | undefined
+      = this.config.stores?.[name] ?? (name === 'memory' ? { driver: 'memory' } : undefined)
     if (!cfg) {
       throw new Error(`[elysia-ravel] Cache store "${name}" is not defined in config/cache.ts.`)
     }
@@ -52,6 +52,7 @@ export function setDefaultCache(manager: CacheManager): void {
 
 /** The default cache repository (or a named store). Falls back to an in-memory store. */
 export function cache(store?: string): Repository {
-  if (!defaultManager) defaultManager = new CacheManager()
+  if (!defaultManager)
+    defaultManager = new CacheManager()
   return defaultManager.store(store)
 }

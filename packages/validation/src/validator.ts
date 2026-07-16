@@ -1,6 +1,8 @@
-import { formatMessage, type SizeKind } from './messages'
+import type { SizeKind } from './messages'
+import type { ErrorBag } from './validation-exception'
+import { formatMessage } from './messages'
 import { isEmpty, RULES } from './rules'
-import { type ErrorBag, ValidationException } from './validation-exception'
+import { ValidationException } from './validation-exception'
 
 export type Data = Record<string, unknown>
 
@@ -36,9 +38,11 @@ interface ParsedRule {
 
 // ── path helpers (dot + wildcard `*`) ───────────────────────────────────────
 function getValue(data: unknown, path: string): unknown {
-  if (path === '') return data
+  if (path === '')
+    return data
   return path.split('.').reduce<unknown>((acc, key) => {
-    if (acc === null || acc === undefined) return undefined
+    if (acc === null || acc === undefined)
+      return undefined
     return (acc as Record<string, unknown>)[key]
   }, data)
 }
@@ -47,7 +51,8 @@ function hasPath(data: unknown, path: string): boolean {
   const segments = path.split('.')
   let acc: unknown = data
   for (const key of segments) {
-    if (acc === null || typeof acc !== 'object' || !(key in (acc as object))) return false
+    if (acc === null || typeof acc !== 'object' || !(key in (acc as object)))
+      return false
     acc = (acc as Record<string, unknown>)[key]
   }
   return true
@@ -55,7 +60,8 @@ function hasPath(data: unknown, path: string): boolean {
 
 /** Expand a rule key with `*` into concrete paths present in the data. */
 function expandKey(key: string, data: Data): string[] {
-  if (!key.includes('*')) return [key]
+  if (!key.includes('*'))
+    return [key]
   let paths = ['']
   for (const seg of key.split('.')) {
     const next: string[] = []
@@ -66,10 +72,12 @@ function expandKey(key: string, data: Data): string[] {
           target.forEach((_, i) => {
             next.push(prefix ? `${prefix}.${i}` : String(i))
           })
-        } else if (target && typeof target === 'object') {
+        }
+        else if (target && typeof target === 'object') {
           for (const k of Object.keys(target)) next.push(prefix ? `${prefix}.${k}` : k)
         }
-      } else {
+      }
+      else {
         next.push(prefix ? `${prefix}.${seg}` : seg)
       }
     }
@@ -80,9 +88,9 @@ function expandKey(key: string, data: Data): string[] {
 
 function isRuleObject(entry: unknown): entry is RuleObject {
   return (
-    typeof entry === 'object' &&
-    entry !== null &&
-    typeof (entry as RuleObject).validate === 'function'
+    typeof entry === 'object'
+    && entry !== null
+    && typeof (entry as RuleObject).validate === 'function'
   )
 }
 
@@ -94,13 +102,19 @@ function splitRules(fieldRules: string | RuleEntry[]): {
   const parsed: ParsedRule[] = []
   const customs: (ClosureRule | RuleObject)[] = []
   for (const entry of entries) {
-    if (typeof entry === 'function') customs.push(entry)
-    else if (isRuleObject(entry)) customs.push(entry)
+    if (typeof entry === 'function') {
+      customs.push(entry)
+    }
+    else if (isRuleObject(entry)) {
+      customs.push(entry)
+    }
     else {
       const token = entry.trim()
-      if (!token) continue
+      if (!token)
+        continue
       const idx = token.indexOf(':')
-      if (idx === -1) parsed.push({ name: token, args: [] })
+      if (idx === -1)
+        parsed.push({ name: token, args: [] })
       else parsed.push({ name: token.slice(0, idx), args: token.slice(idx + 1).split(',') })
     }
   }
@@ -108,20 +122,28 @@ function splitRules(fieldRules: string | RuleEntry[]): {
 }
 
 function sizeKindOf(names: Set<string>): SizeKind {
-  if (names.has('file') || names.has('image')) return 'file'
-  if (names.has('numeric') || names.has('integer')) return 'numeric'
-  if (names.has('array')) return 'array'
+  if (names.has('file') || names.has('image'))
+    return 'file'
+  if (names.has('numeric') || names.has('integer'))
+    return 'numeric'
+  if (names.has('array'))
+    return 'array'
   return 'string'
 }
 
 /** Should the field be excluded (removed + not validated) per its exclude rules? */
 function isExcluded(parsed: ParsedRule[], data: Data): boolean {
   for (const { name, args } of parsed) {
-    if (name === 'exclude') return true
-    if (name === 'exclude_if' && String(data[args[0] as string]) === args[1]) return true
-    if (name === 'exclude_unless' && String(data[args[0] as string]) !== args[1]) return true
-    if (name === 'exclude_with' && (args[0] as string) in data) return true
-    if (name === 'exclude_without' && !((args[0] as string) in data)) return true
+    if (name === 'exclude')
+      return true
+    if (name === 'exclude_if' && String(data[args[0] as string]) === args[1])
+      return true
+    if (name === 'exclude_unless' && String(data[args[0] as string]) !== args[1])
+      return true
+    if (name === 'exclude_with' && (args[0] as string) in data)
+      return true
+    if (name === 'exclude_without' && !((args[0] as string) in data))
+      return true
   }
   return false
 }
@@ -145,10 +167,12 @@ export class Validator {
   private readonly conditional: {
     fields: string[]
     rules: Rules
-    when: (data: Data) => boolean
+    when(data: Data): boolean
   }[] = []
-  private readonly afterHooks: ((v: { add: (field: string, message: string) => void }) => void)[] =
-    []
+
+  private readonly afterHooks: ((v: { add(field: string, message: string): void }) => void)[]
+    = []
+
   private excluded = new Set<string>()
 
   constructor(
@@ -168,7 +192,7 @@ export class Validator {
   }
 
   /** Register a callback run after validation to add extra errors. */
-  after(hook: (v: { add: (field: string, message: string) => void }) => void): this {
+  after(hook: (v: { add(field: string, message: string): void }) => void): this {
     this.afterHooks.push(hook)
     return this
   }
@@ -179,7 +203,8 @@ export class Validator {
 
     const allRules: Rules = { ...this.rules }
     for (const c of this.conditional) {
-      if (c.when(this.data)) Object.assign(allRules, c.rules)
+      if (c.when(this.data))
+        Object.assign(allRules, c.rules)
     }
 
     for (const [ruleKey, fieldRules] of Object.entries(allRules)) {
@@ -190,20 +215,21 @@ export class Validator {
         continue
       }
 
-      const names = new Set(parsed.map((r) => r.name))
+      const names = new Set(parsed.map(r => r.name))
       const kind = sizeKindOf(names)
       const bail = names.has('bail')
       const paths = expandKey(ruleKey, this.data)
 
       // Precompute values for `distinct` (unique across the wildcard group).
-      const distinctValues = names.has('distinct') ? paths.map((p) => getValue(this.data, p)) : null
+      const distinctValues = names.has('distinct') ? paths.map(p => getValue(this.data, p)) : null
 
       for (const path of paths) {
         const value = getValue(this.data, path)
         const present = hasPath(this.data, path)
         const empty = isEmpty(value)
 
-        if (names.has('sometimes') && !present) continue
+        if (names.has('sometimes') && !present)
+          continue
 
         const add = (message: string) => {
           ;(bag[path] ??= []).push(message)
@@ -211,10 +237,11 @@ export class Validator {
         let failed = false
 
         for (const { name, args } of parsed) {
-          if (FLOW.has(name)) continue
+          if (FLOW.has(name))
+            continue
 
           if (name === 'distinct') {
-            const dupes = distinctValues?.filter((x) => x === value).length ?? 0
+            const dupes = distinctValues?.filter(x => x === value).length ?? 0
             if (dupes > 1) {
               add(
                 formatMessage({
@@ -226,14 +253,17 @@ export class Validator {
                 }),
               )
               failed = true
-              if (bail) break
+              if (bail)
+                break
             }
             continue
           }
 
           const rule = RULES[name]
-          if (!rule) throw new Error(`[elysia-ravel] Unknown validation rule "${name}".`)
-          if (empty && !rule.implicit) continue
+          if (!rule)
+            throw new Error(`[elysia-ravel] Unknown validation rule "${name}".`)
+          if (empty && !rule.implicit)
+            continue
 
           const ok = await rule.validate(value, args, this.data, path, kind)
           if (!ok) {
@@ -241,11 +271,13 @@ export class Validator {
               formatMessage({ rule: name, attribute: path, args, sizeKind: kind, ...this.opts() }),
             )
             failed = true
-            if (bail) break
+            if (bail)
+              break
           }
         }
 
-        if (bail && failed) continue
+        if (bail && failed)
+          continue
 
         for (const custom of customs) {
           const fail: FailFn = (message) => {
@@ -253,9 +285,11 @@ export class Validator {
             failed = true
           }
           const ctx = { attribute: path, data: this.data }
-          if (typeof custom === 'function') await custom(value, fail, ctx)
+          if (typeof custom === 'function')
+            await custom(value, fail, ctx)
           else await custom.validate(value, fail, ctx)
-          if (bail && failed) break
+          if (bail && failed)
+            break
         }
       }
     }
@@ -273,6 +307,7 @@ export class Validator {
   async passes(): Promise<boolean> {
     return Object.keys(await this.errors()).length === 0
   }
+
   async fails(): Promise<boolean> {
     return !(await this.passes())
   }
@@ -280,7 +315,8 @@ export class Validator {
   /** Validate; return the validated fields, or throw {@link ValidationException}. */
   async validate(): Promise<Data> {
     const bag = await this.errors()
-    if (Object.keys(bag).length > 0) throw new ValidationException(bag)
+    if (Object.keys(bag).length > 0)
+      throw new ValidationException(bag)
     return this.validated()
   }
 
@@ -289,8 +325,10 @@ export class Validator {
     const out: Data = {}
     for (const key of Object.keys(this.rules)) {
       const top = key.split('.')[0] as string
-      if (this.excluded.has(top)) continue
-      if (top in this.data) out[top] = this.data[top]
+      if (this.excluded.has(top))
+        continue
+      if (top in this.data)
+        out[top] = this.data[top]
     }
     return out
   }
@@ -300,12 +338,12 @@ export class Validator {
     const data = this.validated()
     return {
       only: (keys: string[]) =>
-        Object.fromEntries(keys.filter((k) => k in data).map((k) => [k, data[k]])),
+        Object.fromEntries(keys.filter(k => k in data).map(k => [k, data[k]])),
       except: (keys: string[]) =>
         Object.fromEntries(
           Object.keys(data)
-            .filter((k) => !keys.includes(k))
-            .map((k) => [k, data[k]]),
+            .filter(k => !keys.includes(k))
+            .map(k => [k, data[k]]),
         ),
     }
   }

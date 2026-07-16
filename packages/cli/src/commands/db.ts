@@ -1,18 +1,19 @@
+import type { Connection, Model, SeederClass } from '@elysia-ravel/database'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createApp } from '@elysia-ravel/core'
 import {
-  type Connection,
+
   countRows,
   DatabaseToken,
   freshMigrate,
   listTables,
-  type Model,
+
   migrate,
   openConnectionCount,
   rollback,
   runSeeders,
-  type SeederClass,
+
   status,
   tableColumns,
 } from '@elysia-ravel/database'
@@ -34,8 +35,10 @@ export async function migrateCommand(fresh: boolean): Promise<number> {
   const applied = fresh ? await freshMigrate(conn, dir) : await migrate(conn, dir)
   if (applied.length === 0) {
     console.log('Nothing to migrate.')
-  } else {
-    if (fresh) console.log('Dropped all tables, re-running migrations:')
+  }
+  else {
+    if (fresh)
+      console.log('Dropped all tables, re-running migrations:')
     for (const name of applied) console.log(`✓ ${name}`)
   }
   return 0
@@ -45,8 +48,12 @@ export async function migrateCommand(fresh: boolean): Promise<number> {
 export async function rollbackCommand(): Promise<number> {
   const { app, conn } = await boot()
   const rolledBack = await rollback(conn, app.path('database/migrations'))
-  if (rolledBack.length === 0) console.log('Nothing to roll back.')
-  else for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+  if (rolledBack.length === 0) {
+    console.log('Nothing to roll back.')
+  }
+  else {
+    for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+  }
   return 0
 }
 
@@ -54,8 +61,12 @@ export async function rollbackCommand(): Promise<number> {
 export async function statusCommand(): Promise<number> {
   const { app, conn } = await boot()
   const rows = await status(conn, app.path('database/migrations'))
-  if (rows.length === 0) console.log('No migrations found.')
-  else for (const r of rows) console.log(`${r.ran ? '✓ ran    ' : '· pending'}  ${r.name}`)
+  if (rows.length === 0) {
+    console.log('No migrations found.')
+  }
+  else {
+    for (const r of rows) console.log(`${r.ran ? '✓ ran    ' : '· pending'}  ${r.name}`)
+  }
   return 0
 }
 
@@ -99,14 +110,15 @@ export async function pruneCommand(name?: string): Promise<number> {
       return 1
     }
     files = [file]
-  } else {
+  }
+  else {
     if (!existsSync(dir)) {
       console.error('No app/models directory found.')
       return 1
     }
     files = readdirSync(dir)
-      .filter((f) => f.endsWith('.ts'))
-      .map((f) => join(dir, f))
+      .filter(f => f.endsWith('.ts'))
+      .map(f => join(dir, f))
   }
 
   let anyPruned = false
@@ -114,7 +126,8 @@ export async function pruneCommand(name?: string): Promise<number> {
     const module = (await import(file)) as { default?: unknown }
     const cls = module.default as PrunableClass | undefined
     if (typeof cls?.prune !== 'function' || cls.prunable() === null) {
-      if (name) console.log(`${name} is not prunable (override static prunable()).`)
+      if (name)
+        console.log(`${name} is not prunable (override static prunable()).`)
       continue
     }
     const count = await cls.prune()
@@ -122,7 +135,8 @@ export async function pruneCommand(name?: string): Promise<number> {
     anyPruned = true
   }
 
-  if (!anyPruned && !name) console.log('Nothing to prune.')
+  if (!anyPruned && !name)
+    console.log('Nothing to prune.')
   return 0
 }
 
@@ -139,9 +153,9 @@ export async function dbShowCommand(): Promise<number> {
     return 0
   }
   const rows = await Promise.all(
-    tables.map(async (t) => ({ table: t, rows: await countRows(connection, t) })),
+    tables.map(async t => ({ table: t, rows: await countRows(connection, t) })),
   )
-  const width = Math.max(...rows.map((r) => r.table.length), 'Table'.length)
+  const width = Math.max(...rows.map(r => r.table.length), 'Table'.length)
   console.log(`${'Table'.padEnd(width)}  Rows`)
   for (const r of rows) console.log(`${r.table.padEnd(width)}  ${r.rows}`)
   return 0
@@ -162,8 +176,8 @@ export async function dbTableCommand(table?: string): Promise<number> {
     return 1
   }
   const columns = await tableColumns(connection, table)
-  const w = Math.max(...columns.map((c) => c.name.length), 'Column'.length)
-  const tw = Math.max(...columns.map((c) => c.type.length), 'Type'.length)
+  const w = Math.max(...columns.map(c => c.name.length), 'Column'.length)
+  const tw = Math.max(...columns.map(c => c.type.length), 'Type'.length)
   console.log(`${'Column'.padEnd(w)}  ${'Type'.padEnd(tw)}  Nullable  Default`)
   for (const c of columns) {
     console.log(
@@ -201,9 +215,11 @@ export async function dbShellCommand(): Promise<number> {
   let cmd: string[]
   if (config.driver === 'sqlite') {
     cmd = ['sqlite3', app.path(String(config.database))]
-  } else if (config.driver === 'pg') {
+  }
+  else if (config.driver === 'pg') {
     cmd = ['psql', String(config.url)]
-  } else {
+  }
+  else {
     console.error(`No interactive shell for driver "${String(config.driver)}".`)
     return 1
   }
@@ -211,7 +227,8 @@ export async function dbShellCommand(): Promise<number> {
   try {
     const proc = Bun.spawn(cmd, { stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })
     return await proc.exited
-  } catch {
+  }
+  catch {
     console.error(`Could not launch "${cmd[0]}". Is it installed and on your PATH?`)
     return 1
   }

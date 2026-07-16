@@ -4,7 +4,7 @@ import { ScheduleToken } from '@elysia-ravel/scheduler'
 /**
  * `ravel schedule:run` — run every task that is due right now. Point a single
  * system cron entry at this every minute:
- *   * * * * * cd /path/to/app && ravel schedule:run >> /dev/null 2>&1
+ *   cd /path/to/app && ravel schedule:run >> /dev/null 2>&1
  */
 export async function scheduleRunCommand(): Promise<number> {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
@@ -21,9 +21,11 @@ export async function scheduleRunCommand(): Promise<number> {
       failed++
       const detail = r.error instanceof Error ? r.error.message : String(r.error)
       console.error(`✗ ${r.name} — ${detail}`)
-    } else if (r.ran) {
+    }
+    else if (r.ran) {
       console.log(`✓ ${r.name}`)
-    } else {
+    }
+    else {
       console.log(`· ${r.name} (skipped — overlapping)`)
     }
   }
@@ -43,10 +45,12 @@ export async function scheduleWorkCommand(): Promise<number> {
   for (;;) {
     const results = await schedule.tick()
     for (const r of results) {
-      if (r.error) console.error(`✗ ${r.name}`)
-      else if (r.ran) console.log(`✓ ${r.name}`)
+      if (r.error)
+        console.error(`✗ ${r.name}`)
+      else if (r.ran)
+        console.log(`✓ ${r.name}`)
     }
-    await new Promise((r) => setTimeout(r, 1000 - (Date.now() % 1000)))
+    await new Promise(r => setTimeout(r, 1000 - (Date.now() % 1000)))
   }
 }
 
@@ -57,7 +61,7 @@ export async function scheduleWorkCommand(): Promise<number> {
 export async function scheduleTestCommand(name?: string): Promise<number> {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   const schedule = app.make(ScheduleToken)
-  const events = name ? schedule.events.filter((e) => e.name === name) : schedule.events
+  const events = name ? schedule.events.filter(e => e.name === name) : schedule.events
   if (events.length === 0) {
     console.error(name ? `No scheduled task named "${name}".` : 'No scheduled tasks defined.')
     return 1
@@ -67,7 +71,8 @@ export async function scheduleTestCommand(name?: string): Promise<number> {
     try {
       await event.run()
       console.log(`✓ ${event.name}`)
-    } catch (error) {
+    }
+    catch (error) {
       failed++
       const detail = error instanceof Error ? error.message : String(error)
       console.error(`✗ ${event.name} — ${detail}`)
@@ -85,7 +90,7 @@ export async function scheduleListCommand(): Promise<number> {
     console.log('No scheduled tasks defined. Add them in your ScheduleServiceProvider.')
     return 0
   }
-  const width = Math.max(...schedule.events.map((e) => e.expression.length))
+  const width = Math.max(...schedule.events.map(e => e.expression.length))
   for (const e of schedule.events) {
     const tz = e.timezoneName ? `  [${e.timezoneName}]` : ''
     console.log(`${e.expression.padEnd(width)}   ${e.name}${tz}`)

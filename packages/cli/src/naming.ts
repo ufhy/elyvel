@@ -17,18 +17,18 @@ function words(input: string): string[] {
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .map((word) => word.toLowerCase())
+    .map(word => word.toLowerCase())
 }
 
 export function makeNames(raw: string, suffix = ''): Names {
   const base = words(raw)
   // Avoid duplicating a suffix the user already typed (e.g. "UserController").
   const suffixWords = suffix ? words(suffix) : []
-  const alreadySuffixed =
-    suffixWords.length > 0 && base.slice(-suffixWords.length).join(' ') === suffixWords.join(' ')
+  const alreadySuffixed
+    = suffixWords.length > 0 && base.slice(-suffixWords.length).join(' ') === suffixWords.join(' ')
   const all = alreadySuffixed ? base : [...base, ...suffixWords]
 
-  const pascal = all.map((w) => w[0]!.toUpperCase() + w.slice(1)).join('')
+  const pascal = all.map(w => w[0]!.toUpperCase() + w.slice(1)).join('')
   return {
     class: pascal,
     camel: pascal[0]!.toLowerCase() + pascal.slice(1),

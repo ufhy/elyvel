@@ -44,9 +44,9 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
     .replace(/^["']|["']$/g, '')
   if (currentKey.length > 0 && appEnv === 'production' && !flags.force) {
     console.error(
-      '✗ APP_KEY is already set and APP_ENV=production.\n' +
-        '  Rotating it invalidates all sessions and makes `encrypted` columns\n' +
-        '  unreadable. Re-run with --force if you really mean to.',
+      '✗ APP_KEY is already set and APP_ENV=production.\n'
+      + '  Rotating it invalidates all sessions and makes `encrypted` columns\n'
+      + '  unreadable. Re-run with --force if you really mean to.',
     )
     return 1
   }

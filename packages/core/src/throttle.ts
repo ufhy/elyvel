@@ -1,4 +1,5 @@
-import { Middleware, type MiddlewareContext } from './middleware'
+import type { MiddlewareContext } from './middleware'
+import { Middleware } from './middleware'
 
 // ── store (injectable) ──────────────────────────────────────────────────────
 /**
@@ -39,7 +40,8 @@ export class MemoryRateLimiterStore implements RateLimiterStore {
 
   attempts(key: string): number {
     const bucket = this.buckets.get(key)
-    if (!bucket || Date.now() >= bucket.resetAt) return 0
+    if (!bucket || Date.now() >= bucket.resetAt)
+      return 0
     return bucket.count
   }
 
@@ -49,7 +51,8 @@ export class MemoryRateLimiterStore implements RateLimiterStore {
 
   availableIn(key: string): number {
     const bucket = this.buckets.get(key)
-    if (!bucket) return 0
+    if (!bucket)
+      return 0
     return Math.max(0, Math.ceil((bucket.resetAt - Date.now()) / 1000))
   }
 
@@ -89,18 +92,23 @@ export class Limit {
   static perSecond(maxAttempts: number, seconds = 1): Limit {
     return new Limit(maxAttempts, seconds)
   }
+
   static perMinute(maxAttempts: number): Limit {
     return new Limit(maxAttempts, 60)
   }
+
   static perMinutes(minutes: number, maxAttempts: number): Limit {
     return new Limit(maxAttempts, minutes * 60)
   }
+
   static perHour(maxAttempts: number, hours = 1): Limit {
     return new Limit(maxAttempts, hours * 3600)
   }
+
   static perDay(maxAttempts: number, days = 1): Limit {
     return new Limit(maxAttempts, days * 86400)
   }
+
   static none(): Limit {
     return new Limit(Number.POSITIVE_INFINITY, 60, true)
   }
@@ -110,11 +118,13 @@ export class Limit {
     this.key = key
     return this
   }
+
   /** Custom response when the limit is exceeded. */
   response(callback: ResponseCallback): this {
     this.responseCallback = callback
     return this
   }
+
   /** Only count the request toward the limit when this returns true for the response status. */
   after(callback: AfterCallback): this {
     this.afterCallback = callback
@@ -179,7 +189,8 @@ export const RateLimiter = {
     callback: () => T,
     decaySeconds = 60,
   ): Promise<T | boolean> {
-    if (await this.tooManyAttempts(key, maxAttempts)) return false
+    if (await this.tooManyAttempts(key, maxAttempts))
+      return false
     await this.hit(key, decaySeconds)
     const result = callback()
     return result === undefined ? true : result
@@ -218,7 +229,8 @@ export class ThrottleMiddleware extends Middleware {
   async handle(ctx: MiddlewareContext, ...args: string[]): Promise<unknown> {
     const name = args[0]
     const resolver = name ? RateLimiter.limiter(name) : undefined
-    if (resolver) return this.handleNamed(ctx, name as string, resolver)
+    if (resolver)
+      return this.handleNamed(ctx, name as string, resolver)
     return this.handleInline(ctx, args[0] ?? '60', args[1] ?? '1')
   }
 
@@ -244,12 +256,14 @@ export class ThrottleMiddleware extends Middleware {
     resolver: LimiterResolver,
   ): Promise<unknown> {
     const resolved = resolver(ctx)
-    if (!resolved) return
+    if (!resolved)
+      return
     const limits = Array.isArray(resolved) ? resolved : [resolved]
 
     for (let i = 0; i < limits.length; i++) {
       const limit = limits[i]
-      if (!limit || limit.unlimited) continue
+      if (!limit || limit.unlimited)
+        continue
       const key = limitKey(name, i, ctx, limit)
 
       // `.after()` limits count based on the response — only check here.
@@ -261,7 +275,8 @@ export class ThrottleMiddleware extends Middleware {
 
       const count = await store.increment(key, limit.decaySeconds, 1)
       setRateHeaders(ctx, limit.maxAttempts, count)
-      if (count > limit.maxAttempts) return this.reject(ctx, limit, key)
+      if (count > limit.maxAttempts)
+        return this.reject(ctx, limit, key)
     }
   }
 
@@ -269,24 +284,29 @@ export class ThrottleMiddleware extends Middleware {
     ctx.set.headers['x-ratelimit-limit'] = String(limit.maxAttempts)
     ctx.set.headers['x-ratelimit-remaining'] = '0'
     ctx.set.headers['retry-after'] = String(await store.availableIn(key))
-    if (limit.responseCallback) return limit.responseCallback(ctx, ctx.set.headers)
+    if (limit.responseCallback)
+      return limit.responseCallback(ctx, ctx.set.headers)
     return ctx.status(429, { message: 'Too Many Requests' })
   }
 
   /** Response-based counting for `.after()` limits — increment only when it opts in. */
   override async terminate(ctx: MiddlewareContext, ...args: string[]): Promise<void> {
     const name = args[0]
-    if (!name) return
+    if (!name)
+      return
     const resolver = RateLimiter.limiter(name)
-    if (!resolver) return
+    if (!resolver)
+      return
     const resolved = resolver(ctx)
-    if (!resolved) return
+    if (!resolved)
+      return
     const limits = Array.isArray(resolved) ? resolved : [resolved]
     const status = Number(ctx.set.status ?? 200)
 
     for (let i = 0; i < limits.length; i++) {
       const limit = limits[i]
-      if (!limit || limit.unlimited || !limit.afterCallback) continue
+      if (!limit || limit.unlimited || !limit.afterCallback)
+        continue
       if (limit.afterCallback(status))
         await store.increment(limitKey(name, i, ctx, limit), limit.decaySeconds, 1)
     }

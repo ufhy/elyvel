@@ -1,6 +1,6 @@
-import { Elysia } from 'elysia'
 import type { AuthManager } from './manager'
 import type { Authenticatable } from './types'
+import { Elysia } from 'elysia'
 
 const BEARER = 'Bearer '
 

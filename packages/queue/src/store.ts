@@ -41,6 +41,7 @@ export class MemoryQueueStore implements QueueStore {
     availableAt: number
     queue: string
   }[] = []
+
   async push(body: string, options: PushOptions = {}): Promise<void> {
     this.entries.push({
       id: randomUUID(),
@@ -50,20 +51,23 @@ export class MemoryQueueStore implements QueueStore {
       queue: options.queue ?? DEFAULT_QUEUE,
     })
   }
+
   async pop(queues: string[] = [DEFAULT_QUEUE]): Promise<QueuedRecord | null> {
     const t = now()
     // Honor queue priority: exhaust the first queue's ready jobs before the next.
     for (const queue of queues) {
       const ready = this.entries
-        .filter((e) => e.queue === queue && e.availableAt <= t)
+        .filter(e => e.queue === queue && e.availableAt <= t)
         .sort((a, b) => a.availableAt - b.availableAt)
       const next = ready[0]
-      if (!next) continue
-      this.entries = this.entries.filter((e) => e !== next)
+      if (!next)
+        continue
+      this.entries = this.entries.filter(e => e !== next)
       return { id: next.id, body: next.body, attempts: next.attempts + 1, queue: next.queue }
     }
     return null
   }
+
   async release(record: QueuedRecord, delaySeconds: number): Promise<void> {
     this.entries.push({
       id: record.id,
@@ -73,8 +77,9 @@ export class MemoryQueueStore implements QueueStore {
       queue: record.queue,
     })
   }
+
   async size(queue?: string): Promise<number> {
-    return queue ? this.entries.filter((e) => e.queue === queue).length : this.entries.length
+    return queue ? this.entries.filter(e => e.queue === queue).length : this.entries.length
   }
 }
 
@@ -89,9 +94,11 @@ export class RedisQueueStore implements QueueStore {
     private readonly client: RedisLike,
     private readonly prefix = 'queues',
   ) {}
+
   private key(queue: string): string {
     return `${this.prefix}:${queue}`
   }
+
   async push(body: string, options: PushOptions = {}): Promise<void> {
     const queue = options.queue ?? DEFAULT_QUEUE
     const member = JSON.stringify({
@@ -106,6 +113,7 @@ export class RedisQueueStore implements QueueStore {
       member,
     ])
   }
+
   async pop(queues: string[] = [DEFAULT_QUEUE]): Promise<QueuedRecord | null> {
     for (const queue of queues) {
       const found = (await this.client.send('ZRANGEBYSCORE', [
@@ -117,7 +125,8 @@ export class RedisQueueStore implements QueueStore {
         '1',
       ])) as string[] | null
       const member = found?.[0]
-      if (!member) continue
+      if (!member)
+        continue
       await this.client.send('ZREM', [this.key(queue), member])
       const parsed = JSON.parse(member)
       return {
@@ -129,6 +138,7 @@ export class RedisQueueStore implements QueueStore {
     }
     return null
   }
+
   async release(record: QueuedRecord, delaySeconds: number): Promise<void> {
     const member = JSON.stringify({
       id: record.id,
@@ -142,6 +152,7 @@ export class RedisQueueStore implements QueueStore {
       member,
     ])
   }
+
   async size(queue: string = DEFAULT_QUEUE): Promise<number> {
     return Number(await this.client.send('ZCARD', [this.key(queue)]))
   }
@@ -160,7 +171,7 @@ export interface QueueDbAdapter {
   takeReady(
     now: number,
     queues: string[],
-  ): Promise<{ id: string; body: string; attempts: number; queue: string } | null>
+  ): Promise<{ id: string, body: string, attempts: number, queue: string } | null>
   count(queue?: string): Promise<number>
 }
 
@@ -184,10 +195,12 @@ export class DatabaseQueueStore implements QueueStore {
       options.queue ?? DEFAULT_QUEUE,
     )
   }
+
   async pop(queues: string[] = [DEFAULT_QUEUE]): Promise<QueuedRecord | null> {
     const row = await requireAdapter().takeReady(now(), queues)
     return row ? { id: row.id, body: row.body, attempts: row.attempts + 1, queue: row.queue } : null
   }
+
   async release(record: QueuedRecord, delaySeconds: number): Promise<void> {
     await requireAdapter().insert(
       record.id,
@@ -197,6 +210,7 @@ export class DatabaseQueueStore implements QueueStore {
       record.queue,
     )
   }
+
   async size(queue?: string): Promise<number> {
     return requireAdapter().count(queue)
   }

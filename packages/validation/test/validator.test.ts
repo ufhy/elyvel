@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { configureDbRules } from '../src/db-rules'
 import { FormRequest } from '../src/form-request'
 import { ValidationException } from '../src/validation-exception'
-import { Validator, validate } from '../src/validator'
+import { validate, Validator } from '../src/validator'
 
 describe('Validator — rules', () => {
   test('required rejects missing, null, and empty string (Laravel semantics)', async () => {
@@ -82,7 +82,8 @@ describe('validate() + ValidationException', () => {
     )
     try {
       await validate({ a: '', b: 'x' }, { a: 'required', b: 'required' })
-    } catch (e) {
+    }
+    catch (e) {
       const ex = e as ValidationException
       expect(ex.status).toBe(422)
       expect(ex.errors.a).toBeDefined()
@@ -98,6 +99,7 @@ describe('FormRequest', () => {
     rules() {
       return { email: 'required|email', age: 'required|integer|min:18' }
     }
+
     override messages() {
       return { 'email.required': 'Email wajib diisi.' }
     }
@@ -115,6 +117,7 @@ describe('FormRequest', () => {
       override authorize() {
         return false
       }
+
       rules() {
         return {}
       }

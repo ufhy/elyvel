@@ -124,8 +124,8 @@ interface MessageInput {
 export function formatMessage(input: MessageInput): string {
   const { rule, attribute, args, sizeKind, custom = {}, attributes = {} } = input
 
-  const template =
-    custom[`${attribute}.${rule}`] ?? custom[rule] ?? pickTemplate(rule, sizeKind) ?? FALLBACK
+  const template
+    = custom[`${attribute}.${rule}`] ?? custom[rule] ?? pickTemplate(rule, sizeKind) ?? FALLBACK
 
   const displayName = attributes[attribute] ?? humanizeAttribute(attribute)
 
@@ -144,6 +144,7 @@ export function formatMessage(input: MessageInput): string {
 
 function pickTemplate(rule: string, sizeKind: SizeKind): string | undefined {
   const entry = DEFAULT_MESSAGES[rule]
-  if (entry === undefined) return undefined
+  if (entry === undefined)
+    return undefined
   return typeof entry === 'string' ? entry : entry[sizeKind]
 }

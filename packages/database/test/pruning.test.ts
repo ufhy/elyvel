@@ -1,5 +1,6 @@
+import type { EloquentBuilder } from '../src'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type EloquentBuilder, Model } from '../src'
+import { Model } from '../src'
 import { createConnection, setConnection } from '../src/connection'
 import { SchemaBuilder } from '../src/schema'
 

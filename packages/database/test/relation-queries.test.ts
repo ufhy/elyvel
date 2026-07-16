@@ -1,6 +1,6 @@
+import type { EloquentCollection } from '../src/eloquent-collection'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection } from '../src/connection'
-import type { EloquentCollection } from '../src/eloquent-collection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 
@@ -78,11 +78,11 @@ for (const d of dialects) {
 
     test('whereHas with a constraint', async () => {
       const matched = await User.query()
-        .whereHas('posts', (q) => q.where('title', 'A1'))
+        .whereHas('posts', q => q.where('title', 'A1'))
         .get()
       expect(matched.count()).toBe(1)
       const none = await User.query()
-        .whereHas('posts', (q) => q.where('title', 'nonexistent'))
+        .whereHas('posts', q => q.where('title', 'nonexistent'))
         .get()
       expect(none.count()).toBe(0)
     })
@@ -96,7 +96,7 @@ for (const d of dialects) {
 
     test('constrained eager loading', async () => {
       const users = await User.query()
-        .with({ posts: (q) => q.where('title', 'A1') })
+        .with({ posts: q => q.where('title', 'A1') })
         .orderBy('id')
         .get()
       expect(users.first()?.getRelation<EloquentCollection<Post>>('posts').count()).toBe(1)

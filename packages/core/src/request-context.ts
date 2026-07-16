@@ -1,6 +1,7 @@
+import type { Logger } from './logger'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
-import { createLogger, type Logger } from './logger'
+import { createLogger } from './logger'
 
 interface RequestMeta {
   start: number
@@ -52,15 +53,17 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
       const info = meta.get(request)
       meta.delete(request)
 
-      const ms =
-        info !== undefined ? Math.round((performance.now() - info.start) * 100) / 100 : undefined
+      const ms
+        = info !== undefined ? Math.round((performance.now() - info.start) * 100) / 100 : undefined
       const { pathname } = new URL(request.url)
       const status = typeof set.status === 'number' ? set.status : 200
       const context = { requestId: info?.id, status, ms }
       const line = `${request.method} ${pathname}`
 
-      if (status >= 500) http.error(line, context)
-      else if (status >= 400) http.warn(line, context)
+      if (status >= 500)
+        http.error(line, context)
+      else if (status >= 400)
+        http.warn(line, context)
       else http.info(line, context)
     })
     .onError({ as: 'global' }, ({ request, error, code, set }) => {
@@ -76,7 +79,8 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
         const errors = (error as { errors?: unknown }).errors
         // A web (non-JSON) validation error is handled by the session plugin's
         // onError, which redirects back with the errors flashed — let it run.
-        if (errors && status === 422 && !expectsJson(request)) return undefined
+        if (errors && status === 422 && !expectsJson(request))
+          return undefined
         set.status = status
         http.warn(`${request.method} ${pathname}`, { requestId, status })
         return errors ? { message, errors } : { message }

@@ -1,4 +1,5 @@
-import { csrfField, document, html, type ViewShared } from '@elysia-ravel/view'
+import type { ViewShared } from '@elysia-ravel/view'
+import { csrfField, document, html } from '@elysia-ravel/view'
 
 /** A server-rendered registration form that shows flashed errors + old input. */
 export function RegisterForm(_props: Record<string, never>, shared: ViewShared) {

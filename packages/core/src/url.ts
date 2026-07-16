@@ -34,7 +34,7 @@ export function urlFor(name: string, params: Record<string, string | number> = {
     throw new Error(`[elysia-ravel] No named route "${name}".`)
   }
   const used = new Set<string>()
-  const path = template.replace(/:([A-Za-z0-9_]+)\??/g, (_match, key: string) => {
+  const path = template.replace(/:(\w+)\??/g, (_match, key: string) => {
     used.add(key)
     const value = params[key]
     if (value === undefined) {
@@ -43,7 +43,8 @@ export function urlFor(name: string, params: Record<string, string | number> = {
     return encodeURIComponent(String(value))
   })
   const extras = Object.entries(params).filter(([key]) => !used.has(key))
-  if (extras.length === 0) return path
+  if (extras.length === 0)
+    return path
   const query = extras
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&')

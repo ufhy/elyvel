@@ -16,13 +16,13 @@ const AUTH_DEPS: Record<string, string> = {
   '@inertiajs/vue3': '^3.0.0',
   '@vue/server-renderer': '^3.5.0',
   'better-auth': '^1.6.0',
-  vue: '^3.5.0',
+  'vue': '^3.5.0',
 }
 const AUTH_DEV_DEPS: Record<string, string> = {
   '@tailwindcss/vite': '^4.0.0',
   '@vitejs/plugin-vue': '^6.0.0',
-  tailwindcss: '^4.0.0',
-  vite: '^8.0.0',
+  'tailwindcss': '^4.0.0',
+  'vite': '^8.0.0',
 }
 
 function outputPath(rel: string): string {
@@ -39,19 +39,22 @@ async function mergePackageJson(cwd: string): Promise<void> {
   const pkg = JSON.parse(await readFile(path, 'utf8'))
   pkg.dependencies = { ...AUTH_DEPS, ...pkg.dependencies }
   pkg.devDependencies = { ...AUTH_DEV_DEPS, ...pkg.devDependencies }
-  pkg.scripts = { build: 'vite build', 'build:ssr': 'vite build --ssr', ...pkg.scripts }
+  pkg.scripts = { 'build': 'vite build', 'build:ssr': 'vite build --ssr', ...pkg.scripts }
   await Bun.write(path, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
 /** Register MailServiceProvider in config/app.ts (needed for reset/verify email). */
 async function registerMailProvider(cwd: string): Promise<boolean> {
   const path = join(cwd, 'config', 'app.ts')
-  if (!existsSync(path)) return false
+  if (!existsSync(path))
+    return false
   let src = await readFile(path, 'utf8')
-  if (src.includes('MailServiceProvider')) return true
-  const importAnchor = "import { EloquentServiceProvider } from '@elysia-ravel/database'"
+  if (src.includes('MailServiceProvider'))
+    return true
+  const importAnchor = 'import { EloquentServiceProvider } from \'@elysia-ravel/database\''
   const providerAnchor = 'EloquentServiceProvider,'
-  if (!src.includes(importAnchor) || !src.includes(providerAnchor)) return false
+  if (!src.includes(importAnchor) || !src.includes(providerAnchor))
+    return false
   src = src.replace(
     importAnchor,
     `${importAnchor}\nimport { MailServiceProvider } from '@elysia-ravel/mail'`,
@@ -79,8 +82,9 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
   let written = 0
   let skipped = 0
   for (const entry of entries) {
-    if (!entry.isFile()) continue
-    const parent = (entry as { parentPath?: string; path?: string }).parentPath ?? templatesDir
+    if (!entry.isFile())
+      continue
+    const parent = (entry as { parentPath?: string, path?: string }).parentPath ?? templatesDir
     const abs = join(parent, entry.name)
     const dest = join(cwd, outputPath(relative(templatesDir, abs)))
     if (existsSync(dest)) {
@@ -101,7 +105,7 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
     console.log(
       '  ! Could not auto-register MailServiceProvider — add it to config/app.ts providers:',
     )
-    console.log("      import { MailServiceProvider } from '@elysia-ravel/mail'")
+    console.log('      import { MailServiceProvider } from \'@elysia-ravel/mail\'')
   }
   if (!quiet) {
     console.log('\nNext steps:')

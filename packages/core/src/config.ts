@@ -13,7 +13,7 @@ export type ConfigData = Record<string, Record<string, unknown>>
  * Applications sharpen the return types by augmenting {@link ConfigSchema}
  * via declaration merging (see the example app).
  */
-export type ConfigSchema = {}
+export interface ConfigSchema {}
 
 export class ConfigRepository {
   constructor(private readonly data: ConfigData) {}
@@ -29,7 +29,8 @@ export class ConfigRepository {
     for (const segment of segments) {
       if (current !== null && typeof current === 'object' && segment in current) {
         current = (current as Record<string, unknown>)[segment]
-      } else {
+      }
+      else {
         return fallback as T
       }
     }

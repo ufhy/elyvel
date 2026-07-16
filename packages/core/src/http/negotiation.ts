@@ -8,15 +8,19 @@ export function expectsJson(request: Request): boolean {
   if ((request.headers.get('x-requested-with') ?? '').toLowerCase() === 'xmlhttprequest')
     return true
   // Inertia is a web (HTML/SPA) posture, handled separately — never plain JSON here.
-  if (request.headers.get('x-inertia')) return false
+  if (request.headers.get('x-inertia'))
+    return false
 
   const accept = request.headers.get('accept') ?? ''
-  if (accept.includes('application/json')) return true
-  if (accept.includes('text/html') || accept.includes('application/xhtml')) return false
+  if (accept.includes('application/json'))
+    return true
+  if (accept.includes('text/html') || accept.includes('application/xhtml'))
+    return false
 
   // No decisive Accept header: fall back to the request body's content type.
   const contentType = request.headers.get('content-type') ?? ''
-  if (contentType.includes('application/json')) return true
+  if (contentType.includes('application/json'))
+    return true
 
   // Default to the web (HTML) lane so browsers get redirects, not JSON.
   return false

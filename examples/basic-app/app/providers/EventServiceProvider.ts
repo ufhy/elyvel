@@ -1,7 +1,7 @@
+import type { EventKey, Listener } from '@elysia-ravel/events'
 import {
   EventServiceProvider as BaseEventServiceProvider,
-  type EventKey,
-  type Listener,
+
 } from '@elysia-ravel/events'
 import { UserRegistered } from '../events/UserRegistered'
 import { SendWelcomeEmailListener } from '../listeners/SendWelcomeEmailListener'
@@ -24,7 +24,7 @@ export class EventServiceProvider extends BaseEventServiceProvider {
     // AppServiceProvider). Observe any model's lifecycle by name:
     [
       'eloquent.created: User',
-      [(user) => console.log(`[event] user created #${(user as { id: number }).id}`)],
+      [user => console.log(`[event] user created #${(user as { id: number }).id}`)],
     ],
   ]
 }

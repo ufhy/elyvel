@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type Connection, createConnection, setConnection } from '../src/connection'
+import { createConnection, setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
@@ -33,7 +34,7 @@ for (const d of dialects) {
       const low = new QueryBuilder(conn, 'items').where('n', '<', 3)
       const high = new QueryBuilder(conn, 'items').where('n', '>', 10)
       const rows = await low.union(high).get()
-      expect(rows.map((r) => Number(r.n)).sort((a, b) => a - b)).toEqual([1, 2, 11, 12])
+      expect(rows.map(r => Number(r.n)).sort((a, b) => a - b)).toEqual([1, 2, 11, 12])
     })
 
     test('lockForUpdate runs (FOR UPDATE on pg, no-op on sqlite)', async () => {
@@ -46,7 +47,7 @@ for (const d of dialects) {
       await Item.query().where('n', 5).get()
       const log = conn.getQueryLog()
       expect(log.length).toBeGreaterThanOrEqual(1)
-      expect(log.some((e) => e.sql.includes('SELECT'))).toBe(true)
+      expect(log.some(e => e.sql.includes('SELECT'))).toBe(true)
       expect(typeof log[0]?.ms).toBe('number')
       conn.flushQueryLog()
       expect(conn.getQueryLog()).toHaveLength(0)

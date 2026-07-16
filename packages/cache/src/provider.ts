@@ -1,5 +1,6 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
+import type { Token } from '@elysia-ravel/core'
 import type { CacheConfig } from './config-schema'
+import { ServiceProvider, token } from '@elysia-ravel/core'
 import { CacheManager, setDefaultCache } from './manager'
 
 export const CacheToken: Token<CacheManager> = token<CacheManager>('cache')
@@ -14,8 +15,8 @@ export class CacheServiceProvider extends ServiceProvider {
     const config = this.app.config.get<CacheConfig>('cache', {})
     const stores: NonNullable<CacheConfig['stores']> = {}
     for (const [name, store] of Object.entries(config.stores ?? {})) {
-      stores[name] =
-        store.driver === 'file'
+      stores[name]
+        = store.driver === 'file'
           ? { ...store, path: this.app.path(store.path ?? 'storage/framework/cache') }
           : store
     }

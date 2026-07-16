@@ -1,21 +1,26 @@
+import type { MiddlewareContext } from '../src/middleware'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
-import { type MiddlewareContext, registerMiddlewareRegistry } from '../src/middleware'
+import { registerMiddlewareRegistry } from '../src/middleware'
 import { Controller, resource } from '../src/routing'
 
 class PostController extends Controller {
   async index() {
     return [{ id: 1 }, { id: 2 }]
   }
+
   async show(ctx: MiddlewareContext) {
     return { id: Number(ctx.params.id) }
   }
+
   async store(ctx: MiddlewareContext) {
     return ctx.status(201, ctx.body)
   }
+
   async update(ctx: MiddlewareContext) {
     return { id: Number(ctx.params.id), updated: true }
   }
+
   async destroy() {
     return { deleted: true }
   }
@@ -26,6 +31,7 @@ class ReadOnlyController extends Controller {
   async index() {
     return 'list'
   }
+
   async show() {
     return 'one'
   }

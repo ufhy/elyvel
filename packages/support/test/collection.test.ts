@@ -10,7 +10,7 @@ const people = [
 describe('Collection', () => {
   test('map/filter/first/count are chainable and non-mutating', () => {
     const c = new Collection(people)
-    const admins = c.filter((p) => p.role === 'admin')
+    const admins = c.filter(p => p.role === 'admin')
     expect(admins.count()).toBe(2)
     expect(c.count()).toBe(3) // original untouched
     expect(admins.first()?.name).toBe('Ada')
@@ -34,7 +34,7 @@ describe('Collection', () => {
   test('sortBy (non-mutating) + aggregates', () => {
     const c = new Collection(people)
     expect(c.sortBy('age').first()?.name).toBe('Ada')
-    expect(c.sortBy((p) => -p.age).first()?.name).toBe('Grace')
+    expect(c.sortBy(p => -p.age).first()?.name).toBe('Grace')
     expect(c.sum('age')).toBe(122)
     expect(c.avg('age')).toBeCloseTo(40.67, 1)
     expect(c.max('age')).toBe(45)
@@ -43,7 +43,7 @@ describe('Collection', () => {
   test('chunk / partition', () => {
     const c = new Collection([1, 2, 3, 4, 5])
     expect(c.chunk(2).count()).toBe(3)
-    const [even, odd] = c.partition((n) => n % 2 === 0)
+    const [even, odd] = c.partition(n => n % 2 === 0)
     expect(even.all()).toEqual([2, 4])
     expect(odd.all()).toEqual([1, 3, 5])
   })

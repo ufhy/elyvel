@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createLogger } from '../src/logger'
 
 /** Capture console output for the duration of `fn`. */
-function capture(fn: () => void): { out: string[]; err: string[] } {
+function capture(fn: () => void): { out: string[], err: string[] } {
   const out: string[] = []
   const err: string[] = []
   const origLog = console.log
@@ -11,7 +11,8 @@ function capture(fn: () => void): { out: string[]; err: string[] } {
   console.error = (line: string) => err.push(line)
   try {
     fn()
-  } finally {
+  }
+  finally {
     console.log = origLog
     console.error = origErr
   }

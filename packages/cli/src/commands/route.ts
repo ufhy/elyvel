@@ -20,7 +20,7 @@ export async function routeListCommand(): Promise<number> {
     return 0
   }
 
-  const width = Math.max(...routes.map((r) => r.method.length), 'Method'.length)
+  const width = Math.max(...routes.map(r => r.method.length), 'Method'.length)
   console.log(`${'Method'.padEnd(width)}  Path`)
   for (const r of routes) console.log(`${r.method.padEnd(width)}  ${r.path}`)
   console.log(`\n${routes.length} routes.`)

@@ -1,5 +1,6 @@
+import type { MiddlewareContext } from '@elysia-ravel/core'
 import { Hash } from '@elysia-ravel/auth'
-import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
+import { Controller } from '@elysia-ravel/core'
 import { event } from '@elysia-ravel/events'
 import { notify } from '@elysia-ravel/notifications'
 import { dispatch } from '@elysia-ravel/queue'
@@ -38,7 +39,7 @@ export class UserController extends Controller {
     await notify(
       {
         id: user.getKey(),
-        routeNotificationFor: (c) =>
+        routeNotificationFor: c =>
           c === 'mail' ? String(data.email) : c === 'broadcast' ? 'users' : undefined,
       },
       new WelcomeNotification(String(data.name)),

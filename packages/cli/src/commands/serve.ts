@@ -7,15 +7,15 @@ const DEFAULT_ENTRIES = ['server.ts', 'src/server.ts', 'bootstrap/server.ts']
 export async function serve(flags: Record<string, string | boolean>): Promise<number> {
   const cwd = process.cwd()
 
-  const entry =
-    typeof flags.entry === 'string'
+  const entry
+    = typeof flags.entry === 'string'
       ? join(cwd, flags.entry)
-      : DEFAULT_ENTRIES.map((e) => join(cwd, e)).find(existsSync)
+      : DEFAULT_ENTRIES.map(e => join(cwd, e)).find(existsSync)
 
   if (!entry || !existsSync(entry)) {
     console.error(
-      `Could not find a server entry. Looked for: ${DEFAULT_ENTRIES.join(', ')}.\n` +
-        'Pass one explicitly with --entry <path>.',
+      `Could not find a server entry. Looked for: ${DEFAULT_ENTRIES.join(', ')}.\n`
+      + 'Pass one explicitly with --entry <path>.',
     )
     return 1
   }

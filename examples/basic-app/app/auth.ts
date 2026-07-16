@@ -8,7 +8,7 @@ import { User } from './models/User'
  */
 export const auth = createAuth({
   provider: {
-    retrieveById: async (id) => (await User.find(id)) ?? null,
+    retrieveById: async id => (await User.find(id)) ?? null,
     retrieveByCredentials: async ({ email }) => (await User.where('email', email).first()) ?? null,
     validateCredentials: (user, { password }) => Hash.verify(password, user.password),
   },
@@ -16,11 +16,12 @@ export const auth = createAuth({
     store: async ({ userId, hashedToken }) => {
       await PersonalAccessToken.create({ user_id: Number(userId), token: hashedToken })
     },
-    findUserId: async (hashedToken) =>
+    findUserId: async hashedToken =>
       (await PersonalAccessToken.where('token', hashedToken).first())?.user_id ?? null,
     revoke: async (hashedToken) => {
       const token = await PersonalAccessToken.where('token', hashedToken).first()
-      if (token) await token.delete()
+      if (token)
+        await token.delete()
     },
   },
 })

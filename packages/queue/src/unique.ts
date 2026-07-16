@@ -16,10 +16,12 @@ export class MemoryUniqueLock implements UniqueLock {
   async acquire(key: string, ttlSeconds: number): Promise<boolean> {
     const now = Date.now()
     const expiry = this.locks.get(key)
-    if (expiry !== undefined && expiry > now) return false
+    if (expiry !== undefined && expiry > now)
+      return false
     this.locks.set(key, now + ttlSeconds * 1000)
     return true
   }
+
   async release(key: string): Promise<void> {
     this.locks.delete(key)
   }
@@ -36,7 +38,8 @@ export function uniqueLock(): UniqueLock | null {
 
 /** The lock key for a unique job, or null if the job isn't unique. */
 export function uniqueKeyFor(job: Job): string | null {
-  if (!job.unique) return null
+  if (!job.unique)
+    return null
   const id = job.uniqueId ? job.uniqueId() : ''
   return `unique:${job.constructor.name}:${id}`
 }

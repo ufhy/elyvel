@@ -1,9 +1,9 @@
+import type { Bindings, Connection, MysqlConnectionConfig } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import {
-  type Bindings,
-  type Connection,
+
   createConnection,
-  type MysqlConnectionConfig,
+
   setConnection,
   transaction,
 } from '../src/connection'
@@ -56,8 +56,8 @@ describe('MysqlGrammar', () => {
 
 // ── query builder SQL for the mysql dialect (via a capturing fake connection) ─
 function fakeMysql(rows: Record<string, unknown>[] = []) {
-  const statements: { sql: string; bindings: unknown[] }[] = []
-  const selects: { sql: string; bindings: unknown[] }[] = []
+  const statements: { sql: string, bindings: unknown[] }[] = []
+  const selects: { sql: string, bindings: unknown[] }[] = []
   const conn = {
     dialect: 'mysql' as const,
     grammar: grammarFor('mysql'),
@@ -189,6 +189,6 @@ describe.skipIf(!liveConfig)('mysql live round-trip', () => {
   test('introspection reports the table + lowercased column metadata', async () => {
     expect(await listTables(conn)).toContain('mysql_samples')
     const cols = await tableColumns(conn, 'mysql_samples')
-    expect(cols.map((c) => c.name).sort()).toEqual(['active', 'id', 'n', 'name'])
+    expect(cols.map(c => c.name).sort()).toEqual(['active', 'id', 'n', 'name'])
   })
 })

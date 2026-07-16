@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type Connection, createConnection, setConnection } from '../src/connection'
+import { createConnection, setConnection } from '../src/connection'
 import { countRows, listTables, openConnectionCount, tableColumns } from '../src/inspect'
 import { SchemaBuilder } from '../src/schema'
 
@@ -28,10 +29,10 @@ for (const d of dialects) {
 
     test('tableColumns describes columns', async () => {
       const cols = await tableColumns(conn, 'widgets')
-      const names = cols.map((c) => c.name)
+      const names = cols.map(c => c.name)
       expect(names).toEqual(['id', 'name', 'qty'])
-      expect(cols.find((c) => c.name === 'qty')?.nullable).toBe(true)
-      expect(cols.find((c) => c.name === 'name')?.nullable).toBe(false)
+      expect(cols.find(c => c.name === 'qty')?.nullable).toBe(true)
+      expect(cols.find(c => c.name === 'name')?.nullable).toBe(false)
     })
 
     test('countRows counts rows', async () => {
@@ -42,7 +43,8 @@ for (const d of dialects) {
 
     test('openConnectionCount is a number on pg, null on sqlite', async () => {
       const count = await openConnectionCount(conn)
-      if (d.name === 'sqlite') expect(count).toBeNull()
+      if (d.name === 'sqlite')
+        expect(count).toBeNull()
       else expect(typeof count).toBe('number')
     })
 

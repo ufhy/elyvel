@@ -1,6 +1,7 @@
-import { Database } from 'bun:sqlite'
+import type { Dialect, Grammar } from './grammar'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { type Dialect, type Grammar, grammarFor } from './grammar'
+import { Database } from 'bun:sqlite'
+import { grammarFor } from './grammar'
 
 /**
  * A dialect-agnostic connection. Query/schema builders and models talk to
@@ -128,11 +129,11 @@ export interface MysqlConnectionConfig extends MysqlHostConfig {
   /** After a write in a request, route that request's reads to the write host. */
   sticky?: boolean
 }
-export type ConnectionConfig =
-  | SqliteConnectionConfig
-  | PostgresConnectionConfig
-  | PgliteConnectionConfig
-  | MysqlConnectionConfig
+export type ConnectionConfig
+  = | SqliteConnectionConfig
+    | PostgresConnectionConfig
+    | PgliteConnectionConfig
+    | MysqlConnectionConfig
 
 /** Connections opened via createConnection, tracked so tests can close them all. */
 const opened: Connection[] = []
@@ -178,8 +179,10 @@ function hasReadWrite(config: ConnectionConfig): config is ConnectionConfig & {
 
 /** Round-robin a read override across replicas (or pass a single one through). */
 function pickRead(read: ConfigOverride | ConfigOverride[]): ConfigOverride {
-  if (!Array.isArray(read)) return read
-  if (read.length === 0) return undefined
+  if (!Array.isArray(read))
+    return read
+  if (read.length === 0)
+    return undefined
   return read[Math.floor(Math.random() * read.length)]
 }
 
@@ -200,8 +203,9 @@ function bindNamed(
   sql: string,
   bindings: Bindings,
   grammar: Grammar,
-): { sql: string; bindings: unknown[] } {
-  if (Array.isArray(bindings)) return { sql, bindings }
+): { sql: string, bindings: unknown[] } {
+  if (Array.isArray(bindings))
+    return { sql, bindings }
   const positional: unknown[] = []
   const rewritten = sql.replace(/:(\w+)/g, (_match, name: string) => {
     positional.push(bindings[name])
@@ -224,7 +228,8 @@ function composeReadWrite(
   const markWrite = () => {
     if (sticky) {
       const store = requestStore.getStore()
-      if (store) store.hadWrite = true
+      if (store)
+        store.hadWrite = true
     }
   }
   const useWrite = () => txSticky || (sticky && requestStore.getStore()?.hadWrite === true)
@@ -234,14 +239,16 @@ function composeReadWrite(
     select: (sql, bindings) => (useWrite() ? write : read).select(sql, bindings),
     statement: async (sql, bindings) => {
       const kw = firstKeyword(sql)
-      if (kw === 'BEGIN') txSticky = true
+      if (kw === 'BEGIN')
+        txSticky = true
       markWrite()
       await write.statement(sql, bindings)
       // A `ROLLBACK TO SAVEPOINT` unwinds a nested level — the transaction is
       // still open, so keep routing reads to the write host.
-      const endsTransaction =
-        kw === 'COMMIT' || (kw === 'ROLLBACK' && !/^ROLLBACK\s+TO\b/i.test(sql.trimStart()))
-      if (endsTransaction) txSticky = false
+      const endsTransaction
+        = kw === 'COMMIT' || (kw === 'ROLLBACK' && !/^ROLLBACK\s+TO\b/i.test(sql.trimStart()))
+      if (endsTransaction)
+        txSticky = false
     },
     unprepared: (sql) => {
       markWrite()
@@ -265,7 +272,7 @@ function withQueryLog(base: RawConnection): Connection {
   const log: QueryLogEntry[] = []
   const listeners = new Set<QueryListener>()
   const errorListeners = new Set<QueryErrorListener>()
-  const slow: { threshold: number; callback: QueryListener; fired: boolean }[] = []
+  const slow: { threshold: number, callback: QueryListener, fired: boolean }[] = []
   let totalDuration = 0
 
   const round = (n: number) => Math.round(n * 100) / 100
@@ -275,7 +282,8 @@ function withQueryLog(base: RawConnection): Connection {
     let result: T
     try {
       result = await run()
-    } catch (error) {
+    }
+    catch (error) {
       const ms = round(performance.now() - start)
       for (const listener of errorListeners) listener({ sql, bindings, ms, error })
       throw error
@@ -283,7 +291,8 @@ function withQueryLog(base: RawConnection): Connection {
     const ms = round(performance.now() - start)
     const event: QueryExecuted = { sql, bindings, ms }
 
-    if (logging) log.push(event)
+    if (logging)
+      log.push(event)
     for (const listener of listeners) listener(event)
 
     totalDuration = round(totalDuration + ms)
@@ -313,7 +322,7 @@ function withQueryLog(base: RawConnection): Connection {
       const b = bindNamed(sql, bindings, base.grammar)
       return stmt(b.sql, b.bindings)
     },
-    unprepared: (sql) => record(sql, [], () => base.unprepared(sql)),
+    unprepared: sql => record(sql, [], () => base.unprepared(sql)),
     insertGetId: base.insertGetId
       ? (sql, bindings = []) => {
           const b = bindNamed(sql, bindings, base.grammar)
@@ -344,7 +353,8 @@ function withQueryLog(base: RawConnection): Connection {
       slow.push(entry)
       return () => {
         const i = slow.indexOf(entry)
-        if (i >= 0) slow.splice(i, 1)
+        if (i >= 0)
+          slow.splice(i, 1)
       }
     },
     getTotalQueryDuration: () => totalDuration,
@@ -353,12 +363,14 @@ function withQueryLog(base: RawConnection): Connection {
       for (const s of slow) s.fired = false
     },
     beginTransaction: async () => {
-      if (level === 0) await stmt('BEGIN')
+      if (level === 0)
+        await stmt('BEGIN')
       else await stmt(`SAVEPOINT trans${level + 1}`)
       level++
     },
     commit: async () => {
-      if (level <= 1) await stmt('COMMIT') // nested commits fold into the outermost
+      if (level <= 1)
+        await stmt('COMMIT') // nested commits fold into the outermost
       level = Math.max(0, level - 1)
       if (level === 0 && afterCommitCallbacks.length > 0) {
         const callbacks = afterCommitCallbacks.splice(0)
@@ -370,7 +382,8 @@ function withQueryLog(base: RawConnection): Connection {
         await stmt('ROLLBACK')
         level = 0
         afterCommitCallbacks.length = 0 // discard pending after-commit work
-      } else {
+      }
+      else {
         await stmt(`ROLLBACK TO SAVEPOINT trans${level}`)
         level--
       }
@@ -379,7 +392,8 @@ function withQueryLog(base: RawConnection): Connection {
     afterCommit: (callback) => {
       if (level === 0) {
         void callback()
-      } else {
+      }
+      else {
         afterCommitCallbacks.push(callback)
       }
     },
@@ -391,7 +405,8 @@ export async function closeAllConnections(): Promise<void> {
   for (const connection of opened.splice(0)) {
     try {
       await connection.close()
-    } catch {
+    }
+    catch {
       // ignore — best-effort cleanup
     }
   }
@@ -476,7 +491,8 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         connectionLimit: 1,
         // Map TINYINT(1) → boolean so our boolean columns round-trip cleanly.
         typeCast(field, next) {
-          if (field.type === 'TINY' && field.length === 1) return field.string() === '1'
+          if (field.type === 'TINY' && field.length === 1)
+            return field.string() === '1'
           return next()
         },
       })
@@ -533,7 +549,8 @@ let current: Connection | null = null
 /** Register a connection under `name` (the first/`default` becomes the default). */
 export function setConnection(connection: Connection, name = 'default'): void {
   connections.set(name, connection)
-  if (name === 'default' || current === null) current = connection
+  if (name === 'default' || current === null)
+    current = connection
 }
 export function hasConnection(name?: string): boolean {
   return name ? connections.has(name) : current !== null
@@ -568,9 +585,11 @@ export async function transaction<T>(callback: () => Promise<T>, attempts = 1): 
       const result = await callback()
       await connection.commit()
       return result
-    } catch (error) {
+    }
+    catch (error) {
       await connection.rollBack()
-      if (attempt < attempts && causedByConcurrencyError(error)) continue
+      if (attempt < attempts && causedByConcurrencyError(error))
+        continue
       throw error
     }
   }

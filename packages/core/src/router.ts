@@ -6,7 +6,7 @@ import { Elysia } from 'elysia'
  * instance (a plugin). Controllers follow the same convention, so a route
  * file can simply compose controllers with `.use()`.
  */
-export type RouteModule = { default: Elysia }
+export interface RouteModule { default: Elysia }
 
 function isElysia(value: unknown): value is Elysia {
   return value instanceof Elysia
@@ -23,7 +23,8 @@ export async function loadRoutes(dir: string): Promise<Elysia[]> {
   const files: string[] = []
 
   for await (const file of glob.scan({ cwd: dir, onlyFiles: true })) {
-    if (file.endsWith('.d.ts') || file.endsWith('.test.ts')) continue
+    if (file.endsWith('.d.ts') || file.endsWith('.test.ts'))
+      continue
     files.push(file)
   }
 
@@ -36,7 +37,8 @@ export async function loadRoutes(dir: string): Promise<Elysia[]> {
 
     if (isElysia(module.default)) {
       routers.push(module.default)
-    } else {
+    }
+    else {
       console.warn(
         `[elysia-ravel] "${file}" was skipped: expected a default-exported Elysia instance.`,
       )

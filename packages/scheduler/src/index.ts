@@ -7,4 +7,4 @@ export {
   scheduleMutex,
 } from './mutex'
 export { ScheduleServiceProvider, ScheduleToken } from './provider'
-export { Schedule, type ScheduleRunResult, schedule, setDefaultSchedule } from './schedule'
+export { Schedule, schedule, type ScheduleRunResult, setDefaultSchedule } from './schedule'

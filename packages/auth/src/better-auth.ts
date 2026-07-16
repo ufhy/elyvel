@@ -3,8 +3,8 @@ import { gate } from './gate'
 
 /** The parts of a Better Auth instance this plugin needs (kept loose to avoid deep generics). */
 export interface BetterAuthLike {
-  handler: (request: Request) => Response | Promise<Response>
-  api: { getSession: (args: { headers: Headers }) => Promise<any> }
+  handler(request: Request): Response | Promise<Response>
+  api: { getSession(args: { headers: Headers }): Promise<any> }
 }
 
 export interface BetterAuthPluginOptions {
@@ -53,20 +53,24 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
       })
       .macro({
         auth(enabled: boolean) {
-          if (!enabled) return {}
+          if (!enabled)
+            return {}
           return {
             beforeHandle({ user, status }: any) {
-              if (!user) return status(401, { message: 'Unauthenticated' })
+              if (!user)
+                return status(401, { message: 'Unauthenticated' })
             },
           }
         },
         // Require an authenticated AND email-verified user (Laravel's `verified`
         // middleware): 401 for guests, 403 when the email isn't verified yet.
         verified(enabled: boolean) {
-          if (!enabled) return {}
+          if (!enabled)
+            return {}
           return {
             beforeHandle({ user, status }: any) {
-              if (!user) return status(401, { message: 'Unauthenticated' })
+              if (!user)
+                return status(401, { message: 'Unauthenticated' })
               if (!user.emailVerified)
                 return status(403, { message: 'Your email address is not verified.' })
             },
@@ -75,11 +79,12 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
         // Guard a route by ability: `{ can: 'admin' }` or `{ can: ['update', ctx => ctx.post] }`.
         // Resolver functions receive the request context; other values pass through as args.
         can(config: string | any[]) {
-          if (!config) return {}
+          if (!config)
+            return {}
           return {
             beforeHandle(ctx: any) {
               const [ability, ...resolvers] = Array.isArray(config) ? config : [config]
-              const args = resolvers.map((r) => (typeof r === 'function' ? r(ctx) : r))
+              const args = resolvers.map(r => (typeof r === 'function' ? r(ctx) : r))
               if (
                 !gate()
                   .forUser(ctx.user)

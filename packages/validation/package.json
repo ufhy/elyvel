@@ -1,14 +1,14 @@
 {
   "name": "@elysia-ravel/validation",
+  "type": "module",
   "version": "0.0.0",
   "description": "Laravel-style validation for elysia-ravel — rule DSL, message bag, FormRequest",
-  "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
   }

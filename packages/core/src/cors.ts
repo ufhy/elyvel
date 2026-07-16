@@ -27,8 +27,10 @@ export function cors(options: CorsOptions = {}): Elysia {
     set.headers['access-control-allow-origin'] = origin
     set.headers['access-control-allow-methods'] = methods
     set.headers['access-control-allow-headers'] = allowHeaders
-    if (options.credentials) set.headers['access-control-allow-credentials'] = 'true'
-    if (options.maxAge !== undefined) set.headers['access-control-max-age'] = String(options.maxAge)
+    if (options.credentials)
+      set.headers['access-control-allow-credentials'] = 'true'
+    if (options.maxAge !== undefined)
+      set.headers['access-control-max-age'] = String(options.maxAge)
   }
 
   const plugin: any = new Elysia({ name: 'ravel-cors' }).onRequest(({ request, set }) => {

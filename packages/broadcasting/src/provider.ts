@@ -1,6 +1,8 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
-import { ArrayBroadcaster, type Broadcaster, LogBroadcaster } from './broadcaster'
+import type { Token } from '@elysia-ravel/core'
+import type { Broadcaster } from './broadcaster'
 import type { BroadcastConfig } from './config-schema'
+import { ServiceProvider, token } from '@elysia-ravel/core'
+import { ArrayBroadcaster, LogBroadcaster } from './broadcaster'
 import { BroadcastHub } from './hub'
 import { setDefaultBroadcaster } from './manager'
 
@@ -19,12 +21,14 @@ export class BroadcastServiceProvider extends ServiceProvider {
     let broadcaster: Broadcaster
     if (driver === 'websocket') {
       const hub = new BroadcastHub()
-      this.app.webSocket(hub.websocket, (server) => hub.setServer(server))
+      this.app.webSocket(hub.websocket, server => hub.setServer(server))
       broadcaster = hub
-    } else if (driver === 'array') {
+    }
+    else if (driver === 'array') {
       broadcaster = new ArrayBroadcaster()
-    } else {
-      broadcaster = new LogBroadcaster((line) => this.app.logger.child('broadcast').info(line))
+    }
+    else {
+      broadcaster = new LogBroadcaster(line => this.app.logger.child('broadcast').info(line))
     }
 
     setDefaultBroadcaster(broadcaster)

@@ -1,12 +1,12 @@
-export { type BetterAuthLike, type BetterAuthPluginOptions, betterAuthPlugin } from './better-auth'
+export { type BetterAuthLike, betterAuthPlugin, type BetterAuthPluginOptions } from './better-auth'
 export { migrateBetterAuth } from './better-auth-schema'
-export { type EloquentAdapterOptions, eloquentAdapter } from './eloquent-adapter'
+export { eloquentAdapter, type EloquentAdapterOptions } from './eloquent-adapter'
 export {
   AuthorizationError,
   createGate,
   Gate,
-  GateForUser,
   gate,
+  GateForUser,
   type Policy,
   Response,
   setDefaultGate,

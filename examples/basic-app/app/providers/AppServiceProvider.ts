@@ -1,3 +1,4 @@
+import type { BatchRecord } from '@elysia-ravel/queue'
 import { BroadcastChannel } from '@elysia-ravel/broadcasting'
 import { configureDatabaseCache } from '@elysia-ravel/cache'
 import { configureDatabaseSession, ServiceProvider } from '@elysia-ravel/core'
@@ -6,7 +7,7 @@ import { configureListenerQueuer, event } from '@elysia-ravel/events'
 import { Mail } from '@elysia-ravel/mail'
 import { configureDatabaseNotifications, notifications } from '@elysia-ravel/notifications'
 import {
-  type BatchRecord,
+
   configureAfterCommit,
   configureBatches,
   configureDatabaseQueue,
@@ -49,7 +50,8 @@ export class AppServiceProvider extends ServiceProvider {
     configureDbRules({
       count: async (t, column, value, ignoreId) => {
         let query = table(t).where(column, value)
-        if (ignoreId !== undefined) query = query.where('id', '!=', ignoreId)
+        if (ignoreId !== undefined)
+          query = query.where('id', '!=', ignoreId)
         return query.count()
       },
     })
@@ -58,7 +60,8 @@ export class AppServiceProvider extends ServiceProvider {
     configureDatabaseCache({
       read: async (key) => {
         const row = await table('cache').where('key', key).first()
-        if (!row) return undefined
+        if (!row)
+          return undefined
         return {
           value: String(row.value),
           expiresAt: row.expiration == null ? null : Number(row.expiration),
@@ -96,12 +99,13 @@ export class AppServiceProvider extends ServiceProvider {
 
     // Dispatch-after-commit support + unique-job locking (in-memory here; back
     // it with Redis for cross-process uniqueness in production).
-    configureAfterCommit((cb) => afterCommit(cb))
+    configureAfterCommit(cb => afterCommit(cb))
     configureUniqueJobs(new MemoryUniqueLock())
 
     // Encrypt jobs flagged `encrypt = true` with the app key (if set).
     const appKey = this.app.config.get<string | undefined>('app.key')
-    if (appKey) configureJobEncryption(appKey)
+    if (appKey)
+      configureJobEncryption(appKey)
 
     // Log every job failure globally (bridge the queue's failing event).
     const queueLog = this.app.logger.child('queue')
@@ -142,12 +146,12 @@ export class AppServiceProvider extends ServiceProvider {
     })
 
     // Serialize models as references and re-fetch them fresh on the worker.
-    const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }> =
-      { User }
+    const models: Record<string, typeof Model & { find(id: unknown): Promise<Model | undefined> }>
+      = { User }
     configureModelSerializer({
-      dehydrate: (value) =>
+      dehydrate: value =>
         value instanceof Model ? { model: value.constructor.name, id: value.getKey() } : undefined,
-      hydrate: async (ref) => (await models[ref.model]?.find(ref.id)) ?? null,
+      hydrate: async ref => (await models[ref.model]?.find(ref.id)) ?? null,
     })
 
     // Graceful worker restart (ravel queue:restart) via the cache table (cross-process).
@@ -202,7 +206,8 @@ export class AppServiceProvider extends ServiceProvider {
       },
       recordJobResult: async (id, success) => {
         await table('job_batches').where('id', id).decrement('pending', 1)
-        if (!success) await table('job_batches').where('id', id).increment('failed', 1)
+        if (!success)
+          await table('job_batches').where('id', id).increment('failed', 1)
         const row = await table('job_batches').where('id', id).first()
         return row ? toBatch(row) : null
       },
@@ -227,7 +232,8 @@ export class AppServiceProvider extends ServiceProvider {
             .where('available_at', '<=', now)
             .orderBy('available_at')
             .first()
-          if (!row) continue
+          if (!row)
+            continue
           await table('jobs').where('id', row.id).delete()
           return {
             id: String(row.id),
@@ -238,7 +244,7 @@ export class AppServiceProvider extends ServiceProvider {
         }
         return null
       },
-      count: async (queue) =>
+      count: async queue =>
         queue ? table('jobs').where('queue', queue).count() : table('jobs').count(),
     })
 
@@ -256,7 +262,7 @@ export class AppServiceProvider extends ServiceProvider {
       },
       all: async () => {
         const rows = await table('failed_jobs').orderBy('failed_at', 'desc').get()
-        return rows.map((row) => ({
+        return rows.map(row => ({
           id: String(row.id),
           connection: String(row.connection),
           queue: String(row.queue),
@@ -267,7 +273,8 @@ export class AppServiceProvider extends ServiceProvider {
       },
       find: async (id) => {
         const row = await table('failed_jobs').where('id', id).first()
-        if (!row) return null
+        if (!row)
+          return null
         return {
           id: String(row.id),
           connection: String(row.connection),
@@ -279,7 +286,8 @@ export class AppServiceProvider extends ServiceProvider {
       },
       forget: async (id) => {
         const existed = await table('failed_jobs').where('id', id).first()
-        if (!existed) return false
+        if (!existed)
+          return false
         await table('failed_jobs').where('id', id).delete()
         return true
       },

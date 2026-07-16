@@ -1,6 +1,7 @@
+import type { LogEntry, Transport } from '../src/logger'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
-import { type LogEntry, Logger, type Transport } from '../src/logger'
+import { Logger } from '../src/logger'
 import { requestContext } from '../src/request-context'
 
 class CaptureTransport implements Transport {
@@ -25,10 +26,10 @@ function build() {
   return { cap, app }
 }
 
-const http = (cap: CaptureTransport) => cap.entries.filter((e) => e.name === 'http')
+const http = (cap: CaptureTransport) => cap.entries.filter(e => e.name === 'http')
 
 /** onAfterResponse fires after the response is returned, so let it settle. */
-const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+const tick = () => new Promise(resolve => setTimeout(resolve, 20))
 
 describe('requestContext', () => {
   test('logs a successful request with status and duration', async () => {
@@ -36,7 +37,7 @@ describe('requestContext', () => {
     await app.handle(new Request('http://localhost/ok'))
     await tick()
 
-    const entry = http(cap).find((e) => e.message.includes('/ok'))
+    const entry = http(cap).find(e => e.message.includes('/ok'))
     expect(entry).toBeDefined()
     expect(entry?.level).toBe('info')
     expect(entry?.context?.status).toBe(200)
@@ -49,8 +50,8 @@ describe('requestContext', () => {
     await app.handle(new Request('http://localhost/ok'))
     await tick()
 
-    const handlerLog = cap.entries.find((e) => e.message === 'handling ok')
-    const httpLog = http(cap).find((e) => e.message.includes('/ok'))
+    const handlerLog = cap.entries.find(e => e.message === 'handling ok')
+    const httpLog = http(cap).find(e => e.message.includes('/ok'))
     expect(handlerLog).toBeDefined()
     expect(handlerLog?.context?.requestId).toBe(httpLog?.context?.requestId)
   })
@@ -59,9 +60,9 @@ describe('requestContext', () => {
     const { cap, app } = build()
     await app.handle(new Request('http://localhost/boom'))
 
-    const errors = http(cap).filter((e) => e.level === 'error')
+    const errors = http(cap).filter(e => e.level === 'error')
     expect(errors.length).toBeGreaterThanOrEqual(1)
-    const err = errors.find((e) => JSON.stringify(e.context).includes('kaboom'))
+    const err = errors.find(e => JSON.stringify(e.context).includes('kaboom'))
     expect(err).toBeDefined()
     expect(typeof err?.context?.stack).toBe('string')
     expect(typeof err?.context?.requestId).toBe('string')

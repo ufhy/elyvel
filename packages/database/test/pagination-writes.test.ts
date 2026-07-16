@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type Connection, createConnection, setConnection } from '../src/connection'
+import { createConnection, setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'

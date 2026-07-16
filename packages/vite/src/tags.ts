@@ -35,18 +35,19 @@ export function viteTags(options: ViteOptions): string {
       const chunk = manifest[options.entry]
       if (chunk) {
         const css = (chunk.css ?? [])
-          .map((f) => `<link rel="stylesheet" href="${base}${f}">`)
+          .map(f => `<link rel="stylesheet" href="${base}${f}">`)
           .join('')
         return `${css}<script type="module" src="${base}${chunk.file}"></script>`
       }
-    } catch {
+    }
+    catch {
       // fall through to dev tags
     }
   }
 
   const dev = (options.devUrl ?? 'http://localhost:5173').replace(/\/$/, '')
   return (
-    `<script type="module" src="${dev}/@vite/client"></script>` +
-    `<script type="module" src="${dev}/${options.entry}"></script>`
+    `<script type="module" src="${dev}/@vite/client"></script>`
+    + `<script type="module" src="${dev}/${options.entry}"></script>`
   )
 }

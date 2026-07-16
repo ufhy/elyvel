@@ -1,7 +1,7 @@
 import type { Migration } from '@elysia-ravel/database'
 
 export default {
-  up: (schema) =>
+  up: schema =>
     schema.create('failed_jobs', (t) => {
       t.uuid('id').unique()
       t.string('connection')
@@ -10,5 +10,5 @@ export default {
       t.text('exception')
       t.bigInteger('failed_at') // epoch ms
     }),
-  down: (schema) => schema.dropIfExists('failed_jobs'),
+  down: schema => schema.dropIfExists('failed_jobs'),
 } satisfies Migration

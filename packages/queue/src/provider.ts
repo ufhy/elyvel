@@ -1,5 +1,6 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
+import type { Token } from '@elysia-ravel/core'
 import type { QueueConfig } from './config-schema'
+import { ServiceProvider, token } from '@elysia-ravel/core'
 import { QueueManager, setDefaultQueue } from './manager'
 
 export const QueueToken: Token<QueueManager> = token<QueueManager>('queue')

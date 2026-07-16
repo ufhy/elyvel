@@ -1,4 +1,5 @@
-import { TelegramClient, type TelegramMessage, type TelegramOptions } from './client'
+import type { TelegramMessage, TelegramOptions } from './client'
+import { TelegramClient } from './client'
 
 let defaultClient: TelegramClient | null = null
 

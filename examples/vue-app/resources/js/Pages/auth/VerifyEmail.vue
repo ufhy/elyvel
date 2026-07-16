@@ -26,7 +26,9 @@ async function logout() {
 
 <template>
   <AuthLayout title="Verify your email" :subtitle="`We sent a link to ${email()}`">
-    <UiAlert v-if="sent" tone="success" data-testid="sent">Verification email sent.</UiAlert>
+    <UiAlert v-if="sent" tone="success" data-testid="sent">
+      Verification email sent.
+    </UiAlert>
     <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
       Click the link in the email to activate your account. Didn't get it?
     </p>
@@ -34,7 +36,9 @@ async function logout() {
       <UiButton :disabled="busy" data-testid="resend" @click="resend">
         {{ busy ? 'Sending…' : 'Resend verification email' }}
       </UiButton>
-      <UiButton variant="ghost" data-testid="logout" @click="logout">Log out</UiButton>
+      <UiButton variant="ghost" data-testid="logout" @click="logout">
+        Log out
+      </UiButton>
     </div>
   </AuthLayout>
 </template>

@@ -97,9 +97,8 @@ describe('throttle:name middleware', () => {
   })
 
   test('segments by the .by() key — separate buckets', async () => {
-    RateLimiter.for('vip', (ctx) =>
-      Limit.perMinute(1).by((ctx.query as Record<string, string>).u ?? 'anon'),
-    )
+    RateLimiter.for('vip', ctx =>
+      Limit.perMinute(1).by((ctx.query as Record<string, string>).u ?? 'anon'))
     const app = build()
     const hit = (u: string) => app.handle(new Request(`http://localhost/vip?u=${u}`))
     expect((await hit('alice')).status).toBe(200)
@@ -109,10 +108,9 @@ describe('throttle:name middleware', () => {
 
   test('custom response callback overrides the 429 body', async () => {
     RateLimiter.for('api', () =>
-      Limit.perMinute(1).response((ctx) =>
+      Limit.perMinute(1).response(ctx =>
         (ctx.status as (c: number, b: unknown) => unknown)(429, { custom: true }),
-      ),
-    )
+      ))
     const app = build()
     await app.handle(new Request('http://localhost/api'))
     const blocked = await app.handle(new Request('http://localhost/api'))
@@ -125,20 +123,20 @@ describe('throttle:name middleware', () => {
 describe('.after() response-based counting', () => {
   test('only counts responses the callback opts into (e.g. 404s)', async () => {
     registerMiddlewareRegistry({ aliases: { throttle: ThrottleMiddleware } })
-    RateLimiter.for('enum', () => Limit.perMinute(2).after((status) => status === 404))
+    RateLimiter.for('enum', () => Limit.perMinute(2).after(status => status === 404))
     const app = new Elysia().use(
       route()
         .get('/found', () => 'ok', { middleware: 'throttle:enum' })
         .get(
           '/missing',
-          ({ status }: { status: (c: number, b: unknown) => unknown }) => status(404, {}),
+          ({ status }: { status(c: number, b: unknown): unknown }) => status(404, {}),
           {
             middleware: 'throttle:enum',
           },
         ),
     )
     // terminate() runs in onAfterResponse (not awaited by handle) — let it flush.
-    const tick = () => new Promise((r) => setTimeout(r, 5))
+    const tick = () => new Promise(r => setTimeout(r, 5))
     const missing = async () => {
       const res = await app.handle(new Request('http://localhost/missing'))
       await tick()
@@ -161,7 +159,7 @@ describe('multiple rate limits', () => {
   test('first exceeded limit wins', async () => {
     registerMiddlewareRegistry({ aliases: { throttle: ThrottleMiddleware } })
     // 5/min overall, but 2/min per email
-    RateLimiter.for('login', (ctx) => [
+    RateLimiter.for('login', ctx => [
       Limit.perMinute(5),
       Limit.perMinute(2).by(`email:${(ctx.query as Record<string, string>).email ?? ''}`),
     ])

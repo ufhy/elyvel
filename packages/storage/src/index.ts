@@ -1,6 +1,6 @@
 export {
-  type DiskConfig,
   defineStorageConfig,
+  type DiskConfig,
   type LocalDiskConfig,
   type LocalPermissions,
   type S3DiskConfig,
@@ -18,5 +18,5 @@ export {
   type Storable,
   type TemporaryUrlOptions,
 } from './disk'
-export { FilesystemManager, fakeStorage, setDefaultStorage, storage } from './manager'
+export { fakeStorage, FilesystemManager, setDefaultStorage, storage } from './manager'
 export { StorageServiceProvider, StorageToken } from './provider'

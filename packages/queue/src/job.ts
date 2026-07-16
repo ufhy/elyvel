@@ -91,18 +91,26 @@ export function registerJob(...classes: JobClass[]): void {
 export function serializeJob(job: Job): SerializedJob {
   const data: Record<string, unknown> = {}
   for (const key of Object.keys(job)) {
-    if (CONFIG_KEYS.has(key)) continue
+    if (CONFIG_KEYS.has(key))
+      continue
     data[key] = (job as unknown as Record<string, unknown>)[key]
   }
   const serializedData = dehydrateData(data)
   const config: JobConfig = { tries: job.tries }
-  if (job.backoff !== undefined) config.backoff = job.backoff
-  if (job.timeout !== undefined) config.timeout = job.timeout
-  if (job.maxExceptions !== undefined) config.maxExceptions = job.maxExceptions
-  if (job.unique !== undefined) config.unique = job.unique
-  if (job.uniqueFor !== undefined) config.uniqueFor = job.uniqueFor
-  if (job.encrypt !== undefined) config.encrypt = job.encrypt
-  if (job.batchId !== undefined) config.batchId = job.batchId
+  if (job.backoff !== undefined)
+    config.backoff = job.backoff
+  if (job.timeout !== undefined)
+    config.timeout = job.timeout
+  if (job.maxExceptions !== undefined)
+    config.maxExceptions = job.maxExceptions
+  if (job.unique !== undefined)
+    config.unique = job.unique
+  if (job.uniqueFor !== undefined)
+    config.uniqueFor = job.uniqueFor
+  if (job.encrypt !== undefined)
+    config.encrypt = job.encrypt
+  if (job.batchId !== undefined)
+    config.batchId = job.batchId
   const result: SerializedJob = { job: job.constructor.name, data: serializedData, config }
   if (job.chainedJobs && job.chainedJobs.length > 0)
     result.chain = job.chainedJobs.map(serializeJob)
@@ -150,6 +158,7 @@ export class CallQueuedClosure extends Job {
   constructor(public source = '') {
     super()
   }
+
   handle(): void | Promise<void> {
     const fn = new Function(`return (${this.source})`)() as () => void | Promise<void>
     return fn()
@@ -160,9 +169,12 @@ registerJob(CallQueuedClosure)
 /** The delay (seconds) before the next retry, given how many attempts have run. */
 export function backoffFor(job: Job, attempts: number, fallback = 0): number {
   const backoff = job.backoff
-  if (backoff === undefined) return fallback
-  if (typeof backoff === 'number') return backoff
-  if (backoff.length === 0) return fallback
+  if (backoff === undefined)
+    return fallback
+  if (typeof backoff === 'number')
+    return backoff
+  if (backoff.length === 0)
+    return fallback
   // attempts is 1-based (the attempt that just ran); pick this attempt's delay.
   return backoff[Math.min(attempts - 1, backoff.length - 1)] ?? fallback
 }

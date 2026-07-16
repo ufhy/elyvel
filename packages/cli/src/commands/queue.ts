@@ -20,14 +20,14 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
   const store = manager.store(connection)
   if (store === 'sync') {
     console.error(
-      'The "sync" connection runs jobs inline and has no queue to work.\n' +
-        'Set a queued connection (memory/database/redis) as default, or pass --connection=<name>.',
+      'The "sync" connection runs jobs inline and has no queue to work.\n'
+      + 'Set a queued connection (memory/database/redis) as default, or pass --connection=<name>.',
     )
     return 1
   }
 
-  const queues =
-    typeof flags.queue === 'string' ? flags.queue.split(',').map((q) => q.trim()) : undefined
+  const queues
+    = typeof flags.queue === 'string' ? flags.queue.split(',').map(q => q.trim()) : undefined
 
   const worker = new Worker(store, {
     retryAfter: flags['retry-after'] ? Number(flags['retry-after']) : 0,
@@ -49,7 +49,8 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
     `Processing jobs on "${connection ?? 'default'}"${once ? ' (once)' : stopWhenEmpty ? ' until empty' : '...'}`,
   )
   const processed = await worker.work({ once, stopWhenEmpty, max, sleepMs })
-  if (once || stopWhenEmpty || max) console.log(`Done. Processed ${processed} job(s).`)
+  if (once || stopWhenEmpty || max)
+    console.log(`Done. Processed ${processed} job(s).`)
   return 0
 }
 
@@ -61,8 +62,8 @@ async function bootFailed() {
 
 function notConfigured(): number {
   console.error(
-    'Failed-job storage is not configured. Wire it with configureFailedJobs(...) in a service provider\n' +
-      '(the example uses the `failed_jobs` table).',
+    'Failed-job storage is not configured. Wire it with configureFailedJobs(...) in a service provider\n'
+    + '(the example uses the `failed_jobs` table).',
   )
   return 1
 }
@@ -70,7 +71,8 @@ function notConfigured(): number {
 /** `ravel queue:failed` — list recorded failed jobs. */
 export async function queueFailedCommand(): Promise<number> {
   const { repo } = await bootFailed()
-  if (!repo) return notConfigured()
+  if (!repo)
+    return notConfigured()
   const rows = await repo.all()
   if (rows.length === 0) {
     console.log('No failed jobs.')
@@ -90,7 +92,8 @@ export async function queueRetryCommand(
   flags: Record<string, string | boolean>,
 ): Promise<number> {
   const { app, repo } = await bootFailed()
-  if (!repo) return notConfigured()
+  if (!repo)
+    return notConfigured()
   const manager = app.make(QueueToken)
 
   const targets = flags.all === true ? await repo.all() : id ? [await repo.find(id)] : []
@@ -101,7 +104,8 @@ export async function queueRetryCommand(
 
   let retried = 0
   for (const job of targets) {
-    if (!job) continue
+    if (!job)
+      continue
     const store = manager.store(job.connection)
     if (store === 'sync') {
       console.error(`✗ ${job.id}: connection "${job.connection}" is sync — nothing to re-queue.`)
@@ -119,7 +123,8 @@ export async function queueRetryCommand(
 /** `ravel queue:forget <id>` — delete a failed job. */
 export async function queueForgetCommand(id: string | undefined): Promise<number> {
   const { repo } = await bootFailed()
-  if (!repo) return notConfigured()
+  if (!repo)
+    return notConfigured()
   if (!id) {
     console.error('Provide a failed-job id.')
     return 1
@@ -132,7 +137,8 @@ export async function queueForgetCommand(id: string | undefined): Promise<number
 /** `ravel queue:flush` — delete all failed jobs. */
 export async function queueFlushCommand(): Promise<number> {
   const { repo } = await bootFailed()
-  if (!repo) return notConfigured()
+  if (!repo)
+    return notConfigured()
   await repo.flush()
   console.log('Flushed all failed jobs.')
   return 0
@@ -144,8 +150,8 @@ export async function queueRestartCommand(): Promise<number> {
   const signal = restartSignal()
   if (!signal) {
     console.error(
-      'Restart signalling is not configured. Wire it with configureRestartSignal(...) in a service provider\n' +
-        '(back it with the cache/db so the signal is visible across processes).',
+      'Restart signalling is not configured. Wire it with configureRestartSignal(...) in a service provider\n'
+      + '(back it with the cache/db so the signal is visible across processes).',
     )
     return 1
   }
@@ -159,7 +165,8 @@ export async function queuePruneFailedCommand(
   flags: Record<string, string | boolean>,
 ): Promise<number> {
   const { repo } = await bootFailed()
-  if (!repo) return notConfigured()
+  if (!repo)
+    return notConfigured()
   const hours = flags.hours ? Number(flags.hours) : 24
   const pruned = await repo.prune(hours)
   console.log(`Pruned ${pruned} failed job(s) older than ${hours}h.`)

@@ -1,7 +1,7 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { createConnection } from '../src/connection'
 
 // Read/write routing is dialect-agnostic (pure select→read / statement→write).
@@ -41,7 +41,7 @@ describe('read/write connection split', () => {
     // The insert landed on the write host, not the read host.
     const w = await createConnection({ driver: 'sqlite', database: writeFile })
     const names = (await w.select<{ name: string }>('SELECT name FROM t ORDER BY id')).map(
-      (r) => r.name,
+      r => r.name,
     )
     await w.close()
     expect(names).toContain('from-composite')

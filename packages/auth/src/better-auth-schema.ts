@@ -18,10 +18,11 @@ export async function migrateBetterAuth(
     await schema.create(name, (t) => {
       t.string('id').unique()
       for (const [field, attr] of Object.entries(def.fields)) {
-        if (field === 'id') continue
+        if (field === 'id')
+          continue
         const type = String(attr.type ?? 'string')
-        const column =
-          type === 'boolean'
+        const column
+          = type === 'boolean'
             ? t.boolean(field)
             : type === 'number'
               ? t.integer(field)
@@ -30,8 +31,10 @@ export async function migrateBetterAuth(
                 : type.includes('[]')
                   ? t.text(field)
                   : t.string(field)
-        if (attr.unique) column.unique()
-        if (attr.required === false) column.nullable()
+        if (attr.unique)
+          column.unique()
+        if (attr.required === false)
+          column.nullable()
       }
     })
     created.push(name)

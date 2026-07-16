@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type Connection, createConnection, setConnection } from '../src/connection'
+import { createConnection, setConnection } from '../src/connection'
 import { tableColumns } from '../src/inspect'
 import { table } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
@@ -30,7 +31,7 @@ for (const d of dialects) {
         t.dropColumn('qty')
         t.renameColumn('name', 'title')
       })
-      const cols = (await tableColumns(conn, 'items')).map((c) => c.name).sort()
+      const cols = (await tableColumns(conn, 'items')).map(c => c.name).sort()
       expect(cols).toEqual(['id', 'sku', 'title'])
     })
 
@@ -41,10 +42,10 @@ for (const d of dialects) {
     })
 
     test('drop index', async () => {
-      await schema.table('items', (t) => t.index('name', 'idx_items_name'))
-      await schema.table('items', (t) => t.dropIndex('idx_items_name'))
+      await schema.table('items', t => t.index('name', 'idx_items_name'))
+      await schema.table('items', t => t.dropIndex('idx_items_name'))
       // No throw = success; re-adding proves it was gone.
-      await schema.table('items', (t) => t.index('name', 'idx_items_name'))
+      await schema.table('items', t => t.index('name', 'idx_items_name'))
       expect(true).toBe(true)
     })
   })
@@ -59,7 +60,7 @@ describe('migration ALTER change() (pg only)', () => {
       b.id()
       b.string('code')
     })
-    await schema.table('t', (b) => b.text('code').nullable().change())
+    await schema.table('t', b => b.text('code').nullable().change())
     await table('t').insert({ id: 1, code: 'x'.repeat(500) }) // longer than VARCHAR(255)
     expect(await table('t').count()).toBe(1)
     await conn.close()
@@ -73,7 +74,7 @@ describe('migration ALTER change() (pg only)', () => {
       b.id()
       b.string('code')
     })
-    await expect(schema.table('t', (b) => b.text('code').change())).rejects.toThrow(/not supported/)
+    await expect(schema.table('t', b => b.text('code').change())).rejects.toThrow(/not supported/)
     await conn.close()
   })
 })

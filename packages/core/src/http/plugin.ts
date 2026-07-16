@@ -23,12 +23,13 @@ export function httpResponses() {
       }
       if (response instanceof FileResponse) {
         const { source, options } = response
-        const name =
-          options.name ?? (options.fromPath ? String(source).split('/').pop() : undefined)
-        if (options.contentType) ctx.set.headers['content-type'] = options.contentType
+        const name
+          = options.name ?? (options.fromPath ? String(source).split('/').pop() : undefined)
+        if (options.contentType)
+          ctx.set.headers['content-type'] = options.contentType
         if (options.disposition === 'attachment' || name) {
-          ctx.set.headers['content-disposition'] =
-            `${options.disposition}${name ? `; filename="${name}"` : ''}`
+          ctx.set.headers['content-disposition']
+            = `${options.disposition}${name ? `; filename="${name}"` : ''}`
         }
         return options.fromPath ? Bun.file(source as string) : source
       }

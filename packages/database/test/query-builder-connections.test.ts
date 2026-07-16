@@ -45,7 +45,7 @@ describe('query builder — whereJsonContains (sqlite)', () => {
     await table('docs').insert({ id: 2, tags: JSON.stringify(['c']) })
 
     const withA = await table('docs').whereJsonContains('tags', 'a').get()
-    expect(withA.map((r) => r.id)).toEqual([1])
+    expect(withA.map(r => r.id)).toEqual([1])
     await conn.close()
   })
 })

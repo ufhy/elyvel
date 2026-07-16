@@ -31,16 +31,20 @@ export class BroadcastHub implements Broadcaster {
           event?: string
           channel?: string
         }
-        if (msg.channel && msg.event === 'subscribe') ws.subscribe(msg.channel)
-        else if (msg.channel && msg.event === 'unsubscribe') ws.unsubscribe(msg.channel)
-      } catch {
+        if (msg.channel && msg.event === 'subscribe')
+          ws.subscribe(msg.channel)
+        else if (msg.channel && msg.event === 'unsubscribe')
+          ws.unsubscribe(msg.channel)
+      }
+      catch {
         // ignore malformed frames
       }
     },
   }
 
   broadcast(channels: string[], event: string, payload: Record<string, unknown>): void {
-    if (!this.server) return
+    if (!this.server)
+      return
     for (const channel of channels) {
       this.server.publish(channel, JSON.stringify({ channel, event, payload }))
     }

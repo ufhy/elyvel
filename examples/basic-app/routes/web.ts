@@ -1,5 +1,6 @@
+import type { MiddlewareContext } from '@elysia-ravel/core'
 import { Hash } from '@elysia-ravel/auth'
-import { type MiddlewareContext, redirect, requestContext, route } from '@elysia-ravel/core'
+import { redirect, requestContext, route } from '@elysia-ravel/core'
 import { Inertia, inertia } from '@elysia-ravel/inertia'
 import { view } from '@elysia-ravel/view'
 import { User } from '../app/models/User'

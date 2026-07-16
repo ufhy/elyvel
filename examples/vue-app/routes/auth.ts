@@ -9,10 +9,10 @@ import { auth } from '../app/better-auth'
  * macros. Guest pages redirect to /dashboard when already signed in; app pages
  * require auth. All auth actions call /api/auth/* from the client (lib/auth.ts).
  */
-const guest =
-  (page: string) =>
-  ({ user }: any) =>
+function guest(page: string) {
+  return ({ user }: any) =>
     user ? Inertia.location('/dashboard') : Inertia.render(page)
+}
 
 export default route()
   .use(

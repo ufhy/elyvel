@@ -1,8 +1,8 @@
 {
   "name": "basic-app",
+  "type": "module",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "ravel serve",
     "start": "bun run server.ts",

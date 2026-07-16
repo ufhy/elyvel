@@ -83,7 +83,8 @@ function parseArgs(argv: string[]) {
       const [rawKey = '', value] = arg.slice(2).split('=')
       const key = rawKey.startsWith('no-') ? rawKey.slice(3) : rawKey
       flags[key] = value ?? !rawKey.startsWith('no-')
-    } else {
+    }
+    else {
       positionals.push(arg)
     }
   }

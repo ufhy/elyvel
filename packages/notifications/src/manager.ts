@@ -15,7 +15,8 @@ export class NotificationManager {
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
     for (const name of notification.via(notifiable)) {
       const channel = this.channels.get(name)
-      if (channel) await channel.send(notifiable, notification)
+      if (channel)
+        await channel.send(notifiable, notification)
     }
   }
 
@@ -31,7 +32,8 @@ export function setDefaultNotifications(manager: NotificationManager): void {
   defaultManager = manager
 }
 export function notifications(): NotificationManager {
-  if (!defaultManager) defaultManager = new NotificationManager()
+  if (!defaultManager)
+    defaultManager = new NotificationManager()
   return defaultManager
 }
 

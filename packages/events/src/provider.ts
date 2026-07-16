@@ -1,5 +1,7 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
-import { Dispatcher, type EventKey, type Listener, setDefaultDispatcher } from './dispatcher'
+import type { Token } from '@elysia-ravel/core'
+import type { EventKey, Listener } from './dispatcher'
+import { ServiceProvider, token } from '@elysia-ravel/core'
+import { Dispatcher, setDefaultDispatcher } from './dispatcher'
 
 export const DispatcherToken: Token<Dispatcher> = token<Dispatcher>('events')
 

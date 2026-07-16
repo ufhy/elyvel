@@ -1,5 +1,6 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
+import type { Token } from '@elysia-ravel/core'
 import type { DiskConfig, StorageConfig } from './config-schema'
+import { ServiceProvider, token } from '@elysia-ravel/core'
 import { FilesystemManager, setDefaultStorage } from './manager'
 
 export const StorageToken: Token<FilesystemManager> = token<FilesystemManager>('storage')
@@ -14,8 +15,8 @@ export class StorageServiceProvider extends ServiceProvider {
     const config = this.app.config.get<StorageConfig>('filesystems', {})
     const disks: Record<string, DiskConfig> = {}
     for (const [name, disk] of Object.entries(config.disks ?? {})) {
-      disks[name] =
-        disk.driver === 'local'
+      disks[name]
+        = disk.driver === 'local'
           ? { ...disk, root: this.app.path(disk.root ?? 'storage/app') }
           : disk
     }

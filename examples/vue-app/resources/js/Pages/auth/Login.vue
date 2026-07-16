@@ -28,11 +28,15 @@ async function submit() {
 <template>
   <AuthLayout title="Welcome back" subtitle="Sign in to your account">
     <form class="space-y-4" @submit.prevent="submit">
-      <UiAlert v-if="error" data-testid="error">{{ error }}</UiAlert>
+      <UiAlert v-if="error" data-testid="error">
+        {{ error }}
+      </UiAlert>
       <UiInput v-model="email" label="Email" type="email" autocomplete="email" />
       <UiInput v-model="password" label="Password" type="password" autocomplete="current-password" />
       <div class="text-right text-sm">
-        <Link href="/forgot-password" class="text-indigo-600 hover:underline">Forgot password?</Link>
+        <Link href="/forgot-password" class="text-indigo-600 hover:underline">
+          Forgot password?
+        </Link>
       </div>
       <UiButton type="submit" :disabled="busy" data-testid="submit">
         {{ busy ? 'Signing in…' : 'Sign in' }}
@@ -40,7 +44,9 @@ async function submit() {
     </form>
     <p class="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
       No account?
-      <Link href="/register" class="font-medium text-indigo-600 hover:underline">Create one</Link>
+      <Link href="/register" class="font-medium text-indigo-600 hover:underline">
+        Create one
+      </Link>
     </p>
   </AuthLayout>
 </template>

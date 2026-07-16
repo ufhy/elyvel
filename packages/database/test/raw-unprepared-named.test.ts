@@ -30,7 +30,7 @@ for (const d of dialects) {
         age: 36,
       })
 
-      const rows = await raw<{ name: string; age: number }>(
+      const rows = await raw<{ name: string, age: number }>(
         'SELECT name, age FROM users WHERE age > :min AND name = :who',
         { min: 30, who: 'Ada' },
       )
@@ -42,7 +42,7 @@ for (const d of dialects) {
     test('a named param reused twice binds at each occurrence', async () => {
       await unprepared('CREATE TABLE nums (a INTEGER, b INTEGER)')
       await raw('INSERT INTO nums (a, b) VALUES (:v, :v)', { v: 7 })
-      const row = await raw<{ a: number; b: number }>('SELECT a, b FROM nums')
+      const row = await raw<{ a: number, b: number }>('SELECT a, b FROM nums')
       expect(row[0]?.a).toBe(7)
       expect(row[0]?.b).toBe(7)
     })

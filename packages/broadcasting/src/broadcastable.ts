@@ -9,6 +9,7 @@ export abstract class Broadcastable {
   broadcastAs(): string {
     return this.constructor.name
   }
+
   broadcastWith(): Record<string, unknown> {
     const { ...data } = this as unknown as Record<string, unknown>
     return data

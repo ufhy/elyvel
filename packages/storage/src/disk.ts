@@ -1,10 +1,11 @@
+import type { FileResponse } from '@elysia-ravel/core'
+import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 import { existsSync, statSync } from 'node:fs'
 import { appendFile, chmod, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
 // biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
-import { dirname, extname, join, posix, resolve, sep } from 'node:path'
-import { download, type FileResponse } from '@elysia-ravel/core'
+import { dirname, extname, posix, resolve, sep } from 'node:path'
+import { download } from '@elysia-ravel/core'
 import { S3Client } from 'bun'
-import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 
 /** Raw content accepted by write operations. */
 export type Contents = string | Uint8Array | ArrayBuffer | Blob | ReadableStream
@@ -57,7 +58,7 @@ export interface FilesystemDisk {
     path: string,
     expiresIn: Date | number,
     options?: TemporaryUrlOptions,
-  ): Promise<{ url: string; headers: Record<string, string> }>
+  ): Promise<{ url: string, headers: Record<string, string> }>
 
   getVisibility(path: string): Promise<Visibility>
   setVisibility(path: string, visibility: Visibility): Promise<boolean>
@@ -76,28 +77,31 @@ export interface FilesystemDisk {
 export class PathEscapeError extends Error {}
 
 // ── shared helpers ─────────────────────────────────────────────────────────
-const secondsUntil = (expiresIn: Date | number): number =>
-  typeof expiresIn === 'number'
+function secondsUntil(expiresIn: Date | number): number {
+  return typeof expiresIn === 'number'
     ? expiresIn
     : Math.max(0, Math.round((expiresIn.getTime() - Date.now()) / 1000))
+}
 
 /** A random, extension-preserving filename (Laravel's `hashName`). */
-const hashName = (ext: string): string =>
-  `${crypto.randomUUID().replace(/-/g, '')}${ext ? `.${ext}` : ''}`
+function hashName(ext: string): string {
+  return `${crypto.randomUUID().replace(/-/g, '')}${ext ? `.${ext}` : ''}`
+}
 
 /** Extension for a Storable, from a File name or Blob type. */
-const extensionOf = (file: Storable): string => {
+function extensionOf(file: Storable): string {
   if (
-    typeof file === 'object' &&
-    file !== null &&
-    'path' in file &&
-    typeof file.path === 'string'
+    typeof file === 'object'
+    && file !== null
+    && 'path' in file
+    && typeof file.path === 'string'
   ) {
     return extname(file.path).replace(/^\./, '')
   }
   if (file instanceof Blob) {
     const name = (file as File).name
-    if (name) return extname(name).replace(/^\./, '')
+    if (name)
+      return extname(name).replace(/^\./, '')
     const sub = file.type.split('/')[1]
     return sub ? (sub.split(';')[0] ?? '') : ''
   }
@@ -107,10 +111,10 @@ const extensionOf = (file: Storable): string => {
 /** Normalize a Storable into something Bun.write / S3 can consume. */
 async function toBytes(file: Storable): Promise<Contents> {
   if (
-    typeof file === 'object' &&
-    file !== null &&
-    'path' in file &&
-    typeof (file as { path: string }).path === 'string'
+    typeof file === 'object'
+    && file !== null
+    && 'path' in file
+    && typeof (file as { path: string }).path === 'string'
   ) {
     return await Bun.file((file as { path: string }).path).arrayBuffer()
   }
@@ -124,8 +128,8 @@ export class LocalDisk implements FilesystemDisk {
   private readonly defaultVisibility: Visibility
   private readonly shouldThrow: boolean
   private readonly perms: {
-    file: { public: number; private: number }
-    dir: { public: number; private: number }
+    file: { public: number, private: number }
+    dir: { public: number, private: number }
   }
 
   constructor(config: LocalDiskConfig & { root: string }) {
@@ -158,7 +162,8 @@ export class LocalDisk implements FilesystemDisk {
 
   private fail(error: unknown): false {
     // A traversal attempt is always fatal, regardless of the `throw` config.
-    if (this.shouldThrow || error instanceof PathEscapeError) throw error
+    if (this.shouldThrow || error instanceof PathEscapeError)
+      throw error
     return false
   }
 
@@ -189,7 +194,8 @@ export class LocalDisk implements FilesystemDisk {
       await Bun.write(full, contents as Blob)
       await chmod(full, this.perms.file[visibility ?? this.defaultVisibility])
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -220,7 +226,8 @@ export class LocalDisk implements FilesystemDisk {
       await mkdir(dirname(full), { recursive: true })
       await appendFile(full, data)
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -230,7 +237,8 @@ export class LocalDisk implements FilesystemDisk {
       await mkdir(dirname(this.full(to)), { recursive: true })
       await copyFile(this.full(from), this.full(to))
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -240,7 +248,8 @@ export class LocalDisk implements FilesystemDisk {
       await mkdir(dirname(this.full(to)), { recursive: true })
       await rename(this.full(from), this.full(to))
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -251,7 +260,8 @@ export class LocalDisk implements FilesystemDisk {
       const full = this.full(p) // traversal guard — throws before any unlink
       try {
         await unlink(full)
-      } catch {
+      }
+      catch {
         ok = false
       }
     }
@@ -292,7 +302,7 @@ export class LocalDisk implements FilesystemDisk {
     _path: string,
     _expiresIn: Date | number,
     _options?: TemporaryUrlOptions,
-  ): Promise<{ url: string; headers: Record<string, string> }> {
+  ): Promise<{ url: string, headers: Record<string, string> }> {
     throw new Error(
       '[elysia-ravel] temporaryUploadUrl is not supported by the local driver. Use the s3 driver.',
     )
@@ -307,7 +317,8 @@ export class LocalDisk implements FilesystemDisk {
     try {
       await chmod(this.full(path), this.perms.file[visibility])
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -322,17 +333,19 @@ export class LocalDisk implements FilesystemDisk {
     want: 'files' | 'dirs',
   ): Promise<string[]> {
     const base = this.full(directory)
-    if (!existsSync(base)) return []
+    if (!existsSync(base))
+      return []
     const entries = await readdir(base, { withFileTypes: true, recursive })
     const out: string[] = []
     for (const e of entries) {
       const isDir = e.isDirectory()
-      if ((want === 'files' && isDir) || (want === 'dirs' && !isDir)) continue
+      if ((want === 'files' && isDir) || (want === 'dirs' && !isDir))
+        continue
       // node returns `parentPath` on recursive reads; build a disk-relative posix path.
-      const parent =
-        (e as { parentPath?: string; path?: string }).parentPath ??
-        (e as { path?: string }).path ??
-        base
+      const parent
+        = (e as { parentPath?: string, path?: string }).parentPath
+          ?? (e as { path?: string }).path
+          ?? base
       const rel = posix.join(
         directory,
         parent
@@ -350,12 +363,15 @@ export class LocalDisk implements FilesystemDisk {
   files(directory = ''): Promise<string[]> {
     return this.list(directory, false, 'files')
   }
+
   allFiles(directory = ''): Promise<string[]> {
     return this.list(directory, true, 'files')
   }
+
   directories(directory = ''): Promise<string[]> {
     return this.list(directory, false, 'dirs')
   }
+
   allDirectories(directory = ''): Promise<string[]> {
     return this.list(directory, true, 'dirs')
   }
@@ -367,7 +383,8 @@ export class LocalDisk implements FilesystemDisk {
         mode: this.perms.dir[this.defaultVisibility],
       })
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -376,7 +393,8 @@ export class LocalDisk implements FilesystemDisk {
     try {
       await rm(this.full(path), { recursive: true, force: true })
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return this.fail(error)
     }
   }
@@ -401,8 +419,8 @@ export class S3Disk implements FilesystemDisk {
     this.bucket = config.bucket
     this.defaultVisibility = config.visibility ?? 'private'
     this.baseUrl = (
-      config.url ??
-      (config.endpoint
+      config.url
+      ?? (config.endpoint
         ? config.usePathStyleEndpoint
           ? `${config.endpoint.replace(/\/$/, '')}/${config.bucket}`
           : config.endpoint.replace(/\/$/, '')
@@ -417,15 +435,19 @@ export class S3Disk implements FilesystemDisk {
   async get(path: string): Promise<string> {
     return await this.client.file(path).text()
   }
+
   async getBytes(path: string): Promise<Uint8Array> {
     return new Uint8Array(await this.client.file(path).arrayBuffer())
   }
+
   async json<T = unknown>(path: string): Promise<T> {
     return JSON.parse(await this.get(path)) as T
   }
+
   async exists(path: string): Promise<boolean> {
     return await this.client.file(path).exists()
   }
+
   async missing(path: string): Promise<boolean> {
     return !(await this.exists(path))
   }
@@ -434,9 +456,11 @@ export class S3Disk implements FilesystemDisk {
     await this.client.write(path, contents as Blob, { acl: this.acl(visibility) })
     return true
   }
+
   async putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string> {
     return this.putFileAs(directory, file, hashName(extensionOf(file)), visibility)
   }
+
   async putFileAs(
     directory: string,
     file: Storable,
@@ -447,23 +471,28 @@ export class S3Disk implements FilesystemDisk {
     await this.put(target, await toBytes(file), visibility)
     return target
   }
+
   async prepend(path: string, data: string): Promise<boolean> {
     const existing = (await this.exists(path)) ? await this.get(path) : ''
     return this.put(path, data + existing)
   }
+
   async append(path: string, data: string): Promise<boolean> {
     const existing = (await this.exists(path)) ? await this.get(path) : ''
     return this.put(path, existing + data)
   }
+
   async copy(from: string, to: string): Promise<boolean> {
     await this.client.write(to, this.client.file(from))
     return true
   }
+
   async move(from: string, to: string): Promise<boolean> {
     await this.copy(from, to)
     await this.client.file(from).delete()
     return true
   }
+
   async delete(paths: string | string[]): Promise<boolean> {
     for (const p of Array.isArray(paths) ? paths : [paths]) await this.client.file(p).delete()
     return true
@@ -472,19 +501,24 @@ export class S3Disk implements FilesystemDisk {
   async size(path: string): Promise<number> {
     return (await this.client.file(path).stat()).size
   }
+
   async lastModified(path: string): Promise<number> {
     const stat = await this.client.file(path).stat()
     return Math.floor(new Date(stat.lastModified).getTime() / 1000)
   }
+
   async mimeType(path: string): Promise<string | undefined> {
     return this.client.file(path).type || undefined
   }
+
   path(path: string): string {
     return path
   }
+
   url(path: string): string {
     return `${this.baseUrl}/${path.replace(/^\//, '')}`
   }
+
   async temporaryUrl(
     path: string,
     expiresIn: Date | number,
@@ -496,11 +530,12 @@ export class S3Disk implements FilesystemDisk {
       ...options,
     })
   }
+
   async temporaryUploadUrl(
     path: string,
     expiresIn: Date | number,
     options: TemporaryUrlOptions = {},
-  ): Promise<{ url: string; headers: Record<string, string> }> {
+  ): Promise<{ url: string, headers: Record<string, string> }> {
     const url = this.client.presign(path, {
       expiresIn: secondsUntil(expiresIn),
       method: 'PUT',
@@ -512,6 +547,7 @@ export class S3Disk implements FilesystemDisk {
   async getVisibility(): Promise<Visibility> {
     return this.defaultVisibility
   }
+
   async setVisibility(): Promise<boolean> {
     return true
   }
@@ -536,26 +572,33 @@ export class S3Disk implements FilesystemDisk {
       .map((c: { key: string }) => c.key)
       .filter((k: string) => !k.endsWith('/'))
   }
+
   files(directory = ''): Promise<string[]> {
     return this.keys(directory, false, 'files')
   }
+
   allFiles(directory = ''): Promise<string[]> {
     return this.keys(directory, true, 'files')
   }
+
   directories(directory = ''): Promise<string[]> {
     return this.keys(directory, false, 'dirs')
   }
+
   allDirectories(directory = ''): Promise<string[]> {
     return this.keys(directory, true, 'dirs')
   }
+
   async makeDirectory(path: string): Promise<boolean> {
     // S3 has no real directories; create a zero-byte key marker.
     await this.put(`${path.replace(/\/$/, '')}/`, '')
     return true
   }
+
   async deleteDirectory(path: string): Promise<boolean> {
     const keys = await this.allFiles(path)
-    if (keys.length) await this.delete(keys)
+    if (keys.length)
+      await this.delete(keys)
     return true
   }
 }
@@ -580,6 +623,7 @@ export class ScopedDisk implements FilesystemDisk {
     }
     return joined
   }
+
   private strip(path: string): string {
     const base = `${this.prefix.replace(/\/$/, '')}/`
     return path.startsWith(base) ? path.slice(base.length) : path
@@ -588,87 +632,115 @@ export class ScopedDisk implements FilesystemDisk {
   get(path: string) {
     return this.inner.get(this.p(path))
   }
+
   getBytes(path: string) {
     return this.inner.getBytes(this.p(path))
   }
+
   json<T = unknown>(path: string) {
     return this.inner.json<T>(this.p(path))
   }
+
   exists(path: string) {
     return this.inner.exists(this.p(path))
   }
+
   missing(path: string) {
     return this.inner.missing(this.p(path))
   }
+
   put(path: string, contents: Contents, visibility?: Visibility) {
     return this.inner.put(this.p(path), contents, visibility)
   }
+
   async putFile(directory: string, file: Storable, visibility?: Visibility) {
     return this.strip(await this.inner.putFile(this.p(directory), file, visibility))
   }
+
   async putFileAs(directory: string, file: Storable, name: string, visibility?: Visibility) {
     return this.strip(await this.inner.putFileAs(this.p(directory), file, name, visibility))
   }
+
   prepend(path: string, data: string) {
     return this.inner.prepend(this.p(path), data)
   }
+
   append(path: string, data: string) {
     return this.inner.append(this.p(path), data)
   }
+
   copy(from: string, to: string) {
     return this.inner.copy(this.p(from), this.p(to))
   }
+
   move(from: string, to: string) {
     return this.inner.move(this.p(from), this.p(to))
   }
+
   delete(paths: string | string[]) {
-    return this.inner.delete(Array.isArray(paths) ? paths.map((p) => this.p(p)) : this.p(paths))
+    return this.inner.delete(Array.isArray(paths) ? paths.map(p => this.p(p)) : this.p(paths))
   }
+
   size(path: string) {
     return this.inner.size(this.p(path))
   }
+
   lastModified(path: string) {
     return this.inner.lastModified(this.p(path))
   }
+
   mimeType(path: string) {
     return this.inner.mimeType(this.p(path))
   }
+
   path(path: string) {
     return this.inner.path(this.p(path))
   }
+
   url(path: string) {
     return this.inner.url(this.p(path))
   }
+
   temporaryUrl(path: string, expiresIn: Date | number, options?: TemporaryUrlOptions) {
     return this.inner.temporaryUrl(this.p(path), expiresIn, options)
   }
+
   temporaryUploadUrl(path: string, expiresIn: Date | number, options?: TemporaryUrlOptions) {
     return this.inner.temporaryUploadUrl(this.p(path), expiresIn, options)
   }
+
   getVisibility(path: string) {
     return this.inner.getVisibility(this.p(path))
   }
+
   setVisibility(path: string, visibility: Visibility) {
     return this.inner.setVisibility(this.p(path), visibility)
   }
+
   download(path: string, name?: string) {
     return this.inner.download(this.p(path), name)
   }
+
   async files(directory = '') {
-    return (await this.inner.files(this.p(directory))).map((p) => this.strip(p))
+    return (await this.inner.files(this.p(directory))).map(p => this.strip(p))
   }
+
   async allFiles(directory = '') {
-    return (await this.inner.allFiles(this.p(directory))).map((p) => this.strip(p))
+    return (await this.inner.allFiles(this.p(directory))).map(p => this.strip(p))
   }
+
   async directories(directory = '') {
-    return (await this.inner.directories(this.p(directory))).map((p) => this.strip(p))
+    return (await this.inner.directories(this.p(directory))).map(p => this.strip(p))
   }
+
   async allDirectories(directory = '') {
-    return (await this.inner.allDirectories(this.p(directory))).map((p) => this.strip(p))
+    return (await this.inner.allDirectories(this.p(directory))).map(p => this.strip(p))
   }
+
   makeDirectory(path: string) {
     return this.inner.makeDirectory(this.p(path))
   }
+
   deleteDirectory(path: string) {
     return this.inner.deleteDirectory(this.p(path))
   }

@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test'
 import { treaty } from '@elysiajs/eden'
+import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { route } from '../src/middleware'
 

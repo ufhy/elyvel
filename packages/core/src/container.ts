@@ -56,13 +56,15 @@ export class Container {
 
   /** Register a factory only if the token isn't already bound. */
   bindIf<T>(token: Token<T>, factory: Factory<T>): this {
-    if (!this.has(token)) this.bind(token, factory)
+    if (!this.has(token))
+      this.bind(token, factory)
     return this
   }
 
   /** Register a lazy singleton only if the token isn't already bound. */
   singletonIf<T>(token: Token<T>, factory: Factory<T>): this {
-    if (!this.has(token)) this.singleton(token, factory)
+    if (!this.has(token))
+      this.singleton(token, factory)
     return this
   }
 
@@ -70,6 +72,7 @@ export class Container {
   has(token: Token<unknown>): boolean {
     return this.instances.has(token.key) || this.bindings.has(token.key)
   }
+
   /** Alias of {@link has} (Laravel naming). */
   bound(token: Token<unknown>): boolean {
     return this.has(token)
@@ -81,6 +84,7 @@ export class Container {
     this.instances.delete(token.key)
     return this
   }
+
   /** Clear all bindings and instances. */
   flush(): this {
     this.bindings.clear()
@@ -97,8 +101,8 @@ export class Container {
     const binding = this.bindings.get(token.key)
     if (!binding) {
       throw new Error(
-        `[elysia-ravel] No binding registered for token "${token.key}". ` +
-          'Did you forget to register its service provider?',
+        `[elysia-ravel] No binding registered for token "${token.key}". `
+        + 'Did you forget to register its service provider?',
       )
     }
 

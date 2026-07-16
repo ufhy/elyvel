@@ -1,34 +1,34 @@
 export type Dialect = 'sqlite' | 'pg' | 'mysql'
 
-export type ColumnType =
-  | 'id'
-  | 'smallInteger'
-  | 'integer'
-  | 'bigInteger'
-  | 'float'
-  | 'double'
-  | 'decimal'
-  | 'boolean'
-  | 'char'
-  | 'string'
-  | 'text'
-  | 'mediumText'
-  | 'longText'
-  | 'uuid'
-  | 'json'
-  | 'jsonb'
-  | 'binary'
-  | 'date'
-  | 'time'
-  | 'timestamp'
-  | 'timestampTz'
-  | 'datetime'
-  | 'inet'
-  | 'cidr'
-  | 'macaddr'
-  | 'interval'
-  | 'enum'
-  | 'array'
+export type ColumnType
+  = | 'id'
+    | 'smallInteger'
+    | 'integer'
+    | 'bigInteger'
+    | 'float'
+    | 'double'
+    | 'decimal'
+    | 'boolean'
+    | 'char'
+    | 'string'
+    | 'text'
+    | 'mediumText'
+    | 'longText'
+    | 'uuid'
+    | 'json'
+    | 'jsonb'
+    | 'binary'
+    | 'date'
+    | 'time'
+    | 'timestamp'
+    | 'timestampTz'
+    | 'datetime'
+    | 'inet'
+    | 'cidr'
+    | 'macaddr'
+    | 'interval'
+    | 'enum'
+    | 'array'
 
 export interface ColumnDefinition {
   name: string
@@ -42,7 +42,7 @@ export interface ColumnDefinition {
   nullable?: boolean
   unique?: boolean
   default?: unknown
-  references?: { table: string; column: string; onDelete?: 'cascade' | 'set null' | 'restrict' }
+  references?: { table: string, column: string, onDelete?: 'cascade' | 'set null' | 'restrict' }
   /** Marks this column definition as a modification (`->change()`) rather than an add. */
   change?: boolean
 }
@@ -69,15 +69,16 @@ export abstract class Grammar {
   wrap(identifier: string): string {
     return identifier
       .split('.')
-      .map((part) => (part === '*' ? part : `"${part.replace(/"/g, '""')}"`))
+      .map(part => (part === '*' ? part : `"${part.replace(/"/g, '""')}"`))
       .join('.')
   }
 
   compileCreateTable(table: string, columns: ColumnDefinition[]): string {
-    const defs = columns.map((c) => this.compileColumn(c))
+    const defs = columns.map(c => this.compileColumn(c))
     const constraints: string[] = []
     for (const c of columns) {
-      if (c.unique && c.type !== 'id') constraints.push(`UNIQUE (${this.wrap(c.name)})`)
+      if (c.unique && c.type !== 'id')
+        constraints.push(`UNIQUE (${this.wrap(c.name)})`)
       if (c.references) {
         const onDelete = c.references.onDelete
           ? ` ON DELETE ${c.references.onDelete.toUpperCase()}`
@@ -94,27 +95,33 @@ export abstract class Grammar {
     const cascade = this.dialect === 'pg' ? ' CASCADE' : ''
     return `DROP TABLE IF EXISTS ${this.wrap(table)}${cascade}`
   }
+
   compileAddColumn(table: string, column: ColumnDefinition): string {
     return `ALTER TABLE ${this.wrap(table)} ADD COLUMN ${this.compileColumn(column)}`
   }
+
   compileCreateIndex(table: string, index: IndexDefinition): string {
     const unique = index.unique ? 'UNIQUE ' : ''
-    const cols = index.columns.map((c) => this.wrap(c)).join(', ')
+    const cols = index.columns.map(c => this.wrap(c)).join(', ')
     return `CREATE ${unique}INDEX ${this.wrap(index.name)} ON ${this.wrap(table)} (${cols})`
   }
 
   compileDropColumn(table: string, name: string): string {
     return `ALTER TABLE ${this.wrap(table)} DROP COLUMN ${this.wrap(name)}`
   }
+
   compileRenameColumn(table: string, from: string, to: string): string {
     return `ALTER TABLE ${this.wrap(table)} RENAME COLUMN ${this.wrap(from)} TO ${this.wrap(to)}`
   }
+
   compileRenameTable(from: string, to: string): string {
     return `ALTER TABLE ${this.wrap(from)} RENAME TO ${this.wrap(to)}`
   }
+
   compileDropIndex(name: string): string {
     return `DROP INDEX ${this.wrap(name)}`
   }
+
   compileDropForeign(table: string, name: string): string {
     if (this.dialect === 'sqlite') {
       throw new Error(
@@ -124,6 +131,7 @@ export abstract class Grammar {
     const keyword = this.dialect === 'mysql' ? 'FOREIGN KEY' : 'CONSTRAINT'
     return `ALTER TABLE ${this.wrap(table)} DROP ${keyword} ${this.wrap(name)}`
   }
+
   /** Modify a column's type/nullability/default. Not supported on SQLite (can't ALTER type). */
   compileChangeColumn(table: string, column: ColumnDefinition): string[] {
     if (this.dialect === 'sqlite') {
@@ -151,20 +159,24 @@ export abstract class Grammar {
     const parts = [this.wrap(column.name), this.columnType(column)]
     if (column.type !== 'id') {
       parts.push(column.nullable ? 'NULL' : 'NOT NULL')
-      if (column.default !== undefined) parts.push(`DEFAULT ${this.literal(column.default)}`)
+      if (column.default !== undefined)
+        parts.push(`DEFAULT ${this.literal(column.default)}`)
     }
     if (column.enumValues?.length) {
-      const list = column.enumValues.map((v) => this.literal(v)).join(', ')
+      const list = column.enumValues.map(v => this.literal(v)).join(', ')
       parts.push(`CHECK (${this.wrap(column.name)} IN (${list}))`)
     }
     return parts.join(' ')
   }
 
   protected literal(value: unknown): string {
-    if (value === null) return 'NULL'
-    if (typeof value === 'number') return String(value)
-    if (typeof value === 'boolean') return this.dialect === 'pg' ? String(value) : value ? '1' : '0'
-    return `'${String(value).replace(/'/g, "''")}'`
+    if (value === null)
+      return 'NULL'
+    if (typeof value === 'number')
+      return String(value)
+    if (typeof value === 'boolean')
+      return this.dialect === 'pg' ? String(value) : value ? '1' : '0'
+    return `'${String(value).replace(/'/g, '\'\'')}'`
   }
 }
 
@@ -173,6 +185,7 @@ class SqliteGrammar extends Grammar {
   placeholder(): string {
     return '?'
   }
+
   protected columnType(c: ColumnDefinition): string {
     switch (c.type) {
       case 'id':
@@ -201,6 +214,7 @@ class PostgresGrammar extends Grammar {
   placeholder(index: number): string {
     return `$${index + 1}`
   }
+
   protected columnType(c: ColumnDefinition): string {
     switch (c.type) {
       case 'id':
@@ -267,12 +281,14 @@ class MysqlGrammar extends Grammar {
   placeholder(): string {
     return '?'
   }
+
   override wrap(identifier: string): string {
     return identifier
       .split('.')
-      .map((part) => (part === '*' ? part : `\`${part.replace(/`/g, '``')}\``))
+      .map(part => (part === '*' ? part : `\`${part.replace(/`/g, '``')}\``))
       .join('.')
   }
+
   protected columnType(c: ColumnDefinition): string {
     switch (c.type) {
       case 'id':

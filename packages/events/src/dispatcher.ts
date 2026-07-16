@@ -5,9 +5,9 @@ type EventClass<E = AnyEvent> = new (...args: any[]) => E
 /** Event identifier: a class constructor or a string name. */
 export type EventKey<E = AnyEvent> = EventClass<E> | string
 /** A listener: a function, or an object/class instance with `handle`. */
-export type Listener<E = AnyEvent> =
-  | ((event: E, name: string) => unknown | Promise<unknown>)
-  | { handle(event: E, name: string): unknown | Promise<unknown> }
+export type Listener<E = AnyEvent>
+  = | ((event: E, name: string) => unknown | Promise<unknown>)
+    | { handle(event: E, name: string): unknown | Promise<unknown> }
 
 /** An event subscriber declares its own listener mappings. */
 export interface Subscriber {
@@ -27,7 +27,7 @@ async function invoke(listener: Listener, event: AnyEvent, name: string): Promis
   // of running inline — unless shouldQueue(event) opts out, or no queuer is set.
   if (isQueuedListener(listener)) {
     const queuer = listenerQueuerHook()
-    const shouldQueue = (listener as { shouldQueue?: (e: AnyEvent) => boolean }).shouldQueue
+    const shouldQueue = (listener as { shouldQueue?(e: AnyEvent): boolean }).shouldQueue
     if (queuer && shouldQueue?.(event) !== false) {
       await queuer(listener, event, name)
       return undefined
@@ -58,6 +58,7 @@ export class Dispatcher {
   hasListeners(event: EventKey): boolean {
     return (this.listeners.get(keyOf(event))?.length ?? 0) > 0
   }
+
   forget(event: EventKey): void {
     this.listeners.delete(keyOf(event))
   }
@@ -97,8 +98,10 @@ export class Dispatcher {
     const results: unknown[] = []
     for (const listener of this.listenersFor(name)) {
       const result = await invoke(listener, value, name)
-      if (result === false) break // stop propagation
-      if (result !== null && result !== undefined) results.push(result)
+      if (result === false)
+        break // stop propagation
+      if (result !== null && result !== undefined)
+        results.push(result)
     }
     return results
   }
@@ -122,7 +125,8 @@ export class Dispatcher {
     const name = nameOfInstance(event)
     for (const listener of this.listenersFor(name)) {
       const result = await invoke(listener, event, name)
-      if (result !== null && result !== undefined) return result
+      if (result !== null && result !== undefined)
+        return result
     }
     return null
   }
@@ -143,13 +147,14 @@ function shouldDispatchAfterCommit(value: AnyEvent): boolean {
 // ── testing: Event::fake() ────────────────────────────────────────────────────
 /** A dispatcher that records events instead of running listeners (for tests). */
 export class EventFake extends Dispatcher {
-  readonly recorded: { name: string; event: AnyEvent }[] = []
+  readonly recorded: { name: string, event: AnyEvent }[] = []
 
   override async dispatch(event: object | string, payload?: AnyEvent): Promise<unknown[]> {
     const name = typeof event === 'string' ? event : nameOfInstance(event)
     this.recorded.push({ name, event: typeof event === 'string' ? payload : event })
     return []
   }
+
   override async until(event: object): Promise<unknown> {
     this.recorded.push({ name: nameOfInstance(event), event })
     return null
@@ -158,17 +163,20 @@ export class EventFake extends Dispatcher {
   /** All recorded dispatches of an event (by class or name). */
   dispatched(key: EventKey): AnyEvent[] {
     const name = keyOf(key)
-    return this.recorded.filter((r) => r.name === name).map((r) => r.event)
+    return this.recorded.filter(r => r.name === name).map(r => r.event)
   }
+
   assertDispatched(key: EventKey, times?: number): void {
     const count = this.dispatched(key).length
     if (times === undefined ? count === 0 : count !== times) {
       throw new Error(`Expected "${keyOf(key)}" dispatched ${times ?? '≥1'} time(s), got ${count}.`)
     }
   }
+
   assertNotDispatched(key: EventKey): void {
     const count = this.dispatched(key).length
-    if (count !== 0) throw new Error(`Expected "${keyOf(key)}" NOT dispatched, got ${count}.`)
+    if (count !== 0)
+      throw new Error(`Expected "${keyOf(key)}" NOT dispatched, got ${count}.`)
   }
 }
 
@@ -190,7 +198,8 @@ export function setDefaultDispatcher(d: Dispatcher): void {
   defaultDispatcher = d
 }
 export function dispatcher(): Dispatcher {
-  if (!defaultDispatcher) defaultDispatcher = new Dispatcher()
+  if (!defaultDispatcher)
+    defaultDispatcher = new Dispatcher()
   return defaultDispatcher
 }
 

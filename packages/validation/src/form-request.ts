@@ -1,4 +1,5 @@
-import { type Data, type Rules, Validator, type ValidatorOptions } from './validator'
+import type { Data, Rules, ValidatorOptions } from './validator'
+import { Validator } from './validator'
 
 /** Thrown when a FormRequest's `authorize()` returns false. */
 export class AuthorizationException extends Error {
@@ -27,9 +28,11 @@ export abstract class FormRequest {
   authorize(_ctx: RequestLike): boolean | Promise<boolean> {
     return true
   }
+
   messages(): Record<string, string> {
     return {}
   }
+
   attributes(): Record<string, string> {
     return {}
   }
@@ -37,7 +40,8 @@ export abstract class FormRequest {
   /** Authorize, then validate `ctx.body`. Returns validated data or throws. */
   static async validate<T extends FormRequest>(this: new () => T, ctx: RequestLike): Promise<Data> {
     const instance = new this()
-    if (!(await instance.authorize(ctx))) throw new AuthorizationException()
+    if (!(await instance.authorize(ctx)))
+      throw new AuthorizationException()
 
     const data: Data = ctx.body && typeof ctx.body === 'object' ? (ctx.body as Data) : {}
     const options: ValidatorOptions = {

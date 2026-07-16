@@ -2,7 +2,7 @@ import type { Migration } from '../../../src/index'
 
 // A single migration exercising every column type — runs on SQLite and Postgres.
 export default {
-  up: (schema) =>
+  up: schema =>
     schema.create('kitchen_sink', (t) => {
       t.id()
       // numeric
@@ -45,5 +45,5 @@ export default {
       t.softDeletes()
       t.index('name')
     }),
-  down: (schema) => schema.dropIfExists('kitchen_sink'),
+  down: schema => schema.dropIfExists('kitchen_sink'),
 } satisfies Migration

@@ -1,4 +1,5 @@
-import { formatAddress, type Message } from './message'
+import type { Message } from './message'
+import { formatAddress } from './message'
 
 /** A mail transport — turns a composed {@link Message} into a delivered email. */
 export interface Transport {
@@ -7,7 +8,7 @@ export interface Transport {
 
 /** Writes emails to the logger instead of sending them (dev default). */
 export class LogTransport implements Transport {
-  constructor(private readonly log: (line: string) => void = (l) => console.log(l)) {}
+  constructor(private readonly log: (line: string) => void = l => console.log(l)) {}
   async send(message: Message): Promise<void> {
     const to = message.toAddresses.map(formatAddress).join(', ')
     this.log(
@@ -28,7 +29,7 @@ export interface SmtpOptions {
   host: string
   port?: number
   secure?: boolean
-  auth?: { user: string; pass: string }
+  auth?: { user: string, pass: string }
   /** Default From when a message doesn't set one. */
   from?: string
 }
@@ -43,7 +44,8 @@ export class SmtpTransport implements Transport {
     let nodemailer: typeof import('nodemailer')
     try {
       nodemailer = await import('nodemailer')
-    } catch {
+    }
+    catch {
       throw new Error('[elysia-ravel] SMTP transport needs `nodemailer` installed.')
     }
     const transporter = nodemailer.createTransport({
@@ -62,7 +64,7 @@ export class SmtpTransport implements Transport {
       html: message.htmlBody,
       text: message.textBody,
       headers: message.headers,
-      attachments: message.attachments.map((a) => ({
+      attachments: message.attachments.map(a => ({
         filename: a.filename,
         content: typeof a.content === 'string' ? a.content : Buffer.from(a.content),
         contentType: a.contentType,

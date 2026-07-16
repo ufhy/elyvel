@@ -1,17 +1,19 @@
+import type { MiddlewareContext } from '../src/middleware'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import {
   globalMiddlewarePlugin,
   group,
   Middleware,
-  type MiddlewareContext,
+
   registerMiddlewareRegistry,
   route,
 } from '../src/middleware'
 
 class AuthMiddleware extends Middleware {
   handle(ctx: MiddlewareContext) {
-    if (!ctx.request.headers.get('authorization')) return ctx.status(401, { message: 'no' })
+    if (!ctx.request.headers.get('authorization'))
+      return ctx.status(401, { message: 'no' })
   }
 }
 class ThrottleMiddleware extends Middleware {

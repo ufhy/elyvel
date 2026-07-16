@@ -35,26 +35,26 @@ for (const d of dialects) {
 
     test('whereNot / orWhereNull / whereLike', async () => {
       const notTeam1 = await table('users').whereNot('team_id', 1).get()
-      expect(notTeam1.map((r) => r.name).sort()).toEqual(['Grace', 'Linus'])
+      expect(notTeam1.map(r => r.name).sort()).toEqual(['Grace', 'Linus'])
 
       const like = await table('users').whereLike('name', 'A%').get()
-      expect(like.map((r) => r.name).sort()).toEqual(['Ada', 'Alan'])
+      expect(like.map(r => r.name).sort()).toEqual(['Ada', 'Alan'])
     })
 
     test('whereBetween / whereBetweenColumns', async () => {
       const mid = await table('users').whereBetween('score', [60, 88]).orderBy('score').get()
-      expect(mid.map((r) => r.name)).toEqual(['Alan', 'Grace'])
+      expect(mid.map(r => r.name)).toEqual(['Alan', 'Grace'])
     })
 
     test('whereDate / whereYear / whereMonth', async () => {
       const y2020 = await table('users').whereYear('joined_at', 2020).get()
-      expect(y2020.map((r) => r.name).sort()).toEqual(['Ada', 'Grace'])
+      expect(y2020.map(r => r.name).sort()).toEqual(['Ada', 'Grace'])
 
       const march = await table('users').whereMonth('joined_at', 3).get()
-      expect(march.map((r) => r.name)).toEqual(['Ada'])
+      expect(march.map(r => r.name)).toEqual(['Ada'])
 
       const onDay = await table('users').whereDate('joined_at', '2021-06-20').get()
-      expect(onDay.map((r) => r.name)).toEqual(['Alan'])
+      expect(onDay.map(r => r.name)).toEqual(['Alan'])
     })
 
     test('joins: inner, cross, join-closure, subquery scalar select', async () => {
@@ -66,11 +66,11 @@ for (const d of dialects) {
       expect(joined[0]).toMatchObject({ name: 'Ada', title: 'A' })
 
       const closure = await table('users')
-        .join('teams', (j) => j.on('teams.id', '=', 'users.team_id').where('teams.title', '=', 'B'))
+        .join('teams', j => j.on('teams.id', '=', 'users.team_id').where('teams.title', '=', 'B'))
         .select('users.name')
         .orderBy('users.name')
         .get()
-      expect(closure.map((r) => r.name).sort()).toEqual(['Grace', 'Linus'])
+      expect(closure.map(r => r.name).sort()).toEqual(['Grace', 'Linus'])
 
       const cross = await table('users').crossJoin('teams').count()
       expect(cross).toBe(8) // 4 users × 2 teams
@@ -79,7 +79,7 @@ for (const d of dialects) {
     test('subqueries: whereIn(sub), selectSub, fromSub', async () => {
       const sub = table('teams').select('id').where('title', 'B')
       const inTeamB = await table('users').whereIn('team_id', sub).orderBy('name').get()
-      expect(inTeamB.map((r) => r.name)).toEqual(['Grace', 'Linus'])
+      expect(inTeamB.map(r => r.name)).toEqual(['Grace', 'Linus'])
 
       // selectSub: team title as a correlated-ish scalar (non-correlated here)
       const withCount = await table('users')
@@ -95,7 +95,7 @@ for (const d of dialects) {
         .where('score', '<', 90)
         .orderBy('name')
         .get()
-      expect(fromSub.map((r) => r.name)).toEqual(['Alan', 'Grace'])
+      expect(fromSub.map(r => r.name)).toEqual(['Alan', 'Grace'])
     })
 
     test('groupByRaw + having + havingBetween + aggregates', async () => {
@@ -155,7 +155,7 @@ for (const d of dialects) {
       expect(u).toHaveLength(4)
 
       const paged = await table('users').orderBy('id').skip(1).take(2).get()
-      expect(paged.map((r) => r.id)).toEqual([2, 3])
+      expect(paged.map(r => r.id)).toEqual([2, 3])
 
       const found = await table('users').find(1)
       expect(found?.name).toBe('Ada')

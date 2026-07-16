@@ -1,6 +1,6 @@
+import type { EloquentCollection } from '../src/eloquent-collection'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection } from '../src/connection'
-import type { EloquentCollection } from '../src/eloquent-collection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 

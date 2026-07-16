@@ -1,9 +1,15 @@
+import type { ConfigData } from './config'
+import type { SessionConfig } from './config-schema'
+import type { Token } from './container'
+import type { LogChannelConfig, LogLevel, Transport } from './logger'
+import type { MiddlewareConfig } from './middleware'
+import type { ServiceProvider, ServiceProviderClass } from './service-provider'
+import type { ResolvedSessionConfig } from './session'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Elysia } from 'elysia'
-import { type ConfigData, ConfigRepository, ConfigToken } from './config'
-import type { SessionConfig } from './config-schema'
-import { Container, type Token } from './container'
+import { ConfigRepository, ConfigToken } from './config'
+import { Container } from './container'
 import { setAppTimezone } from './datetime'
 import { methodOverride } from './http/method-override'
 import { httpResponses } from './http/plugin'
@@ -12,22 +18,23 @@ import {
   ConsoleTransport,
   DailyFileTransport,
   FileTransport,
-  type LogChannelConfig,
+
   Logger,
   LoggerToken,
-  type LogLevel,
+
   LogManager,
   LogManagerToken,
-  type Transport,
+
 } from './logger'
 import {
   globalMiddlewarePlugin,
-  type MiddlewareConfig,
+
   registerMiddlewareRegistry,
 } from './middleware'
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
-import { CsrfMiddleware, type ResolvedSessionConfig, sessionPlugin } from './session'
+import { CsrfMiddleware, sessionPlugin } from './session'
+
 import { ThrottleMiddleware } from './throttle'
 
 type ChannelConfig = LogChannelConfig
@@ -35,7 +42,8 @@ type ChannelConfig = LogChannelConfig
 let processLoggingInstalled = false
 
 function installProcessLogging(logger: Logger): void {
-  if (processLoggingInstalled) return
+  if (processLoggingInstalled)
+    return
   processLoggingInstalled = true
   const fatal = logger.child('process')
 
@@ -50,8 +58,6 @@ function installProcessLogging(logger: Logger): void {
     process.exit(1)
   })
 }
-
-import type { ServiceProvider, ServiceProviderClass } from './service-provider'
 
 export interface CreateAppOptions {
   /** Project root that holds `config/` and `routes/`. Defaults to cwd. */
@@ -151,7 +157,8 @@ export class Application {
         const module = (await import(join(configDir, file))) as {
           default?: Record<string, unknown>
         }
-        if (module.default) data[namespace] = module.default
+        if (module.default)
+          data[namespace] = module.default
       }
     }
 
@@ -165,7 +172,7 @@ export class Application {
     const redact = this.config.get<string[] | undefined>('logging.redact')
     const redactPatterns = (
       this.config.get<string[] | undefined>('logging.redactPatterns') ?? []
-    ).map((p) => new RegExp(p, 'g'))
+    ).map(p => new RegExp(p, 'g'))
     const redactJson = this.config.get<boolean | undefined>('logging.redactJson')
     const base = { level, redact, redactPatterns, redactJson }
 
@@ -179,14 +186,15 @@ export class Application {
     if (channelConfigs) {
       const transportsByChannel = new Map<string, Transport[]>()
       for (const [name, cfg] of Object.entries(channelConfigs)) {
-        if (cfg.driver !== 'stack') transportsByChannel.set(name, this.buildTransports(cfg, pretty))
+        if (cfg.driver !== 'stack')
+          transportsByChannel.set(name, this.buildTransports(cfg, pretty))
       }
-      const resolve = (names: string[]) => names.flatMap((n) => transportsByChannel.get(n) ?? [])
+      const resolve = (names: string[]) => names.flatMap(n => transportsByChannel.get(n) ?? [])
 
       channels = new Map()
       for (const [name, cfg] of Object.entries(channelConfigs)) {
-        const transports =
-          cfg.driver === 'stack'
+        const transports
+          = cfg.driver === 'stack'
             ? resolve(cfg.channels ?? [])
             : (transportsByChannel.get(name) ?? [])
         channels.set(name, new Logger({ ...base, level: cfg.level ?? level, transports }))
@@ -195,11 +203,13 @@ export class Application {
       const def = this.config.get<string | string[]>('logging.default', 'stack')
       if (typeof def === 'string' && channels.has(def)) {
         defaultLogger = channels.get(def) as Logger
-      } else {
+      }
+      else {
         const names = Array.isArray(def) ? def : [...transportsByChannel.keys()]
         defaultLogger = new Logger({ ...base, transports: resolve(names) })
       }
-    } else {
+    }
+    else {
       // No channels configured — console + optional single file.
       const transports: Transport[] = [new ConsoleTransport(pretty)]
       const file = this.config.get<string | undefined>('logging.file')
@@ -238,7 +248,8 @@ export class Application {
   }
 
   private registerHttpLogger(): void {
-    if (this.config.get<boolean>('logging.http') === false) return
+    if (this.config.get<boolean>('logging.http') === false)
+      return
     this.elysia.use(requestContext(this.logger))
   }
 
@@ -267,7 +278,8 @@ export class Application {
 
   private registerSession(): void {
     const cfg = this.config.get<SessionConfig | undefined>('session')
-    if (!cfg) return
+    if (!cfg)
+      return
     const driver = cfg.driver ?? 'cookie'
     const secret = cfg.secret ?? this.config.get<string | undefined>('app.key')
     if (driver === 'cookie' && !secret) {
@@ -313,7 +325,8 @@ export class Application {
 
   private async loadRoutes(): Promise<void> {
     const routesDir = this.path('routes')
-    if (!existsSync(routesDir)) return
+    if (!existsSync(routesDir))
+      return
 
     const routers = await loadRoutes(routesDir)
     for (const router of routers) {
@@ -322,7 +335,8 @@ export class Application {
   }
 
   private async boot(): Promise<void> {
-    if (this.booted) return
+    if (this.booted)
+      return
     for (const provider of this.providers) await provider.register()
     for (const provider of this.providers) await provider.boot()
     this.booted = true
@@ -341,7 +355,8 @@ export class Application {
       port: resolved,
       websocket: ws?.handler,
       fetch: (request, srv) => {
-        if (ws && srv.upgrade(request)) return undefined
+        if (ws && srv.upgrade(request))
+          return undefined
         return this.handle(request)
       },
     })
@@ -352,7 +367,7 @@ export class Application {
     return this
   }
 
-  private wsHandler: { handler: any; onServer?: (server: any) => void } | null = null
+  private wsHandler: { handler: any, onServer?(server: any): void } | null = null
   /**
    * Register a Bun WebSocket handler; `listen()` upgrades WS handshakes to it and
    * calls `onServer` with the running server (used by broadcasting for pub/sub).

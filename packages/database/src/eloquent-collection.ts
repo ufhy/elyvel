@@ -1,5 +1,5 @@
-import { Collection } from '@elysia-ravel/support'
 import type { Model } from './model'
+import { Collection } from '@elysia-ravel/support'
 import { eagerLoad } from './relations'
 
 /**
@@ -11,12 +11,12 @@ import { eagerLoad } from './relations'
 export class EloquentCollection<M extends Model> extends Collection<M> {
   /** Primary keys of the contained models. */
   modelKeys(): unknown[] {
-    return this.all().map((model) => model.getKey())
+    return this.all().map(model => model.getKey())
   }
 
   /** Find a contained model by primary key. */
   find(id: unknown): M | undefined {
-    return this.first((model) => model.getKey() === id)
+    return this.first(model => model.getKey() === id)
   }
 
   /** Eager-load relations onto every model in the collection. */

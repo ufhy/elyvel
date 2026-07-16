@@ -1,7 +1,7 @@
 import type { Migration } from '@elysia-ravel/database'
 
 export default {
-  up: (schema) =>
+  up: schema =>
     schema.create('job_batches', (t) => {
       t.uuid('id').unique()
       t.string('name').nullable()
@@ -16,5 +16,5 @@ export default {
       t.text('on_catch').nullable()
       t.text('on_finally').nullable()
     }),
-  down: (schema) => schema.dropIfExists('job_batches'),
+  down: schema => schema.dropIfExists('job_batches'),
 } satisfies Migration

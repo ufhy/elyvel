@@ -18,7 +18,7 @@ class Task extends Model {
   declare done: number
 }
 // A named global scope applied to every Task query.
-Task.addGlobalScope('pending', (qb) => qb.where('done', 0))
+Task.addGlobalScope('pending', qb => qb.where('done', 0))
 
 const dialects = [
   { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },

@@ -46,7 +46,7 @@ for (const d of dialects) {
     })
 
     const names = async (b: {
-      get: () => Promise<{ pluck: (k: 'name') => { all: () => string[] } }>
+      get(): Promise<{ pluck(k: 'name'): { all(): string[] } }>
     }) => (await b.get()).pluck('name').all().sort()
 
     test('has / count operators', async () => {

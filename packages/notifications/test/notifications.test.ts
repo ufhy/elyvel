@@ -1,22 +1,26 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { type ArrayTransport, MailManager, Message, setDefaultMailer } from '@elysia-ravel/mail'
+import type { ArrayTransport } from '@elysia-ravel/mail'
+import type { Notifiable, StoredNotification } from '../src/index'
+import { MailManager, Message, setDefaultMailer } from '@elysia-ravel/mail'
 import { setDefaultTelegram, TelegramClient } from '@elysia-ravel/telegram'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { DatabaseChannel, MailChannel, TelegramChannel } from '../src/channels'
 import {
   ArrayChannel,
   configureDatabaseNotifications,
-  type Notifiable,
+
   Notification,
   NotificationManager,
-  type StoredNotification,
+
 } from '../src/index'
 
 // A notifiable user with per-channel routes.
 const user: Notifiable = {
   id: 7,
   routeNotificationFor(channel) {
-    if (channel === 'mail') return 'sam@example.com'
-    if (channel === 'telegram') return 555
+    if (channel === 'mail')
+      return 'sam@example.com'
+    if (channel === 'telegram')
+      return 555
     return undefined
   },
 }
@@ -26,18 +30,23 @@ class InvoicePaid extends Notification {
   constructor(private readonly amount: number) {
     super()
   }
+
   via(): string[] {
     return ['array', 'mail', 'telegram', 'database']
   }
+
   override toArray() {
     return { amount: this.amount }
   }
+
   override toDatabase() {
     return { amount: this.amount, kind: 'invoice.paid' }
   }
+
   override toMail() {
     return new Message().subject('Invoice paid').html(`<p>Paid ${this.amount}</p>`)
   }
+
   override toTelegram() {
     return `Invoice paid: ${this.amount}`
   }
@@ -65,7 +74,7 @@ afterAll(() => tgServer.stop(true))
 describe('multi-channel dispatch', () => {
   test('via() routes to each registered channel', async () => {
     const stored: StoredNotification[] = []
-    configureDatabaseNotifications({ insert: async (r) => void stored.push(r) })
+    configureDatabaseNotifications({ insert: async r => void stored.push(r) })
     const mail = new MailManager({ default: 'array', mailers: { array: { transport: 'array' } } })
     setDefaultMailer(mail)
 
@@ -101,6 +110,7 @@ describe('multi-channel dispatch', () => {
       via() {
         return ['array']
       }
+
       override toArray() {
         return { x: 1 }
       }

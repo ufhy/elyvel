@@ -5,7 +5,7 @@ import { MemoryQueueStore } from '../src/store'
 import { Worker } from '../src/worker'
 
 // A queued listener (duck-typed; no dep on @elysia-ravel/events needed here).
-const seen: { event: unknown; name: string }[] = []
+const seen: { event: unknown, name: string }[] = []
 class RewardListener {
   handle(event: unknown, name: string) {
     seen.push({ event, name })

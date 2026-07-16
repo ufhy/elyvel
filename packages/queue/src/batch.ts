@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import type { Job } from './job'
+import { randomUUID } from 'node:crypto'
 import { dispatch } from './manager'
 
 /**
@@ -40,24 +40,32 @@ export class MemoryBatchStore implements BatchAdapter {
   async create(record: BatchRecord): Promise<void> {
     this.records.set(record.id, { ...record })
   }
+
   async find(id: string): Promise<BatchRecord | null> {
     const r = this.records.get(id)
     return r ? { ...r } : null
   }
+
   async recordJobResult(id: string, success: boolean): Promise<BatchRecord | null> {
     const r = this.records.get(id)
-    if (!r) return null
+    if (!r)
+      return null
     r.pending -= 1
-    if (!success) r.failed += 1
+    if (!success)
+      r.failed += 1
     return { ...r }
   }
+
   async cancel(id: string): Promise<void> {
     const r = this.records.get(id)
-    if (r) r.cancelledAt = Date.now()
+    if (r)
+      r.cancelledAt = Date.now()
   }
+
   async markFinished(id: string): Promise<void> {
     const r = this.records.get(id)
-    if (r) r.finishedAt = Date.now()
+    if (r)
+      r.finishedAt = Date.now()
   }
 }
 
@@ -69,7 +77,8 @@ export function batchAdapter(): BatchAdapter | null {
   return adapter
 }
 function requireAdapter(): BatchAdapter {
-  if (!adapter) throw new Error('[elysia-ravel] Job batching needs configureBatches(adapter).')
+  if (!adapter)
+    throw new Error('[elysia-ravel] Job batching needs configureBatches(adapter).')
   return adapter
 }
 
@@ -79,27 +88,35 @@ export class Batch {
   get id(): string {
     return this.record.id
   }
+
   get name(): string | undefined {
     return this.record.name
   }
+
   get total(): number {
     return this.record.total
   }
+
   get pending(): number {
     return this.record.pending
   }
+
   get processed(): number {
     return this.record.total - this.record.pending
   }
+
   get failed(): number {
     return this.record.failed
   }
+
   get cancelled(): boolean {
     return this.record.cancelledAt != null
   }
+
   get finished(): boolean {
     return this.record.finishedAt != null
   }
+
   /** Completion percentage (0–100). */
   progress(): number {
     return this.record.total ? Math.round((this.processed / this.record.total) * 100) : 0
@@ -130,30 +147,36 @@ export class PendingBatch {
     this.batchName = name
     return this
   }
+
   /** Dispatch the batch's jobs onto a specific connection (batches need a queued one, not sync). */
   onConnection(connection: string): this {
     this.conn = connection
     return this
   }
+
   /** Dispatch the batch's jobs onto a named queue. */
   onQueue(queue: string): this {
     this.targetQueue = queue
     return this
   }
+
   /** Let the batch keep running after a job fails (default: cancel on first failure). */
   allowFailures(allow = true): this {
     this.failuresAllowed = allow
     return this
   }
+
   // biome-ignore lint/suspicious/noThenProperty: Bus.batch fluent API (Laravel parity), not a thenable
   then(callback: BatchCallback): this {
     this.thenCb = callback
     return this
   }
+
   catch(callback: BatchCallback): this {
     this.catchCb = callback
     return this
   }
+
   finally(callback: BatchCallback): this {
     this.finallyCb = callback
     return this
@@ -197,14 +220,16 @@ async function runCallback(
   batch: Batch,
   error?: unknown,
 ): Promise<void> {
-  if (!source) return
+  if (!source)
+    return
   const fn = new Function(`return (${source})`)() as BatchCallback
   await fn(batch, error)
 }
 
 /** Has this batch been cancelled (so remaining jobs should be skipped)? */
 export async function isBatchCancelled(id: string): Promise<boolean> {
-  if (!adapter) return false
+  if (!adapter)
+    return false
   const record = await adapter.find(id)
   return record?.cancelledAt != null
 }
@@ -218,9 +243,11 @@ export async function recordBatchedJob(
   success: boolean,
   error?: unknown,
 ): Promise<void> {
-  if (!adapter) return
+  if (!adapter)
+    return
   const record = await adapter.recordJobResult(id, success)
-  if (!record) return
+  if (!record)
+    return
   const batch = new Batch(record)
 
   // First failure with allowFailures off → cancel the batch and run catch.
@@ -232,7 +259,8 @@ export async function recordBatchedJob(
   // All jobs accounted for → run then (if clean) + finally, once.
   if (record.pending <= 0 && record.finishedAt == null) {
     await adapter.markFinished(id)
-    if (record.failed === 0) await runCallback(record.onThen, batch)
+    if (record.failed === 0)
+      await runCallback(record.onThen, batch)
     await runCallback(record.onFinally, batch)
   }
 }

@@ -1,8 +1,8 @@
+import type { QueryErrored, QueryExecuted } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import {
   createConnection,
-  type QueryErrored,
-  type QueryExecuted,
+
   setConnection,
 } from '../src/connection'
 import { Model } from '../src/model'
@@ -34,7 +34,7 @@ for (const d of dialects) {
     test('onQuery fires per executed query and unsubscribes', async () => {
       const conn = (await import('../src/connection')).useConnection()
       const seen: QueryExecuted[] = []
-      const off = conn.onQuery((e) => seen.push(e))
+      const off = conn.onQuery(e => seen.push(e))
 
       await Widget.create({ name: 'a' })
       await Widget.query().get()
@@ -70,7 +70,7 @@ for (const d of dialects) {
     test('onQueryError fires with sql + error, then re-throws', async () => {
       const conn = (await import('../src/connection')).useConnection()
       const errors: QueryErrored[] = []
-      conn.onQueryError((e) => errors.push(e))
+      conn.onQueryError(e => errors.push(e))
 
       // Querying a non-existent table fails at the driver level.
       await expect(conn.select('SELECT * FROM does_not_exist')).rejects.toThrow()

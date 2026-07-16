@@ -62,7 +62,7 @@ export const REDACT_PATTERNS = {
   /** 13–16 digit sequences (credit-card-like). */
   creditCard: /\b(?:\d[ -]?){13,16}\b/g,
   /** `Bearer <token>` occurrences in free text. */
-  bearer: /Bearer\s+[A-Za-z0-9._-]+/gi,
+  bearer: /Bearer\s+[\w.-]+/gi,
 }
 
 function maskPatterns(value: string, patterns: RegExp[]): string {
@@ -76,8 +76,10 @@ interface RedactConfig {
   json: boolean
 }
 
-/** Recursively mask values by key (case-insensitive), by string pattern, and
- *  optionally inside stringified JSON. */
+/**
+ * Recursively mask values by key (case-insensitive), by string pattern, and
+ *  optionally inside stringified JSON.
+ */
 function redact(value: unknown, cfg: RedactConfig): unknown {
   if (typeof value === 'string') {
     if (cfg.json) {
@@ -88,14 +90,16 @@ function redact(value: unknown, cfg: RedactConfig): unknown {
           if (parsed && typeof parsed === 'object') {
             return JSON.stringify(redact(parsed, cfg))
           }
-        } catch {
+        }
+        catch {
           // not JSON — fall through to pattern masking
         }
       }
     }
     return cfg.patterns.length ? maskPatterns(value, cfg.patterns) : value
   }
-  if (Array.isArray(value)) return value.map((v) => redact(v, cfg))
+  if (Array.isArray(value))
+    return value.map(v => redact(v, cfg))
   if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value)) {
@@ -115,12 +119,12 @@ function flatten(entry: LogEntry): Record<string, unknown> {
 // ── Transports ───────────────────────────────────────────────────────────────
 
 const COLORS: Record<LeveledLevel, string> = {
-  debug: '\x1b[90m',
-  info: '\x1b[36m',
-  warn: '\x1b[33m',
-  error: '\x1b[31m',
+  debug: '\x1B[90m',
+  info: '\x1B[36m',
+  warn: '\x1B[33m',
+  error: '\x1B[31m',
 }
-const RESET = '\x1b[0m'
+const RESET = '\x1B[0m'
 
 /** Writes to the console: colorized lines (pretty) or one JSON object per line. */
 export class ConsoleTransport implements Transport {
@@ -128,15 +132,16 @@ export class ConsoleTransport implements Transport {
 
   log(entry: LogEntry): void {
     const line = this.pretty ? this.format(entry) : JSON.stringify(flatten(entry))
-    if (entry.level === 'error' || entry.level === 'warn') console.error(line)
+    if (entry.level === 'error' || entry.level === 'warn')
+      console.error(line)
     else console.log(line)
   }
 
   private format(entry: LogEntry): string {
-    const scope = entry.name ? ` \x1b[35m(${entry.name})${RESET}` : ''
-    const extra =
-      entry.context && Object.keys(entry.context).length ? ` ${JSON.stringify(entry.context)}` : ''
-    return `\x1b[90m${entry.time}${RESET} ${COLORS[entry.level]}${entry.level.toUpperCase()}${RESET}${scope} ${entry.message}${extra}`
+    const scope = entry.name ? ` \x1B[35m(${entry.name})${RESET}` : ''
+    const extra
+      = entry.context && Object.keys(entry.context).length ? ` ${JSON.stringify(entry.context)}` : ''
+    return `\x1B[90m${entry.time}${RESET} ${COLORS[entry.level]}${entry.level.toUpperCase()}${RESET}${scope} ${entry.message}${extra}`
   }
 }
 
@@ -151,19 +156,23 @@ function rotateBySize(
   maxFiles: number,
   compress: boolean,
 ): void {
-  if (!existsSync(path)) return
-  if (statSync(path).size + incoming < maxBytes) return
+  if (!existsSync(path))
+    return
+  if (statSync(path).size + incoming < maxBytes)
+    return
 
   const ext = compress ? '.gz' : ''
   for (let i = maxFiles - 1; i >= 1; i--) {
     const from = `${path}.${i}${ext}`
-    if (existsSync(from)) renameSync(from, `${path}.${i + 1}${ext}`)
+    if (existsSync(from))
+      renameSync(from, `${path}.${i + 1}${ext}`)
   }
 
   if (compress) {
     writeFileSync(`${path}.1.gz`, gzipSync(readFileSync(path)))
     rmSync(path)
-  } else {
+  }
+  else {
     renameSync(path, `${path}.1`)
   }
 }
@@ -247,7 +256,8 @@ export class BufferedFileTransport implements Transport {
 
   log(entry: LogEntry): void {
     this.buffer.push(`${JSON.stringify(flatten(entry))}\n`)
-    if (this.buffer.length >= this.flushEvery) this.flush()
+    if (this.buffer.length >= this.flushEvery)
+      this.flush()
     else this.schedule()
   }
 
@@ -256,7 +266,8 @@ export class BufferedFileTransport implements Transport {
       clearTimeout(this.timer)
       this.timer = null
     }
-    if (this.buffer.length === 0) return
+    if (this.buffer.length === 0)
+      return
     const payload = this.buffer.join('')
     this.buffer = []
     rotateBySize(this.path, Buffer.byteLength(payload), this.maxBytes, this.maxFiles, this.compress)
@@ -264,13 +275,15 @@ export class BufferedFileTransport implements Transport {
   }
 
   private schedule(): void {
-    if (this.timer) return
+    if (this.timer)
+      return
     this.timer = setTimeout(() => {
       this.timer = null
       this.flush()
     }, this.intervalMs)
     // Don't keep the event loop alive just for a pending flush.
-    if (typeof this.timer === 'object' && 'unref' in this.timer) this.timer.unref()
+    if (typeof this.timer === 'object' && 'unref' in this.timer)
+      this.timer.unref()
   }
 }
 
@@ -309,7 +322,7 @@ export class DailyFileTransport implements Transport {
   private prune(): void {
     const prefix = `${this.base}-`
     const files = readdirSync(this.dir)
-      .filter((f) => f.startsWith(prefix) && f.endsWith('.log'))
+      .filter(f => f.startsWith(prefix) && f.endsWith('.log'))
       .sort()
     for (const file of files.slice(0, Math.max(0, files.length - this.maxDays))) {
       rmSync(join(this.dir, file), { force: true })
@@ -354,7 +367,7 @@ export class Logger {
     this.transports = options.transports ?? [new ConsoleTransport(true)]
     this.bindings = options.bindings ?? {}
     this.redactCfg = {
-      keys: new Set((options.redact ?? DEFAULT_REDACT).map((k) => k.toLowerCase())),
+      keys: new Set((options.redact ?? DEFAULT_REDACT).map(k => k.toLowerCase())),
       patterns: options.redactPatterns ?? [],
       json: options.redactJson ?? false,
     }
@@ -382,6 +395,7 @@ export class Logger {
   withBindings(bindings: Record<string, unknown>): Logger {
     return this.clone({ bindings: { ...this.bindings, ...bindings } })
   }
+
   /** Alias of {@link withBindings} (Laravel naming: contextual info on every entry). */
   withContext(context: Record<string, unknown>): Logger {
     return this.withBindings(context)
@@ -390,22 +404,27 @@ export class Logger {
   debug(message: string, context?: Record<string, unknown>): void {
     this.write('debug', message, context)
   }
+
   info(message: string, context?: Record<string, unknown>): void {
     this.write('info', message, context)
   }
+
   warn(message: string, context?: Record<string, unknown>): void {
     this.write('warn', message, context)
   }
+
   error(message: string, context?: Record<string, unknown>): void {
     this.write('error', message, context)
   }
+
   /** Log at a level chosen at runtime. */
   log(level: LeveledLevel, message: string, context?: Record<string, unknown>): void {
     this.write(level, message, context)
   }
 
   private write(level: LeveledLevel, message: string, context?: Record<string, unknown>): void {
-    if (WEIGHT[level] < WEIGHT[this.level]) return
+    if (WEIGHT[level] < WEIGHT[this.level])
+      return
 
     const merged = { ...this.bindings, ...context }
     const safe = redact(merged, this.redactCfg) as Record<string, unknown>
@@ -475,9 +494,9 @@ export const LogManagerToken = token<LogManager>('log.manager')
  * A single logging channel definition (used in `config/logging.ts`).
  * Discriminated by `driver` so editors autocomplete the right fields.
  */
-export type LogChannelConfig =
-  | { driver: 'console'; level?: LogLevel; pretty?: boolean }
-  | {
+export type LogChannelConfig
+  = | { driver: 'console', level?: LogLevel, pretty?: boolean }
+    | {
       driver: 'file'
       level?: LogLevel
       path: string
@@ -486,5 +505,5 @@ export type LogChannelConfig =
       buffered?: boolean
       compress?: boolean
     }
-  | { driver: 'daily'; level?: LogLevel; path: string; maxDays?: number }
-  | { driver: 'stack'; level?: LogLevel; channels?: string[] }
+    | { driver: 'daily', level?: LogLevel, path: string, maxDays?: number }
+    | { driver: 'stack', level?: LogLevel, channels?: string[] }

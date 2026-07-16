@@ -50,13 +50,16 @@ export function configureQueueEventDispatcher(dispatcher: QueueEventDispatcher):
 
 export async function fireBefore(name: string): Promise<void> {
   for (const l of beforeListeners) await l(name)
-  if (queueEventDispatcher) await queueEventDispatcher('queue.processing', { job: name })
+  if (queueEventDispatcher)
+    await queueEventDispatcher('queue.processing', { job: name })
 }
 export async function fireAfter(name: string): Promise<void> {
   for (const l of afterListeners) await l(name)
-  if (queueEventDispatcher) await queueEventDispatcher('queue.processed', { job: name })
+  if (queueEventDispatcher)
+    await queueEventDispatcher('queue.processed', { job: name })
 }
 export async function fireFailing(name: string, error: unknown): Promise<void> {
   for (const l of failingListeners) await l(name, error)
-  if (queueEventDispatcher) await queueEventDispatcher('queue.failed', { job: name, error })
+  if (queueEventDispatcher)
+    await queueEventDispatcher('queue.failed', { job: name, error })
 }

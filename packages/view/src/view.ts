@@ -1,13 +1,14 @@
-import { type Html, html } from './html'
+import type { Html } from './html'
+import { html } from './html'
 
 /** Data shared into every view by the framework (from the session). */
 export interface ViewShared {
   /** Flashed validation errors from the previous request. */
   errors: Record<string, string[]>
   /** Old input for repopulating forms: `old('email', '')`. */
-  old: (key: string, fallback?: unknown) => unknown
+  old(key: string, fallback?: unknown): unknown
   /** Any flashed session value (e.g. a success message): `flash('status')`. */
-  flash: (key: string, fallback?: unknown) => unknown
+  flash(key: string, fallback?: unknown): unknown
   /** The CSRF token — embed with `csrfField(shared)` inside a form. */
   csrf: string
   /** App-wide data registered with `View.share()` (e.g. app name, current user). */
@@ -59,6 +60,7 @@ export class ViewResponse<P> {
     this.httpStatus = status
     return this
   }
+
   get statusCode(): number {
     return this.httpStatus
   }

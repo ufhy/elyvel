@@ -1,4 +1,5 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
+import type { Token } from '@elysia-ravel/core'
+import { ServiceProvider, token } from '@elysia-ravel/core'
 import { setSchedulerEnvironment } from './event'
 import { Schedule, setDefaultSchedule } from './schedule'
 

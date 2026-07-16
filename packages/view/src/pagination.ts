@@ -1,4 +1,5 @@
-import { type Html, html, raw } from './html'
+import type { Html } from './html'
+import { html, raw } from './html'
 
 /** The fields a paginator needs to render links (matches @elysia-ravel/database's Paginator). */
 export interface PaginatorLike {
@@ -12,7 +13,7 @@ export interface PaginatorLike {
  */
 export function paginationLinks(
   paginator: PaginatorLike,
-  options: { path?: string; window?: number } = {},
+  options: { path?: string, window?: number } = {},
 ): Html {
   const { currentPage, lastPage } = paginator
   const path = options.path ?? ''
@@ -21,9 +22,10 @@ export function paginationLinks(
   const link = (
     page: number,
     label: string,
-    state: { active?: boolean; disabled?: boolean } = {},
+    state: { active?: boolean, disabled?: boolean } = {},
   ): Html => {
-    if (state.disabled) return html`<span class="page disabled">${raw(label)}</span>`
+    if (state.disabled)
+      return html`<span class="page disabled">${raw(label)}</span>`
     if (state.active)
       return html`<span class="page active" aria-current="page">${raw(label)}</span>`
     return html`<a class="page" href="${path}?page=${page}">${raw(label)}</a>`

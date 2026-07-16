@@ -18,16 +18,16 @@ export async function makeMemoryAuth() {
 
   const auth = createAuth<MemoryUser>({
     provider: {
-      retrieveById: (id) => users.get(Number(id)) ?? null,
+      retrieveById: id => users.get(Number(id)) ?? null,
       retrieveByCredentials: ({ email }) =>
-        [...users.values()].find((u) => u.email === email) ?? null,
+        [...users.values()].find(u => u.email === email) ?? null,
       validateCredentials: (user, { password }) => Hash.verify(password, user.password),
     },
     tokens: {
       store: ({ userId, hashedToken }) => {
         tokens.set(hashedToken, Number(userId))
       },
-      findUserId: (hashedToken) => tokens.get(hashedToken) ?? null,
+      findUserId: hashedToken => tokens.get(hashedToken) ?? null,
       revoke: (hashedToken) => {
         tokens.delete(hashedToken)
       },

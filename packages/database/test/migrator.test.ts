@@ -1,5 +1,6 @@
+import type { Connection } from '../src/index'
 import { describe, expect, test } from 'bun:test'
-import { type Connection, createConnection, freshMigrate, migrate } from '../src/index'
+import { createConnection, freshMigrate, migrate } from '../src/index'
 
 const dir = new URL('./fixtures/migrations', import.meta.url).pathname
 
@@ -12,7 +13,8 @@ async function tableExists(conn: Connection, name: string): Promise<boolean> {
   try {
     await conn.select(`SELECT 1 FROM ${conn.grammar.wrap(name)} LIMIT 1`)
     return true
-  } catch {
+  }
+  catch {
     return false
   }
 }

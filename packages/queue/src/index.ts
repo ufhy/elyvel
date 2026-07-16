@@ -1,9 +1,9 @@
 export {
   Batch,
   type BatchAdapter,
+  batchAdapter,
   type BatchRecord,
   Bus,
-  batchAdapter,
   configureBatches,
   findBatch,
   MemoryBatchStore,
@@ -36,9 +36,9 @@ export {
 export { ListenerJob, queueListener, registerListener } from './listener-job'
 export {
   configureAfterCommit,
+  dispatch,
   type Dispatchable,
   type DispatchOptions,
-  dispatch,
   dispatchSync,
   QueueManager,
   queueManager,
@@ -50,8 +50,8 @@ export {
   MemoryRateLimiter,
   RateLimited,
   type RateLimiter,
-  ReleaseJob,
   rateLimiter,
+  ReleaseJob,
   runThroughMiddleware,
   WithoutOverlapping,
 } from './middleware'
@@ -78,8 +78,8 @@ export {
 export {
   configureUniqueJobs,
   MemoryUniqueLock,
-  type UniqueLock,
   uniqueKeyFor,
+  type UniqueLock,
   uniqueLock,
 } from './unique'
 export { Worker, type WorkerOptions } from './worker'

@@ -1,13 +1,14 @@
+import type { DispatchOptions } from './manager'
 import { Job, registerJob } from './job'
-import { type DispatchOptions, dispatch } from './manager'
+import { dispatch } from './manager'
 
 /** Structural shape of a queued event listener (duck-typed — no dep on @elysia-ravel/events). */
 interface ListenerLike {
   handle(event: unknown, name: string): unknown | Promise<unknown>
   failed?(event: unknown, error: unknown): unknown | Promise<void>
-  viaConnection?: () => string
-  viaQueue?: () => string
-  withDelay?: (event: unknown) => number
+  viaConnection?(): string
+  viaQueue?(): string
+  withDelay?(event: unknown): number
   afterCommit?: boolean
 }
 type ListenerClass = new () => ListenerLike
@@ -45,7 +46,8 @@ export class ListenerJob extends Job {
 
   override async failed(error: unknown): Promise<void> {
     const cls = registry.get(this.listenerName)
-    if (cls) await new cls().failed?.(this.event, error)
+    if (cls)
+      await new cls().failed?.(this.event, error)
   }
 }
 
@@ -63,10 +65,14 @@ export function queueListener(listener: ListenerLike, event: unknown, name: stri
   job.event = event
 
   const opts: DispatchOptions = {}
-  if (typeof listener.viaConnection === 'function') opts.connection = listener.viaConnection()
-  if (typeof listener.viaQueue === 'function') opts.queue = listener.viaQueue()
-  if (typeof listener.withDelay === 'function') opts.delay = listener.withDelay(event)
-  if (listener.afterCommit) opts.afterCommit = true
+  if (typeof listener.viaConnection === 'function')
+    opts.connection = listener.viaConnection()
+  if (typeof listener.viaQueue === 'function')
+    opts.queue = listener.viaQueue()
+  if (typeof listener.withDelay === 'function')
+    opts.delay = listener.withDelay(event)
+  if (listener.afterCommit)
+    opts.afterCommit = true
 
   return dispatch(job, opts)
 }

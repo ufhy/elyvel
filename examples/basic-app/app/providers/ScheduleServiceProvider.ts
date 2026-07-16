@@ -1,7 +1,8 @@
+import type { Schedule } from '@elysia-ravel/scheduler'
 import { dispatch } from '@elysia-ravel/queue'
 import {
   ScheduleServiceProvider as BaseScheduleServiceProvider,
-  type Schedule,
+
 } from '@elysia-ravel/scheduler'
 import { SendWelcomeEmail } from '../jobs/SendWelcomeEmail'
 
@@ -26,7 +27,7 @@ export class ScheduleServiceProvider extends BaseScheduleServiceProvider {
       .dailyAt('08:00')
       .timezone('Asia/Makassar')
       .withoutOverlapping()
-      .onFailure((error) => console.error('[schedule] daily-digest failed', error))
+      .onFailure(error => console.error('[schedule] daily-digest failed', error))
       .named('daily-digest')
 
     // Prune stale model records weekly, on Sundays, via the CLI — in the

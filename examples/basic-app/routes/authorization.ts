@@ -25,7 +25,8 @@ export default route()
     '/notes/:id',
     ({ params, body, authorize, status }: any) => {
       const note = notes.find(params.id)
-      if (!note) return status(404, { message: 'Not found' })
+      if (!note)
+        return status(404, { message: 'Not found' })
       authorize('update', note) // throws AuthorizationError (→ 403) when not the author
       note.title = body?.title ?? note.title
       return { ...note }

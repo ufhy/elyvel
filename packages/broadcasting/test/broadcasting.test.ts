@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { Broadcastable, broadcast } from '../src/broadcastable'
+import { broadcast, Broadcastable } from '../src/broadcastable'
 import { ArrayBroadcaster } from '../src/broadcaster'
 import { BroadcastHub } from '../src/hub'
 import { setDefaultBroadcaster } from '../src/manager'
 
-const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms))
+const tick = (ms = 30) => new Promise(r => setTimeout(r, ms))
 
 describe('Broadcastable + broadcast()', () => {
   test('broadcasts on the declared channels with payload', () => {
@@ -15,6 +15,7 @@ describe('Broadcastable + broadcast()', () => {
       constructor(public orderId: number) {
         super()
       }
+
       broadcastOn() {
         return ['orders', `orders.${this.orderId}`]
       }
@@ -35,7 +36,8 @@ describe('BroadcastHub (live WebSocket round-trip)', () => {
       port: 0,
       websocket: hub.websocket,
       fetch(req, srv) {
-        if (srv.upgrade(req)) return undefined
+        if (srv.upgrade(req))
+          return undefined
         return new Response('ok')
       },
     })
@@ -47,7 +49,7 @@ describe('BroadcastHub (live WebSocket round-trip)', () => {
       await new Promise<void>((resolve) => {
         ws.onopen = () => resolve()
       })
-      ws.onmessage = (e) => received.push(JSON.parse(String(e.data)))
+      ws.onmessage = e => received.push(JSON.parse(String(e.data)))
 
       ws.send(JSON.stringify({ event: 'subscribe', channel: 'orders' }))
       await tick() // let the subscription register
@@ -59,7 +61,8 @@ describe('BroadcastHub (live WebSocket round-trip)', () => {
       expect(received).toHaveLength(1)
       expect(received[0]).toEqual({ channel: 'orders', event: 'created', payload: { id: 1 } })
       ws.close()
-    } finally {
+    }
+    finally {
       server.stop(true)
     }
   })
@@ -78,7 +81,7 @@ describe('BroadcastHub (live WebSocket round-trip)', () => {
       await new Promise<void>((resolve) => {
         ws.onopen = () => resolve()
       })
-      ws.onmessage = (e) => received.push(JSON.parse(String(e.data)))
+      ws.onmessage = e => received.push(JSON.parse(String(e.data)))
       ws.send(JSON.stringify({ event: 'subscribe', channel: 'news' }))
       await tick()
       ws.send(JSON.stringify({ event: 'unsubscribe', channel: 'news' }))
@@ -87,7 +90,8 @@ describe('BroadcastHub (live WebSocket round-trip)', () => {
       await tick()
       expect(received).toHaveLength(0)
       ws.close()
-    } finally {
+    }
+    finally {
       server.stop(true)
     }
   })

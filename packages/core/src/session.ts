@@ -1,10 +1,11 @@
+import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
-import { Middleware, type MiddlewareContext } from './middleware'
+import { Middleware } from './middleware'
 
 const TOKEN_KEY = '_token'
 const FLASH_KEY = '_flash'
@@ -30,9 +31,11 @@ export class Session {
     if (typeof this.data[TOKEN_KEY] !== 'string')
       this.data[TOKEN_KEY] = randomBytes(20).toString('hex')
   }
+
   token(): string {
     return this.data[TOKEN_KEY] as string
   }
+
   regenerateToken(): void {
     this.data[TOKEN_KEY] = randomBytes(20).toString('hex')
   }
@@ -42,29 +45,36 @@ export class Session {
   get(key: string, fallback?: unknown): unknown {
     return key in this.data ? this.data[key] : fallback
   }
+
   put(key: string, value: unknown): void {
     this.data[key] = value
   }
+
   /** Present AND not null. */
   has(key: string): boolean {
     return this.data[key] !== undefined && this.data[key] !== null
   }
+
   /** Present, even if null. */
   exists(key: string): boolean {
     return key in this.data
   }
+
   missing(key: string): boolean {
     return !this.exists(key)
   }
+
   forget(key: string): void {
     delete this.data[key]
   }
+
   /** Append a value onto an array session value. */
   push(key: string, value: unknown): void {
     const arr = Array.isArray(this.data[key]) ? (this.data[key] as unknown[]) : []
     arr.push(value)
     this.data[key] = arr
   }
+
   /** Retrieve and remove a value in one step. */
   pull<T = unknown>(key: string): T | undefined
   pull<T = unknown>(key: string, fallback: T): T
@@ -73,35 +83,43 @@ export class Session {
     this.forget(key)
     return value
   }
+
   increment(key: string, amount = 1): number {
     const value = Number(this.get(key, 0)) + amount
     this.put(key, value)
     return value
   }
+
   decrement(key: string, amount = 1): number {
     return this.increment(key, -amount)
   }
+
   /** Get the value, or store and return the result of `factory` if absent. */
   remember<T>(key: string, factory: () => T): T {
-    if (this.exists(key)) return this.get<T>(key) as T
+    if (this.exists(key))
+      return this.get<T>(key) as T
     const value = factory()
     this.put(key, value)
     return value
   }
+
   /** Rotate the CSRF token, keeping session data (anti session-fixation). */
   regenerate(): void {
     this.regenerateToken()
   }
+
   /** Clear all data and rotate the token. */
   invalidate(): void {
     this.flush()
     this.regenerateToken()
   }
+
   /** Clear everything except the CSRF token. */
   flush(): void {
     const token = this.data[TOKEN_KEY]
     this.data = { [TOKEN_KEY]: token }
   }
+
   all(): Record<string, unknown> {
     const { [FLASH_KEY]: _flash, ...rest } = this.data
     return rest
@@ -111,31 +129,38 @@ export class Session {
   flash(key: string, value: unknown): void {
     this.put(key, value)
     const flash = this.flashState()
-    if (!flash.new.includes(key)) flash.new.push(key)
-    flash.old = flash.old.filter((k) => k !== key)
+    if (!flash.new.includes(key))
+      flash.new.push(key)
+    flash.old = flash.old.filter(k => k !== key)
   }
+
   /** Keep all flashed data for one more request. */
   reflash(): void {
     const flash = this.flashState()
     flash.new = [...new Set([...flash.new, ...flash.old])]
     flash.old = []
   }
+
   /** Keep specific flashed keys for one more request. */
   keep(keys: string[]): void {
     const flash = this.flashState()
     flash.new = [...new Set([...flash.new, ...keys])]
-    flash.old = flash.old.filter((k) => !keys.includes(k))
+    flash.old = flash.old.filter(k => !keys.includes(k))
   }
 
   private flashState(): FlashState {
-    if (!this.data[FLASH_KEY]) this.data[FLASH_KEY] = { old: [], new: [] }
+    if (!this.data[FLASH_KEY])
+      this.data[FLASH_KEY] = { old: [], new: [] }
     return this.data[FLASH_KEY] as FlashState
   }
 
   /** Expire last request's flash, promote this request's flash (called on save). */
   ageFlashData(): void {
     const flash = this.flashState()
-    for (const key of flash.old) if (!flash.new.includes(key)) delete this.data[key]
+    for (const key of flash.old) {
+      if (!flash.new.includes(key))
+        delete this.data[key]
+    }
     flash.old = flash.new
     flash.new = []
   }
@@ -170,7 +195,8 @@ function decrypt(payload: string, secret: string): Record<string, unknown> | nul
       decipher.final(),
     ])
     return JSON.parse(out.toString('utf8'))
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -200,16 +226,18 @@ export interface SessionStore {
 }
 
 class MemorySessionStore implements SessionStore {
-  private readonly map = new Map<string, { data: Record<string, unknown>; expiresAt: number }>()
+  private readonly map = new Map<string, { data: Record<string, unknown>, expiresAt: number }>()
   async read(id: string): Promise<Record<string, unknown>> {
     const entry = this.map.get(id)
-    if (!entry) return {}
+    if (!entry)
+      return {}
     if (Date.now() >= entry.expiresAt) {
       this.map.delete(id)
       return {}
     }
     return entry.data
   }
+
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     this.map.set(id, { data, expiresAt: Date.now() + lifetime * 1000 })
   }
@@ -219,12 +247,15 @@ class FileSessionStore implements SessionStore {
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true })
   }
+
   private path(id: string): string {
     return join(this.dir, `${createHash('sha256').update(id).digest('hex')}.json`)
   }
+
   async read(id: string): Promise<Record<string, unknown>> {
     const file = this.path(id)
-    if (!existsSync(file)) return {}
+    if (!existsSync(file))
+      return {}
     try {
       const entry = JSON.parse(readFileSync(file, 'utf8')) as {
         data: Record<string, unknown>
@@ -235,10 +266,12 @@ class FileSessionStore implements SessionStore {
         return {}
       }
       return entry.data
-    } catch {
+    }
+    catch {
       return {}
     }
   }
+
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     writeFileSync(this.path(id), JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }))
   }
@@ -261,17 +294,22 @@ class DatabaseSessionStore implements SessionStore {
     }
     return sessionDbAdapter
   }
+
   async read(id: string): Promise<Record<string, unknown>> {
     const payload = await this.adapter().read(id)
-    if (!payload) return {}
+    if (!payload)
+      return {}
     try {
-      const entry = JSON.parse(payload) as { data: Record<string, unknown>; expiresAt: number }
-      if (Date.now() >= entry.expiresAt) return {}
+      const entry = JSON.parse(payload) as { data: Record<string, unknown>, expiresAt: number }
+      if (Date.now() >= entry.expiresAt)
+        return {}
       return entry.data
-    } catch {
+    }
+    catch {
       return {}
     }
   }
+
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     const payload = JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 })
     await this.adapter().write(id, payload, Math.floor(Date.now() / 1000))
@@ -284,16 +322,20 @@ export class RedisSessionStore implements SessionStore {
     private readonly client: { send(command: string, args: string[]): Promise<unknown> },
     private readonly prefix = 'session:',
   ) {}
+
   async read(id: string): Promise<Record<string, unknown>> {
     const raw = (await this.client.send('GET', [this.prefix + id])) as string | null
-    if (!raw) return {}
+    if (!raw)
+      return {}
     try {
-      const entry = JSON.parse(raw) as { data: Record<string, unknown>; expiresAt: number }
+      const entry = JSON.parse(raw) as { data: Record<string, unknown>, expiresAt: number }
       return Date.now() >= entry.expiresAt ? {} : entry.data
-    } catch {
+    }
+    catch {
       return {}
     }
   }
+
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     const payload = JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 })
     await this.client.send('SET', [
@@ -338,7 +380,8 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       if (store) {
         sid = raw
         data = sid ? await store.read(sid) : {}
-      } else {
+      }
+      else {
         data = raw ? (decrypt(raw, config.secret) ?? {}) : {} // cookie driver
       }
       const session = new Session(data)
@@ -352,7 +395,7 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
     // old input flashed, instead of the API-style 422 JSON.
     .onError({ as: 'global' }, async (ctx: Record<string, unknown>) => {
       const session = ctx.session as Session | undefined
-      const error = ctx.error as { status?: unknown; errors?: Record<string, unknown> } | undefined
+      const error = ctx.error as { status?: unknown, errors?: Record<string, unknown> } | undefined
       const request = ctx.request as Request
 
       const isValidation = error?.status === 422 && error.errors !== undefined
@@ -374,7 +417,8 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
   /** Age flash data and write the session cookie / store (shared by the hooks above). */
   async function persist(ctx: Record<string, unknown>): Promise<void> {
     const session = ctx.session as Session | undefined
-    if (!session) return
+    if (!session)
+      return
     const cookie = ctx.cookie as any
     session.ageFlashData()
 
@@ -383,7 +427,8 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       const sid = (ctx.__sid as string) || randomBytes(16).toString('hex')
       await store.write(sid, session.toData(), config.lifetime)
       value = sid
-    } else {
+    }
+    else {
       value = encrypt(session.toData(), config.secret) // cookie driver
     }
     const base = {
@@ -407,7 +452,8 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
 function requestToken(ctx: MiddlewareContext): string | undefined {
   const body = ctx.body as Record<string, unknown> | undefined
   const fromBody = body && typeof body === 'object' ? body._token : undefined
-  if (typeof fromBody === 'string') return fromBody
+  if (typeof fromBody === 'string')
+    return fromBody
   return (
     ctx.request.headers.get('x-csrf-token') ?? ctx.request.headers.get('x-xsrf-token') ?? undefined
   )
@@ -421,9 +467,11 @@ function requestToken(ctx: MiddlewareContext): string | undefined {
 export class CsrfMiddleware extends Middleware {
   handle(ctx: MiddlewareContext) {
     const method = ctx.request.method
-    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS')
+      return
     const session = ctx.session as Session | undefined
-    if (!session) return // sessions not enabled → nothing to verify
+    if (!session)
+      return // sessions not enabled → nothing to verify
     if (requestToken(ctx) !== session.token()) {
       return ctx.status(419, { message: 'CSRF token mismatch.' })
     }

@@ -1,7 +1,8 @@
+import type { DiskConfig, LocalDiskConfig, S3DiskConfig, StorageConfig } from './config-schema'
+import type { FilesystemDisk } from './disk'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { DiskConfig, LocalDiskConfig, S3DiskConfig, StorageConfig } from './config-schema'
-import { type FilesystemDisk, LocalDisk, S3Disk, ScopedDisk } from './disk'
+import { LocalDisk, S3Disk, ScopedDisk } from './disk'
 
 /** Resolves named disks into {@link FilesystemDisk} instances, à la Laravel's FilesystemManager. */
 export class FilesystemManager {
@@ -32,8 +33,10 @@ export class FilesystemManager {
   }
 
   private resolve(config: DiskConfig): FilesystemDisk {
-    if (config.driver === 's3') return new S3Disk(config as S3DiskConfig)
-    if (config.driver === 'scoped') return new ScopedDisk(this.disk(config.disk), config.prefix)
+    if (config.driver === 's3')
+      return new S3Disk(config as S3DiskConfig)
+    if (config.driver === 'scoped')
+      return new ScopedDisk(this.disk(config.disk), config.prefix)
     return new LocalDisk(config as LocalDiskConfig & { root: string })
   }
 }

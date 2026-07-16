@@ -12,6 +12,7 @@ class User extends Model {
   posts() {
     return this.hasMany(Post)
   }
+
   profile() {
     return this.hasOne(Profile)
   }

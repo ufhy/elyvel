@@ -51,7 +51,7 @@ export class Schedule {
 
   /** Events whose cron expression is due at `date` (ignores when/skip). */
   dueEvents(date: Date): ScheduledEvent[] {
-    return this.events.filter((e) => e.isDue(date))
+    return this.events.filter(e => e.isDue(date))
   }
 
   /**
@@ -61,7 +61,8 @@ export class Schedule {
   async run(date = new Date()): Promise<ScheduleRunResult[]> {
     const results: ScheduleRunResult[] = []
     for (const event of this.events) {
-      if (!(await event.shouldRun(date))) continue
+      if (!(await event.shouldRun(date)))
+        continue
       await this.execute(event, date, results)
     }
     return results
@@ -77,8 +78,10 @@ export class Schedule {
     for (const event of this.events) {
       const repeat = event.repeatEverySeconds
       const aligned = repeat ? seconds % repeat === 0 : seconds === 0
-      if (!aligned) continue
-      if (!(await event.shouldRun(date))) continue
+      if (!aligned)
+        continue
+      if (!(await event.shouldRun(date)))
+        continue
       await this.execute(event, date, results)
     }
     return results
@@ -98,7 +101,8 @@ export class Schedule {
     try {
       const ran = await event.run(date)
       results.push({ name: event.name, expression: event.expression, ran })
-    } catch (error) {
+    }
+    catch (error) {
       results.push({ name: event.name, expression: event.expression, ran: true, error })
     }
   }
@@ -112,9 +116,12 @@ async function runShell(command: string): Promise<void> {
     new Response(proc.stderr).text(),
     proc.exited,
   ])
-  if (out.trim()) console.log(out.trimEnd())
-  if (err.trim()) console.error(err.trimEnd())
-  if (code !== 0) throw new Error(`Scheduled command failed (exit ${code}): ${command}`)
+  if (out.trim())
+    console.log(out.trimEnd())
+  if (err.trim())
+    console.error(err.trimEnd())
+  if (code !== 0)
+    throw new Error(`Scheduled command failed (exit ${code}): ${command}`)
 }
 
 // ── process-wide default (set by ScheduleServiceProvider at boot) ────────────
@@ -123,6 +130,7 @@ export function setDefaultSchedule(schedule: Schedule): void {
   defaultSchedule = schedule
 }
 export function schedule(): Schedule {
-  if (!defaultSchedule) defaultSchedule = new Schedule()
+  if (!defaultSchedule)
+    defaultSchedule = new Schedule()
   return defaultSchedule
 }

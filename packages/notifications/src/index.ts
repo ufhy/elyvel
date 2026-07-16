@@ -14,5 +14,5 @@ export {
   notify,
   setDefaultNotifications,
 } from './manager'
-export { type Notifiable, Notification, notifiableKey, routeFor } from './notification'
+export { type Notifiable, notifiableKey, Notification, routeFor } from './notification'
 export { NotificationServiceProvider, NotificationToken } from './provider'

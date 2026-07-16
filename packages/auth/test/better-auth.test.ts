@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, SchemaBuilder, setConnection, table } from '@elysia-ravel/database'
 import { betterAuth } from 'better-auth'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { betterAuthPlugin } from '../src/better-auth'
 import { migrateBetterAuth } from '../src/better-auth-schema'
@@ -27,14 +27,15 @@ beforeEach(async () => {
   await migrateBetterAuth(new SchemaBuilder(conn), auth.options)
 })
 
-const signUp = (email: string) =>
-  app.handle(
+function signUp(email: string) {
+  return app.handle(
     new Request('http://localhost/api/auth/sign-up/email', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'Ada', email, password: 'password123' }),
     }),
   )
+}
 
 describe('Better Auth over the Eloquent adapter', () => {
   test('sign-up persists the user through table()', async () => {

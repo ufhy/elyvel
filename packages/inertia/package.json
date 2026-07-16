@@ -1,14 +1,14 @@
 {
   "name": "@elysia-ravel/inertia",
+  "type": "module",
   "version": "0.0.0",
   "description": "Inertia.js server-side adapter for elysia-ravel — full-stack SPA (Vue/React/Svelte) without an API",
-  "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

@@ -1,6 +1,7 @@
+import type { MiddlewareContext } from '../src/middleware'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
-import { type MiddlewareContext, registerMiddlewareRegistry } from '../src/middleware'
+import { registerMiddlewareRegistry } from '../src/middleware'
 import { Controller, invoke, resource, singleton } from '../src/routing'
 
 registerMiddlewareRegistry({ aliases: {} })
@@ -10,9 +11,11 @@ describe('singleton resource', () => {
     async show() {
       return { name: 'Ada' }
     }
+
     async update(ctx: MiddlewareContext) {
       return { updated: ctx.body }
     }
+
     async destroy() {
       return { deleted: true }
     }
@@ -83,7 +86,7 @@ describe('resource onMissing', () => {
     const app = new Elysia().use(
       resource('/things', C, {
         bind: binder,
-        onMissing: (ctx) => ctx.status(410, { gone: true }),
+        onMissing: ctx => ctx.status(410, { gone: true }),
       }),
     )
     const res = await app.handle(new Request('http://localhost/things/1'))

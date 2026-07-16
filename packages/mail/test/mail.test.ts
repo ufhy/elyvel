@@ -1,9 +1,10 @@
+import type { ArrayTransport } from '../src/transports'
 import { describe, expect, test } from 'bun:test'
 import { SMTPServer } from 'smtp-server'
 import { Mailable } from '../src/mailable'
 import { Mail, MailManager, setDefaultMailer } from '../src/manager'
 import { Message } from '../src/message'
-import { type ArrayTransport, LogTransport, SmtpTransport } from '../src/transports'
+import { LogTransport, SmtpTransport } from '../src/transports'
 
 describe('array transport + fluent Mail', () => {
   test('captures the composed message', async () => {
@@ -45,6 +46,7 @@ describe('Mailable', () => {
     constructor(private readonly name: string) {
       super()
     }
+
     build(m: Message): void {
       m.subject(`Welcome ${this.name}`).html(`<h1>Hi ${this.name}</h1>`)
     }
@@ -67,7 +69,7 @@ describe('log transport', () => {
   test('writes the email to the log sink', async () => {
     const lines: string[] = []
     const message = new Message().to('a@b.com').subject('Report').text('body')
-    await new LogTransport((l) => lines.push(l)).send(message)
+    await new LogTransport(l => lines.push(l)).send(message)
     expect(lines[0]).toContain('to=a@b.com')
     expect(lines[0]).toContain('Report')
   })
@@ -88,7 +90,7 @@ describe('SMTP transport (live, local)', () => {
       },
     })
     const port = 2526
-    await new Promise<void>((resolve) => server.listen(port, resolve))
+    await new Promise<void>(resolve => server.listen(port, resolve))
     try {
       const transport = new SmtpTransport({ host: 'localhost', port, secure: false })
       const message = new Message()
@@ -99,8 +101,9 @@ describe('SMTP transport (live, local)', () => {
       await transport.send(message)
       expect(raw).toContain('Subject: Live SMTP')
       expect(raw).toContain('rcpt@x.test')
-    } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()))
+    }
+    finally {
+      await new Promise<void>(resolve => server.close(() => resolve()))
     }
   })
 })

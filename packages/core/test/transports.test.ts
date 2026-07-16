@@ -1,23 +1,26 @@
-import { describe, expect, test } from 'bun:test'
+import type { LogEntry, Transport } from '../src/logger'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { gunzipSync } from 'node:zlib'
+import { describe, expect, test } from 'bun:test'
 import {
   BufferedFileTransport,
   DailyFileTransport,
   FileTransport,
-  type LogEntry,
+
   Logger,
   LogManager,
-  type Transport,
+
 } from '../src/logger'
 
-const entry = (message: string, time = '2026-07-11T00:00:00.000Z'): LogEntry => ({
-  time,
-  level: 'info',
-  message,
-})
+function entry(message: string, time = '2026-07-11T00:00:00.000Z'): LogEntry {
+  return {
+    time,
+    level: 'info',
+    message,
+  }
+}
 
 class CaptureTransport implements Transport {
   entries: LogEntry[] = []

@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type Connection, createConnection } from '../src/connection'
+import { createConnection } from '../src/connection'
 import { migrate, rollback, status } from '../src/migrator'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
@@ -55,13 +56,13 @@ for (const d of dialects) {
     })
 
     test('migrate:status + migrate:rollback', async () => {
-      expect((await status(conn, migrationsDir)).every((s) => !s.ran)).toBe(true)
+      expect((await status(conn, migrationsDir)).every(s => !s.ran)).toBe(true)
       await migrate(conn, migrationsDir)
-      expect((await status(conn, migrationsDir)).every((s) => s.ran)).toBe(true)
+      expect((await status(conn, migrationsDir)).every(s => s.ran)).toBe(true)
 
       const rolled = await rollback(conn, migrationsDir)
       expect(rolled).toEqual(['0001_create_things'])
-      expect((await status(conn, migrationsDir)).every((s) => !s.ran)).toBe(true)
+      expect((await status(conn, migrationsDir)).every(s => !s.ran)).toBe(true)
     })
   })
 }

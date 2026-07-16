@@ -1,6 +1,7 @@
+import type { ViteOptions } from './tags'
 import { staticFiles } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
-import { type ViteOptions, viteTags } from './tags'
+import { viteTags } from './tags'
 
 export interface SpaOptions extends ViteOptions {
   /** URL prefix the SPA is mounted at (client-side routes live under it). Default `/`. */
@@ -14,15 +15,15 @@ export interface SpaOptions extends ViteOptions {
   /** Serve the built assets at `base`. Set false if another route already does. Default true. */
   assets?: boolean
   /** Override the shell HTML. */
-  html?: (opts: { head: string; rootId: string; title?: string }) => string
+  html?(opts: { head: string, rootId: string, title?: string }): string
 }
 
-function defaultShell(opts: { head: string; rootId: string; title?: string }): string {
+function defaultShell(opts: { head: string, rootId: string, title?: string }): string {
   return (
-    `<!doctype html><html><head><meta charset="utf-8">` +
-    `<meta name="viewport" content="width=device-width, initial-scale=1">` +
-    `${opts.title ? `<title>${opts.title}</title>` : ''}${opts.head}</head>` +
-    `<body><div id="${opts.rootId}"></div></body></html>`
+    `<!doctype html><html><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width, initial-scale=1">`
+    + `${opts.title ? `<title>${opts.title}</title>` : ''}${opts.head}</head>`
+    + `<body><div id="${opts.rootId}"></div></body></html>`
   )
 }
 

@@ -32,15 +32,21 @@ async function submit() {
 <template>
   <AuthLayout title="Reset password" subtitle="Choose a new password">
     <form class="space-y-4" @submit.prevent="submit">
-      <UiAlert v-if="error" data-testid="error">{{ error }}</UiAlert>
-      <UiAlert v-if="!token" data-testid="no-token">Missing or invalid reset token.</UiAlert>
+      <UiAlert v-if="error" data-testid="error">
+        {{ error }}
+      </UiAlert>
+      <UiAlert v-if="!token" data-testid="no-token">
+        Missing or invalid reset token.
+      </UiAlert>
       <UiInput v-model="password" label="New password" type="password" autocomplete="new-password" />
       <UiButton type="submit" :disabled="busy || !token" data-testid="submit">
         {{ busy ? 'Saving…' : 'Reset password' }}
       </UiButton>
     </form>
     <p class="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
-      <Link href="/login" class="font-medium text-indigo-600 hover:underline">Back to sign in</Link>
+      <Link href="/login" class="font-medium text-indigo-600 hover:underline">
+        Back to sign in
+      </Link>
     </p>
   </AuthLayout>
 </template>

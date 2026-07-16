@@ -22,10 +22,10 @@ describe('Container extras', () => {
 
 describe('Logger extras', () => {
   test('log(level) + withContext merge into entries', () => {
-    const entries: { level: string; message: string; context?: Record<string, unknown> }[] = []
+    const entries: { level: string, message: string, context?: Record<string, unknown> }[] = []
     const logger = createLogger({
       level: 'debug',
-      transports: [{ log: (e) => entries.push(e) }],
+      transports: [{ log: e => entries.push(e) }],
     })
     logger.log('warn', 'hey', { a: 1 })
     logger.withContext({ requestId: 'r1' }).info('scoped')

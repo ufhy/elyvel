@@ -20,18 +20,23 @@ export class LazyCollection<T> implements AsyncIterable<T> {
   filter(fn: (item: T) => boolean): LazyCollection<T> {
     const source = this.source
     return new LazyCollection<T>(async function* () {
-      for await (const item of source()) if (fn(item)) yield item
+      for await (const item of source()) {
+        if (fn(item))
+          yield item
+      }
     })
   }
 
   take(n: number): LazyCollection<T> {
     const source = this.source
     return new LazyCollection<T>(async function* () {
-      if (n <= 0) return
+      if (n <= 0)
+        return
       let taken = 0
       for await (const item of source()) {
         yield item
-        if (++taken >= n) break
+        if (++taken >= n)
+          break
       }
     })
   }
@@ -41,6 +46,7 @@ export class LazyCollection<T> implements AsyncIterable<T> {
   }
 
   async first(): Promise<T | undefined> {
+    // eslint-disable-next-line no-unreachable-loop -- returns the first item, then stops
     for await (const item of this) return item
     return undefined
   }

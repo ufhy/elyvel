@@ -39,8 +39,9 @@ export async function runThroughMiddleware(job: Job, core: () => Promise<void>):
 export class WithoutOverlapping implements JobMiddleware {
   constructor(
     private readonly key: string,
-    private readonly options: { releaseAfter?: number; expireAfter?: number } = {},
+    private readonly options: { releaseAfter?: number, expireAfter?: number } = {},
   ) {}
+
   async handle(_job: Job, next: () => Promise<void>): Promise<void> {
     const lock = uniqueLock()
     if (!lock) {
@@ -49,10 +50,12 @@ export class WithoutOverlapping implements JobMiddleware {
     }
     const lockKey = `overlap:${this.key}`
     const acquired = await lock.acquire(lockKey, this.options.expireAfter ?? 60)
-    if (!acquired) throw new ReleaseJob(this.options.releaseAfter ?? 0)
+    if (!acquired)
+      throw new ReleaseJob(this.options.releaseAfter ?? 0)
     try {
       await next()
-    } finally {
+    }
+    finally {
       await lock.release(lockKey)
     }
   }
@@ -72,10 +75,11 @@ export class MemoryRateLimiter implements RateLimiter {
   async tooManyAttempts(key: string, maxAttempts: number): Promise<boolean> {
     return (this.hits.get(key)?.length ?? 0) >= maxAttempts
   }
+
   async hit(key: string, decaySeconds: number): Promise<void> {
     const now = Date.now()
     const cutoff = now - decaySeconds * 1000
-    const kept = (this.hits.get(key) ?? []).filter((t) => t > cutoff)
+    const kept = (this.hits.get(key) ?? []).filter(t => t > cutoff)
     kept.push(now)
     this.hits.set(key, kept)
   }
@@ -98,8 +102,9 @@ export function rateLimiter(): RateLimiter | null {
 export class RateLimited implements JobMiddleware {
   constructor(
     private readonly key: string,
-    private readonly options: { maxAttempts: number; perSeconds: number; releaseAfter?: number },
+    private readonly options: { maxAttempts: number, perSeconds: number, releaseAfter?: number },
   ) {}
+
   async handle(_job: Job, next: () => Promise<void>): Promise<void> {
     const rl = rateLimiter()
     if (!rl) {

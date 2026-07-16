@@ -14,12 +14,12 @@ const ESCAPES: Record<string, string> = {
   '<': '&lt;',
   '>': '&gt;',
   '"': '&quot;',
-  "'": '&#39;',
+  '\'': '&#39;',
 }
 
 /** Escape a string for safe HTML text/attribute interpolation. */
 export function escape(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => ESCAPES[c] as string)
+  return value.replace(/[&<>"']/g, c => ESCAPES[c] as string)
 }
 
 /** Mark a string as trusted HTML (opt out of escaping). Use with care. */
@@ -28,10 +28,14 @@ export function raw(value: string): Html {
 }
 
 function render(value: unknown): string {
-  if (value == null || value === false || value === true) return ''
-  if (value instanceof Html) return value.value
-  if (Array.isArray(value)) return value.map(render).join('')
-  if (typeof value === 'string') return escape(value)
+  if (value == null || value === false || value === true)
+    return ''
+  if (value instanceof Html)
+    return value.value
+  if (Array.isArray(value))
+    return value.map(render).join('')
+  if (typeof value === 'string')
+    return escape(value)
   return escape(String(value))
 }
 
@@ -55,13 +59,13 @@ export function document(options: {
   body: Html | string
   lang?: string
 }): Html {
-  const head =
-    options.head instanceof Html ? options.head.value : options.head ? escape(options.head) : ''
+  const head
+    = options.head instanceof Html ? options.head.value : options.head ? escape(options.head) : ''
   const body = options.body instanceof Html ? options.body.value : escape(String(options.body))
   return new Html(
-    `<!doctype html><html lang="${escape(options.lang ?? 'en')}"><head>` +
-      `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">` +
-      `${options.title ? `<title>${escape(options.title)}</title>` : ''}${head}` +
-      `</head><body>${body}</body></html>`,
+    `<!doctype html><html lang="${escape(options.lang ?? 'en')}"><head>`
+    + `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`
+    + `${options.title ? `<title>${escape(options.title)}</title>` : ''}${head}`
+    + `</head><body>${body}</body></html>`,
   )
 }

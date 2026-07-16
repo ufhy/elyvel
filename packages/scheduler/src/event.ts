@@ -57,15 +57,19 @@ export class ScheduledEvent {
   get expression(): string {
     return this.segments.join(' ')
   }
+
   get timezoneName(): string | undefined {
     return this.tz
   }
+
   get name(): string {
     return this.label ?? `event(${this.expression})`
   }
+
   get runsInBackground(): boolean {
     return this.background
   }
+
   /** Sub-minute repeat interval in seconds, or undefined for minute-granular. */
   get repeatEverySeconds(): number | undefined {
     return this.repeatSeconds
@@ -79,10 +83,12 @@ export class ScheduledEvent {
     this.segments = parts as [string, string, string, string, string]
     return this
   }
+
   named(label: string): this {
     this.label = label
     return this
   }
+
   timezone(tz: string): this {
     this.tz = tz
     return this
@@ -98,22 +104,27 @@ export class ScheduledEvent {
     this.repeatSeconds = 1
     return this
   }
+
   everyTwoSeconds(): this {
     this.repeatSeconds = 2
     return this
   }
+
   everyFiveSeconds(): this {
     this.repeatSeconds = 5
     return this
   }
+
   everyTenSeconds(): this {
     this.repeatSeconds = 10
     return this
   }
+
   everyFifteenSeconds(): this {
     this.repeatSeconds = 15
     return this
   }
+
   everyThirtySeconds(): this {
     this.repeatSeconds = 30
     return this
@@ -123,56 +134,72 @@ export class ScheduledEvent {
   everyMinute(): this {
     return this.set(0, '*')
   }
+
   everyTwoMinutes(): this {
     return this.set(0, '*/2')
   }
+
   everyFiveMinutes(): this {
     return this.set(0, '*/5')
   }
+
   everyTenMinutes(): this {
     return this.set(0, '*/10')
   }
+
   everyFifteenMinutes(): this {
     return this.set(0, '*/15')
   }
+
   everyThirtyMinutes(): this {
     return this.set(0, '*/30')
   }
+
   hourly(): this {
     return this.set(0, '0')
   }
+
   hourlyAt(minute: number): this {
     return this.set(0, String(minute))
   }
+
   daily(): this {
     return this.set(0, '0').set(1, '0')
   }
+
   /** Run once a day at `HH:MM`. */
   dailyAt(time: string): this {
     const [hour, minute] = this.splitTime(time)
     return this.set(0, String(minute)).set(1, String(hour))
   }
+
   twiceDaily(first = 1, second = 13): this {
     return this.set(0, '0').set(1, `${first},${second}`)
   }
+
   weekly(): this {
     return this.set(0, '0').set(1, '0').set(4, '0')
   }
+
   /** Run weekly on `day` (0=Sun…6=Sat) at `HH:MM`. */
   weeklyOn(day: number, time = '0:0'): this {
     const [hour, minute] = this.splitTime(time)
     return this.set(0, String(minute)).set(1, String(hour)).set(4, String(day))
   }
+
   monthly(): this {
     return this.set(0, '0').set(1, '0').set(2, '1')
   }
+
   monthlyOn(day = 1, time = '0:0'): this {
     const [hour, minute] = this.splitTime(time)
     return this.set(0, String(minute)).set(1, String(hour)).set(2, String(day))
   }
+
   quarterly(): this {
     return this.set(0, '0').set(1, '0').set(2, '1').set(3, '1,4,7,10')
   }
+
   yearly(): this {
     return this.set(0, '0').set(1, '0').set(2, '1').set(3, '1')
   }
@@ -181,30 +208,39 @@ export class ScheduledEvent {
   days(...days: number[]): this {
     return this.set(4, days.join(','))
   }
+
   weekdays(): this {
     return this.set(4, '1-5')
   }
+
   weekends(): this {
     return this.set(4, '0,6')
   }
+
   sundays(): this {
     return this.set(4, '0')
   }
+
   mondays(): this {
     return this.set(4, '1')
   }
+
   tuesdays(): this {
     return this.set(4, '2')
   }
+
   wednesdays(): this {
     return this.set(4, '3')
   }
+
   thursdays(): this {
     return this.set(4, '4')
   }
+
   fridays(): this {
     return this.set(4, '5')
   }
+
   saturdays(): this {
     return this.set(4, '6')
   }
@@ -215,26 +251,31 @@ export class ScheduledEvent {
     this.filters.push(callback)
     return this
   }
+
   /** Skip when the callback returns truthy. */
   skip(callback: () => boolean | Promise<boolean>): this {
     this.rejects.push(callback)
     return this
   }
+
   /** Only run when the time-of-day is within `[start, end]` (handles overnight windows). */
   between(start: string, end: string): this {
-    this.filters.push((date) => this.withinWindow(date, start, end))
+    this.filters.push(date => this.withinWindow(date, start, end))
     return this
   }
+
   /** Skip when the time-of-day is within `[start, end]`. */
   unlessBetween(start: string, end: string): this {
-    this.rejects.push((date) => this.withinWindow(date, start, end))
+    this.rejects.push(date => this.withinWindow(date, start, end))
     return this
   }
+
   /** Only run in these app environments (compared against setSchedulerEnvironment). */
   environments(...envs: string[]): this {
     this.envs = envs
     return this
   }
+
   /**
    * Prevent a second copy running while one is in flight. Per-process by
    * default; cross-process when a mutex is set via `configureScheduleMutex`.
@@ -245,6 +286,7 @@ export class ScheduledEvent {
     this.overlapTtl = expiresAfterMinutes * 60
     return this
   }
+
   /**
    * Run on only one server per due tick (needs a shared mutex via
    * `configureScheduleMutex`; a no-op without one).
@@ -253,6 +295,7 @@ export class ScheduledEvent {
     this.oneServer = true
     return this
   }
+
   /** Run the task without blocking the rest of the schedule (fire-and-forget). */
   runInBackground(): this {
     this.background = true
@@ -265,16 +308,19 @@ export class ScheduledEvent {
     this.beforeHooks.push(callback)
     return this
   }
+
   /** Run after the task, whether it succeeded or failed. */
   after(callback: () => void | Promise<void>): this {
     this.afterHooks.push(callback)
     return this
   }
+
   /** Run after the task succeeds. */
   onSuccess(callback: () => void | Promise<void>): this {
     this.successHooks.push(callback)
     return this
   }
+
   /** Run when the task throws. */
   onFailure(callback: (error: unknown) => void | Promise<void>): this {
     this.failureHooks.push(callback)
@@ -288,29 +334,35 @@ export class ScheduledEvent {
     this.outputAppend = false
     return this
   }
+
   /** Capture the task's console output to a file (append). */
   appendOutputTo(path: string): this {
     this.outputPath = path
     this.outputAppend = true
     return this
   }
+
   /** Email the task's captured output (needs configureScheduleMailer). */
   emailOutputTo(address: string): this {
     this.emailTo = address
     return this
   }
+
   /** GET a URL before the task runs. */
   pingBefore(url: string): this {
     return this.before(() => void fetch(url).catch(() => {}))
   }
+
   /** GET a URL after the task runs. */
   thenPing(url: string): this {
     return this.after(() => void fetch(url).catch(() => {}))
   }
+
   /** GET a URL when the task succeeds. */
   pingOnSuccess(url: string): this {
     return this.onSuccess(() => void fetch(url).catch(() => {}))
   }
+
   /** GET a URL when the task fails. */
   pingOnFailure(url: string): this {
     return this.onFailure(() => void fetch(url).catch(() => {}))
@@ -329,19 +381,20 @@ export class ScheduledEvent {
       warn: console.warn,
       error: console.error,
     }
-    const tee =
-      (fn: (...a: unknown[]) => void) =>
-      (...args: unknown[]) => {
-        buffer.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
-        fn(...args)
-      }
+    const tee
+      = (fn: (...a: unknown[]) => void) =>
+        (...args: unknown[]) => {
+          buffer.push(args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+          fn(...args)
+        }
     console.log = tee(original.log)
     console.info = tee(original.info)
     console.warn = tee(original.warn)
     console.error = tee(original.error)
     try {
       await this.task()
-    } finally {
+    }
+    finally {
       Object.assign(console, original)
       const output = buffer.join('\n')
       if (this.outputPath) {
@@ -374,10 +427,18 @@ export class ScheduledEvent {
 
   /** Should this event run now — cron due, in-environment, AND all filters pass? */
   async shouldRun(date: Date): Promise<boolean> {
-    if (!this.isDue(date)) return false
-    if (this.envs && !this.envs.includes(schedulerEnvironment ?? '')) return false
-    for (const filter of this.filters) if (!(await filter(date))) return false
-    for (const reject of this.rejects) if (await reject(date)) return false
+    if (!this.isDue(date))
+      return false
+    if (this.envs && !this.envs.includes(schedulerEnvironment ?? ''))
+      return false
+    for (const filter of this.filters) {
+      if (!(await filter(date)))
+        return false
+    }
+    for (const reject of this.rejects) {
+      if (await reject(date))
+        return false
+    }
     return true
   }
 
@@ -395,7 +456,8 @@ export class ScheduledEvent {
     if (this.oneServer && mutex) {
       const bucket = Math.floor(date.getTime() / 60000)
       const claimed = await mutex.create(`oneserver:${this.name}:${bucket}`, 60)
-      if (!claimed) return false
+      if (!claimed)
+        return false
     }
 
     // withoutOverlapping: cross-process via mutex, else per-process set.
@@ -403,9 +465,12 @@ export class ScheduledEvent {
     if (this.noOverlap) {
       if (mutex) {
         const acquired = await mutex.create(overlapKey, this.overlapTtl)
-        if (!acquired) return false
-      } else {
-        if (runningLocks.has(this.name)) return false
+        if (!acquired)
+          return false
+      }
+      else {
+        if (runningLocks.has(this.name))
+          return false
         runningLocks.add(this.name)
       }
     }
@@ -415,13 +480,16 @@ export class ScheduledEvent {
       await this.runTask()
       for (const hook of this.successHooks) await hook()
       return true
-    } catch (error) {
+    }
+    catch (error) {
       for (const hook of this.failureHooks) await hook(error)
       throw error
-    } finally {
+    }
+    finally {
       for (const hook of this.afterHooks) await hook()
       if (this.noOverlap) {
-        if (mutex) await mutex.forget(overlapKey)
+        if (mutex)
+          await mutex.forget(overlapKey)
         else runningLocks.delete(this.name)
       }
     }

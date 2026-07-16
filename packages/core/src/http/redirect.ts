@@ -28,23 +28,28 @@ export class RedirectResponse {
     this.target = url
     return this
   }
+
   back(): this {
     this.target = 'back'
     return this
   }
+
   /** Set the HTTP status (e.g. 301 for permanent). */
   withStatus(status: number): this {
     this.status = status
     return this
   }
+
   with(key: string, value: unknown): this {
     this.flashes.push({ key, value })
     return this
   }
+
   /** Flash validation errors (read next request as `errors`). */
   withErrors(errors: Record<string, unknown>): this {
     return this.with('errors', errors)
   }
+
   /** Flash the old input so a form can be re-populated (read as `_old_input`). */
   withInput(input: Record<string, unknown>): this {
     return this.with('_old_input', input)
@@ -52,13 +57,15 @@ export class RedirectResponse {
 
   /** Resolve the destination URL (`back` → Referer, else the target). */
   location(request: Request): string {
-    if (this.target !== 'back') return this.target
+    if (this.target !== 'back')
+      return this.target
     return request.headers.get('referer') ?? '/'
   }
 
   /** Apply the pending flashes to the session (no-op without one). */
   applyFlash(session: FlashableSession | undefined): void {
-    if (!session) return
+    if (!session)
+      return
     for (const flash of this.flashes) session.flash(flash.key, flash.value)
   }
 }

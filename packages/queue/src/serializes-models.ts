@@ -28,7 +28,8 @@ export function modelSerializer(): ModelSerializer | null {
 
 /** Replace model values in a payload with `{ __ravel_model__: ref }` markers. */
 export function dehydrateData(data: Record<string, unknown>): Record<string, unknown> {
-  if (!serializer) return data
+  if (!serializer)
+    return data
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(data)) {
     if (Array.isArray(value)) {
@@ -36,7 +37,8 @@ export function dehydrateData(data: Record<string, unknown>): Record<string, unk
         const ref = serializer?.dehydrate(v)
         return ref ? { [MARKER]: ref } : v
       })
-    } else {
+    }
+    else {
       const ref = serializer.dehydrate(value)
       out[key] = ref ? { [MARKER]: ref } : value
     }
@@ -46,12 +48,14 @@ export function dehydrateData(data: Record<string, unknown>): Record<string, unk
 
 /** Re-fetch models on a reconstructed job's own fields (replaces markers). */
 export async function hydrateModels(job: Record<string, unknown>): Promise<void> {
-  if (!serializer) return
+  if (!serializer)
+    return
   for (const key of Object.keys(job)) {
     const value = job[key]
     if (Array.isArray(value)) {
-      job[key] = await Promise.all(value.map((v) => resolve(v)))
-    } else {
+      job[key] = await Promise.all(value.map(v => resolve(v)))
+    }
+    else {
       job[key] = await resolve(value)
     }
   }
@@ -59,10 +63,10 @@ export async function hydrateModels(job: Record<string, unknown>): Promise<void>
 
 async function resolve(value: unknown): Promise<unknown> {
   if (
-    serializer &&
-    value &&
-    typeof value === 'object' &&
-    MARKER in (value as Record<string, unknown>)
+    serializer
+    && value
+    && typeof value === 'object'
+    && MARKER in (value as Record<string, unknown>)
   ) {
     return serializer.hydrate((value as Record<string, ModelReference>)[MARKER] as ModelReference)
   }

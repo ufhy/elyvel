@@ -1,9 +1,9 @@
+import type { Connection, ConnectionConfig } from './connection'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { ServiceProvider } from '@elysia-ravel/core'
 import {
-  type Connection,
-  type ConnectionConfig,
+
   createConnection,
   setConnection,
   startRequestScope,
@@ -32,7 +32,8 @@ export class EloquentServiceProvider extends ServiceProvider {
     this.app.container.instance(DatabaseToken, connection)
 
     const appKey = this.app.config.get<string | undefined>('app.key')
-    if (appKey) setEncryptionKey(appKey)
+    if (appKey)
+      setEncryptionKey(appKey)
 
     this.wireLogging(connection)
 

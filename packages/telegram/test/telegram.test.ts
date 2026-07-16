@@ -4,7 +4,7 @@ import { setDefaultTelegram, Telegram } from '../src/manager'
 
 // A local fake Telegram Bot API — captures requests so we can assert a real
 // round-trip (client → HTTP → server) without hitting api.telegram.org.
-const received: { path: string; body: Record<string, unknown> }[] = []
+const received: { path: string, body: Record<string, unknown> }[] = []
 let server: ReturnType<typeof Bun.serve>
 let apiBase: string
 
@@ -53,7 +53,8 @@ describe('TelegramClient (live, local fake API)', () => {
     try {
       const client = new TelegramClient({ token: 'X', apiBase: `http://localhost:${bad.port}` })
       await expect(client.sendMessage({ chatId: 1, text: 'x' })).rejects.toThrow(/Unauthorized/)
-    } finally {
+    }
+    finally {
       bad.stop(true)
     }
   })

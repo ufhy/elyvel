@@ -1,3 +1,4 @@
+import type { Subscriber } from '../src/dispatcher'
 import { describe, expect, test } from 'bun:test'
 import {
   configureEventAfterCommit,
@@ -5,7 +6,7 @@ import {
   EventFake,
   fakeEvents,
   restoreEvents,
-  type Subscriber,
+
 } from '../src/dispatcher'
 
 class UserRegistered {
@@ -16,8 +17,8 @@ describe('Dispatcher', () => {
   test('listen by class + dispatch instance (typed)', async () => {
     const d = new Dispatcher()
     const seen: string[] = []
-    d.listen(UserRegistered, (e) => seen.push(e.email))
-    d.listen(UserRegistered, (e) => seen.push(`welcome:${e.email}`))
+    d.listen(UserRegistered, e => seen.push(e.email))
+    d.listen(UserRegistered, e => seen.push(`welcome:${e.email}`))
     await d.dispatch(new UserRegistered('ada@x.io'))
     expect(seen).toEqual(['ada@x.io', 'welcome:ada@x.io'])
   })
@@ -105,7 +106,7 @@ describe('Dispatcher', () => {
   test('push / flush deferred events', async () => {
     const d = new Dispatcher()
     const seen: unknown[] = []
-    d.listen('report', (p) => seen.push(p))
+    d.listen('report', p => seen.push(p))
     d.push('report', { id: 1 })
     d.push('report', { id: 2 })
     expect(seen).toEqual([]) // nothing yet
@@ -115,14 +116,14 @@ describe('Dispatcher', () => {
 
   test('ShouldDispatchAfterCommit defers via the hook', async () => {
     const deferred: Array<() => void> = []
-    configureEventAfterCommit((cb) => deferred.push(cb))
+    configureEventAfterCommit(cb => deferred.push(cb))
     const d = new Dispatcher()
     const seen: string[] = []
     d.listen('Paid', () => seen.push('ran'))
     await d.dispatch('Paid', { dispatchAfterCommit: true })
     expect(seen).toEqual([]) // not run until "commit"
     for (const cb of deferred) cb()
-    await new Promise((r) => setTimeout(r, 0))
+    await new Promise(r => setTimeout(r, 0))
     expect(seen).toEqual(['ran'])
     configureEventAfterCommit(() => {}) // reset
   })

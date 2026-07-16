@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test'
 import type { Application } from '@elysia-ravel/core'
+import { describe, expect, test } from 'bun:test'
 import { useConnection } from '../src/connection'
 import { EloquentServiceProvider } from '../src/database-provider'
 import { SchemaBuilder } from '../src/schema'
@@ -42,7 +42,7 @@ describe('EloquentServiceProvider logging', () => {
 
     await expect(useConnection().select('SELECT * FROM nope')).rejects.toThrow()
 
-    const err = calls.find((c) => c.level === 'error')
+    const err = calls.find(c => c.level === 'error')
     expect(err?.message).toBe('query failed')
     expect(err?.context?.sql).toContain('nope')
     expect(err?.context?.error).toBeDefined()
@@ -53,10 +53,10 @@ describe('EloquentServiceProvider logging', () => {
     await new EloquentServiceProvider(app).register()
 
     const conn = useConnection()
-    await new SchemaBuilder(conn).create('t', (t) => t.id())
+    await new SchemaBuilder(conn).create('t', t => t.id())
     await conn.select('SELECT 1 AS x')
 
-    expect(calls.some((c) => c.level === 'debug')).toBe(true)
+    expect(calls.some(c => c.level === 'debug')).toBe(true)
   })
 
   test('slow-query monitoring registers a per-request reset hook', async () => {
@@ -66,7 +66,7 @@ describe('EloquentServiceProvider logging', () => {
     expect(requestHooks).toHaveLength(1) // reset wired onto the request lifecycle
 
     const conn = useConnection()
-    await new SchemaBuilder(conn).create('t2', (t) => t.id())
+    await new SchemaBuilder(conn).create('t2', t => t.id())
     await conn.select('SELECT 1 AS x')
 
     requestHooks[0]?.() // simulate a new request boundary

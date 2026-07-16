@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { describe, expect, test } from 'bun:test'
-import { type Connection, createConnection } from '../src/connection'
+import { createConnection } from '../src/connection'
 import { migrate, rollback } from '../src/migrator'
 import { QueryBuilder } from '../src/query-builder'
 
@@ -14,7 +15,8 @@ async function tableExists(conn: Connection, name: string): Promise<boolean> {
   try {
     await conn.select(`SELECT 1 FROM ${conn.grammar.wrap(name)} LIMIT 1`)
     return true
-  } catch {
+  }
+  catch {
     return false
   }
 }

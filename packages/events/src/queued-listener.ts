@@ -28,9 +28,11 @@ export abstract class QueuedListener<E = AnyEvent> {
   attempts(): number {
     return this.job?.attempts() ?? 1
   }
+
   release(delay = 0): void {
     this.job?.release(delay)
   }
+
   delete(): void {
     this.job?.delete()
   }

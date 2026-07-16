@@ -48,7 +48,7 @@ for (const d of dialects) {
       await Post.create({ title: 'c', views: 3 })
 
       const many = await Post.findMany([1, 3])
-      expect([...many].map((p) => p.title).sort()).toEqual(['a', 'c'])
+      expect([...many].map(p => p.title).sort()).toEqual(['a', 'c'])
 
       const byKey = await Post.whereKey([2, 3]).get()
       expect(byKey.count()).toBe(2)
@@ -77,7 +77,7 @@ for (const d of dialects) {
     test('touch() bumps updated_at', async () => {
       const post = await Post.create({ title: 't', views: 0 })
       const before = post.getAttribute('updated_at')
-      await new Promise((r) => setTimeout(r, 5))
+      await new Promise(r => setTimeout(r, 5))
       await post.touch()
       expect(post.getAttribute('updated_at')).not.toBe(before)
     })

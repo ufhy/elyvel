@@ -41,7 +41,7 @@ for (const d of dialects) {
     test('grouped where: role=dev AND (age<30 OR score>90)', async () => {
       const rows = await Person.query()
         .where('role', 'dev')
-        .where((q) => q.where('age', '<', 30).orWhere('score', '>', 90))
+        .where(q => q.where('age', '<', 30).orWhere('score', '>', 90))
         .get()
       expect(rows.pluck('name').all()).toEqual(['Ada'])
     })
@@ -65,7 +65,7 @@ for (const d of dialects) {
       const dev = async (flag: boolean) =>
         (
           await Person.query()
-            .when(flag, (q) => q.where('role', 'dev'))
+            .when(flag, q => q.where('role', 'dev'))
             .get()
         ).count()
       expect(await dev(true)).toBe(3)

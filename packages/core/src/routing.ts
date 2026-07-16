@@ -1,5 +1,6 @@
+import type { MiddlewareContext } from './middleware'
 import { Elysia } from 'elysia'
-import { type MiddlewareContext, route } from './middleware'
+import { route } from './middleware'
 import { named } from './url'
 
 /** A controller action handler — receives the Elysia context, returns a response. */
@@ -57,14 +58,17 @@ type ControllerInstance = Partial<Record<ResourceAction, RouteHandler>>
 export type ControllerClass = new () => ControllerInstance
 
 function selectedActions(options: ResourceOptions): ResourceAction[] {
-  if (options.only) return ALL_ACTIONS.filter((a) => options.only?.includes(a))
-  if (options.except) return ALL_ACTIONS.filter((a) => !options.except?.includes(a))
+  if (options.only)
+    return ALL_ACTIONS.filter(a => options.only?.includes(a))
+  if (options.except)
+    return ALL_ACTIONS.filter(a => !options.except?.includes(a))
   return ALL_ACTIONS
 }
 
 function middlewareFor(action: ResourceAction, options: ResourceOptions): string[] {
   const mw = options.middleware
-  if (!mw) return []
+  if (!mw)
+    return []
   return Array.isArray(mw) ? mw : (mw[action] ?? [])
 }
 
@@ -110,7 +114,8 @@ export function resource(
   // Wrap id-based actions with model binding when `bind` is set.
   const bindAction = (action: ResourceAction, handler: RouteHandler): RouteHandler => {
     const needsModel = action === 'show' || action === 'update' || action === 'destroy'
-    if (!options.bind || !needsModel) return handler
+    if (!options.bind || !needsModel)
+      return handler
     return async (ctx) => {
       const model = await resolveModel(ctx)
       if (model === null || model === undefined) {
@@ -125,18 +130,21 @@ export function resource(
 
   const bind = (action: ResourceAction): RouteHandler | undefined => {
     const fn = instance[action]
-    if (typeof fn !== 'function') return undefined
+    if (typeof fn !== 'function')
+      return undefined
     return bindAction(action, (fn as RouteHandler).bind(instance))
   }
 
   const fullPath = (suffix: string) => `${path}${suffix}`.replace(/\/$/, '') || '/'
   const nameRoute = (action: ResourceAction, suffix: string) => {
-    if (options.name) named(`${options.name}.${action}`, fullPath(suffix))
+    if (options.name)
+      named(`${options.name}.${action}`, fullPath(suffix))
   }
 
   for (const action of selectedActions(options)) {
     const handler = bind(action)
-    if (!handler) continue
+    if (!handler)
+      continue
     switch (action) {
       case 'index':
         r = r.get('/', handler, opts(action))
@@ -201,9 +209,9 @@ export function singleton(
     ? ['store', 'show', 'update', 'destroy']
     : ['show', 'update', 'destroy']
   const actions = options.only
-    ? all.filter((a) => options.only?.includes(a))
+    ? all.filter(a => options.only?.includes(a))
     : options.except
-      ? all.filter((a) => !options.except?.includes(a))
+      ? all.filter(a => !options.except?.includes(a))
       : all
 
   let r: any = route(path)
@@ -217,12 +225,14 @@ export function singleton(
     return typeof fn === 'function' ? (fn as RouteHandler).bind(instance) : undefined
   }
   const nameRoute = (action: SingletonAction) => {
-    if (options.name) named(`${options.name}.${action}`, path.replace(/\/$/, '') || '/')
+    if (options.name)
+      named(`${options.name}.${action}`, path.replace(/\/$/, '') || '/')
   }
 
   for (const action of actions) {
     const handler = bind(action)
-    if (!handler) continue
+    if (!handler)
+      continue
     switch (action) {
       case 'store':
         r = r.post('/', handler, mwOf(action))
@@ -256,9 +266,9 @@ export function invoke(Controller: InvokableClass): RouteHandler {
   const instance = new Controller()
   const fn = instance.handle ?? instance.__invoke
   if (typeof fn !== 'function') {
-    throw new Error(`[elysia-ravel] ${Controller.name} must define handle() or __invoke().`)
+    throw new TypeError(`[elysia-ravel] ${Controller.name} must define handle() or __invoke().`)
   }
-  return (ctx) => fn.call(instance, ctx)
+  return ctx => fn.call(instance, ctx)
 }
 
 /**
@@ -268,7 +278,8 @@ export function invoke(Controller: InvokableClass): RouteHandler {
  */
 export function fallback(handler: RouteHandler): Elysia {
   const plugin: any = new Elysia({ name: 'ravel-fallback' }).onError({ as: 'global' }, (ctx) => {
-    if (ctx.code === 'NOT_FOUND') return handler(ctx as unknown as MiddlewareContext)
+    if (ctx.code === 'NOT_FOUND')
+      return handler(ctx as unknown as MiddlewareContext)
   })
   return plugin as Elysia
 }

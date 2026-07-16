@@ -5,8 +5,8 @@ import { Inertia } from '../src/response'
 
 afterEach(() => Inertia.flushShared())
 
-const build = (config = {}) =>
-  new Elysia()
+function build(config = {}) {
+  return new Elysia()
     .use(inertia(config))
     .get('/home', () => Inertia.render('Home', { name: 'Sam' }))
     .get('/lazy', () =>
@@ -14,14 +14,15 @@ const build = (config = {}) =>
         always: Inertia.always(() => 'A'),
         maybe: Inertia.optional(() => 'M'),
         normal: 'N',
-      }),
-    )
+      }))
     .get('/external', () => Inertia.location('https://example.com'))
+}
 
-const inertiaReq = (path: string, headers: Record<string, string> = {}) =>
-  new Request(`http://localhost${path}`, {
+function inertiaReq(path: string, headers: Record<string, string> = {}) {
+  return new Request(`http://localhost${path}`, {
     headers: { 'x-inertia': 'true', 'x-inertia-version': '', ...headers },
   })
+}
 
 describe('first (non-XHR) load', () => {
   test('returns an HTML document embedding the page object', async () => {
@@ -119,8 +120,7 @@ describe('v2: deferred props', () => {
         user: 'Sam',
         comments: Inertia.defer(() => ['c1', 'c2']),
         analytics: Inertia.defer(() => ['a1'], 'reports'),
-      }),
-    )
+      }))
 
   test('full visit omits deferred props and advertises them (grouped)', async () => {
     const res = await app().handle(inertiaReq('/posts'))
@@ -153,9 +153,8 @@ describe('v2: merge props', () => {
         posts: Inertia.merge(() => [{ id: 1 }]).matchOn('posts.id'),
         chat: Inertia.deepMerge({ messages: [] }),
         alerts: Inertia.merge(['a']).prepend(),
-      }),
-    )
-    const page = (await app.handle(inertiaReq('/feed')).then((r) => r.json())) as {
+      }))
+    const page = (await app.handle(inertiaReq('/feed')).then(r => r.json())) as {
       props: Record<string, unknown>
       mergeProps: string[]
       deepMergeProps: string[]
@@ -175,9 +174,8 @@ describe('v2: history flags', () => {
     const app = new Elysia()
       .use(inertia())
       .get('/secure', () =>
-        Inertia.render('Secure', {}).encryptHistory().clearHistory().preserveFragment(),
-      )
-    const page = (await app.handle(inertiaReq('/secure')).then((r) => r.json())) as Record<
+        Inertia.render('Secure', {}).encryptHistory().clearHistory().preserveFragment())
+    const page = (await app.handle(inertiaReq('/secure')).then(r => r.json())) as Record<
       string,
       unknown
     >
@@ -194,7 +192,7 @@ describe('server-side rendering', () => {
         inertia({
           ssr: {
             // fake SSR render — stands in for the built Vue bundle
-            render: (page) => ({
+            render: page => ({
               head: ['<title>SSR Home</title>'],
               body: `<div id="app" data-page='${JSON.stringify(page)}'><main>SSR: ${String(page.props.name)}</main></div>`,
             }),

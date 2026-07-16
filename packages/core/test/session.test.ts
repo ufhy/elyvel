@@ -1,7 +1,8 @@
+import type { ResolvedSessionConfig } from '../src/session'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { registerMiddlewareRegistry, route } from '../src/middleware'
-import { CsrfMiddleware, type ResolvedSessionConfig, sessionPlugin } from '../src/session'
+import { CsrfMiddleware, sessionPlugin } from '../src/session'
 
 const cfg: ResolvedSessionConfig = {
   driver: 'cookie',
@@ -20,7 +21,7 @@ const cfg: ResolvedSessionConfig = {
 function jar(res: Response): string {
   return res.headers
     .getSetCookie()
-    .map((c) => c.split(';')[0])
+    .map(c => c.split(';')[0])
     .join('; ')
 }
 
@@ -69,7 +70,7 @@ describe('server-side session drivers (memory / file / database)', () => {
   const dbRows = new Map<string, string>()
   const { configureDatabaseSession } = require('../src/session') as typeof import('../src/session')
   configureDatabaseSession({
-    read: async (id) => dbRows.get(id),
+    read: async id => dbRows.get(id),
     write: async (id, payload) => void dbRows.set(id, payload),
   })
 
@@ -99,8 +100,10 @@ describe('redis session store (fake client — logic only)', () => {
     const map = new Map<string, string>()
     const client = {
       async send(command: string, args: string[]) {
-        if (command === 'GET') return map.get(args[0] as string) ?? null
-        if (command === 'SET') return void map.set(args[0] as string, args[1] as string)
+        if (command === 'GET')
+          return map.get(args[0] as string) ?? null
+        if (command === 'SET')
+          return void map.set(args[0] as string, args[1] as string)
         return null
       },
     }

@@ -1,5 +1,5 @@
-import { table } from '@elysia-ravel/database'
 import type { CleanedWhere } from 'better-auth/adapters'
+import { table } from '@elysia-ravel/database'
 import { createAdapterFactory } from 'better-auth/adapters'
 
 type QB = ReturnType<typeof table>
@@ -87,9 +87,12 @@ export function eloquentAdapter(options: EloquentAdapterOptions = {}) {
       },
       async findMany({ model, where, limit, offset, sortBy }) {
         let qb = applyWhere(table(model), where)
-        if (sortBy) qb = qb.orderBy(sortBy.field, sortBy.direction)
-        if (typeof limit === 'number') qb = qb.limit(limit)
-        if (typeof offset === 'number') qb = qb.offset(offset)
+        if (sortBy)
+          qb = qb.orderBy(sortBy.field, sortBy.direction)
+        if (typeof limit === 'number')
+          qb = qb.limit(limit)
+        if (typeof offset === 'number')
+          qb = qb.offset(offset)
         return (await qb.get()) as any
       },
       async update({ model, where, update }) {
@@ -126,11 +129,11 @@ export function eloquentAdapter(options: EloquentAdapterOptions = {}) {
 /** Map a Better Auth field type to an elysia-ravel Blueprint column call. */
 function columnFor(
   name: string,
-  attr: { type?: unknown; required?: boolean; unique?: boolean },
+  attr: { type?: unknown, required?: boolean, unique?: boolean },
 ): string {
   const type = String(attr.type ?? 'string')
-  const base =
-    type === 'boolean'
+  const base
+    = type === 'boolean'
       ? `t.boolean(${JSON.stringify(name)})`
       : type === 'number'
         ? `t.integer(${JSON.stringify(name)})`
@@ -151,7 +154,7 @@ function buildMigration(tables: Record<string, { fields: Record<string, any> }>)
     const cols = ['      t.string("id").unique()']
     for (const [field, attr] of Object.entries(def.fields)) {
       cols.push(
-        `      ${columnFor(field, attr as { type?: unknown; required?: boolean; unique?: boolean })}`,
+        `      ${columnFor(field, attr as { type?: unknown, required?: boolean, unique?: boolean })}`,
       )
     }
     creates.push(
@@ -160,10 +163,10 @@ function buildMigration(tables: Record<string, { fields: Record<string, any> }>)
     drops.push(`    schema.dropIfExists(${JSON.stringify(tableName)})`)
   }
   return (
-    `import type { Migration } from '@elysia-ravel/database'\n\n` +
-    `export default {\n` +
-    `  up: async (schema) => {\n${creates.map((c) => c.replace('    schema', '    await schema')).join('\n')}\n  },\n` +
-    `  down: async (schema) => {\n${drops.map((d) => d.replace('    schema', '    await schema')).join('\n')}\n  },\n` +
-    `} satisfies Migration\n`
+    `import type { Migration } from '@elysia-ravel/database'\n\n`
+    + `export default {\n`
+    + `  up: async (schema) => {\n${creates.map(c => c.replace('    schema', '    await schema')).join('\n')}\n  },\n`
+    + `  down: async (schema) => {\n${drops.map(d => d.replace('    schema', '    await schema')).join('\n')}\n  },\n`
+    + `} satisfies Migration\n`
   )
 }

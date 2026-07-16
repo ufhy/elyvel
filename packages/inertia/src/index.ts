@@ -1,9 +1,8 @@
-export { type ViteOptions, viteTags } from '@elysia-ravel/vite'
-export { type InertiaConfig, inertia, type SsrOptions, type SsrResult } from './plugin'
+export { inertia, type InertiaConfig, type SsrOptions, type SsrResult } from './plugin'
 export {
   AlwaysProp,
-  type BuiltProps,
   buildProps,
+  type BuiltProps,
   DeferProp,
   Inertia,
   InertiaLocation,
@@ -13,3 +12,4 @@ export {
   OptionalProp,
   type Page,
 } from './response'
+export { type ViteOptions, viteTags } from '@elysia-ravel/vite'

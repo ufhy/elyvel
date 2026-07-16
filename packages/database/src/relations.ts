@@ -1,7 +1,7 @@
-import { useConnection } from './connection'
 import type { EloquentBuilder } from './eloquent-builder'
-import { EloquentCollection } from './eloquent-collection'
 import type { Model, ModelClass } from './model'
+import { useConnection } from './connection'
+import { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
 
 /** Optional callback to constrain a relation's query (eager loads, whereHas). */
@@ -35,7 +35,7 @@ export abstract class Relation<R extends Model> {
   /** Per-parent-key related-row counts (for `has(rel, '>', n)`). */
   async existenceCounts(
     _constrain?: RelationConstraint<R>,
-  ): Promise<{ column: string; counts: Map<unknown, number> }> {
+  ): Promise<{ column: string, counts: Map<unknown, number> }> {
     throw new Error('[eloquent] has() with a count is not supported on this relation')
   }
 
@@ -51,17 +51,21 @@ export abstract class Relation<R extends Model> {
     this.ready().where(column, operatorOrValue, value)
     return this
   }
+
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
     this.ready().orderBy(column, direction)
     return this
   }
+
   limit(n: number): this {
     this.ready().limit(n)
     return this
   }
+
   get(): Promise<EloquentCollection<R>> {
     return this.ready().get()
   }
+
   first(): Promise<R | undefined> {
     return this.ready().first()
   }
@@ -90,12 +94,15 @@ export abstract class Relation<R extends Model> {
       const rows = (
         loaded instanceof EloquentCollection ? loaded.all() : loaded ? [loaded] : []
       ) as Model[]
-      const values = rows.map((m) => Number(m.getAttribute(column)))
+      const values = rows.map(m => Number(m.getAttribute(column)))
       let agg = 0
       if (values.length) {
-        if (fn === 'sum') agg = values.reduce((a, b) => a + b, 0)
-        else if (fn === 'avg') agg = values.reduce((a, b) => a + b, 0) / values.length
-        else if (fn === 'min') agg = Math.min(...values)
+        if (fn === 'sum')
+          agg = values.reduce((a, b) => a + b, 0)
+        else if (fn === 'avg')
+          agg = values.reduce((a, b) => a + b, 0) / values.length
+        else if (fn === 'min')
+          agg = Math.min(...values)
         else agg = Math.max(...values)
       }
       parent.setAttribute(`${name}_${fn}_${column}`, agg)
@@ -114,19 +121,24 @@ export async function eagerLoad(
   path: string,
   constrain?: RelationConstraint<Model>,
 ): Promise<void> {
-  if (models.length === 0) return
+  if (models.length === 0)
+    return
   const [head, ...rest] = path.split('.')
   const source = models[0] as unknown as Record<string, () => Relation<Model>>
   const relation = source[head as string]?.()
-  if (!relation) return
+  if (!relation)
+    return
   await relation.eager(models, head as string, rest.length ? undefined : constrain)
-  if (rest.length === 0) return
+  if (rest.length === 0)
+    return
 
   const children: Model[] = []
   for (const model of models) {
     const loaded = model.getRelation(head as string)
-    if (loaded instanceof EloquentCollection) children.push(...loaded.all())
-    else if (loaded) children.push(loaded as Model)
+    if (loaded instanceof EloquentCollection)
+      children.push(...loaded.all())
+    else if (loaded)
+      children.push(loaded as Model)
   }
   await eagerLoad(children, rest.join('.'), constrain)
 }
@@ -140,11 +152,13 @@ export class HasMany<R extends Model> extends Relation<R> {
   ) {
     super(parent, related)
   }
+
   protected addConstraints(): void {
     this.builder.where(this.foreignKey, this.parent.getAttribute(this.localKey))
   }
+
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
-    const keys = parents.map((p) => p.getAttribute(this.localKey))
+    const keys = parents.map(p => p.getAttribute(this.localKey))
     const query = this.related.query().whereIn(this.foreignKey, keys)
     constrain?.(query)
     const grouped = (await query.get()).groupBy(this.foreignKey as keyof R)
@@ -153,15 +167,17 @@ export class HasMany<R extends Model> extends Relation<R> {
       parent.setRelation(name, new EloquentCollection(items))
     }
   }
+
   async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
     const query = this.related.query().select(this.foreignKey)
     constrain?.(query)
     const rows = await query.get()
     return {
       column: this.localKey,
-      values: [...new Set(rows.all().map((m) => m.getAttribute(this.foreignKey)))],
+      values: [...new Set(rows.all().map(m => m.getAttribute(this.foreignKey)))],
     }
   }
+
   override async existenceCounts(constrain?: RelationConstraint<R>) {
     const query = this.related.query().select(this.foreignKey)
     constrain?.(query)
@@ -183,14 +199,17 @@ export class HasOne<R extends Model> extends Relation<R> {
   ) {
     super(parent, related)
   }
+
   protected addConstraints(): void {
     this.builder.where(this.foreignKey, this.parent.getAttribute(this.localKey)).limit(1)
   }
+
   getResults(): Promise<R | undefined> {
     return this.first()
   }
+
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
-    const keys = parents.map((p) => p.getAttribute(this.localKey))
+    const keys = parents.map(p => p.getAttribute(this.localKey))
     const query = this.related.query().whereIn(this.foreignKey, keys)
     constrain?.(query)
     const grouped = (await query.get()).groupBy(this.foreignKey as keyof R)
@@ -198,13 +217,14 @@ export class HasOne<R extends Model> extends Relation<R> {
       parent.setRelation(name, grouped[String(parent.getAttribute(this.localKey))]?.first())
     }
   }
+
   async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
     const query = this.related.query().select(this.foreignKey)
     constrain?.(query)
     const rows = await query.get()
     return {
       column: this.localKey,
-      values: [...new Set(rows.all().map((m) => m.getAttribute(this.foreignKey)))],
+      values: [...new Set(rows.all().map(m => m.getAttribute(this.foreignKey)))],
     }
   }
 }
@@ -218,14 +238,17 @@ export class BelongsTo<R extends Model> extends Relation<R> {
   ) {
     super(parent, related)
   }
+
   protected addConstraints(): void {
     this.builder.where(this.ownerKey, this.parent.getAttribute(this.foreignKey)).limit(1)
   }
+
   getResults(): Promise<R | undefined> {
     return this.first()
   }
+
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
-    const keys = parents.map((p) => p.getAttribute(this.foreignKey))
+    const keys = parents.map(p => p.getAttribute(this.foreignKey))
     const query = this.related.query().whereIn(this.ownerKey, keys)
     constrain?.(query)
     const keyed = (await query.get()).keyBy(this.ownerKey as keyof R)
@@ -233,13 +256,14 @@ export class BelongsTo<R extends Model> extends Relation<R> {
       parent.setRelation(name, keyed[String(parent.getAttribute(this.foreignKey))])
     }
   }
+
   async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
     const query = this.related.query().select(this.ownerKey)
     constrain?.(query)
     const rows = await query.get()
     return {
       column: this.foreignKey,
-      values: [...new Set(rows.all().map((m) => m.getAttribute(this.ownerKey)))],
+      values: [...new Set(rows.all().map(m => m.getAttribute(this.ownerKey)))],
     }
   }
 }
@@ -260,41 +284,50 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
   ) {
     super(parent, related)
   }
+
   private pivotTimestamps = false
   protected addConstraints(): void {}
   private pivot(): QueryBuilder {
     const q = new QueryBuilder(useConnection(), this.pivotTable)
-    if (this.morphType) q.where(this.morphType, this.morphClass)
+    if (this.morphType)
+      q.where(this.morphType, this.morphClass)
     return q
   }
+
   /** Attach the pivot row (all its columns) onto each related model as `pivot`. */
   withPivot(): this {
     return this // pivot columns are always attached; kept for API familiarity
   }
+
   /** Set created_at/updated_at on the pivot when attaching. */
   withTimestamps(): this {
     this.pivotTimestamps = true
     return this
   }
+
   private attachPivot(models: R[], pivotRows: Record<string, unknown>[]): void {
-    const byRelated = new Map(pivotRows.map((r) => [String(r[this.relatedPivotKey]), r]))
+    const byRelated = new Map(pivotRows.map(r => [String(r[this.relatedPivotKey]), r]))
     for (const model of models) {
       model.setRelation('pivot', byRelated.get(String(model.getAttribute(this.relatedKey))))
     }
   }
+
   override async get(): Promise<EloquentCollection<R>> {
     const rows = await this.pivot()
       .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
       .get()
-    const ids = rows.map((r) => r[this.relatedPivotKey])
-    if (ids.length === 0) return new EloquentCollection<R>([])
+    const ids = rows.map(r => r[this.relatedPivotKey])
+    if (ids.length === 0)
+      return new EloquentCollection<R>([])
     const related = await this.related.query().whereIn(this.relatedKey, ids).get()
     this.attachPivot(related.all(), rows)
     return related
   }
+
   override async first(): Promise<R | undefined> {
     return (await this.get()).first()
   }
+
   async attach(ids: unknown | unknown[]): Promise<void> {
     const list = Array.isArray(ids) ? ids : [ids]
     const parentId = this.parent.getAttribute(this.parentKey)
@@ -304,7 +337,8 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
         [this.foreignPivotKey]: parentId,
         [this.relatedPivotKey]: id,
       }
-      if (this.morphType) row[this.morphType] = this.morphClass
+      if (this.morphType)
+        row[this.morphType] = this.morphClass
       if (this.pivotTimestamps) {
         row.created_at = now
         row.updated_at = now
@@ -312,50 +346,62 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
       await this.pivot().insert(row)
     }
   }
+
   async detach(ids?: unknown | unknown[]): Promise<void> {
     const query = this.pivot().where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
-    if (ids !== undefined) query.whereIn(this.relatedPivotKey, Array.isArray(ids) ? ids : [ids])
+    if (ids !== undefined)
+      query.whereIn(this.relatedPivotKey, Array.isArray(ids) ? ids : [ids])
     await query.delete()
   }
+
   async sync(ids: unknown[]): Promise<void> {
     await this.detach()
     await this.attach(ids)
   }
+
   /** Current related ids linked to the parent in the pivot table. */
   private async currentPivotIds(): Promise<unknown[]> {
     const rows = await this.pivot()
       .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
       .get()
-    return rows.map((r) => r[this.relatedPivotKey])
+    return rows.map(r => r[this.relatedPivotKey])
   }
+
   /** Attach the given ids without detaching existing ones. */
   async syncWithoutDetaching(ids: unknown[]): Promise<void> {
     const current = new Set((await this.currentPivotIds()).map(String))
-    const toAttach = ids.filter((id) => !current.has(String(id)))
-    if (toAttach.length) await this.attach(toAttach)
+    const toAttach = ids.filter(id => !current.has(String(id)))
+    if (toAttach.length)
+      await this.attach(toAttach)
   }
+
   /** Attach ids not present, detach ids that are — flipping each. */
   async toggle(ids: unknown[]): Promise<void> {
     const current = new Set((await this.currentPivotIds()).map(String))
     const attach: unknown[] = []
     const detach: unknown[] = []
     for (const id of ids) (current.has(String(id)) ? detach : attach).push(id)
-    if (attach.length) await this.attach(attach)
-    if (detach.length) await this.detach(detach)
+    if (attach.length)
+      await this.attach(attach)
+    if (detach.length)
+      await this.detach(detach)
   }
+
   /** Update pivot columns for one already-attached related id. */
   async updateExistingPivot(id: unknown, attributes: Record<string, unknown>): Promise<void> {
     const values = { ...attributes }
-    if (this.pivotTimestamps) values.updated_at = new Date().toISOString()
+    if (this.pivotTimestamps)
+      values.updated_at = new Date().toISOString()
     await this.pivot()
       .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
       .where(this.relatedPivotKey, id)
       .update(values)
   }
+
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
-    const parentKeys = parents.map((p) => p.getAttribute(this.parentKey))
+    const parentKeys = parents.map(p => p.getAttribute(this.parentKey))
     const pivotRows = await this.pivot().whereIn(this.foreignPivotKey, parentKeys).get()
-    const relatedIds = [...new Set(pivotRows.map((r) => r[this.relatedPivotKey]))]
+    const relatedIds = [...new Set(pivotRows.map(r => r[this.relatedPivotKey]))]
     let related = new EloquentCollection<R>([])
     if (relatedIds.length) {
       const query = this.related.query().whereIn(this.relatedKey, relatedIds)
@@ -367,7 +413,8 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     const byParent = new Map<string, R[]>()
     for (const row of pivotRows) {
       const model = relatedById[String(row[this.relatedPivotKey])]
-      if (!model) continue
+      if (!model)
+        continue
       const key = String(row[this.foreignPivotKey])
       const bucket = byParent.get(key) ?? []
       bucket.push(model)
@@ -378,21 +425,24 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
       parent.setRelation(name, new EloquentCollection(bucket))
     }
   }
+
   async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
     const query = this.related.query().select(this.relatedKey)
     constrain?.(query)
-    const relatedIds = (await query.get()).all().map((m) => m.getAttribute(this.relatedKey))
-    if (!relatedIds.length) return { column: this.parentKey, values: [] }
+    const relatedIds = (await query.get()).all().map(m => m.getAttribute(this.relatedKey))
+    if (!relatedIds.length)
+      return { column: this.parentKey, values: [] }
     const pivotRows = await this.pivot().whereIn(this.relatedPivotKey, relatedIds).get()
     return {
       column: this.parentKey,
-      values: [...new Set(pivotRows.map((r) => r[this.foreignPivotKey]))],
+      values: [...new Set(pivotRows.map(r => r[this.foreignPivotKey]))],
     }
   }
+
   override async existenceCounts(constrain?: RelationConstraint<R>) {
     const query = this.related.query().select(this.relatedKey)
     constrain?.(query)
-    const relatedIds = (await query.get()).all().map((m) => m.getAttribute(this.relatedKey))
+    const relatedIds = (await query.get()).all().map(m => m.getAttribute(this.relatedKey))
     const counts = new Map<unknown, number>()
     if (relatedIds.length) {
       const pivotRows = await this.pivot().whereIn(this.relatedPivotKey, relatedIds).get()
@@ -419,14 +469,16 @@ export class MorphMany<R extends Model> extends Relation<R> {
     this.idField = `${morphName}_id`
     this.typeField = `${morphName}_type`
   }
+
   protected addConstraints(): void {
     this.builder
       .where(this.idField, this.parent.getAttribute(this.localKey))
       .where(this.typeField, this.parent.constructor.name)
   }
+
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
     const type = parents[0]?.constructor.name
-    const keys = parents.map((p) => p.getAttribute(this.localKey))
+    const keys = parents.map(p => p.getAttribute(this.localKey))
     const query = this.related.query().whereIn(this.idField, keys).where(this.typeField, type)
     constrain?.(query)
     const grouped = (await query.get()).groupBy(this.idField as keyof R)
@@ -435,6 +487,7 @@ export class MorphMany<R extends Model> extends Relation<R> {
       parent.setRelation(name, new EloquentCollection(items))
     }
   }
+
   async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
     const query = this.related
       .query()
@@ -444,9 +497,10 @@ export class MorphMany<R extends Model> extends Relation<R> {
     const rows = await query.get()
     return {
       column: this.localKey,
-      values: [...new Set(rows.all().map((m) => m.getAttribute(this.idField)))],
+      values: [...new Set(rows.all().map(m => m.getAttribute(this.idField)))],
     }
   }
+
   override async existenceCounts(constrain?: RelationConstraint<R>) {
     const query = this.related
       .query()
@@ -482,16 +536,20 @@ export class MorphTo extends Relation<Model> {
     this.idField = `${morphName}_id`
     this.typeField = `${morphName}_type`
   }
+
   protected addConstraints(): void {}
   override async first(): Promise<Model | undefined> {
     const cls = this.typeMap[String(this.parent.getAttribute(this.typeField))]
-    if (!cls) return undefined
+    if (!cls)
+      return undefined
     return cls.query().where(cls.primaryKey, this.parent.getAttribute(this.idField)).first()
   }
+
   override async get(): Promise<EloquentCollection<Model>> {
     const model = await this.first()
     return new EloquentCollection(model ? [model] : [])
   }
+
   async eager(parents: Model[], name: string): Promise<void> {
     const byType = new Map<string, Model[]>()
     for (const parent of parents) {
@@ -506,7 +564,7 @@ export class MorphTo extends Relation<Model> {
         for (const parent of group) parent.setRelation(name, undefined)
         continue
       }
-      const ids = group.map((p) => p.getAttribute(this.idField))
+      const ids = group.map(p => p.getAttribute(this.idField))
       const keyed = (await cls.query().whereIn(cls.primaryKey, ids).get()).keyBy(
         cls.primaryKey as keyof Model,
       )
@@ -515,6 +573,7 @@ export class MorphTo extends Relation<Model> {
       }
     }
   }
+
   async existenceKeys(): Promise<ExistenceKeys> {
     throw new Error('[eloquent] whereHas is not supported on morphTo relations')
   }
@@ -533,18 +592,22 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
   ) {
     super(parent, far)
   }
+
   protected addConstraints(): void {}
   private async throughRows(parentKeys: unknown[]) {
     return (await this.through.query().whereIn(this.firstKey, parentKeys).get()).all()
   }
+
   override async get(): Promise<EloquentCollection<R>> {
     const rows = await this.throughRows([this.parent.getAttribute(this.localKey)])
-    const throughIds = rows.map((t) => t.getAttribute(this.secondLocalKey))
-    if (throughIds.length === 0) return new EloquentCollection<R>([])
+    const throughIds = rows.map(t => t.getAttribute(this.secondLocalKey))
+    if (throughIds.length === 0)
+      return new EloquentCollection<R>([])
     return this.related.query().whereIn(this.secondKey, throughIds).get()
   }
+
   async eager(parents: Model[], name: string): Promise<void> {
-    const rows = await this.throughRows(parents.map((p) => p.getAttribute(this.localKey)))
+    const rows = await this.throughRows(parents.map(p => p.getAttribute(this.localKey)))
     const throughToParent = new Map<string, string>()
     for (const t of rows) {
       throughToParent.set(
@@ -552,14 +615,15 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
         String(t.getAttribute(this.firstKey)),
       )
     }
-    const throughIds = rows.map((t) => t.getAttribute(this.secondLocalKey))
+    const throughIds = rows.map(t => t.getAttribute(this.secondLocalKey))
     const far = throughIds.length
       ? await this.related.query().whereIn(this.secondKey, throughIds).get()
       : new EloquentCollection<R>([])
     const byParent = new Map<string, R[]>()
     for (const model of far.all()) {
       const parentKey = throughToParent.get(String(model.getAttribute(this.secondKey)))
-      if (parentKey === undefined) continue
+      if (parentKey === undefined)
+        continue
       const bucket = byParent.get(parentKey) ?? []
       bucket.push(model)
       byParent.set(parentKey, bucket)
@@ -569,9 +633,11 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
       parent.setRelation(name, new EloquentCollection(bucket))
     }
   }
+
   override async first(): Promise<R | undefined> {
     return (await this.get()).first()
   }
+
   async existenceKeys(): Promise<ExistenceKeys> {
     throw new Error('[eloquent] whereHas is not supported on hasManyThrough relations')
   }
@@ -582,6 +648,7 @@ export class HasOneThrough<R extends Model> extends HasManyThrough<R> {
   async getResults(): Promise<R | undefined> {
     return this.first()
   }
+
   override async eager(parents: Model[], name: string): Promise<void> {
     await super.eager(parents, name)
     for (const parent of parents) {

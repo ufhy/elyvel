@@ -15,18 +15,23 @@ export class Collection<T> implements Iterable<T> {
   all(): T[] {
     return this.items
   }
+
   count(): number {
     return this.items.length
   }
+
   isEmpty(): boolean {
     return this.items.length === 0
   }
+
   isNotEmpty(): boolean {
     return this.items.length > 0
   }
+
   get(index: number): T | undefined {
     return this.items[index]
   }
+
   last(): T | undefined {
     return this.items[this.items.length - 1]
   }
@@ -38,33 +43,39 @@ export class Collection<T> implements Iterable<T> {
   map<U>(fn: (item: T, index: number) => U): Collection<U> {
     return new Collection(this.items.map(fn))
   }
+
   filter(fn: (item: T, index: number) => boolean): Collection<T> {
     return new Collection(this.items.filter(fn))
   }
+
   reduce<U>(fn: (carry: U, item: T) => U, initial: U): U {
     return this.items.reduce(fn, initial)
   }
+
   each(fn: (item: T, index: number) => void): this {
     this.items.forEach(fn)
     return this
   }
+
   tap(fn: (collection: this) => void): this {
     fn(this)
     return this
   }
+
   contains(fn: (item: T) => boolean): boolean {
     return this.items.some(fn)
   }
 
   pluck<K extends keyof T>(key: K): Collection<T[K]> {
-    return new Collection(this.items.map((item) => item[key]))
+    return new Collection(this.items.map(item => item[key]))
   }
 
   where<K extends keyof T>(key: K, value: T[K]): Collection<T> {
-    return this.filter((item) => item[key] === value)
+    return this.filter(item => item[key] === value)
   }
+
   firstWhere<K extends keyof T>(key: K, value: T[K]): T | undefined {
-    return this.first((item) => item[key] === value)
+    return this.first(item => item[key] === value)
   }
 
   keyBy<K extends keyof T>(key: K): Record<string, T> {
@@ -94,19 +105,23 @@ export class Collection<T> implements Iterable<T> {
   }
 
   private numbers(by?: keyof T | ((item: T) => number)): number[] {
-    const select =
-      typeof by === 'function' ? by : by ? (i: T) => Number(i[by]) : (i: T) => Number(i)
+    const select
+      = typeof by === 'function' ? by : by ? (i: T) => Number(i[by]) : (i: T) => Number(i)
     return this.items.map(select)
   }
+
   sum(by?: keyof T | ((item: T) => number)): number {
     return this.numbers(by).reduce((a, b) => a + b, 0)
   }
+
   avg(by?: keyof T | ((item: T) => number)): number {
     return this.isEmpty() ? 0 : this.sum(by) / this.count()
   }
+
   min(by?: keyof T | ((item: T) => number)): number {
     return Math.min(...this.numbers(by))
   }
+
   max(by?: keyof T | ((item: T) => number)): number {
     return Math.max(...this.numbers(by))
   }
@@ -129,10 +144,11 @@ export class Collection<T> implements Iterable<T> {
   /** Plain array, unwrapping model-aware items via their `toObject()`. */
   toArray(): unknown[] {
     return this.items.map((item) => {
-      const obj = item as { toObject?: () => unknown }
+      const obj = item as { toObject?(): unknown }
       return typeof obj?.toObject === 'function' ? obj.toObject() : item
     })
   }
+
   toJSON(): unknown[] {
     return this.toArray()
   }

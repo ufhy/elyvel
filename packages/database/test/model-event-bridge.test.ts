@@ -52,7 +52,7 @@ describe('Eloquent model events → dispatcher bridge', () => {
     await Thing.create({ name: 'x' })
     bridged.length = 0
     const seen: string[] = []
-    Thing.on('retrieved', (m) => void seen.push((m as Thing).name))
+    Thing.on('retrieved', m => void seen.push((m as Thing).name))
 
     const all = await Thing.all()
     expect(all.toArray()).toHaveLength(1)
@@ -98,7 +98,7 @@ describe('Eloquent model events → dispatcher bridge', () => {
       replicated = true
     })
     const clone = row.replicate()
-    await new Promise((r) => setTimeout(r, 0)) // fire-and-forget settles
+    await new Promise(r => setTimeout(r, 0)) // fire-and-forget settles
     expect(clone.name).toBe('orig')
     expect(clone.id).toBeUndefined() // key stripped
     expect(replicated).toBe(true)

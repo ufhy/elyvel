@@ -1,8 +1,8 @@
-import { afterAll, describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CacheManager, cache, setDefaultCache } from '../src/manager'
+import { afterAll, describe, expect, test } from 'bun:test'
+import { cache, CacheManager, setDefaultCache } from '../src/manager'
 import { Repository } from '../src/repository'
 import { FileStore, MemoryStore } from '../src/store'
 
@@ -74,7 +74,7 @@ for (const s of stores) {
       const c = s.make()
       await c.put('t', 'soon', 0.02) // 20ms
       expect(await c.get('t')).toBe('soon')
-      await new Promise((r) => setTimeout(r, 40))
+      await new Promise(r => setTimeout(r, 40))
       expect(await c.get('t')).toBeUndefined()
     })
   })
@@ -84,11 +84,11 @@ describe('database cache store (via adapter)', () => {
   test('get/put/remember/increment through an injected adapter', async () => {
     const store = require('../src/store') as typeof import('../src/store')
     const { DatabaseStore, configureDatabaseCache } = store
-    const rows = new Map<string, { value: string; expiresAt: number | null }>()
+    const rows = new Map<string, { value: string, expiresAt: number | null }>()
     configureDatabaseCache({
-      read: async (key) => rows.get(key),
+      read: async key => rows.get(key),
       write: async (key, value, expiresAt) => void rows.set(key, { value, expiresAt }),
-      forget: async (key) => void rows.delete(key),
+      forget: async key => void rows.delete(key),
       flush: async () => rows.clear(),
     })
     const c = new Repository(new DatabaseStore())

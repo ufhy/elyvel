@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { make } from '../src/commands/make'
 
 let dir: string
@@ -24,7 +24,7 @@ describe('make:policy', () => {
     expect(await make('policy', 'Post')).toBe(0)
     const src = read('app/policies/PostPolicy.ts')
     expect(src).toContain('export class PostPolicy')
-    expect(src).toContain("import { Response } from '@elysia-ravel/auth'")
+    expect(src).toContain('import { Response } from \'@elysia-ravel/auth\'')
     expect(src).toContain('update(user:')
     expect(src).not.toContain('createGate') // old stub is gone
   })
@@ -32,7 +32,7 @@ describe('make:policy', () => {
   test('--model scaffolds the full resource method set + model import', async () => {
     expect(await make('policy', 'Post', { model: 'Post' })).toBe(0)
     const src = read('app/policies/PostPolicy.ts')
-    expect(src).toContain("import type { Post } from '../models/Post'")
+    expect(src).toContain('import type { Post } from \'../models/Post\'')
     for (const method of [
       'viewAny',
       'view',
@@ -50,7 +50,7 @@ describe('make:policy', () => {
   test('bare --model infers the model name from the policy name', async () => {
     expect(await make('policy', 'Comment', { model: true })).toBe(0)
     const src = read('app/policies/CommentPolicy.ts')
-    expect(src).toContain("import type { Comment } from '../models/Comment'")
+    expect(src).toContain('import type { Comment } from \'../models/Comment\'')
     expect(src).toContain('_model: Comment')
   })
 

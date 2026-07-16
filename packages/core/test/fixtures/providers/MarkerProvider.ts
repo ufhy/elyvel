@@ -1,6 +1,6 @@
 import { ServiceProvider, token } from '../../../src/index'
 
-export const MarkerToken = token<{ registered: boolean; booted: boolean }>('marker')
+export const MarkerToken = token<{ registered: boolean, booted: boolean }>('marker')
 
 /** Records that register() and boot() ran, to assert the lifecycle in tests. */
 export class MarkerProvider extends ServiceProvider {

@@ -48,7 +48,7 @@ describe('fallback route', () => {
   test('runs when no route matches', async () => {
     const app = new Elysia()
       .get('/known', () => 'known')
-      .use(fallback((ctx) => ctx.status(404, { message: 'nope', fallback: true })))
+      .use(fallback(ctx => ctx.status(404, { message: 'nope', fallback: true })))
 
     expect(await (await app.handle(new Request('http://localhost/known'))).text()).toBe('known')
     const missing = await app.handle(new Request('http://localhost/does-not-exist'))

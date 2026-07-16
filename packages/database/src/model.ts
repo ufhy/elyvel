@@ -1,6 +1,6 @@
+import type { EagerConstraint } from './eloquent-builder'
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
-import type { EagerConstraint } from './eloquent-builder'
 import { EloquentBuilder } from './eloquent-builder'
 import { EloquentCollection } from './eloquent-collection'
 import { QueryBuilder } from './query-builder'
@@ -22,32 +22,34 @@ export type Attributes = Record<string, unknown>
 /** Constructor + statics view of a Model subclass, for typing static helpers. */
 export type ModelClass<M extends Model> = { new (attributes?: Attributes): M } & typeof Model
 
-export type CastType =
-  | 'int'
-  | 'integer'
-  | 'float'
-  | 'double'
-  | 'boolean'
-  | 'bool'
-  | 'string'
-  | 'json'
-  | 'array'
-  | 'date'
-  | 'datetime'
-  | 'encrypted'
+export type CastType
+  = | 'int'
+    | 'integer'
+    | 'float'
+    | 'double'
+    | 'boolean'
+    | 'bool'
+    | 'string'
+    | 'json'
+    | 'array'
+    | 'date'
+    | 'datetime'
+    | 'encrypted'
 
 /** A custom cast / accessor-mutator: transform on read (`get`) and write (`set`). */
 export interface CustomCast {
-  get?: (value: unknown) => unknown
-  set?: (value: unknown) => unknown
+  get?(value: unknown): unknown
+  set?(value: unknown): unknown
 }
 
 export type Cast = CastType | CustomCast
 
 /** Cast a raw (DB or user-set) value to its JS representation for reads. */
 function castGet(cast: Cast, value: unknown): unknown {
-  if (typeof cast === 'object') return cast.get ? cast.get(value) : value
-  if (value === null || value === undefined) return value
+  if (typeof cast === 'object')
+    return cast.get ? cast.get(value) : value
+  if (value === null || value === undefined)
+    return value
   switch (cast) {
     case 'int':
     case 'integer':
@@ -72,8 +74,10 @@ function castGet(cast: Cast, value: unknown): unknown {
 
 /** Cast a JS value to its storage representation for writes (dialect-aware). */
 function castStore(cast: Cast, value: unknown, dialect: string): unknown {
-  if (typeof cast === 'object') return cast.set ? cast.set(value) : value
-  if (value === null || value === undefined) return value
+  if (typeof cast === 'object')
+    return cast.set ? cast.set(value) : value
+  if (value === null || value === undefined)
+    return value
   switch (cast) {
     case 'boolean':
     case 'bool':
@@ -91,23 +95,23 @@ function castStore(cast: Cast, value: unknown, dialect: string): unknown {
   }
 }
 
-export type ModelEvent =
-  | 'saving'
-  | 'saved'
-  | 'creating'
-  | 'created'
-  | 'updating'
-  | 'updated'
-  | 'deleting'
-  | 'deleted'
-  | 'trashed'
-  | 'forceDeleting'
-  | 'forceDeleted'
-  | 'restoring'
-  | 'restored'
-  | 'retrieved'
-  | 'replicating'
-  | 'pruning'
+export type ModelEvent
+  = | 'saving'
+    | 'saved'
+    | 'creating'
+    | 'created'
+    | 'updating'
+    | 'updated'
+    | 'deleting'
+    | 'deleted'
+    | 'trashed'
+    | 'forceDeleting'
+    | 'forceDeleted'
+    | 'restoring'
+    | 'restored'
+    | 'retrieved'
+    | 'replicating'
+    | 'pruning'
 
 type EventListener = (model: Model) => void | Promise<void>
 const MODEL_EVENTS = new WeakMap<Function, Map<ModelEvent, EventListener[]>>()
@@ -144,7 +148,8 @@ const RESERVED = new Set(['attributes', 'original', 'exists', 'relations'])
 // reads/writes fall through to the attribute bag (with dirty tracking on write).
 const proxyHandler: ProxyHandler<Model> = {
   get(target, prop, receiver) {
-    if (typeof prop !== 'string' || prop in target) return Reflect.get(target, prop, receiver)
+    if (typeof prop !== 'string' || prop in target)
+      return Reflect.get(target, prop, receiver)
     return target.getAttribute(prop) // applies casts
   },
   set(target, prop, value, receiver) {
@@ -157,10 +162,13 @@ const proxyHandler: ProxyHandler<Model> = {
 }
 
 function serializeRelation(value: unknown): unknown {
-  if (value == null) return value
-  const v = value as { toArray?: () => unknown; toObject?: () => unknown }
-  if (typeof v.toArray === 'function') return v.toArray() // Collection
-  if (typeof v.toObject === 'function') return v.toObject() // Model
+  if (value == null)
+    return value
+  const v = value as { toArray?(): unknown, toObject?(): unknown }
+  if (typeof v.toArray === 'function')
+    return v.toArray() // Collection
+  if (typeof v.toObject === 'function')
+    return v.toObject() // Model
   return value
 }
 
@@ -183,6 +191,7 @@ export class Model {
   static newUniqueId(): string {
     return crypto.randomUUID()
   }
+
   /** Named connection (from config/database.ts) this model uses; default when unset. */
   static connection?: string
   /** Attribute names hidden from `toObject()`/`toJSON()`. */
@@ -204,21 +213,28 @@ export class Model {
   static isGuarded(key: string): boolean {
     return this.guarded.includes('*') || this.guarded.includes(key)
   }
+
   /** Whether `key` may be mass-assigned (via `fill`/`create`/`update`). */
   static isFillable(key: string): boolean {
-    if (this.unguarded) return true
-    if (this.fillable.includes(key)) return true
-    if (this.isGuarded(key)) return false
+    if (this.unguarded)
+      return true
+    if (this.fillable.includes(key))
+      return true
+    if (this.isGuarded(key))
+      return false
     return this.fillable.length === 0
   }
+
   /** Disable mass-assignment protection (globally). */
   static unguard(): void {
     this.unguarded = true
   }
+
   /** Re-enable mass-assignment protection. */
   static reguard(): void {
     this.unguarded = false
   }
+
   /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
   static casts: Record<string, Cast> = {}
   /** Named local scopes: `{ active: (q) => q.where('active', 1) }`. */
@@ -235,6 +251,7 @@ export class Model {
     list.push(listener)
     map.set(event, list)
   }
+
   /** Enable soft deletes (requires a `deleted_at` column). */
   static softDeletes = false
   static deletedAtColumn = 'deleted_at'
@@ -258,7 +275,9 @@ export class Model {
     }
     for (const cls of chain) {
       const map = GLOBAL_SCOPES.get(cls)
-      if (map) for (const [name, fn] of map) merged.set(name, fn)
+      if (map) {
+        for (const [name, fn] of map) merged.set(name, fn)
+      }
     }
     return [...merged]
   }
@@ -288,7 +307,7 @@ export class Model {
   // ── static query API ──────────────────────────────────────────────────────
   static query<M extends Model>(this: ModelClass<M>): EloquentBuilder<M> {
     const qb = new QueryBuilder(useConnection(this.connection), this.getTableName())
-    return new EloquentBuilder<M>(qb, (row) => this.hydrate(row), this)
+    return new EloquentBuilder<M>(qb, row => this.hydrate(row), this)
   }
 
   static all<M extends Model>(this: ModelClass<M>): Promise<EloquentCollection<M>> {
@@ -325,7 +344,8 @@ export class Model {
 
   static async findOrFail<M extends Model>(this: ModelClass<M>, id: unknown): Promise<M> {
     const model = await this.find(id)
-    if (!model) throw new Error(`[eloquent] No ${this.name} found for ${this.primaryKey}=${id}`)
+    if (!model)
+      throw new Error(`[eloquent] No ${this.name} found for ${this.primaryKey}=${id}`)
     return model
   }
 
@@ -335,7 +355,8 @@ export class Model {
     this.timestamps = false
     try {
       return await callback()
-    } finally {
+    }
+    finally {
       this.timestamps = previous
     }
   }
@@ -427,7 +448,8 @@ export class Model {
     let query = this.query()
     for (const [key, value] of Object.entries(attributes)) query = query.where(key, value)
     const existing = await query.first()
-    if (existing) return existing
+    if (existing)
+      return existing
     const model = new this()
     model.fill({ ...attributes, ...values })
     return model
@@ -484,16 +506,19 @@ export class Model {
     while (true) {
       // Fresh query each round — deleted rows vanish, so no offset drift.
       const query = this.prunable() as EloquentBuilder<Model>
-      if (this.softDeletes) query.withTrashed()
+      if (this.softDeletes)
+        query.withTrashed()
       const models = await query.limit(chunkSize).get()
       const count = models.count()
-      if (count === 0) break
+      if (count === 0)
+        break
       for (const model of models) {
         await model.fireEvent('pruning')
         await model.forceDelete()
         total++
       }
-      if (count < chunkSize) break
+      if (count < chunkSize)
+        break
     }
     return total
   }
@@ -506,10 +531,12 @@ export class Model {
   setAttribute(key: string, value: unknown): void {
     this.attributes[key] = value
   }
+
   getAttribute(key: string): unknown {
     const self = this.self()
     const accessor = self.accessors[key]
-    if (accessor) return accessor(this)
+    if (accessor)
+      return accessor(this)
     const type = self.casts[key]
     const value = this.attributes[key]
     return type ? castGet(type, value) : value
@@ -520,6 +547,7 @@ export class Model {
     for (const key of keys) this.makeHiddenSet.add(key)
     return this
   }
+
   /** Reveal hidden attributes for this instance only (chainable). */
   makeVisible(...keys: string[]): this {
     for (const key of keys) this.makeVisibleSet.add(key)
@@ -532,23 +560,28 @@ export class Model {
     const dialect = useConnection(this.self().connection).dialect
     const out: Attributes = { ...attributes }
     for (const key of Object.keys(out)) {
-      if (casts[key]) out[key] = castStore(casts[key], out[key], dialect)
+      if (casts[key])
+        out[key] = castStore(casts[key], out[key], dialect)
     }
     return out
   }
+
   /** Mass-assign only fillable attributes. */
   fill(attributes: Attributes): this {
     const self = this.self()
     for (const [key, value] of Object.entries(attributes)) {
-      if (self.isFillable(key)) this.setAttribute(key, value)
+      if (self.isFillable(key))
+        this.setAttribute(key, value)
     }
     return this
   }
+
   /** Assign all attributes, bypassing $fillable/$guarded. */
   forceFill(attributes: Attributes): this {
     for (const [key, value] of Object.entries(attributes)) this.setAttribute(key, value)
     return this
   }
+
   getKey(): unknown {
     return this.attributes[this.self().primaryKey]
   }
@@ -562,6 +595,7 @@ export class Model {
   ): HasMany<R> {
     return new HasMany<R>(this, related, foreignKey, localKey)
   }
+
   /** Parent has one related row. */
   hasOne<R extends Model>(
     related: ModelClass<R>,
@@ -570,6 +604,7 @@ export class Model {
   ): HasOne<R> {
     return new HasOne<R>(this, related, foreignKey, localKey)
   }
+
   /** Parent belongs to a related row (FK on this model, defaults `<related>_id`). */
   belongsTo<R extends Model>(
     related: ModelClass<R>,
@@ -609,6 +644,7 @@ export class Model {
   ): MorphMany<R> {
     return new MorphMany<R>(this, related, morphName, localKey)
   }
+
   morphOne<R extends Model>(
     related: ModelClass<R>,
     morphName: string,
@@ -616,10 +652,12 @@ export class Model {
   ): MorphOne<R> {
     return new MorphOne<R>(this, related, morphName, localKey)
   }
+
   /** Inverse polymorphic relation; `typeMap` resolves `<morph>_type` → model. */
   morphTo(morphName: string, typeMap: Record<string, ModelClass<Model>>): MorphTo {
     return new MorphTo(this, morphName, typeMap)
   }
+
   /** Distant relation through an intermediate model. */
   hasManyThrough<R extends Model>(
     far: ModelClass<R>,
@@ -631,6 +669,7 @@ export class Model {
   ): HasManyThrough<R> {
     return new HasManyThrough<R>(this, far, through, firstKey, secondKey, localKey, secondLocalKey)
   }
+
   /** Distant one-to-one through an intermediate model. */
   hasOneThrough<R extends Model>(
     far: ModelClass<R>,
@@ -657,6 +696,7 @@ export class Model {
       this.constructor.name,
     )
   }
+
   /** Inverse polymorphic many-to-many. */
   morphedByMany<R extends Model>(related: ModelClass<R>, morphName: string): BelongsToMany<R> {
     return new BelongsToMany<R>(
@@ -676,6 +716,7 @@ export class Model {
     this.relations[name] = value
     return this
   }
+
   getRelation<T = unknown>(name: string): T {
     return this.relations[name] as T
   }
@@ -683,18 +724,23 @@ export class Model {
   /** Eager-load relations onto this instance (supports `'posts.comments'` and constraints). */
   async load(...paths: (string | Record<string, EagerConstraint>)[]): Promise<this> {
     for (const spec of paths) {
-      if (typeof spec === 'string') await eagerLoad([this], spec)
-      else
+      if (typeof spec === 'string') {
+        await eagerLoad([this], spec)
+      }
+      else {
         for (const [path, constrain] of Object.entries(spec))
           await eagerLoad([this], path, constrain)
+      }
     }
     return this
   }
+
   /** Like `load`, but skips relations already loaded. */
   async loadMissing(...names: string[]): Promise<this> {
     for (const name of names) {
       const head = name.split('.')[0] as string
-      if (!(head in this.relations)) await eagerLoad([this], name)
+      if (!(head in this.relations))
+        await eagerLoad([this], name)
     }
     return this
   }
@@ -702,40 +748,49 @@ export class Model {
   getDirty(): Attributes {
     const dirty: Attributes = {}
     for (const [key, value] of Object.entries(this.attributes)) {
-      if (value !== this.original[key]) dirty[key] = value
+      if (value !== this.original[key])
+        dirty[key] = value
     }
     return dirty
   }
+
   isDirty(key?: string): boolean {
     const dirty = this.getDirty()
     return key ? key in dirty : Object.keys(dirty).length > 0
   }
+
   isClean(key?: string): boolean {
     return !this.isDirty(key)
   }
+
   /** Original (pre-modification) attribute value(s). */
   getOriginal(key?: string): unknown {
     return key ? this.original[key] : { ...this.original }
   }
+
   /** Attributes changed during the most recent save. */
   getChanges(): Attributes {
     return { ...this.changes }
   }
+
   wasChanged(key?: string): boolean {
     return key ? key in this.changes : Object.keys(this.changes).length > 0
   }
+
   /** Whether this and `other` are the same model (same class + primary key). */
   is(other: Model | null | undefined): boolean {
     return (
-      other != null &&
-      this.constructor === other.constructor &&
-      this.getKey() === other.getKey() &&
-      this.getKey() !== undefined
+      other != null
+      && this.constructor === other.constructor
+      && this.getKey() === other.getKey()
+      && this.getKey() !== undefined
     )
   }
+
   isNot(other: Model | null | undefined): boolean {
     return !this.is(other)
   }
+
   /** Append computed attributes to serialization for this instance only. */
   append(...keys: string[]): this {
     for (const key of keys) this.makeAppendSet.add(key)
@@ -771,7 +826,8 @@ export class Model {
     await this.fireEvent('saving')
     if (this.exists) {
       await this.fireEvent('updating')
-      if (self.timestamps) this.attributes[self.updatedAtColumn] = now
+      if (self.timestamps)
+        this.attributes[self.updatedAtColumn] = now
       const dirty = this.getDirty()
       this.changes = { ...dirty }
       if (Object.keys(dirty).length > 0) {
@@ -779,9 +835,11 @@ export class Model {
       }
       this.original = { ...this.attributes }
       await this.fireEvent('updated')
-    } else {
+    }
+    else {
       await this.fireEvent('creating')
-      if (self.usesUniqueIds) this.attributes[self.primaryKey] ??= self.newUniqueId()
+      if (self.usesUniqueIds)
+        this.attributes[self.primaryKey] ??= self.newUniqueId()
       if (self.timestamps) {
         this.attributes[self.createdAtColumn] ??= now
         this.attributes[self.updatedAtColumn] ??= now
@@ -827,7 +885,8 @@ export class Model {
     const skip = new Set([self.primaryKey, 'created_at', 'updated_at', ...except])
     const attributes: Attributes = {}
     for (const [key, value] of Object.entries(this.attributes)) {
-      if (!skip.has(key)) attributes[key] = value
+      if (!skip.has(key))
+        attributes[key] = value
     }
     const clone = new (this.constructor as ModelClass<this>)()
     clone.forceFill(attributes)
@@ -849,7 +908,8 @@ export class Model {
       this.setAttribute(self.deletedAtColumn, new Date().toISOString())
       await this.save()
       await this.fireEvent('trashed')
-    } else {
+    }
+    else {
       await this.performDelete()
     }
     await this.fireEvent('deleted')
@@ -893,16 +953,20 @@ export class Model {
     const useVisible = self.visible.length > 0
     const out: Attributes = {}
     for (const key of [...Object.keys(this.attributes), ...self.appends, ...this.makeAppendSet]) {
-      if (hidden.has(key)) continue
-      if (useVisible && !self.visible.includes(key) && !this.makeVisibleSet.has(key)) continue
+      if (hidden.has(key))
+        continue
+      if (useVisible && !self.visible.includes(key) && !this.makeVisibleSet.has(key))
+        continue
       out[key] = this.getAttribute(key)
     }
     return out
   }
+
   /** Alias of {@link toObject} (Laravel naming). */
   toArray(): Attributes {
     return this.toObject()
   }
+
   /** Serialized attributes plus any loaded relations. */
   toJSON(): Attributes {
     const out = this.toObject()

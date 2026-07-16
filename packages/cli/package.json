@@ -1,22 +1,22 @@
 {
   "name": "@elysia-ravel/cli",
+  "type": "module",
   "version": "0.0.0",
   "description": "The `ravel` command-line generator and dev server",
-  "type": "module",
+  "main": "./src/index.ts",
   "bin": {
     "ravel": "./src/index.ts"
   },
-  "main": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "elysia": ">=1.4.0"
   },
   "dependencies": {
     "@elysia-ravel/core": "workspace:*",
     "@elysia-ravel/database": "workspace:*",
     "@elysia-ravel/queue": "workspace:*",
     "@elysia-ravel/scheduler": "workspace:*"
-  },
-  "peerDependencies": {
-    "elysia": ">=1.4.0"
   }
 }

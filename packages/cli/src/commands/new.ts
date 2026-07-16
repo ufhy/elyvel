@@ -11,7 +11,7 @@ const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
 
 /** kebab-case app name + a Title Case display name from arbitrary input. */
-function names(raw: string): { name: string; appName: string } {
+function names(raw: string): { name: string, appName: string } {
   const words = raw
     .replace(/[-_]+/g, ' ')
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -19,8 +19,8 @@ function names(raw: string): { name: string; appName: string } {
     .split(/\s+/)
     .filter(Boolean)
   return {
-    name: words.map((w) => w.toLowerCase()).join('-') || 'app',
-    appName: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'App',
+    name: words.map(w => w.toLowerCase()).join('-') || 'app',
+    appName: words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'App',
   }
 }
 
@@ -54,8 +54,9 @@ export async function newApp(rawName?: string): Promise<number> {
   const entries = await readdir(templatesDir, { recursive: true, withFileTypes: true })
   let count = 0
   for (const entry of entries) {
-    if (!entry.isFile()) continue
-    const parent = (entry as { parentPath?: string; path?: string }).parentPath ?? templatesDir
+    if (!entry.isFile())
+      continue
+    const parent = (entry as { parentPath?: string, path?: string }).parentPath ?? templatesDir
     const abs = join(parent, entry.name)
     const rel = relative(templatesDir, abs)
     const template = await readFile(abs, 'utf8')

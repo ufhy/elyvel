@@ -1,5 +1,6 @@
+import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { type Connection, createConnection } from '../src/connection'
+import { createConnection } from '../src/connection'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
 
@@ -56,7 +57,7 @@ for (const d of dialects) {
 
     test('distinct select', async () => {
       const rows = await table(conn, 'sales').select('region').distinct().get()
-      expect(rows.map((r) => r.region).sort()).toEqual(['eu', 'us'])
+      expect(rows.map(r => r.region).sort()).toEqual(['eu', 'us'])
     })
 
     test('groupBy returns one row per group', async () => {

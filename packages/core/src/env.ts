@@ -26,7 +26,7 @@ export function defineEnv<T extends TObject>(
 
   if (!Value.Check(schema, withDefaults)) {
     const errors = [...Value.Errors(schema, withDefaults)]
-      .map((error) => `  - ${error.path || '/'}: ${error.message}`)
+      .map(error => `  - ${error.path || '/'}: ${error.message}`)
       .join('\n')
     throw new Error(`[elysia-ravel] Invalid environment variables:\n${errors}`)
   }

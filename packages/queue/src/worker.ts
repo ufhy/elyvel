@@ -1,22 +1,23 @@
+import type { FailedJobRepository } from './failed'
+import type { SerializedJob } from './job'
+import type { QueueStore } from './store'
 import { isBatchCancelled, recordBatchedJob } from './batch'
 import { fireAfter, fireBefore, fireFailing } from './events'
-import type { FailedJobRepository } from './failed'
-import { backoffFor, decodeBody, encodeBody, reconstructJob, type SerializedJob } from './job'
+import { backoffFor, decodeBody, encodeBody, reconstructJob } from './job'
 import { ReleaseJob, runThroughMiddleware } from './middleware'
 import { restartSignal } from './restart'
 import { hydrateModels } from './serializes-models'
-import type { QueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
 
 export interface WorkerOptions {
   /** Seconds to wait before a failed job is retried. Default 0. */
   retryAfter?: number
   /** Called before a job's handle() runs. */
-  onBeforeJob?: (name: string) => void
+  onBeforeJob?(name: string): void
   /** Called after a job's handle() succeeds. */
-  onAfterJob?: (name: string) => void
+  onAfterJob?(name: string): void
   /** Called when a job throws (each attempt). */
-  onError?: (name: string, error: unknown, willRetry: boolean) => void
+  onError?(name: string, error: unknown, willRetry: boolean): void
   /** Connection name recorded on failed jobs. Default 'default'. */
   connection?: string
   /** Named queues to process, in priority order. Defaults to `['default']`. */
@@ -25,7 +26,7 @@ export interface WorkerOptions {
   failed?: FailedJobRepository | null
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 /**
  * Reject if `promise` doesn't settle within `seconds`. Note: JS can't forcibly
@@ -33,7 +34,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * treated as failed and retried/failed accordingly.
  */
 function withTimeout<T>(promise: Promise<T>, seconds: number | undefined): Promise<T> {
-  if (!seconds) return promise
+  if (!seconds)
+    return promise
   let timer: ReturnType<typeof setTimeout>
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => reject(new Error(`Job timed out after ${seconds}s`)), seconds * 1000)
@@ -52,14 +54,16 @@ export class Worker {
   /** Process the next ready job. Returns true if one was processed. */
   async processNext(): Promise<boolean> {
     const record = await this.store.pop(this.options.queues)
-    if (!record) return false
+    if (!record)
+      return false
 
     const serialized = decodeBody(record.body)
     const job = reconstructJob(serialized)
     const name = serialized.job
     const willReleaseLock = async () => {
       const key = uniqueKeyFor(job)
-      if (key) await uniqueLock()?.release(key)
+      if (key)
+        await uniqueLock()?.release(key)
     }
 
     // A cancelled batch's remaining jobs are dropped without running.
@@ -75,10 +79,12 @@ export class Worker {
       await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
       await willReleaseLock()
       await this.dispatchChain(serialized, record.queue)
-      if (job.batchId) await recordBatchedJob(job.batchId, true)
+      if (job.batchId)
+        await recordBatchedJob(job.batchId, true)
       this.options.onAfterJob?.(name)
       await fireAfter(name)
-    } catch (error) {
+    }
+    catch (error) {
       // Middleware asked to re-queue the job without burning an attempt (the
       // pop already incremented attempts, so decrement to net zero).
       if (error instanceof ReleaseJob) {
@@ -96,12 +102,14 @@ export class Worker {
           record,
           backoffFor(job, record.attempts, this.options.retryAfter ?? 0),
         )
-      } else {
+      }
+      else {
         await job.failed?.(error)
         const connection = this.options.connection ?? 'default'
         await this.options.failed?.log(connection, connection, record.body, error)
         await willReleaseLock() // released on final failure, held across retries
-        if (job.batchId) await recordBatchedJob(job.batchId, false, error)
+        if (job.batchId)
+          await recordBatchedJob(job.batchId, false, error)
       }
     }
     return true
@@ -109,10 +117,13 @@ export class Worker {
 
   /** After a job succeeds, enqueue the next job in its chain (carrying the rest). */
   private async dispatchChain(serialized: SerializedJob, queue: string): Promise<void> {
-    if (!serialized.chain || serialized.chain.length === 0) return
+    if (!serialized.chain || serialized.chain.length === 0)
+      return
     const [next, ...rest] = serialized.chain
-    if (!next) return
-    if (rest.length > 0) next.chain = rest
+    if (!next)
+      return
+    if (rest.length > 0)
+      next.chain = rest
     await this.store.push(encodeBody(next), { queue })
   }
 
@@ -122,18 +133,21 @@ export class Worker {
    * Returns the number of jobs processed.
    */
   async work(
-    opts: { once?: boolean; stopWhenEmpty?: boolean; sleepMs?: number; max?: number } = {},
+    opts: { once?: boolean, stopWhenEmpty?: boolean, sleepMs?: number, max?: number } = {},
   ): Promise<number> {
     let processed = 0
     while (true) {
-      if (await this.shouldRestart()) break // graceful queue:restart
+      if (await this.shouldRestart())
+        break // graceful queue:restart
       const did = await this.processNext()
       if (did) {
         processed++
-        if (opts.once || (opts.max && processed >= opts.max)) break
+        if (opts.once || (opts.max && processed >= opts.max))
+          break
         continue
       }
-      if (opts.once || opts.stopWhenEmpty) break
+      if (opts.once || opts.stopWhenEmpty)
+        break
       await sleep(opts.sleepMs ?? 1000)
     }
     return processed

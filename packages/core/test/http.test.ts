@@ -1,3 +1,4 @@
+import type { ResolvedSessionConfig } from '../src/session'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { download, file, streamDownload } from '../src/http/file'
@@ -8,7 +9,7 @@ import { back, redirect } from '../src/http/redirect'
 import { Resource } from '../src/http/resource'
 import { staticFiles } from '../src/http/static'
 import { requestContext } from '../src/request-context'
-import { type ResolvedSessionConfig, sessionPlugin } from '../src/session'
+import { sessionPlugin } from '../src/session'
 
 // ── negotiation (pure) ────────────────────────────────────────────────────────
 const req = (headers: Record<string, string>) => new Request('http://localhost/', { headers })
@@ -33,7 +34,7 @@ describe('expectsJson', () => {
 describe('Resource', () => {
   test('item / collection / paginated shape the envelope', () => {
     expect(Resource.item({ id: 1, name: 'a' })).toEqual({ data: { id: 1, name: 'a' } })
-    expect(Resource.collection([{ id: 1 }], (u) => u.id)).toEqual({ data: [1] })
+    expect(Resource.collection([{ id: 1 }], u => u.id)).toEqual({ data: [1] })
     expect(Resource.paginated({ data: [{ id: 1 }], total: 1, perPage: 15 })).toEqual({
       data: [{ id: 1 }],
       meta: { total: 1, perPage: 15 },
@@ -100,8 +101,7 @@ describe('file responses', () => {
     new Elysia()
       .use(httpResponses())
       .get('/export', () =>
-        streamDownload('users.csv', 'id,name\n1,Sam\n', { contentType: 'text/csv' }),
-      )
+        streamDownload('users.csv', 'id,name\n1,Sam\n', { contentType: 'text/csv' }))
       .get('/logo', () => download('package.json', 'pkg.json', { contentType: 'application/json' }))
       .get('/stream', () =>
         streamDownload(
@@ -110,8 +110,7 @@ describe('file responses', () => {
             yield 'a'
             yield 'b'
           })(),
-        ),
-      )
+        ))
       .get('/inline', () => file('package.json'))
 
   test('download() sets attachment + filename and sends the content', async () => {
@@ -186,7 +185,7 @@ function buildApp() {
     .post('/save', () => redirect('/done').with('status', 'saved'))
     .post('/save-back', () => back().withErrors({ email: ['taken'] }))
     .post('/validate', () => {
-      const e = new Error('invalid') as Error & { status: number; errors: Record<string, unknown> }
+      const e = new Error('invalid') as Error & { status: number, errors: Record<string, unknown> }
       e.status = 422
       e.errors = { name: ['required'] }
       throw e
@@ -231,7 +230,7 @@ describe('validation negotiation', () => {
       }),
     )
     expect(res.status).toBe(422)
-    const body = (await res.json()) as { message: string; errors: Record<string, unknown> }
+    const body = (await res.json()) as { message: string, errors: Record<string, unknown> }
     expect(body.errors).toEqual({ name: ['required'] })
   })
 })

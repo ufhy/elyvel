@@ -46,6 +46,7 @@ describe('dispatcher + queued listeners', () => {
       handle() {
         ran = true
       }
+
       shouldQueue = (e: OrderShipped) => e.priority // false unless priority
     }
     configureListenerQueuer(() => {

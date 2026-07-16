@@ -11,6 +11,7 @@ class User extends Model {
   static override accessors = {
     full_name: (m: Model) => `${m.getAttribute('first')} ${m.getAttribute('last')}`,
   }
+
   declare id: number
   declare first: string
   declare last: string

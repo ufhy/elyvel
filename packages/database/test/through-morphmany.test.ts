@@ -63,7 +63,7 @@ for (const d of dialects) {
       const conn = await d.connect()
       setConnection(conn)
       const s = new SchemaBuilder(conn)
-      await s.create('suppliers', (t) => t.id())
+      await s.create('suppliers', t => t.id())
       await s.create('users', (t) => {
         t.id()
         t.integer('supplier_id')
@@ -81,7 +81,7 @@ for (const d of dialects) {
         t.id()
         t.string('title')
       })
-      await s.create('videos', (t) => t.id())
+      await s.create('videos', t => t.id())
       await s.create('taggables', (t) => {
         t.integer('tag_id')
         t.integer('taggable_id')

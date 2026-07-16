@@ -1,5 +1,6 @@
+import type { Names } from '../naming'
 import { relative } from 'node:path'
-import { makeNames, type Names } from '../naming'
+import { makeNames } from '../naming'
 import { join, renderStub, writeGenerated } from '../stub'
 
 interface Blueprint {
@@ -7,15 +8,17 @@ interface Blueprint {
   suffix: string
   dir: string
   /** File name (without dir) for the generated artifact. */
-  filename: (names: Names) => string
+  filename(names: Names): string
   /** Extra template variables beyond the standard name casings. */
-  vars?: (names: Names) => Record<string, string>
+  vars?(names: Names): Record<string, string>
 }
 
 /** Naive singular→table pluralization (user → users, category → categories). */
 function tableName(snake: string): string {
-  if (/[^aeiou]y$/.test(snake)) return `${snake.slice(0, -1)}ies`
-  if (/(s|x|z|ch|sh)$/.test(snake)) return `${snake}es`
+  if (/[^aeiou]y$/.test(snake))
+    return `${snake.slice(0, -1)}ies`
+  if (/(?:[sxz]|ch|sh)$/.test(snake))
+    return `${snake}es`
   return `${snake}s`
 }
 
@@ -31,41 +34,41 @@ const blueprints: Record<string, Blueprint> = {
     stub: 'controller',
     suffix: 'Controller',
     dir: 'app/controllers',
-    filename: (n) => `${n.class}.ts`,
+    filename: n => `${n.class}.ts`,
   },
   middleware: {
     stub: 'middleware',
     suffix: 'Middleware',
     dir: 'app/middleware',
-    filename: (n) => `${n.class}.ts`,
-    vars: (n) => ({ alias: n.snake.replace(/_middleware$/, '') }),
+    filename: n => `${n.class}.ts`,
+    vars: n => ({ alias: n.snake.replace(/_middleware$/, '') }),
   },
   model: {
     stub: 'model',
     suffix: '',
     dir: 'app/models',
-    filename: (n) => `${n.class}.ts`,
-    vars: (n) => ({ table: tableName(n.snake) }),
+    filename: n => `${n.class}.ts`,
+    vars: n => ({ table: tableName(n.snake) }),
   },
   seeder: {
     stub: 'seeder',
     suffix: 'Seeder',
     dir: 'database/seeders',
-    filename: (n) => `${n.class}.ts`,
+    filename: n => `${n.class}.ts`,
   },
   policy: {
     stub: 'policy',
     suffix: 'Policy',
     dir: 'app/policies',
-    filename: (n) => `${n.class}.ts`,
-    vars: (n) => ({ resource: n.snake.replace(/_policy$/, '') }),
+    filename: n => `${n.class}.ts`,
+    vars: n => ({ resource: n.snake.replace(/_policy$/, '') }),
   },
   migration: {
     stub: 'migration',
     suffix: '',
     dir: 'database/migrations',
-    filename: (n) => `${timestamp()}_${n.snake}.ts`,
-    vars: (n) => ({ table: migrationTable(n.snake) }),
+    filename: n => `${timestamp()}_${n.snake}.ts`,
+    vars: n => ({ table: migrationTable(n.snake) }),
   },
 }
 
@@ -95,8 +98,8 @@ export async function make(
   // `make:policy <Name> --model[=Model]` scaffolds the full resource method set.
   // A bare `--model` infers the model from the policy name (PostPolicy → Post).
   if (type === 'policy' && flags.model) {
-    const modelRaw =
-      typeof flags.model === 'string' ? flags.model : names.snake.replace(/_policy$/, '')
+    const modelRaw
+      = typeof flags.model === 'string' ? flags.model : names.snake.replace(/_policy$/, '')
     stub = 'policy-model'
     vars = { ...vars, Model: makeNames(modelRaw).class }
   }
@@ -106,7 +109,8 @@ export async function make(
     await writeGenerated(target, contents)
     console.log(`✓ Created ${relative(process.cwd(), target)}`)
     return 0
-  } catch (error) {
+  }
+  catch (error) {
     console.error(`✗ ${(error as Error).message}`)
     return 1
   }

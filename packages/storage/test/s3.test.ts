@@ -1,7 +1,7 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { S3Disk } from '../src/index'
 
 // ── boot a real MinIO server (S3-compatible) if the binary is available ──────
@@ -15,8 +15,8 @@ const dataDir = join(tmpdir(), `ravel-minio-${crypto.randomUUID()}`)
 let proc: import('bun').Subprocess | null = null
 let live = false
 
-const disk = () =>
-  new S3Disk({
+function disk() {
+  return new S3Disk({
     driver: 's3',
     bucket: BUCKET,
     region: 'us-east-1',
@@ -25,9 +25,11 @@ const disk = () =>
     secretAccessKey: SECRET,
     usePathStyleEndpoint: true,
   })
+}
 
 beforeAll(async () => {
-  if (!(await Bun.file('/usr/local/bin/minio').exists())) return
+  if (!(await Bun.file('/usr/local/bin/minio').exists()))
+    return
   mkdirSync(join(dataDir, BUCKET), { recursive: true }) // top-level dir == bucket
   proc = Bun.spawn(['/usr/local/bin/minio', 'server', dataDir, '--address', `:${PORT}`], {
     env: { ...process.env, MINIO_ROOT_USER: KEY, MINIO_ROOT_PASSWORD: SECRET },
@@ -42,7 +44,8 @@ beforeAll(async () => {
         live = true
         break
       }
-    } catch {
+    }
+    catch {
       // not up yet
     }
     await Bun.sleep(100)
@@ -75,7 +78,8 @@ describe('S3Disk — url + presign (offline)', () => {
 
 describe('S3Disk — live round-trips (MinIO)', () => {
   test('put/get/exists/size/delete', async () => {
-    if (!live) return
+    if (!live)
+      return
     const d = disk()
     expect(await d.put('docs/hello.txt', 'Hello S3')).toBe(true)
     expect(await d.exists('docs/hello.txt')).toBe(true)
@@ -86,7 +90,8 @@ describe('S3Disk — live round-trips (MinIO)', () => {
   })
 
   test('putFile generates a key; copy/move', async () => {
-    if (!live) return
+    if (!live)
+      return
     const d = disk()
     const blob = new File(['pixels'], 'p.jpg', { type: 'image/jpeg' })
     const key = await d.putFile('photos', blob)
@@ -100,7 +105,8 @@ describe('S3Disk — live round-trips (MinIO)', () => {
   })
 
   test('files/allFiles + directories via delimiter', async () => {
-    if (!live) return
+    if (!live)
+      return
     const d = disk()
     await d.put('tree/root.txt', '1')
     await d.put('tree/sub/leaf.txt', '1')
@@ -112,7 +118,8 @@ describe('S3Disk — live round-trips (MinIO)', () => {
   })
 
   test('append reads-modifies-writes', async () => {
-    if (!live) return
+    if (!live)
+      return
     const d = disk()
     await d.put('log.txt', 'A')
     await d.append('log.txt', 'B')

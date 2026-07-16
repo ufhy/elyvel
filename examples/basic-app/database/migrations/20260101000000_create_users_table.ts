@@ -1,7 +1,7 @@
 import type { Migration } from '@elysia-ravel/database'
 
 export default {
-  up: (schema) =>
+  up: schema =>
     schema.create('users', (t) => {
       t.id()
       t.string('name')
@@ -10,5 +10,5 @@ export default {
       t.text('phone').nullable() // stores AES-256-GCM ciphertext (see User.casts)
       t.timestamps()
     }),
-  down: (schema) => schema.dropIfExists('users'),
+  down: schema => schema.dropIfExists('users'),
 } satisfies Migration

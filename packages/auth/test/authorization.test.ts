@@ -17,14 +17,17 @@ class PostPolicy {
   view(_user: User | null): boolean {
     return true
   }
+
   create(user: User | null): boolean {
     return user?.role === 'member' || user?.role === 'admin'
   }
+
   update(user: User | null, post: Post): boolean | Response {
     return user?.id === post.authorId
       ? Response.allow()
       : Response.deny('You do not own this post.')
   }
+
   delete(user: User | null, post: Post): Response {
     return user?.id === post.authorId ? Response.allow() : Response.denyAsNotFound()
   }
@@ -75,7 +78,8 @@ describe('responses', () => {
     try {
       g.authorize('delete', bob, post)
       throw new Error('should have thrown')
-    } catch (e) {
+    }
+    catch (e) {
       expect(e).toBeInstanceOf(AuthorizationError)
       expect((e as AuthorizationError).status).toBe(404)
     }
@@ -88,13 +92,13 @@ describe('before / after hooks', () => {
   test('before short-circuits (admin can do anything)', () => {
     const g = createGate<User>()
       .policy(Post, new PostPolicy())
-      .before((user) => (user?.role === 'admin' ? true : null))
+      .before(user => (user?.role === 'admin' ? true : null))
     expect(g.allows('update', admin, post)).toBe(true) // not the author, but admin
     expect(g.allows('update', bob, post)).toBe(false) // before returns null → falls through
   })
 
   test('after only fills in when the ability returned null (unknown ability)', () => {
-    const g = createGate<User>().after((user) => user?.role === 'admin')
+    const g = createGate<User>().after(user => user?.role === 'admin')
     expect(g.allows('anything', admin)).toBe(true)
     expect(g.allows('anything', bob)).toBe(false)
   })
@@ -135,12 +139,12 @@ describe('forUser (per-request surface)', () => {
 describe('inline authorization', () => {
   const g = createGate<User>()
   test('allowIf throws for guests / failing condition', () => {
-    expect(() => g.allowIf((u) => u?.role === 'admin', admin)).not.toThrow()
-    expect(() => g.allowIf((u) => u?.role === 'admin', bob)).toThrow(AuthorizationError)
+    expect(() => g.allowIf(u => u?.role === 'admin', admin)).not.toThrow()
+    expect(() => g.allowIf(u => u?.role === 'admin', bob)).toThrow(AuthorizationError)
     expect(() => g.allowIf(true, null)).toThrow(AuthorizationError) // guest always denied
   })
   test('denyIf throws when the condition holds', () => {
-    expect(() => g.denyIf((u) => u?.role === 'member', bob)).toThrow(AuthorizationError)
+    expect(() => g.denyIf(u => u?.role === 'member', bob)).toThrow(AuthorizationError)
     expect(() => g.denyIf(false, admin)).not.toThrow()
   })
 })
@@ -148,7 +152,7 @@ describe('inline authorization', () => {
 // ── default gate ────────────────────────────────────────────────────────────
 describe('default gate()', () => {
   test('setDefaultGate wires the process-wide accessor', () => {
-    const configured = createGate<User>().define('admin', (u) => u?.role === 'admin')
+    const configured = createGate<User>().define('admin', u => u?.role === 'admin')
     setDefaultGate(configured)
     expect(gate<User>().allows('admin', admin)).toBe(true)
     expect(gate<User>().allows('admin', bob)).toBe(false)

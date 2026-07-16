@@ -1,7 +1,9 @@
-import { RedisClient } from 'bun'
 import type { QueueConfig, QueueConnectionConfig } from './config-schema'
-import { CallQueuedClosure, encodeBody, type Job, serializeJob } from './job'
-import { DatabaseQueueStore, MemoryQueueStore, type QueueStore, RedisQueueStore } from './store'
+import type { Job } from './job'
+import type { QueueStore } from './store'
+import { RedisClient } from 'bun'
+import { CallQueuedClosure, encodeBody, serializeJob } from './job'
+import { DatabaseQueueStore, MemoryQueueStore, RedisQueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
 
 /** A job instance or a self-contained closure to queue. */
@@ -58,12 +60,13 @@ export class QueueManager {
   }
 
   private build(name: string): QueueStore | 'sync' {
-    const cfg: QueueConnectionConfig | undefined =
-      this.config.connections?.[name] ?? (name === 'sync' ? { driver: 'sync' } : undefined)
-    if (!cfg)
+    const cfg: QueueConnectionConfig | undefined
+      = this.config.connections?.[name] ?? (name === 'sync' ? { driver: 'sync' } : undefined)
+    if (!cfg) {
       throw new Error(
         `[elysia-ravel] Queue connection "${name}" is not defined in config/queue.ts.`,
       )
+    }
     switch (cfg.driver) {
       case 'memory':
         return new MemoryQueueStore()
@@ -87,7 +90,8 @@ export class QueueManager {
     const lock = uniqueLock()
     if (uniqueKey && lock) {
       const acquired = await lock.acquire(uniqueKey, job.uniqueFor ?? 3600)
-      if (!acquired) return
+      if (!acquired)
+        return
     }
 
     const name = options.connection ?? this.defaultConnection
@@ -96,8 +100,10 @@ export class QueueManager {
       if (store === 'sync') {
         try {
           await job.handle()
-        } finally {
-          if (uniqueKey && lock) await lock.release(uniqueKey) // no worker to release it
+        }
+        finally {
+          if (uniqueKey && lock)
+            await lock.release(uniqueKey) // no worker to release it
         }
         return
       }
@@ -128,7 +134,8 @@ export function setDefaultQueue(manager: QueueManager): void {
   defaultManager = manager
 }
 export function queueManager(): QueueManager {
-  if (!defaultManager) defaultManager = new QueueManager()
+  if (!defaultManager)
+    defaultManager = new QueueManager()
   return defaultManager
 }
 

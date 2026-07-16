@@ -1,6 +1,7 @@
-import { ServiceProvider, type Token, token } from '@elysia-ravel/core'
-import { TelegramClient } from './client'
+import type { Token } from '@elysia-ravel/core'
 import type { TelegramConfig } from './config-schema'
+import { ServiceProvider, token } from '@elysia-ravel/core'
+import { TelegramClient } from './client'
 import { setDefaultTelegram } from './manager'
 
 export const TelegramToken: Token<TelegramClient> = token<TelegramClient>('telegram')
@@ -13,7 +14,8 @@ export const TelegramToken: Token<TelegramClient> = token<TelegramClient>('teleg
 export class TelegramServiceProvider extends ServiceProvider {
   override register(): void {
     const config = this.app.config.get<TelegramConfig | undefined>('telegram')
-    if (!config?.token) return
+    if (!config?.token)
+      return
     const client = new TelegramClient(config)
     setDefaultTelegram(client)
     this.app.container.instance(TelegramToken, client)

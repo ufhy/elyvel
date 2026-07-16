@@ -1,5 +1,6 @@
+import type { LogEntry, Transport } from '../src/logger'
 import { describe, expect, test } from 'bun:test'
-import { type LogEntry, Logger, REDACT_PATTERNS, type Transport } from '../src/logger'
+import { Logger, REDACT_PATTERNS } from '../src/logger'
 
 class Capture implements Transport {
   entries: LogEntry[] = []

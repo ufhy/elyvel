@@ -1,5 +1,5 @@
-import { QueuedListener } from '@elysia-ravel/events'
 import type { UserRegistered } from '../events/UserRegistered'
+import { QueuedListener } from '@elysia-ravel/events'
 
 /**
  * A queued event listener (Laravel's `implements ShouldQueue`). Extending

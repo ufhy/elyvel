@@ -1,4 +1,5 @@
-import { Middleware, type MiddlewareContext } from '@elysia-ravel/core'
+import type { MiddlewareContext } from '@elysia-ravel/core'
+import { Middleware } from '@elysia-ravel/core'
 
 /** Adds an `X-Powered-By` header to every response (registered as global). */
 export class PoweredBy extends Middleware {

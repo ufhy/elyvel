@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { makeMemoryAuth } from './fixtures/memory-auth'
 
-type Handler = { handle(request: Request): Promise<Response> }
+interface Handler { handle(request: Request): Promise<Response> }
 
 async function buildApp() {
   const { auth } = await makeMemoryAuth()
@@ -14,12 +14,13 @@ async function buildApp() {
   return { app, token }
 }
 
-const get = (app: Handler, path: string, token?: string) =>
-  app.handle(
+function get(app: Handler, path: string, token?: string) {
+  return app.handle(
     new Request(`http://localhost${path}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     }),
   )
+}
 
 describe('auth guard', () => {
   test('protected route returns 401 without a token', async () => {

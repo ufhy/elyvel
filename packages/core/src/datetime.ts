@@ -54,6 +54,9 @@ export function dateParts(
     hour12: false,
   }).formatToParts(toDate(value))
   const out: Record<string, string> = {}
-  for (const p of parts) if (p.type !== 'literal') out[p.type] = p.value
+  for (const p of parts) {
+    if (p.type !== 'literal')
+      out[p.type] = p.value
+  }
   return out
 }

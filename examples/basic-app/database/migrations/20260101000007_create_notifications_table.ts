@@ -1,7 +1,7 @@
 import type { Migration } from '@elysia-ravel/database'
 
 export default {
-  up: (schema) =>
+  up: schema =>
     schema.create('notifications', (t) => {
       t.uuid('id').unique()
       t.string('type')
@@ -11,5 +11,5 @@ export default {
       t.bigInteger('created_at')
       t.index('notifiable_id')
     }),
-  down: (schema) => schema.dropIfExists('notifications'),
+  down: schema => schema.dropIfExists('notifications'),
 } satisfies Migration

@@ -65,7 +65,7 @@ for (const d of dialects) {
         expect(conn.transactionLevel()).toBe(1) // back to outer level
       })
 
-      const names = (await table('items').get()).map((r) => r.name)
+      const names = (await table('items').get()).map(r => r.name)
       expect(names).toEqual(['outer']) // inner insert rolled back, outer committed
       expect(conn.transactionLevel()).toBe(0)
     })
@@ -74,7 +74,8 @@ for (const d of dialects) {
       let tries = 0
       const result = await transaction(async () => {
         tries++
-        if (tries < 3) throw new Error('deadlock detected')
+        if (tries < 3)
+          throw new Error('deadlock detected')
         await table('items').insert({ name: 'retried' })
         return tries
       }, 3)

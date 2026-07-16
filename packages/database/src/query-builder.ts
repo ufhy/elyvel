@@ -1,5 +1,6 @@
+import type { Connection } from './connection'
 import { LazyCollection } from '@elysia-ravel/support'
-import { type Connection, useConnection } from './connection'
+import { useConnection } from './connection'
 
 export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like'
 type Row = Record<string, unknown>
@@ -61,7 +62,7 @@ interface WhereClause {
   part?: DatePart
 }
 
-type JoinTable = string | { sub: QueryBuilder; alias: string }
+type JoinTable = string | { sub: QueryBuilder, alias: string }
 interface JoinCond {
   boolean: Bool
   first: string
@@ -76,10 +77,10 @@ interface JoinClause {
   conditions: JoinCond[]
 }
 
-type SelectPart =
-  | { kind: 'col'; col: string }
-  | { kind: 'raw'; sql: string; bindings: unknown[] }
-  | { kind: 'sub'; sub: QueryBuilder; alias: string }
+type SelectPart
+  = | { kind: 'col', col: string }
+    | { kind: 'raw', sql: string, bindings: unknown[] }
+    | { kind: 'sub', sub: QueryBuilder, alias: string }
 
 interface UnionClause {
   query: QueryBuilder
@@ -93,14 +94,17 @@ export class JoinClauseBuilder {
     this.conditions.push({ boolean: 'AND', first, operator, second, isValue: false })
     return this
   }
+
   orOn(first: string, operator: string, second: string): this {
     this.conditions.push({ boolean: 'OR', first, operator, second, isValue: false })
     return this
   }
+
   where(column: string, operator: string, value: unknown): this {
     this.conditions.push({ boolean: 'AND', first: column, operator, value, isValue: true })
     return this
   }
+
   orWhere(column: string, operator: string, value: unknown): this {
     this.conditions.push({ boolean: 'OR', first: column, operator, value, isValue: true })
     return this
@@ -116,7 +120,7 @@ export class JoinClauseBuilder {
 export class QueryBuilder {
   private selects: SelectPart[] = []
   private distinctFlag = false
-  private fromSubq?: { sub: QueryBuilder; alias: string }
+  private fromSubq?: { sub: QueryBuilder, alias: string }
   private wheres: WhereClause[] = []
   private joins: JoinClause[] = []
   private groups: string[] = []
@@ -130,7 +134,8 @@ export class QueryBuilder {
     between?: [unknown, unknown]
     boolean: Bool
   }[] = []
-  private orders: { column: string; direction: 'ASC' | 'DESC' }[] = []
+
+  private orders: { column: string, direction: 'ASC' | 'DESC' }[] = []
   private rawOrders: string[] = []
   private limitValue?: number
   private offsetValue?: number
@@ -144,27 +149,32 @@ export class QueryBuilder {
 
   // ── SELECT ────────────────────────────────────────────────────────────────
   select(...columns: string[]): this {
-    this.selects = columns.map((col) => ({ kind: 'col', col }))
+    this.selects = columns.map(col => ({ kind: 'col', col }))
     return this
   }
+
   addSelect(...columns: string[]): this {
     for (const col of columns) this.selects.push({ kind: 'col', col })
     return this
   }
+
   /** Raw SELECT expression (use `?` placeholders for bindings). */
   selectRaw(sql: string, bindings: unknown[] = []): this {
     this.selects.push({ kind: 'raw', sql, bindings })
     return this
   }
+
   /** Select a subquery as a column: `SELECT (<sub>) AS alias`. */
   selectSub(sub: QueryBuilder, alias: string): this {
     this.selects.push({ kind: 'sub', sub, alias })
     return this
   }
+
   distinct(): this {
     this.distinctFlag = true
     return this
   }
+
   /** Query a subquery as the FROM source: `FROM (<sub>) AS alias`. */
   fromSub(sub: QueryBuilder, alias: string): this {
     this.fromSubq = { sub, alias }
@@ -177,17 +187,21 @@ export class QueryBuilder {
     operatorOrValue?: unknown,
     value?: unknown,
   ): this {
-    if (typeof column === 'function') return this.whereGroup('AND', column)
+    if (typeof column === 'function')
+      return this.whereGroup('AND', column)
     return this.addWhere('AND', column, operatorOrValue, value)
   }
+
   orWhere(
     column: string | ((q: QueryBuilder) => void),
     operatorOrValue?: unknown,
     value?: unknown,
   ): this {
-    if (typeof column === 'function') return this.whereGroup('OR', column)
+    if (typeof column === 'function')
+      return this.whereGroup('OR', column)
     return this.addWhere('OR', column, operatorOrValue, value)
   }
+
   /** Negate a group or a single condition: `whereNot((q) => ...)` / `whereNot(col, op, val)`. */
   whereNot(
     column: string | ((q: QueryBuilder) => void),
@@ -196,6 +210,7 @@ export class QueryBuilder {
   ): this {
     return this.addNot('AND', column, operatorOrValue, value)
   }
+
   orWhereNot(
     column: string | ((q: QueryBuilder) => void),
     operatorOrValue?: unknown,
@@ -203,6 +218,7 @@ export class QueryBuilder {
   ): this {
     return this.addNot('OR', column, operatorOrValue, value)
   }
+
   private addNot(
     boolean: Bool,
     column: string | ((q: QueryBuilder) => void),
@@ -210,17 +226,20 @@ export class QueryBuilder {
     value?: unknown,
   ): this {
     const sub = this.newQuery()
-    if (typeof column === 'function') column(sub)
+    if (typeof column === 'function')
+      column(sub)
     else sub.addWhere('AND', column, operatorOrValue, value)
     this.wheres.push({ boolean, column: '', operator: '', value: null, kind: 'not', sub })
     return this
   }
+
   private whereGroup(boolean: Bool, build: (q: QueryBuilder) => void): this {
     const sub = this.newQuery()
     build(sub)
     this.wheres.push({ boolean, column: '', operator: '', value: null, kind: 'group', sub })
     return this
   }
+
   whereColumn(first: string, operator: string, second: string): this {
     this.wheres.push({
       boolean: 'AND',
@@ -232,6 +251,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   orWhereColumn(first: string, operator: string, second: string): this {
     this.wheres.push({
       boolean: 'OR',
@@ -243,6 +263,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   whereNotIn(column: string, values: unknown[]): this {
     this.wheres.push({
       boolean: 'AND',
@@ -254,10 +275,12 @@ export class QueryBuilder {
     })
     return this
   }
+
   orWhereIn(column: string, values: unknown[]): this {
     this.wheres.push({ boolean: 'OR', column, operator: 'IN', value: null, kind: 'in', values })
     return this
   }
+
   orWhereNotIn(column: string, values: unknown[]): this {
     this.wheres.push({
       boolean: 'OR',
@@ -269,6 +292,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   whereBetween(column: string, range: [unknown, unknown]): this {
     this.wheres.push({
       boolean: 'AND',
@@ -280,6 +304,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   whereNotBetween(column: string, range: [unknown, unknown]): this {
     this.wheres.push({
       boolean: 'AND',
@@ -291,6 +316,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   /** `col BETWEEN <col1> AND <col2>` (column bounds, not values). */
   whereBetweenColumns(column: string, columns: [string, string]): this {
     this.wheres.push({
@@ -303,6 +329,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   whereNotBetweenColumns(column: string, columns: [string, string]): this {
     this.wheres.push({
       boolean: 'AND',
@@ -314,12 +341,15 @@ export class QueryBuilder {
     })
     return this
   }
+
   /** Conditionally apply clauses: `when(active, (q) => q.where('active', 1))`. */
   when(condition: unknown, then: (q: this) => void, otherwise?: (q: this) => void): this {
-    if (condition) then(this)
+    if (condition)
+      then(this)
     else otherwise?.(this)
     return this
   }
+
   /** `whereIn('col', [...])` or `whereIn('col', subquery)`. */
   whereIn(column: string, values: unknown[] | QueryBuilder): this {
     if (values instanceof QueryBuilder) {
@@ -331,19 +361,23 @@ export class QueryBuilder {
         kind: 'inSub',
         sub: values,
       })
-    } else {
+    }
+    else {
       this.wheres.push({ boolean: 'AND', column, operator: 'IN', value: null, kind: 'in', values })
     }
     return this
   }
+
   whereNull(column: string): this {
     this.wheres.push({ boolean: 'AND', column, operator: 'IS NULL', value: null, kind: 'null' })
     return this
   }
+
   orWhereNull(column: string): this {
     this.wheres.push({ boolean: 'OR', column, operator: 'IS NULL', value: null, kind: 'null' })
     return this
   }
+
   whereNotNull(column: string): this {
     this.wheres.push({
       boolean: 'AND',
@@ -354,6 +388,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   orWhereNotNull(column: string): this {
     this.wheres.push({
       boolean: 'OR',
@@ -364,33 +399,42 @@ export class QueryBuilder {
     })
     return this
   }
+
   /** Case-insensitive LIKE (`ILIKE` on Postgres). */
   whereLike(column: string, value: string): this {
     return this.addLike('AND', column, value)
   }
+
   orWhereLike(column: string, value: string): this {
     return this.addLike('OR', column, value)
   }
+
   private addLike(boolean: Bool, column: string, value: string): this {
     const op = this.connection.dialect === 'pg' ? 'ILIKE' : 'LIKE'
     this.wheres.push({ boolean, column, operator: op, value, kind: 'basic' })
     return this
   }
+
   whereDate(column: string, operatorOrValue: unknown, value?: unknown): this {
     return this.addDatePart('AND', 'date', column, operatorOrValue, value)
   }
+
   whereYear(column: string, operatorOrValue: unknown, value?: unknown): this {
     return this.addDatePart('AND', 'year', column, operatorOrValue, value)
   }
+
   whereMonth(column: string, operatorOrValue: unknown, value?: unknown): this {
     return this.addDatePart('AND', 'month', column, operatorOrValue, value)
   }
+
   whereDay(column: string, operatorOrValue: unknown, value?: unknown): this {
     return this.addDatePart('AND', 'day', column, operatorOrValue, value)
   }
+
   whereTime(column: string, operatorOrValue: unknown, value?: unknown): this {
     return this.addDatePart('AND', 'time', column, operatorOrValue, value)
   }
+
   private addDatePart(
     boolean: Bool,
     part: DatePart,
@@ -398,16 +442,18 @@ export class QueryBuilder {
     operatorOrValue: unknown,
     value?: unknown,
   ): this {
-    const [operator, val] =
-      value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
+    const [operator, val]
+      = value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
     this.wheres.push({ boolean, column, operator, value: val, kind: 'datePart', part })
     return this
   }
+
   /** Whether a JSON column contains `value` (best-effort, dialect-specific). */
   whereJsonContains(column: string, value: unknown): this {
     this.wheres.push({ boolean: 'AND', column, operator: '', value, kind: 'jsonContains' })
     return this
   }
+
   /** Raw WHERE fragment with `?` placeholders. */
   whereRaw(sql: string, bindings: unknown[] = []): this {
     this.wheres.push({
@@ -421,6 +467,7 @@ export class QueryBuilder {
     })
     return this
   }
+
   orWhereRaw(sql: string, bindings: unknown[] = []): this {
     this.wheres.push({
       boolean: 'OR',
@@ -433,11 +480,13 @@ export class QueryBuilder {
     })
     return this
   }
+
   /** `WHERE EXISTS (<subquery>)`. */
   whereExists(sub: QueryBuilder): this {
     this.wheres.push({ boolean: 'AND', column: '', operator: '', value: null, kind: 'exists', sub })
     return this
   }
+
   whereNotExists(sub: QueryBuilder): this {
     this.wheres.push({
       boolean: 'AND',
@@ -459,6 +508,7 @@ export class QueryBuilder {
   ): this {
     return this.addJoin('INNER', table, first, operator, second)
   }
+
   leftJoin(
     table: JoinTable,
     first: string | ((j: JoinClauseBuilder) => void),
@@ -467,6 +517,7 @@ export class QueryBuilder {
   ): this {
     return this.addJoin('LEFT', table, first, operator, second)
   }
+
   rightJoin(
     table: JoinTable,
     first: string | ((j: JoinClauseBuilder) => void),
@@ -475,14 +526,17 @@ export class QueryBuilder {
   ): this {
     return this.addJoin('RIGHT', table, first, operator, second)
   }
+
   crossJoin(table: JoinTable): this {
     this.joins.push({ type: 'CROSS', table, conditions: [] })
     return this
   }
+
   /** Join a subquery: `joinSub(sub, 'alias', 'alias.x', '=', 'y')`. */
   joinSub(sub: QueryBuilder, alias: string, first: string, operator: string, second: string): this {
     return this.addJoin('INNER', { sub, alias }, first, operator, second)
   }
+
   private addJoin(
     type: JoinClause['type'],
     table: JoinTable,
@@ -494,7 +548,8 @@ export class QueryBuilder {
       const builder = new JoinClauseBuilder()
       first(builder)
       this.joins.push({ type, table, conditions: builder.conditions })
-    } else {
+    }
+    else {
       this.joins.push({
         type,
         table,
@@ -511,81 +566,102 @@ export class QueryBuilder {
     this.groups.push(...columns)
     return this
   }
+
   groupByRaw(sql: string): this {
     this.rawGroups.push(sql)
     return this
   }
+
   having(column: string, operator: string, value: unknown): this {
     this.havings.push({ column, operator, value, boolean: 'AND' })
     return this
   }
+
   havingBetween(column: string, range: [unknown, unknown]): this {
     this.havings.push({ column, between: range, boolean: 'AND' })
     return this
   }
+
   havingRaw(sql: string, bindings: unknown[] = []): this {
     this.havings.push({ sql, bindings, boolean: 'AND' })
     return this
   }
+
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
     this.orders.push({ column, direction: direction.toUpperCase() as 'ASC' | 'DESC' })
     return this
   }
+
   orderByDesc(column: string): this {
     return this.orderBy(column, 'desc')
   }
+
   latest(column = 'created_at'): this {
     return this.orderBy(column, 'desc')
   }
+
   oldest(column = 'created_at'): this {
     return this.orderBy(column, 'asc')
   }
+
   orderByRaw(sql: string): this {
     this.rawOrders.push(sql)
     return this
   }
+
   inRandomOrder(): this {
     this.rawOrders.push('RANDOM()')
     return this
   }
+
   /** Drop all orderings (optionally set a new one). */
   reorder(column?: string, direction: 'asc' | 'desc' = 'asc'): this {
     this.orders = []
     this.rawOrders = []
-    if (column) this.orderBy(column, direction)
+    if (column)
+      this.orderBy(column, direction)
     return this
   }
+
   limit(n: number): this {
     this.limitValue = n
     return this
   }
+
   offset(n: number): this {
     this.offsetValue = n
     return this
   }
+
   take(n: number): this {
     return this.limit(n)
   }
+
   skip(n: number): this {
     return this.offset(n)
   }
+
   forPage(page: number, perPage = 15): this {
     return this.offset((page - 1) * perPage).limit(perPage)
   }
+
   /** Append `UNION <other select>`. */
   union(other: QueryBuilder): this {
     this.unions.push({ query: other, all: false })
     return this
   }
+
   unionAll(other: QueryBuilder): this {
     this.unions.push({ query: other, all: true })
     return this
   }
+
   /** `FOR UPDATE` (Postgres; no-op on SQLite). */
   lockForUpdate(): this {
     this.lock = 'FOR UPDATE'
     return this
   }
+
   /** `FOR SHARE` (Postgres; no-op on SQLite). */
   sharedLock(): this {
     this.lock = 'FOR SHARE'
@@ -593,11 +669,12 @@ export class QueryBuilder {
   }
 
   private addWhere(boolean: Bool, column: string, operatorOrValue: unknown, value?: unknown): this {
-    const [operator, val] =
-      value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
+    const [operator, val]
+      = value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
     if (val instanceof QueryBuilder) {
       this.wheres.push({ boolean, column, operator, value: null, kind: 'sub', sub: val })
-    } else {
+    }
+    else {
       this.wheres.push({ boolean, column, operator, value: val, kind: 'basic' })
     }
     return this
@@ -685,8 +762,9 @@ export class QueryBuilder {
     const betweenCols = (w: WhereClause, keyword: string) =>
       `${g.wrap(w.column)} ${keyword} ${g.wrap(String(w.values?.[0]))} AND ${g.wrap(String(w.values?.[1]))}`
     const inList = (w: WhereClause, keyword: string, emptyResult: string) => {
-      if (!w.values?.length) return emptyResult
-      return `${g.wrap(w.column)} ${keyword} (${w.values.map((v) => this.bind(v, bindings)).join(', ')})`
+      if (!w.values?.length)
+        return emptyResult
+      return `${g.wrap(w.column)} ${keyword} (${w.values.map(v => this.bind(v, bindings)).join(', ')})`
     }
     return this.wheres
       .map((w, i) => {
@@ -748,7 +826,8 @@ export class QueryBuilder {
 
   private compileJoinTable(table: JoinTable, bindings: unknown[]): string {
     const g = this.connection.grammar
-    if (typeof table === 'string') return g.wrap(table)
+    if (typeof table === 'string')
+      return g.wrap(table)
     return `(${table.sub.compileSelect(bindings)}) AS ${g.wrap(table.alias)}`
   }
 
@@ -757,7 +836,8 @@ export class QueryBuilder {
     return this.joins
       .map((j) => {
         const target = this.compileJoinTable(j.table, bindings)
-        if (j.type === 'CROSS') return ` CROSS JOIN ${target}`
+        if (j.type === 'CROSS')
+          return ` CROSS JOIN ${target}`
         const on = j.conditions
           .map((c, i) => {
             const prefix = i === 0 ? '' : `${c.boolean} `
@@ -773,11 +853,13 @@ export class QueryBuilder {
   private compileGroupsHavings(bindings: unknown[]): string {
     const g = this.connection.grammar
     let sql = ''
-    const groups = [...this.groups.map((c) => g.wrap(c)), ...this.rawGroups]
-    if (groups.length) sql += ` GROUP BY ${groups.join(', ')}`
+    const groups = [...this.groups.map(c => g.wrap(c)), ...this.rawGroups]
+    if (groups.length)
+      sql += ` GROUP BY ${groups.join(', ')}`
     if (this.havings.length) {
       const parts = this.havings.map((h) => {
-        if (h.sql) return this.applyRaw(h.sql, h.bindings ?? [], bindings)
+        if (h.sql)
+          return this.applyRaw(h.sql, h.bindings ?? [], bindings)
         if (h.between) {
           return `${g.wrap(h.column as string)} BETWEEN ${this.bind(h.between[0], bindings)} AND ${this.bind(h.between[1], bindings)}`
         }
@@ -789,12 +871,15 @@ export class QueryBuilder {
   }
 
   private compileColumns(bindings: unknown[]): string {
-    if (this.selects.length === 0) return '*'
+    if (this.selects.length === 0)
+      return '*'
     const g = this.connection.grammar
     return this.selects
       .map((s) => {
-        if (s.kind === 'col') return g.wrap(s.col)
-        if (s.kind === 'raw') return this.applyRaw(s.sql, s.bindings, bindings)
+        if (s.kind === 'col')
+          return g.wrap(s.col)
+        if (s.kind === 'raw')
+          return this.applyRaw(s.sql, s.bindings, bindings)
         return `(${s.sub.compileSelect(bindings)}) AS ${g.wrap(s.alias)}`
       })
       .join(', ')
@@ -809,19 +894,23 @@ export class QueryBuilder {
     sql += this.compileWheres(bindings)
     sql += this.compileGroupsHavings(bindings)
     const orderParts = [
-      ...this.orders.map((o) => `${g.wrap(o.column)} ${o.direction}`),
+      ...this.orders.map(o => `${g.wrap(o.column)} ${o.direction}`),
       ...this.rawOrders,
     ]
-    if (orderParts.length) sql += ` ORDER BY ${orderParts.join(', ')}`
-    if (this.limitValue !== undefined) sql += ` LIMIT ${this.limitValue}`
-    if (this.offsetValue !== undefined) sql += ` OFFSET ${this.offsetValue}`
+    if (orderParts.length)
+      sql += ` ORDER BY ${orderParts.join(', ')}`
+    if (this.limitValue !== undefined)
+      sql += ` LIMIT ${this.limitValue}`
+    if (this.offsetValue !== undefined)
+      sql += ` OFFSET ${this.offsetValue}`
     for (const u of this.unions)
       sql += ` UNION ${u.all ? 'ALL ' : ''}${u.query.compileSelect(bindings)}`
-    if (this.lock && this.connection.dialect !== 'sqlite') sql += ` ${this.lock}`
+    if (this.lock && this.connection.dialect !== 'sqlite')
+      sql += ` ${this.lock}`
     return sql
   }
 
-  toSql(): { sql: string; bindings: unknown[] } {
+  toSql(): { sql: string, bindings: unknown[] } {
     const bindings: unknown[] = []
     return { sql: this.compileSelect(bindings), bindings }
   }
@@ -851,10 +940,12 @@ export class QueryBuilder {
     const { sql, bindings } = this.toSql()
     return this.connection.select<Row>(sql, bindings)
   }
+
   async first(): Promise<Row | undefined> {
     const rows = await this.limit(1).get()
     return rows[0]
   }
+
   /** Find a row by primary key. */
   async find(id: unknown, column = 'id'): Promise<Row | undefined> {
     return this.where(column, id).first()
@@ -864,32 +955,39 @@ export class QueryBuilder {
     const g = this.connection.grammar
     const bindings: unknown[] = []
     const col = column === '*' ? '*' : g.wrap(column)
-    const sql =
-      `SELECT ${fn}(${col}) AS aggregate FROM ${this.compileFrom(bindings)}` +
-      this.compileJoins(bindings) +
-      this.compileWheres(bindings) +
-      this.compileGroupsHavings(bindings)
+    const sql
+      = `SELECT ${fn}(${col}) AS aggregate FROM ${this.compileFrom(bindings)}${
+        this.compileJoins(bindings)
+      }${this.compileWheres(bindings)
+      }${this.compileGroupsHavings(bindings)}`
     const rows = await this.connection.select<{ aggregate: number | string }>(sql, bindings)
     return Number(rows[0]?.aggregate ?? 0)
   }
+
   count(): Promise<number> {
     return this.aggregate('COUNT')
   }
+
   sum(column: string): Promise<number> {
     return this.aggregate('SUM', column)
   }
+
   avg(column: string): Promise<number> {
     return this.aggregate('AVG', column)
   }
+
   min(column: string): Promise<number> {
     return this.aggregate('MIN', column)
   }
+
   max(column: string): Promise<number> {
     return this.aggregate('MAX', column)
   }
+
   async exists(): Promise<boolean> {
     return (await this.clone().count()) > 0
   }
+
   async doesntExist(): Promise<boolean> {
     return !(await this.exists())
   }
@@ -906,6 +1004,7 @@ export class QueryBuilder {
       lastPage: Math.max(1, Math.ceil(total / perPage)),
     }
   }
+
   async simplePaginate(perPage = 15, page = 1): Promise<SimpleRowPaginator> {
     const rows = await this.clone()
       .offset((page - 1) * perPage)
@@ -914,9 +1013,11 @@ export class QueryBuilder {
     const hasMore = rows.length > perPage
     return { data: hasMore ? rows.slice(0, perPage) : rows, perPage, currentPage: page, hasMore }
   }
+
   async cursorPaginate(perPage = 15, cursor?: unknown, column = 'id'): Promise<CursorRowPaginator> {
     const q = this.clone()
-    if (cursor !== undefined) q.where(column, '>', cursor)
+    if (cursor !== undefined)
+      q.where(column, '>', cursor)
     const rows = await q
       .orderBy(column, 'asc')
       .limit(perPage + 1)
@@ -935,12 +1036,15 @@ export class QueryBuilder {
         .offset(page * size)
         .limit(size)
         .get()
-      if (rows.length === 0) break
+      if (rows.length === 0)
+        break
       await callback(rows)
-      if (rows.length < size) break
+      if (rows.length < size)
+        break
       page++
     }
   }
+
   /** Keyset chunking — safe when the callback mutates matched rows. */
   async chunkById(
     size: number,
@@ -950,14 +1054,18 @@ export class QueryBuilder {
     let lastId: unknown
     while (true) {
       const q = this.clone().reorder(column, 'asc').limit(size)
-      if (lastId !== undefined) q.where(column, '>', lastId)
+      if (lastId !== undefined)
+        q.where(column, '>', lastId)
       const rows = await q.get()
-      if (rows.length === 0) break
+      if (rows.length === 0)
+        break
       await callback(rows)
       lastId = rows[rows.length - 1]?.[column]
-      if (rows.length < size) break
+      if (rows.length < size)
+        break
     }
   }
+
   /** Stream rows lazily in id-keyset chunks as a LazyCollection. */
   cursor(size = 1000, column = 'id'): LazyCollection<Row> {
     const self = this
@@ -965,15 +1073,19 @@ export class QueryBuilder {
       let lastId: unknown
       while (true) {
         const q = self.clone().reorder(column, 'asc').limit(size)
-        if (lastId !== undefined) q.where(column, '>', lastId)
+        if (lastId !== undefined)
+          q.where(column, '>', lastId)
         const rows = await q.get()
-        if (rows.length === 0) break
+        if (rows.length === 0)
+          break
         for (const row of rows) yield row
         lastId = rows[rows.length - 1]?.[column]
-        if (rows.length < size) break
+        if (rows.length < size)
+          break
       }
     })
   }
+
   lazy(size = 1000, column = 'id'): LazyCollection<Row> {
     return this.cursor(size, column)
   }
@@ -983,10 +1095,11 @@ export class QueryBuilder {
     const row = await this.select(column).first()
     return row?.[column] as T | undefined
   }
+
   /** Array of a single column's values. */
   async pluck<T = unknown>(column: string): Promise<T[]> {
     const rows = await this.select(column).get()
-    return rows.map((r) => r[column] as T)
+    return rows.map(r => r[column] as T)
   }
 
   // ── writes ────────────────────────────────────────────────────────────────
@@ -998,7 +1111,8 @@ export class QueryBuilder {
   async insert(values: Row, key = 'id'): Promise<Row> {
     const g = this.connection.grammar
     const columns = Object.keys(values)
-    if (!g.supportsReturning) return this.insertEmulatingReturning(values, columns, key)
+    if (!g.supportsReturning)
+      return this.insertEmulatingReturning(values, columns, key)
     if (columns.length === 0) {
       const rows = await this.connection.select<Row>(
         `INSERT INTO ${g.wrap(this.table)} DEFAULT VALUES RETURNING *`,
@@ -1006,7 +1120,7 @@ export class QueryBuilder {
       return rows[0] as Row
     }
     const bindings = Object.values(values)
-    const cols = columns.map((c) => g.wrap(c)).join(', ')
+    const cols = columns.map(c => g.wrap(c)).join(', ')
     const phs = columns.map((_, i) => g.placeholder(i)).join(', ')
     const sql = `INSERT INTO ${g.wrap(this.table)} (${cols}) VALUES (${phs}) RETURNING *`
     const rows = await this.connection.select<Row>(sql, bindings)
@@ -1029,21 +1143,24 @@ export class QueryBuilder {
     if (columns.length === 0) {
       sql = `INSERT INTO ${g.wrap(this.table)} () VALUES ()`
       bindings = []
-    } else {
+    }
+    else {
       bindings = Object.values(values)
-      const cols = columns.map((c) => g.wrap(c)).join(', ')
+      const cols = columns.map(c => g.wrap(c)).join(', ')
       const phs = columns.map((_, i) => g.placeholder(i)).join(', ')
       sql = `INSERT INTO ${g.wrap(this.table)} (${cols}) VALUES (${phs})`
     }
 
     let insertId: number | bigint | null = null
-    if (this.connection.insertGetId) insertId = await this.connection.insertGetId(sql, bindings)
+    if (this.connection.insertGetId)
+      insertId = await this.connection.insertGetId(sql, bindings)
     else await this.connection.statement(sql, bindings)
 
     const keyValue = values[key] ?? insertId ?? undefined
     if (keyValue !== undefined) {
       const row = await new QueryBuilder(this.connection, this.table).where(key, keyValue).first()
-      if (row) return row
+      if (row)
+        return row
     }
     return insertId == null ? { ...values } : { ...values, [key]: insertId }
   }
@@ -1059,7 +1176,7 @@ export class QueryBuilder {
   }
 
   private async crement(
-    changes: Record<string, { sign: '+' | '-'; amount: number }>,
+    changes: Record<string, { sign: '+' | '-', amount: number }>,
     extra: Row,
   ): Promise<void> {
     const g = this.connection.grammar
@@ -1073,15 +1190,18 @@ export class QueryBuilder {
     const sql = `UPDATE ${g.wrap(this.table)} SET ${sets.join(', ')}${this.compileWheres(bindings)}`
     await this.connection.statement(sql, bindings)
   }
+
   increment(column: string, amount = 1, extra: Row = {}): Promise<void> {
     return this.crement({ [column]: { sign: '+', amount } }, extra)
   }
+
   decrement(column: string, amount = 1, extra: Row = {}): Promise<void> {
     return this.crement({ [column]: { sign: '-', amount } }, extra)
   }
+
   /** Increment several columns at once. */
   incrementEach(columns: Record<string, number>, extra: Row = {}): Promise<void> {
-    const changes: Record<string, { sign: '+' | '-'; amount: number }> = {}
+    const changes: Record<string, { sign: '+' | '-', amount: number }> = {}
     for (const [col, amount] of Object.entries(columns)) {
       changes[col] = { sign: amount < 0 ? '-' : '+', amount: Math.abs(amount) }
     }
@@ -1102,32 +1222,35 @@ export class QueryBuilder {
       await this.connection.statement(
         `TRUNCATE TABLE ${g.wrap(this.table)} RESTART IDENTITY CASCADE`,
       )
-    } else if (this.connection.dialect === 'mysql') {
+    }
+    else if (this.connection.dialect === 'mysql') {
       await this.connection.statement(`TRUNCATE TABLE ${g.wrap(this.table)}`)
-    } else {
+    }
+    else {
       await this.connection.statement(`DELETE FROM ${g.wrap(this.table)}`)
       await this.connection.statement(`DELETE FROM sqlite_sequence WHERE name = ?`, [this.table])
     }
   }
 
   async upsert(rows: Row[], uniqueBy: string[], update: string[]): Promise<void> {
-    if (rows.length === 0) return
+    if (rows.length === 0)
+      return
     const g = this.connection.grammar
     const columns = Object.keys(rows[0] as Row)
     const bindings: unknown[] = []
     const tuples = rows.map(
-      (row) => `(${columns.map((c) => this.bind((row as Row)[c], bindings)).join(', ')})`,
+      row => `(${columns.map(c => this.bind((row as Row)[c], bindings)).join(', ')})`,
     )
-    const head = `INSERT INTO ${g.wrap(this.table)} (${columns.map((c) => g.wrap(c)).join(', ')}) VALUES ${tuples.join(', ')}`
+    const head = `INSERT INTO ${g.wrap(this.table)} (${columns.map(c => g.wrap(c)).join(', ')}) VALUES ${tuples.join(', ')}`
     // MySQL matches on any unique key (no conflict target) and references the new
     // row via VALUES()/an alias; Postgres/SQLite name the conflict columns + `excluded`.
     if (this.connection.dialect === 'mysql') {
-      const setClause = update.map((c) => `${g.wrap(c)} = VALUES(${g.wrap(c)})`).join(', ')
+      const setClause = update.map(c => `${g.wrap(c)} = VALUES(${g.wrap(c)})`).join(', ')
       await this.connection.statement(`${head} ON DUPLICATE KEY UPDATE ${setClause}`, bindings)
       return
     }
-    const conflict = uniqueBy.map((c) => g.wrap(c)).join(', ')
-    const setClause = update.map((c) => `${g.wrap(c)} = excluded.${g.wrap(c)}`).join(', ')
+    const conflict = uniqueBy.map(c => g.wrap(c)).join(', ')
+    const setClause = update.map(c => `${g.wrap(c)} = excluded.${g.wrap(c)}`).join(', ')
     await this.connection.statement(
       `${head} ON CONFLICT (${conflict}) DO UPDATE SET ${setClause}`,
       bindings,
@@ -1136,18 +1259,19 @@ export class QueryBuilder {
 
   private valueTuples(rows: Row[], columns: string[], bindings: unknown[]): string {
     return rows
-      .map((row) => `(${columns.map((c) => this.bind(row[c], bindings)).join(', ')})`)
+      .map(row => `(${columns.map(c => this.bind(row[c], bindings)).join(', ')})`)
       .join(', ')
   }
 
   /** Insert multiple rows in one statement. */
   async insertMany(rows: Row[]): Promise<void> {
-    if (rows.length === 0) return
+    if (rows.length === 0)
+      return
     const g = this.connection.grammar
     const columns = Object.keys(rows[0] as Row)
     const bindings: unknown[] = []
     const values = this.valueTuples(rows, columns, bindings)
-    const cols = columns.map((c) => g.wrap(c)).join(', ')
+    const cols = columns.map(c => g.wrap(c)).join(', ')
     await this.connection.statement(
       `INSERT INTO ${g.wrap(this.table)} (${cols}) VALUES ${values}`,
       bindings,
@@ -1156,15 +1280,16 @@ export class QueryBuilder {
 
   /** Insert rows, silently skipping ones that violate a unique constraint. */
   async insertOrIgnore(rows: Row[]): Promise<void> {
-    if (rows.length === 0) return
+    if (rows.length === 0)
+      return
     const g = this.connection.grammar
     const columns = Object.keys(rows[0] as Row)
     const bindings: unknown[] = []
     const values = this.valueTuples(rows, columns, bindings)
-    const cols = columns.map((c) => g.wrap(c)).join(', ')
+    const cols = columns.map(c => g.wrap(c)).join(', ')
     const dialect = this.connection.dialect
-    const prefix =
-      dialect === 'sqlite'
+    const prefix
+      = dialect === 'sqlite'
         ? 'INSERT OR IGNORE INTO'
         : dialect === 'mysql'
           ? 'INSERT IGNORE INTO'
@@ -1183,7 +1308,8 @@ export class QueryBuilder {
       for (const [k, v] of Object.entries(attributes)) q.where(k, v)
       return q
     }
-    if (await match().exists()) await match().update(values)
+    if (await match().exists())
+      await match().update(values)
     else await this.insertMany([{ ...attributes, ...values }])
   }
 }

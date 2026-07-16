@@ -3,8 +3,8 @@ export type Visibility = 'public' | 'private'
 
 /** Permission mappings for the `local` driver (mirrors Laravel's `permissions` block). */
 export interface LocalPermissions {
-  file?: { public?: number; private?: number }
-  dir?: { public?: number; private?: number }
+  file?: { public?: number, private?: number }
+  dir?: { public?: number, private?: number }
 }
 
 export interface LocalDiskConfig {

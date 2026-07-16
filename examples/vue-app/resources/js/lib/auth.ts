@@ -6,7 +6,7 @@
 async function post(
   path: string,
   body: Record<string, unknown>,
-): Promise<{ error?: string; data?: unknown }> {
+): Promise<{ error?: string, data?: unknown }> {
   const res = await fetch(`/api/auth/${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

@@ -26,11 +26,13 @@ export class MergeProp {
     readonly value: PropValue,
     readonly deep = false,
   ) {}
+
   /** Prepend merged items instead of appending. */
   prepend(): this {
     this.prependMode = true
     return this
   }
+
   /** Keys used to de-duplicate/match items when merging (`posts.id`). */
   matchOn(...keys: string[]): this {
     this.matchOnKeys = keys
@@ -77,11 +79,13 @@ export class InertiaResponse {
     this.encryptHistoryFlag = value
     return this
   }
+
   /** Clear the client's history state on this visit (e.g. after logout). */
   clearHistory(): this {
     this.clearHistoryFlag = true
     return this
   }
+
   /** Preserve the URL fragment (#hash) across this visit. */
   preserveFragment(): this {
     this.preserveFragmentFlag = true
@@ -141,13 +145,14 @@ async function evaluate(value: PropValue): Promise<unknown> {
   return typeof value === 'function' ? await (value as () => unknown)() : value
 }
 
-const parseList = (header: string | null): string[] =>
-  header
+function parseList(header: string | null): string[] {
+  return header
     ? header
         .split(',')
-        .map((s) => s.trim())
+        .map(s => s.trim())
         .filter(Boolean)
     : []
+}
 
 /** The props (filtered/evaluated) plus the v2 page-object metadata they imply. */
 export interface BuiltProps {
@@ -190,20 +195,23 @@ export async function buildProps(
   const rescuedProps: string[] = []
 
   const excludedByPartial = (key: string, isAlways: boolean) =>
-    !isAlways &&
-    ((only.length > 0 && !only.includes(key)) || (except.length > 0 && except.includes(key)))
+    !isAlways
+    && ((only.length > 0 && !only.includes(key)) || (except.length > 0 && except.includes(key)))
 
   for (const [key, value] of Object.entries(merged)) {
     if (value instanceof DeferProp) {
       // Full visit: don't resolve — advertise it in deferredProps for the client to fetch.
       if (!(isPartial && only.includes(key))) {
-        if (!isPartial) (deferred[value.group] ??= []).push(key)
+        if (!isPartial)
+          (deferred[value.group] ??= []).push(key)
         continue
       }
       try {
         out[key] = await evaluate(value.callback)
-      } catch (error) {
-        if (value.rescue) rescuedProps.push(key)
+      }
+      catch (error) {
+        if (value.rescue)
+          rescuedProps.push(key)
         else throw error
       }
       continue
@@ -211,30 +219,42 @@ export async function buildProps(
 
     const isAlways = value instanceof AlwaysProp
     const isOptional = value instanceof OptionalProp
-    if (excludedByPartial(key, isAlways)) continue
-    if (isOptional && !(isPartial && only.includes(key))) continue
+    if (excludedByPartial(key, isAlways))
+      continue
+    if (isOptional && !(isPartial && only.includes(key)))
+      continue
 
     if (value instanceof MergeProp) {
       out[key] = await evaluate(value.value)
       ;(value.prependMode ? prependProps : value.deep ? deepMergeProps : mergeProps).push(key)
       matchPropsOn.push(...value.matchOnKeys)
-    } else if (value instanceof OnceProp) {
+    }
+    else if (value instanceof OnceProp) {
       out[key] = await evaluate(value.callback)
       onceProps.push(key)
-    } else if (isAlways || isOptional) {
+    }
+    else if (isAlways || isOptional) {
       out[key] = await evaluate(value.callback)
-    } else {
+    }
+    else {
       out[key] = await evaluate(value)
     }
   }
 
   const result: BuiltProps = { props: out }
-  if (Object.keys(deferred).length) result.deferredProps = deferred
-  if (mergeProps.length) result.mergeProps = mergeProps
-  if (deepMergeProps.length) result.deepMergeProps = deepMergeProps
-  if (prependProps.length) result.prependProps = prependProps
-  if (matchPropsOn.length) result.matchPropsOn = matchPropsOn
-  if (onceProps.length) result.onceProps = onceProps
-  if (rescuedProps.length) result.rescuedProps = rescuedProps
+  if (Object.keys(deferred).length)
+    result.deferredProps = deferred
+  if (mergeProps.length)
+    result.mergeProps = mergeProps
+  if (deepMergeProps.length)
+    result.deepMergeProps = deepMergeProps
+  if (prependProps.length)
+    result.prependProps = prependProps
+  if (matchPropsOn.length)
+    result.matchPropsOn = matchPropsOn
+  if (onceProps.length)
+    result.onceProps = onceProps
+  if (rescuedProps.length)
+    result.rescuedProps = rescuedProps
   return result
 }

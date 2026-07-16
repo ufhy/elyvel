@@ -10,7 +10,7 @@ class Item extends Model {
   declare id: number
   declare n: number
 }
-const itemFactory = defineFactory(Item, (i) => ({ n: i }))
+const itemFactory = defineFactory(Item, i => ({ n: i }))
 
 const dialects = [
   { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },

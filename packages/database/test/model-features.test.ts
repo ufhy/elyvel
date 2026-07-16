@@ -1,6 +1,6 @@
+import type { EloquentBuilder } from '../src/eloquent-builder'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection, setConnection, transaction } from '../src/connection'
-import type { EloquentBuilder } from '../src/eloquent-builder'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 
@@ -15,11 +15,13 @@ class Post extends Model {
       set: (v: unknown) => (Array.isArray(v) ? v.join(',') : v),
     },
   } as const
+
   static override scopes = {
     published: (q: EloquentBuilder<Post>) => {
       q.where('status', 'published')
     },
   }
+
   declare id: number
   declare title: string
   declare views: number

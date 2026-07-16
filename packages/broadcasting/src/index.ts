@@ -1,4 +1,4 @@
-export { Broadcastable, broadcast } from './broadcastable'
+export { broadcast, Broadcastable } from './broadcastable'
 export { ArrayBroadcaster, type Broadcaster, LogBroadcaster } from './broadcaster'
 export { BroadcastChannel } from './channel'
 export { type BroadcastConfig, defineBroadcastConfig } from './config-schema'

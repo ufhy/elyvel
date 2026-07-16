@@ -32,11 +32,13 @@ class NotePolicy {
   view(): Response {
     return Response.allow()
   }
+
   update(user: AuthUser | null, note: Note): Response {
     return user?.id === note.authorId
       ? Response.allow()
       : Response.deny('You do not own this note.')
   }
+
   delete(user: AuthUser | null, note: Note): Response {
     return user?.id === note.authorId ? Response.allow() : Response.denyAsNotFound()
   }
@@ -47,7 +49,7 @@ export function configureAuthorization(): void {
   setDefaultGate(
     createGate<AuthUser>()
       // model-less ability, guarded via `{ can: 'admin' }`
-      .define('admin', (user) => user?.email === 'admin@example.test')
+      .define('admin', user => user?.email === 'admin@example.test')
       // per-model policy, routed automatically by `can('update', note)`
       .policy(Note, new NotePolicy()),
   )

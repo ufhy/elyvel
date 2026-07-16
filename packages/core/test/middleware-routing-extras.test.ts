@@ -1,8 +1,9 @@
+import type { MiddlewareContext } from '../src/middleware'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import {
   Middleware,
-  type MiddlewareContext,
+
   registerMiddlewareRegistry,
   route,
 } from '../src/middleware'
@@ -15,6 +16,7 @@ describe('middleware terminate (after phase)', () => {
       handle() {
         order.push('before')
       }
+
       override terminate() {
         order.push('after')
       }
@@ -32,7 +34,7 @@ describe('middleware terminate (after phase)', () => {
     )
     const res = await app.handle(new Request('http://localhost/x'))
     await res.text()
-    await new Promise((r) => setTimeout(r, 5)) // let afterResponse flush
+    await new Promise(r => setTimeout(r, 5)) // let afterResponse flush
     expect(order).toEqual(['before', 'handler', 'after'])
   })
 })
@@ -41,7 +43,8 @@ describe('route({ middleware }) group bundling', () => {
   test('applies middleware to every route in the group', async () => {
     class Block extends Middleware {
       handle(ctx: MiddlewareContext) {
-        if (!ctx.request.headers.get('x-key')) return ctx.status(401, { message: 'no' })
+        if (!ctx.request.headers.get('x-key'))
+          return ctx.status(401, { message: 'no' })
       }
     }
     registerMiddlewareRegistry({ aliases: { key: Block } })
@@ -60,7 +63,7 @@ describe('route({ middleware }) group bundling', () => {
 })
 
 describe('resource route model binding', () => {
-  const store = new Map<number, { id: number; name: string }>([
+  const store = new Map<number, { id: number, name: string }>([
     [1, { id: 1, name: 'Ada' }],
     [2, { id: 2, name: 'Alan' }],
   ])
@@ -70,6 +73,7 @@ describe('resource route model binding', () => {
     async show(ctx: MiddlewareContext) {
       return ctx.model // injected by binding
     }
+
     async destroy(ctx: MiddlewareContext) {
       const user = ctx.model as { id: number }
       return { deletedId: user.id }

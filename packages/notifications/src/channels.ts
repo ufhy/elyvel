@@ -1,7 +1,8 @@
+import type { Notifiable, Notification } from './notification'
 import { randomUUID } from 'node:crypto'
 import { mailManager } from '@elysia-ravel/mail'
 import { telegram } from '@elysia-ravel/telegram'
-import { type Notifiable, type Notification, notifiableKey, routeFor } from './notification'
+import { notifiableKey, routeFor } from './notification'
 
 /** A delivery channel — sends a notification to a notifiable. */
 export interface Channel {
@@ -15,6 +16,7 @@ export class ArrayChannel implements Channel {
     notification: Notification
     data: Record<string, unknown>
   }[] = []
+
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
     const data = notification.toArray?.(notifiable) ?? notification.toDatabase?.(notifiable) ?? {}
     this.sent.push({ notifiable, notification, data })
@@ -24,11 +26,13 @@ export class ArrayChannel implements Channel {
 /** Sends via the mail package using `notification.toMail()`. */
 export class MailChannel implements Channel {
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
-    if (!notification.toMail) return
+    if (!notification.toMail)
+      return
     const message = notification.toMail(notifiable)
     if (message.toAddresses.length === 0) {
       const to = routeFor(notifiable, 'mail')
-      if (to !== undefined) message.to(String(to))
+      if (to !== undefined)
+        message.to(String(to))
     }
     await mailManager().deliver(message)
   }
@@ -37,7 +41,8 @@ export class MailChannel implements Channel {
 /** Sends via the telegram package using `notification.toTelegram()`. */
 export class TelegramChannel implements Channel {
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
-    if (!notification.toTelegram) return
+    if (!notification.toTelegram)
+      return
     const payload = notification.toTelegram(notifiable)
     const message = typeof payload === 'string' ? { text: payload } : payload
     const chatId = message.chatId ?? routeFor(notifiable, 'telegram')
@@ -65,10 +70,11 @@ export function configureDatabaseNotifications(adapter: NotificationDbAdapter): 
 
 export class DatabaseChannel implements Channel {
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
-    if (!dbAdapter)
+    if (!dbAdapter) {
       throw new Error(
         '[elysia-ravel] database notifications need configureDatabaseNotifications(...).',
       )
+    }
     const data = notification.toDatabase?.(notifiable) ?? notification.toArray?.(notifiable) ?? {}
     await dbAdapter.insert({
       id: randomUUID(),

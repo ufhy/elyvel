@@ -1,3 +1,5 @@
+import type { JobMiddleware } from '../src/middleware'
+import type { QueueDbAdapter, RedisLike } from '../src/store'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Bus, configureBatches, findBatch, MemoryBatchStore } from '../src/batch'
 import { configureJobEncryption } from '../src/encryption'
@@ -13,7 +15,7 @@ import {
 } from '../src/manager'
 import {
   configureRateLimiter,
-  type JobMiddleware,
+
   MemoryRateLimiter,
   RateLimited,
   ReleaseJob,
@@ -25,8 +27,7 @@ import {
   configureDatabaseQueue,
   DatabaseQueueStore,
   MemoryQueueStore,
-  type QueueDbAdapter,
-  type RedisLike,
+
   RedisQueueStore,
 } from '../src/store'
 import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
@@ -39,6 +40,7 @@ class RecordJob extends Job {
   constructor(public tag = '') {
     super()
   }
+
   handle(): void {
     ran.push(this.tag)
   }
@@ -52,6 +54,7 @@ class FlakyJob extends Job {
     attemptCount++
     throw new Error(`boom ${attemptCount}`)
   }
+
   override failed(error: unknown): void {
     this.failedWith = error
   }
@@ -68,7 +71,7 @@ class TunedJob extends Job {
 class SlowJob extends Job {
   override timeout = 0.05 // 50ms
   async handle(): Promise<void> {
-    await new Promise((r) => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 200))
   }
 }
 
@@ -221,7 +224,7 @@ describe('failed jobs', () => {
 describe('afterCommit dispatch', () => {
   test('defers the push to the registered hook', async () => {
     const deferred: Array<() => void | Promise<void>> = []
-    configureAfterCommit((cb) => deferred.push(cb))
+    configureAfterCommit(cb => deferred.push(cb))
     const store = new MemoryQueueStore()
     const m = new QueueManager({ default: 'memory', connections: { memory: { driver: 'memory' } } })
     // reach into the manager's resolved store
@@ -242,9 +245,11 @@ describe('unique jobs', () => {
     constructor(public key = '') {
       super()
     }
+
     override uniqueId(): string {
       return this.key
     }
+
     handle(): void {}
   }
   registerJob(UniqueJob)
@@ -425,9 +430,9 @@ describe('job batching', () => {
 // ── model serialization (re-fetch) ────────────────────────────────────────────
 describe('model serialization', () => {
   // a fake model + store that re-fetches fresh values
-  const db: Record<string, { id: number; name: string }> = {
-    '1': { id: 1, name: 'fresh-alice' },
-    '2': { id: 2, name: 'fresh-bob' },
+  const db: Record<string, { id: number, name: string }> = {
+    1: { id: 1, name: 'fresh-alice' },
+    2: { id: 2, name: 'fresh-bob' },
   }
   class FakeUser {
     constructor(
@@ -440,6 +445,7 @@ describe('model serialization', () => {
     constructor(public user: FakeUser = new FakeUser(0, '')) {
       super()
     }
+
     handle(): void {
       ran.push((this.user as FakeUser).name)
     }
@@ -448,7 +454,7 @@ describe('model serialization', () => {
 
   test('stores a reference and re-fetches a fresh model on the worker', async () => {
     configureModelSerializer({
-      dehydrate: (v) => (v instanceof FakeUser ? { model: 'FakeUser', id: v.id } : undefined),
+      dehydrate: v => (v instanceof FakeUser ? { model: 'FakeUser', id: v.id } : undefined),
       hydrate: async (ref) => {
         const row = db[String(ref.id)]
         return row ? new FakeUser(row.id, row.name) : null
@@ -497,6 +503,7 @@ describe('encrypted jobs', () => {
     constructor(public msg = '') {
       super()
     }
+
     handle(): void {
       ran.push(this.msg)
     }
@@ -556,9 +563,9 @@ describe('Queue lifecycle events', () => {
     const before: string[] = []
     const after: string[] = []
     const failing: string[] = []
-    Queue.before((n) => void before.push(n))
-    Queue.after((n) => void after.push(n))
-    Queue.failing((n) => void failing.push(n))
+    Queue.before(n => void before.push(n))
+    Queue.after(n => void after.push(n))
+    Queue.failing(n => void failing.push(n))
 
     const store = new MemoryQueueStore()
     await store.push(JSON.stringify(serializeJob(new RecordJob('ok'))))
@@ -567,13 +574,13 @@ describe('Queue lifecycle events', () => {
 
     expect(before).toContain('RecordJob')
     expect(after).toEqual(['RecordJob']) // only the successful one
-    expect(failing.filter((n) => n === 'FlakyJob')).toHaveLength(3) // one per attempt
+    expect(failing.filter(n => n === 'FlakyJob')).toHaveLength(3) // one per attempt
     Queue.clearListeners()
   })
 
   test('bridges to a dispatcher as queue.processing/processed/failed', async () => {
     Queue.clearListeners()
-    const dispatched: { name: string; payload: Record<string, unknown> }[] = []
+    const dispatched: { name: string, payload: Record<string, unknown> }[] = []
     configureQueueEventDispatcher((name, payload) => void dispatched.push({ name, payload }))
 
     const store = new MemoryQueueStore()
@@ -581,12 +588,12 @@ describe('Queue lifecycle events', () => {
     await store.push(JSON.stringify(serializeJob(new FlakyJob()))) // tries=3
     await new Worker(store).work({ stopWhenEmpty: true })
 
-    const names = dispatched.map((d) => d.name)
+    const names = dispatched.map(d => d.name)
     expect(names).toContain('queue.processing')
-    expect(dispatched.find((d) => d.name === 'queue.processed')?.payload).toEqual({
+    expect(dispatched.find(d => d.name === 'queue.processed')?.payload).toEqual({
       job: 'RecordJob',
     })
-    const failed = dispatched.find((d) => d.name === 'queue.failed')
+    const failed = dispatched.find(d => d.name === 'queue.failed')
     expect(failed?.payload.job).toBe('FlakyJob')
     expect(failed?.payload.error).toBeDefined()
 
@@ -601,6 +608,7 @@ describe('job chaining', () => {
     constructor(public tag = '') {
       super()
     }
+
     handle(): void {
       ran.push(this.tag)
     }
@@ -632,8 +640,8 @@ describe('worker lifecycle hooks', () => {
     const store = new MemoryQueueStore()
     await store.push(JSON.stringify(serializeJob(new RecordJob('x'))))
     await new Worker(store, {
-      onBeforeJob: (n) => before.push(n),
-      onAfterJob: (n) => after.push(n),
+      onBeforeJob: n => before.push(n),
+      onAfterJob: n => after.push(n),
     }).work({ stopWhenEmpty: true })
     expect(before).toEqual(['RecordJob'])
     expect(after).toEqual(['RecordJob'])
@@ -643,7 +651,7 @@ describe('worker lifecycle hooks', () => {
     const after: string[] = []
     const store = new MemoryQueueStore()
     await store.push(JSON.stringify(serializeJob(new FlakyJob())))
-    await new Worker(store, { onAfterJob: (n) => after.push(n) }).work({ stopWhenEmpty: true })
+    await new Worker(store, { onAfterJob: n => after.push(n) }).work({ stopWhenEmpty: true })
     expect(after).toEqual([])
   })
 })
@@ -670,7 +678,7 @@ describe('prune failed jobs', () => {
     })
     const removed = await adapter.prune(Date.now() - 3600 * 1000)
     expect(removed).toBe(1)
-    expect((await adapter.all()).map((r) => r.id)).toEqual(['fresh'])
+    expect((await adapter.all()).map(r => r.id)).toEqual(['fresh'])
   })
 })
 
@@ -689,6 +697,7 @@ describe('job middleware', () => {
       override middleware() {
         return [mw('a'), mw('b')]
       }
+
       handle(): void {
         trace.push('handle')
       }
@@ -703,6 +712,7 @@ describe('job middleware', () => {
       override middleware() {
         return [{ handle: async () => {} }] // never calls next
       }
+
       handle(): void {
         ran = true
       }
@@ -718,6 +728,7 @@ describe('job middleware', () => {
       override middleware() {
         return [new RateLimited('emails', { maxAttempts: 1, perSeconds: 3600, releaseAfter: 0 })]
       }
+
       handle(): void {
         ran.push('limited')
       }
@@ -753,6 +764,7 @@ describe('job middleware', () => {
           } satisfies JobMiddleware,
         ]
       }
+
       handle(): void {
         ran.push('released-then-ran')
       }
@@ -799,7 +811,7 @@ describe('named queues', () => {
 
 // ── redis store (fake ZSET client) ────────────────────────────────────────────
 class FakeRedisZSet implements RedisLike {
-  private sets = new Map<string, { score: number; member: string }[]>()
+  private sets = new Map<string, { score: number, member: string }[]>()
   async send(command: string, args: string[]): Promise<unknown> {
     const key = args[0] as string
     const set = this.sets.get(key) ?? []
@@ -813,13 +825,13 @@ class FakeRedisZSet implements RedisLike {
       }
       case 'ZRANGEBYSCORE': {
         const max = Number(args[2])
-        const ready = set.filter((e) => e.score <= max).sort((a, b) => a.score - b.score)
-        return ready.slice(0, 1).map((e) => e.member)
+        const ready = set.filter(e => e.score <= max).sort((a, b) => a.score - b.score)
+        return ready.slice(0, 1).map(e => e.member)
       }
       case 'ZREM': {
         this.sets.set(
           key,
-          set.filter((e) => e.member !== args[1]),
+          set.filter(e => e.member !== args[1]),
         )
         return 1
       }
@@ -859,16 +871,17 @@ describe('DatabaseQueueStore (fake adapter)', () => {
       takeReady: async (now, queues) => {
         for (const queue of queues) {
           const ready = rows
-            .filter((r) => r.queue === queue && r.availableAt <= now)
+            .filter(r => r.queue === queue && r.availableAt <= now)
             .sort((a, b) => a.availableAt - b.availableAt)
           const next = ready[0]
-          if (!next) continue
+          if (!next)
+            continue
           rows.splice(rows.indexOf(next), 1)
           return { id: next.id, body: next.body, attempts: next.attempts, queue: next.queue }
         }
         return null
       },
-      count: async (queue) => (queue ? rows.filter((r) => r.queue === queue).length : rows.length),
+      count: async queue => (queue ? rows.filter(r => r.queue === queue).length : rows.length),
     }
     configureDatabaseQueue(adapter)
     const store = new DatabaseQueueStore()

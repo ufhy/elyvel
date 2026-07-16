@@ -19,7 +19,8 @@ export class ValidationException extends Error {
 function summarize(errors: ErrorBag): string {
   const all = Object.values(errors).flat()
   const first = all[0] ?? 'The given data was invalid.'
-  if (all.length <= 1) return first
+  if (all.length <= 1)
+    return first
   const more = all.length - 1
   return `${first} (and ${more} more ${more === 1 ? 'error' : 'errors'})`
 }

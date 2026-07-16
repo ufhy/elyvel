@@ -1,7 +1,9 @@
 import type { MailConfig, MailTransportConfig } from './config-schema'
 import type { Mailable } from './mailable'
-import { type Address, Message } from './message'
-import { ArrayTransport, LogTransport, SmtpTransport, type Transport } from './transports'
+import type { Address } from './message'
+import type { Transport } from './transports'
+import { Message } from './message'
+import { ArrayTransport, LogTransport, SmtpTransport } from './transports'
 
 /** Resolves configured transports and delivers messages (Laravel's MailManager). */
 export class MailManager {
@@ -23,8 +25,8 @@ export class MailManager {
   }
 
   private build(name: string): Transport {
-    const cfg: MailTransportConfig | undefined =
-      this.config.mailers?.[name] ?? (name === 'log' ? { transport: 'log' } : undefined)
+    const cfg: MailTransportConfig | undefined
+      = this.config.mailers?.[name] ?? (name === 'log' ? { transport: 'log' } : undefined)
     if (!cfg)
       throw new Error(`[elysia-ravel] Mail transport "${name}" is not defined in config/mail.ts.`)
     switch (cfg.transport) {
@@ -39,7 +41,8 @@ export class MailManager {
 
   /** Deliver a message, applying the global default From when none is set. */
   async deliver(message: Message, transportName?: string): Promise<void> {
-    if (!message.fromAddress && this.config.from) message.from(this.config.from)
+    if (!message.fromAddress && this.config.from)
+      message.from(this.config.from)
     await this.transport(transportName).send(message)
   }
 
@@ -61,30 +64,37 @@ export class PendingMail {
     this.message.to(...a)
     return this
   }
+
   cc(...a: Address[]): this {
     this.message.cc(...a)
     return this
   }
+
   bcc(...a: Address[]): this {
     this.message.bcc(...a)
     return this
   }
+
   from(a: Address): this {
     this.message.from(a)
     return this
   }
+
   replyTo(a: Address): this {
     this.message.replyTo(a)
     return this
   }
+
   subject(s: string): this {
     this.message.subject(s)
     return this
   }
-  html(body: string | { render: (shared: never) => string }): this {
+
+  html(body: string | { render(shared: never): string }): this {
     this.message.html(body)
     return this
   }
+
   text(body: string): this {
     this.message.text(body)
     return this
@@ -92,7 +102,8 @@ export class PendingMail {
 
   /** Send now. Pass a Mailable to let it configure the message first. */
   async send(mailable?: Mailable): Promise<void> {
-    if (mailable) await mailable.build(this.message)
+    if (mailable)
+      await mailable.build(this.message)
     await this.manager.deliver(this.message, this.transportName)
   }
 }
@@ -103,7 +114,8 @@ export function setDefaultMailer(manager: MailManager): void {
   defaultManager = manager
 }
 export function mailManager(): MailManager {
-  if (!defaultManager) defaultManager = new MailManager()
+  if (!defaultManager)
+    defaultManager = new MailManager()
   return defaultManager
 }
 

@@ -26,7 +26,7 @@ export interface UserProvider<U extends Authenticatable> {
  * plaintext is shown to the client once at creation.
  */
 export interface TokenStore {
-  store(record: { userId: string | number; hashedToken: string }): Awaitable<void>
+  store(record: { userId: string | number, hashedToken: string }): Awaitable<void>
   findUserId(hashedToken: string): Awaitable<string | number | null>
   revoke(hashedToken: string): Awaitable<void>
 }

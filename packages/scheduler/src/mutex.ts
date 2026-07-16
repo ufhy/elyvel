@@ -15,10 +15,12 @@ export class MemoryScheduleMutex implements ScheduleMutex {
   async create(key: string, ttlSeconds: number): Promise<boolean> {
     const now = Date.now()
     const expiry = this.locks.get(key)
-    if (expiry !== undefined && expiry > now) return false
+    if (expiry !== undefined && expiry > now)
+      return false
     this.locks.set(key, now + ttlSeconds * 1000)
     return true
   }
+
   async forget(key: string): Promise<void> {
     this.locks.delete(key)
   }

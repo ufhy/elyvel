@@ -2,19 +2,19 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ESNext",
+    "lib": ["ESNext"],
+    "moduleDetection": "force",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "moduleDetection": "force",
-    "lib": ["ESNext"],
+    "resolveJsonModule": true,
     "types": ["@types/bun"],
     "strict": true,
-    "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
   }
 }

@@ -8,8 +8,8 @@ import { Elysia } from 'elysia'
  */
 export interface MiddlewareContext {
   request: Request
-  status: (code: number, body?: unknown) => unknown
-  set: { status?: number | string; headers: Record<string, string | number> }
+  status(code: number, body?: unknown): unknown
+  set: { status?: number | string, headers: Record<string, string | number> }
   /** Route params (e.g. `:id`). */
   params: Record<string, string | undefined>
   /** Parsed query string. */
@@ -71,13 +71,15 @@ function isElysia(value: unknown): value is Elysia {
 /** Parse `"throttle:60,1"` → `["throttle", ["60", "1"]]`. */
 function parseSpec(spec: string): [string, string[]] {
   const idx = spec.indexOf(':')
-  if (idx === -1) return [spec, []]
+  if (idx === -1)
+    return [spec, []]
   return [spec.slice(0, idx), spec.slice(idx + 1).split(',')]
 }
 
 /** Instantiate a guard (alias name → registered class, or a class as-is). */
-function instantiate(guard: Guard): { instance: Middleware; args: string[] } {
-  if (typeof guard !== 'string') return { instance: new guard(), args: [] }
+function instantiate(guard: Guard): { instance: Middleware, args: string[] } {
+  if (typeof guard !== 'string')
+    return { instance: new guard(), args: [] }
   const [name, args] = parseSpec(guard)
   const Cls = aliases.get(name)
   if (!Cls) {
@@ -93,7 +95,8 @@ async function runGuards(guards: Guard[], context: MiddlewareContext): Promise<u
   for (const guard of guards) {
     const { instance, args } = instantiate(guard)
     const result = await instance.handle(context, ...args)
-    if (result !== undefined) return result
+    if (result !== undefined)
+      return result
   }
   return undefined
 }
@@ -105,13 +108,15 @@ async function runGuards(guards: Guard[], context: MiddlewareContext): Promise<u
  */
 async function runTerminators(guards: Guard[], context: MiddlewareContext): Promise<void> {
   for (const guard of guards) {
-    let resolved: { instance: Middleware; args: string[] }
+    let resolved: { instance: Middleware, args: string[] }
     try {
       resolved = instantiate(guard)
-    } catch {
+    }
+    catch {
       continue
     }
-    if (resolved.instance.terminate) await resolved.instance.terminate(context, ...resolved.args)
+    if (resolved.instance.terminate)
+      await resolved.instance.terminate(context, ...resolved.args)
   }
 }
 
@@ -135,7 +140,8 @@ export function route(prefix?: string, options: { middleware?: string[] } = {}) 
       return {
         beforeHandle: (async (context) => {
           const result = await runGuards(list, context as MiddlewareContext)
-          if (result !== undefined) return result
+          if (result !== undefined)
+            return result
         }) as Hook,
         afterResponse: (async (context) => {
           await runTerminators(list, context as MiddlewareContext)
@@ -147,12 +153,15 @@ export function route(prefix?: string, options: { middleware?: string[] } = {}) 
   // Group-wide middleware hooks (only meaningful when there IS group middleware).
   return base
     .onBeforeHandle({ as: 'scoped' }, (async (context) => {
-      if (!groupMw.length) return
+      if (!groupMw.length)
+        return
       const result = await runGuards(groupMw, context as MiddlewareContext)
-      if (result !== undefined) return result
+      if (result !== undefined)
+        return result
     }) as Hook)
     .onAfterResponse({ as: 'scoped' }, (async (context) => {
-      if (groupMw.length) await runTerminators(groupMw, context as MiddlewareContext)
+      if (groupMw.length)
+        await runTerminators(groupMw, context as MiddlewareContext)
     }) as Hook)
 }
 
@@ -174,7 +183,8 @@ export function group(name: string): Elysia {
     plugin = plugin
       .onBeforeHandle({ as: 'scoped' }, async (context: MiddlewareContext) => {
         const result = await runGuards(guards, context)
-        if (result !== undefined) return result
+        if (result !== undefined)
+          return result
       })
       .onAfterResponse({ as: 'scoped' }, async (context: MiddlewareContext) => {
         await runTerminators(guards, context)
@@ -198,7 +208,8 @@ export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
     plugin = plugin
       .onBeforeHandle({ as: 'global' }, async (context: MiddlewareContext) => {
         const result = await runGuards(guards, context)
-        if (result !== undefined) return result
+        if (result !== undefined)
+          return result
       })
       .onAfterResponse({ as: 'global' }, async (context: MiddlewareContext) => {
         await runTerminators(guards, context)

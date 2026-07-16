@@ -42,7 +42,8 @@ describe('custom rules', () => {
         name: [
           'required',
           (value, fail) => {
-            if (value === 'foo') fail('The :attribute is reserved.')
+            if (value === 'foo')
+              fail('The :attribute is reserved.')
           },
         ],
       },
@@ -53,7 +54,8 @@ describe('custom rules', () => {
   test('rule object', async () => {
     const uppercase = {
       validate(value: unknown, fail: (m: string) => void) {
-        if (String(value) !== String(value).toUpperCase()) fail('Must be uppercase.')
+        if (String(value) !== String(value).toUpperCase())
+          fail('Must be uppercase.')
       },
     }
     expect(await Validator.make({ code: 'abc' }, { code: [uppercase] }).passes()).toBe(false)
@@ -80,7 +82,7 @@ describe('flow: bail / exclude / sometimes / after / safe', () => {
     const v = Validator.make({ pay: 'card' }, { pay: 'required' }).sometimes(
       'card_number',
       { card_number: 'required' },
-      (d) => d.pay === 'card',
+      d => d.pay === 'card',
     )
     const bag = await v.errors()
     expect(bag.card_number).toBeDefined()

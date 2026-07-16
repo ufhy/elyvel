@@ -1,7 +1,7 @@
-import { afterAll, describe, expect, test } from 'bun:test'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterAll, describe, expect, test } from 'bun:test'
 import { cronMatches, parseCron, parseCronField } from '../src/cron'
 import { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from '../src/event'
 import { configureScheduleMutex, MemoryScheduleMutex } from '../src/mutex'
@@ -72,24 +72,24 @@ describe('ScheduledEvent frequencies', () => {
   const expr = (build: (e: ScheduledEvent) => ScheduledEvent) =>
     build(new ScheduledEvent(() => {})).expression
   test('common frequencies build the right cron', () => {
-    expect(expr((e) => e.everyMinute())).toBe('* * * * *')
-    expect(expr((e) => e.everyFiveMinutes())).toBe('*/5 * * * *')
-    expect(expr((e) => e.hourly())).toBe('0 * * * *')
-    expect(expr((e) => e.hourlyAt(15))).toBe('15 * * * *')
-    expect(expr((e) => e.daily())).toBe('0 0 * * *')
-    expect(expr((e) => e.dailyAt('13:30'))).toBe('30 13 * * *')
-    expect(expr((e) => e.weekly())).toBe('0 0 * * 0')
-    expect(expr((e) => e.weeklyOn(1, '09:00'))).toBe('0 9 * * 1')
-    expect(expr((e) => e.monthly())).toBe('0 0 1 * *')
-    expect(expr((e) => e.monthlyOn(15, '06:00'))).toBe('0 6 15 * *')
-    expect(expr((e) => e.quarterly())).toBe('0 0 1 1,4,7,10 *')
-    expect(expr((e) => e.yearly())).toBe('0 0 1 1 *')
-    expect(expr((e) => e.weekdays())).toBe('* * * * 1-5')
-    expect(expr((e) => e.weekends())).toBe('* * * * 0,6')
-    expect(expr((e) => e.days(1, 3, 5))).toBe('* * * * 1,3,5')
+    expect(expr(e => e.everyMinute())).toBe('* * * * *')
+    expect(expr(e => e.everyFiveMinutes())).toBe('*/5 * * * *')
+    expect(expr(e => e.hourly())).toBe('0 * * * *')
+    expect(expr(e => e.hourlyAt(15))).toBe('15 * * * *')
+    expect(expr(e => e.daily())).toBe('0 0 * * *')
+    expect(expr(e => e.dailyAt('13:30'))).toBe('30 13 * * *')
+    expect(expr(e => e.weekly())).toBe('0 0 * * 0')
+    expect(expr(e => e.weeklyOn(1, '09:00'))).toBe('0 9 * * 1')
+    expect(expr(e => e.monthly())).toBe('0 0 1 * *')
+    expect(expr(e => e.monthlyOn(15, '06:00'))).toBe('0 6 15 * *')
+    expect(expr(e => e.quarterly())).toBe('0 0 1 1,4,7,10 *')
+    expect(expr(e => e.yearly())).toBe('0 0 1 1 *')
+    expect(expr(e => e.weekdays())).toBe('* * * * 1-5')
+    expect(expr(e => e.weekends())).toBe('* * * * 0,6')
+    expect(expr(e => e.days(1, 3, 5))).toBe('* * * * 1,3,5')
   })
   test('cron() sets a raw expression and validates arity', () => {
-    expect(expr((e) => e.cron('5 4 * * *'))).toBe('5 4 * * *')
+    expect(expr(e => e.cron('5 4 * * *'))).toBe('5 4 * * *')
     expect(() => new ScheduledEvent(() => {}).cron('bad')).toThrow(/5 fields/)
   })
 })
@@ -117,9 +117,10 @@ describe('when / skip / withoutOverlapping', () => {
     let running = false
     let overlapped = false
     const ev = new ScheduledEvent(async () => {
-      if (running) overlapped = true
+      if (running)
+        overlapped = true
       running = true
-      await new Promise((r) => setTimeout(r, 20))
+      await new Promise(r => setTimeout(r, 20))
       running = false
     })
       .named('lock-test')
@@ -148,7 +149,7 @@ describe('lifecycle hooks', () => {
       throw new Error('boom')
     })
       .onSuccess(() => void trace.push('success'))
-      .onFailure((e) => void trace.push(`failure:${(e as Error).message}`))
+      .onFailure(e => void trace.push(`failure:${(e as Error).message}`))
       .after(() => void trace.push('after'))
     await expect(ev.run()).rejects.toThrow('boom')
     expect(trace).toEqual(['failure:boom', 'after'])
@@ -198,7 +199,7 @@ describe('between / unlessBetween / environments / background', () => {
     let done = false
     const s = new Schedule()
     s.call(async () => {
-      await new Promise((r) => setTimeout(r, 20))
+      await new Promise(r => setTimeout(r, 20))
       done = true
     })
       .everyMinute()
@@ -206,7 +207,7 @@ describe('between / unlessBetween / environments / background', () => {
     const results = await s.run(monday0800)
     expect(results[0]?.ran).toBe(true)
     expect(done).toBe(false) // not awaited
-    await new Promise((r) => setTimeout(r, 40))
+    await new Promise(r => setTimeout(r, 40))
     expect(done).toBe(true)
   })
 })
@@ -243,7 +244,7 @@ describe('onOneServer / mutex-backed overlap', () => {
       new ScheduledEvent(async () => {
         running++
         maxConcurrent = Math.max(maxConcurrent, running)
-        await new Promise((r) => setTimeout(r, 20))
+        await new Promise(r => setTimeout(r, 20))
         running--
       })
         .named('exclusive')
@@ -289,7 +290,7 @@ describe('output capture', () => {
   })
 
   test('emailOutputTo sends captured output via the configured mailer', async () => {
-    const sent: { to: string; body: string }[] = []
+    const sent: { to: string, body: string }[] = []
     configureScheduleMailer((to, _subject, body) => void sent.push({ to, body }))
     const ev = new ScheduledEvent(() => {
       console.log('report line')
@@ -316,7 +317,7 @@ describe('ping hooks', () => {
       .thenPing('http://x/after')
     await ev.run()
     // allow the fire-and-forget fetches to settle
-    await new Promise((r) => setTimeout(r, 10))
+    await new Promise(r => setTimeout(r, 10))
     expect(calls).toEqual(['http://x/before', 'task', 'http://x/after'])
     globalThis.fetch = originalFetch
   })
@@ -359,7 +360,7 @@ describe('Schedule.run', () => {
 
     const results = await s.run(monday0800)
     expect(ran).toEqual(['after'])
-    expect(results.find((r) => r.name === 'boom')?.error).toBeInstanceOf(Error)
+    expect(results.find(r => r.name === 'boom')?.error).toBeInstanceOf(Error)
   })
 
   test('dueEvents filters by cron only', () => {

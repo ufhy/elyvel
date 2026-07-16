@@ -1,8 +1,10 @@
+import type { ViteOptions } from '@elysia-ravel/vite'
+import type { Page } from './response'
 import { existsSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
-import { type ViteOptions, viteTags } from '@elysia-ravel/vite'
+import { viteTags } from '@elysia-ravel/vite'
 import { Elysia } from 'elysia'
-import { buildProps, InertiaLocation, InertiaResponse, type Page } from './response'
+import { buildProps, InertiaLocation, InertiaResponse } from './response'
 
 /** What an Inertia SSR bundle's default export returns for a page. */
 export interface SsrResult {
@@ -14,7 +16,7 @@ export interface SsrOptions {
   /** Path to the built SSR bundle (Vite `--ssr` output), e.g. `public/build/ssr/ssr.js`. */
   bundle?: string
   /** Render function (bypasses `bundle` — handy for tests). */
-  render?: (page: Page) => Promise<SsrResult> | SsrResult
+  render?(page: Page): Promise<SsrResult> | SsrResult
 }
 
 export interface InertiaConfig {
@@ -27,22 +29,23 @@ export interface InertiaConfig {
   /** Server-side rendering — render the page to HTML on first load, then hydrate. */
   ssr?: SsrOptions
   /** Override the full HTML document for a first (non-XHR) load. */
-  html?: (opts: {
+  html?(opts: {
     pageJson: string
     page: Page
     rootId: string
     head: string
     ssr?: SsrResult
-  }) => string
+  }): string
 }
 
-const escapeAttr = (value: string): string =>
-  value
+function escapeAttr(value: string): string {
+  return value
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/'/g, '&#39;')
+}
 
 function defaultHtml(opts: {
   pageJson: string
@@ -57,9 +60,9 @@ function defaultHtml(opts: {
     : `<div id="${opts.rootId}" data-page="${escapeAttr(opts.pageJson)}"></div>`
   const ssrHead = opts.ssr ? opts.ssr.head.join('') : ''
   return (
-    `<!doctype html><html><head><meta charset="utf-8">` +
-    `<meta name="viewport" content="width=device-width, initial-scale=1">${ssrHead}${opts.head}</head>` +
-    `<body>${app}</body></html>`
+    `<!doctype html><html><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width, initial-scale=1">${ssrHead}${opts.head}</head>`
+    + `<body>${app}</body></html>`
   )
 }
 
@@ -68,10 +71,12 @@ let ssrRenderCache: ((page: Page) => Promise<SsrResult> | SsrResult) | null = nu
 async function loadSsrRender(
   bundle: string,
 ): Promise<((page: Page) => Promise<SsrResult> | SsrResult) | null> {
-  if (ssrRenderCache) return ssrRenderCache
+  if (ssrRenderCache)
+    return ssrRenderCache
   const abs = isAbsolute(bundle) ? bundle : resolve(process.cwd(), bundle)
-  if (!existsSync(abs)) return null
-  const mod = (await import(abs)) as { default?: (page: Page) => Promise<SsrResult> | SsrResult }
+  if (!existsSync(abs))
+    return null
+  const mod = (await import(abs)) as { default?(page: Page): Promise<SsrResult> | SsrResult }
   ssrRenderCache = mod.default ?? null
   return ssrRenderCache
 }
@@ -86,7 +91,7 @@ export function inertia(config: InertiaConfig = {}) {
   const rootId = config.rootId ?? 'app'
   const resolveVersion = () =>
     typeof config.version === 'function' ? config.version() : (config.version ?? '')
-  const renderHtml = config.html ?? ((o) => defaultHtml(o))
+  const renderHtml = config.html ?? (o => defaultHtml(o))
   const head = config.vite ? viteTags(config.vite) : ''
 
   // Scoped so mounting `.use(inertia())` in a route file applies to that file's
@@ -101,22 +106,24 @@ export function inertia(config: InertiaConfig = {}) {
       if (isInertia) {
         ctx.set.status = 409
         ctx.set.headers['x-inertia-location'] = response.url
-      } else {
+      }
+      else {
         ctx.set.status = 302
         ctx.set.headers.location = response.url
       }
       return ''
     }
 
-    if (!(response instanceof InertiaResponse)) return undefined
+    if (!(response instanceof InertiaResponse))
+      return undefined
 
     const version = resolveVersion()
 
     // Asset version changed between navigations → tell the client to hard-reload.
     if (
-      isInertia &&
-      request.method === 'GET' &&
-      (request.headers.get('x-inertia-version') ?? '') !== version
+      isInertia
+      && request.method === 'GET'
+      && (request.headers.get('x-inertia-version') ?? '') !== version
     ) {
       ctx.set.status = 409
       ctx.set.headers['x-inertia-location'] = request.url
@@ -131,16 +138,26 @@ export function inertia(config: InertiaConfig = {}) {
       url: url.pathname + url.search,
       version,
     }
-    if (built.deferredProps) page.deferredProps = built.deferredProps
-    if (built.mergeProps) page.mergeProps = built.mergeProps
-    if (built.deepMergeProps) page.deepMergeProps = built.deepMergeProps
-    if (built.prependProps) page.prependProps = built.prependProps
-    if (built.matchPropsOn) page.matchPropsOn = built.matchPropsOn
-    if (built.onceProps) page.onceProps = built.onceProps
-    if (built.rescuedProps) page.rescuedProps = built.rescuedProps
-    if (response.encryptHistoryFlag) page.encryptHistory = true
-    if (response.clearHistoryFlag) page.clearHistory = true
-    if (response.preserveFragmentFlag) page.preserveFragment = true
+    if (built.deferredProps)
+      page.deferredProps = built.deferredProps
+    if (built.mergeProps)
+      page.mergeProps = built.mergeProps
+    if (built.deepMergeProps)
+      page.deepMergeProps = built.deepMergeProps
+    if (built.prependProps)
+      page.prependProps = built.prependProps
+    if (built.matchPropsOn)
+      page.matchPropsOn = built.matchPropsOn
+    if (built.onceProps)
+      page.onceProps = built.onceProps
+    if (built.rescuedProps)
+      page.rescuedProps = built.rescuedProps
+    if (response.encryptHistoryFlag)
+      page.encryptHistory = true
+    if (response.clearHistoryFlag)
+      page.clearHistory = true
+    if (response.preserveFragmentFlag)
+      page.preserveFragment = true
 
     if (isInertia) {
       ctx.set.headers['x-inertia'] = 'true'
@@ -152,10 +169,12 @@ export function inertia(config: InertiaConfig = {}) {
     let ssr: SsrResult | undefined
     if (config.ssr) {
       try {
-        const render =
-          config.ssr.render ?? (config.ssr.bundle ? await loadSsrRender(config.ssr.bundle) : null)
-        if (render) ssr = await render(page)
-      } catch {
+        const render
+          = config.ssr.render ?? (config.ssr.bundle ? await loadSsrRender(config.ssr.bundle) : null)
+        if (render)
+          ssr = await render(page)
+      }
+      catch {
         ssr = undefined // fall back to client-only rendering
       }
     }

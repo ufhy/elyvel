@@ -1,7 +1,8 @@
 /**
  * A tiny standard 5-field cron implementation: `minute hour day-of-month month
  * day-of-week`. Supports `*`, lists (`1,15`), ranges (`1-5`), and steps
- * (`*​/5`, `1-30/2`). Day-of-week is 0–6 with 0 = Sunday (7 also accepted).
+ * (`1-30/2`, or `*` combined with `/5`). Day-of-week is 0-6 with 0 = Sunday
+ * (7 also accepted).
  * No non-standard extensions (`?`, `L`, `#`) — Laravel's scheduler builds only
  * standard expressions, which is all we generate here.
  */
@@ -20,7 +21,8 @@ export function parseCronField(field: string, min: number, max: number): Set<num
   for (const part of field.split(',')) {
     const [range, stepRaw] = part.split('/')
     const step = stepRaw ? Number(stepRaw) : 1
-    if (!Number.isInteger(step) || step < 1) throw new Error(`Invalid cron step "${part}"`)
+    if (!Number.isInteger(step) || step < 1)
+      throw new Error(`Invalid cron step "${part}"`)
 
     let lo = min
     let hi = max
@@ -88,7 +90,7 @@ export function partsInZone(
     month: '2-digit',
     weekday: 'short',
   })
-  const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]))
+  const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]))
   const weekdayMap: Record<string, number> = {
     Sun: 0,
     Mon: 1,
@@ -115,14 +117,18 @@ export function partsInZone(
 export function cronMatches(expression: string, date: Date, timezone?: string): boolean {
   const cron = parseCron(expression)
   const p = partsInZone(date, timezone)
-  if (!cron.minute.has(p.minute)) return false
-  if (!cron.hour.has(p.hour)) return false
-  if (!cron.month.has(p.month)) return false
+  if (!cron.minute.has(p.minute))
+    return false
+  if (!cron.hour.has(p.hour))
+    return false
+  if (!cron.month.has(p.month))
+    return false
 
   const domRestricted = cron.dayOfMonth.size !== 31
   const dowRestricted = cron.dayOfWeek.size !== 7
   const domMatch = cron.dayOfMonth.has(p.dayOfMonth)
   const dowMatch = cron.dayOfWeek.has(p.dayOfWeek)
-  if (domRestricted && dowRestricted) return domMatch || dowMatch
+  if (domRestricted && dowRestricted)
+    return domMatch || dowMatch
   return domMatch && dowMatch
 }

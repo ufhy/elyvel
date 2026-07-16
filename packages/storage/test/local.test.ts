@@ -1,20 +1,24 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FilesystemManager, fakeStorage, LocalDisk, storage } from '../src/index'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { fakeStorage, FilesystemManager, LocalDisk, storage } from '../src/index'
 
 const roots: string[] = []
-const freshRoot = (): string => {
+function freshRoot(): string {
   const root = join(tmpdir(), `ravel-storage-test-${crypto.randomUUID()}`)
   roots.push(root)
   return root
 }
-const makeDisk = () =>
-  new LocalDisk({ driver: 'local', root: freshRoot(), url: '/storage', visibility: 'public' })
+function makeDisk() {
+  return new LocalDisk({ driver: 'local', root: freshRoot(), url: '/storage', visibility: 'public' })
+}
 
 afterAll(() => {
-  for (const r of roots) if (existsSync(r)) rmSync(r, { recursive: true, force: true })
+  for (const r of roots) {
+    if (existsSync(r))
+      rmSync(r, { recursive: true, force: true })
+  }
 })
 
 describe('LocalDisk — read/write', () => {
@@ -37,7 +41,7 @@ describe('LocalDisk — read/write', () => {
   test('json decodes stored JSON', async () => {
     const disk = makeDisk()
     await disk.put('data.json', JSON.stringify({ a: 1, b: [2, 3] }))
-    expect(await disk.json<{ a: number; b: number[] }>('data.json')).toEqual({ a: 1, b: [2, 3] })
+    expect(await disk.json<{ a: number, b: number[] }>('data.json')).toEqual({ a: 1, b: [2, 3] })
   })
 
   test('prepend and append', async () => {

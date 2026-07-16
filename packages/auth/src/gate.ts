@@ -14,12 +14,15 @@ export class Response {
   static allow(message?: string): Response {
     return new Response(true, message, 200)
   }
+
   static deny(message = 'This action is unauthorized.', status = 403): Response {
     return new Response(false, message, status)
   }
+
   static denyWithStatus(status: number, message?: string): Response {
     return new Response(false, message, status)
   }
+
   static denyAsNotFound(message = 'Not Found.'): Response {
     return new Response(false, message, 404)
   }
@@ -27,19 +30,23 @@ export class Response {
   allowed(): boolean {
     return this.isAllowed
   }
+
   denied(): boolean {
     return !this.isAllowed
   }
+
   message(): string | undefined {
     return this.msg
   }
+
   status(): number {
     return this.code
   }
 
   /** Throw {@link AuthorizationError} when denied; return self when allowed. */
   authorize(): this {
-    if (this.denied()) throw new AuthorizationError(this.msg, this.code)
+    if (this.denied())
+      throw new AuthorizationError(this.msg, this.code)
     return this
   }
 }
@@ -75,11 +82,11 @@ type ModelCtor = abstract new (...args: any[]) => any
  * `before` filter. Implement it on a plain class — method names are the abilities.
  */
 export interface Policy<U = any> {
-  before?: (user: U | null, ability: string) => Raw | null | undefined
+  before?(user: U | null, ability: string): Raw | null | undefined
 }
 /** Internal loose view for dynamic ability lookup by name. */
 type PolicyBag<U> = {
-  before?: (user: U | null, ability: string) => Raw | null | undefined
+  before?(user: U | null, ability: string): Raw | null | undefined
 } & Record<string, unknown>
 
 /**
@@ -134,15 +141,19 @@ export class Gate<U extends Authenticatable = Authenticatable> {
   allows(ability: string, user: U | null, ...args: Args): boolean {
     return this.raw(ability, user, args).allowed()
   }
+
   denies(ability: string, user: U | null, ...args: Args): boolean {
     return !this.allows(ability, user, ...args)
   }
+
   check(ability: string, user: U | null, ...args: Args): boolean {
     return this.allows(ability, user, ...args)
   }
+
   any(abilities: string[], user: U | null, ...args: Args): boolean {
-    return abilities.some((a) => this.allows(a, user, ...args))
+    return abilities.some(a => this.allows(a, user, ...args))
   }
+
   none(abilities: string[], user: U | null, ...args: Args): boolean {
     return !this.any(abilities, user, ...args)
   }
@@ -164,15 +175,18 @@ export class Gate<U extends Authenticatable = Authenticatable> {
     message?: string,
   ): void {
     const ok = typeof condition === 'function' ? condition(user) : condition
-    if (!ok || user == null) throw new AuthorizationError(message)
+    if (!ok || user == null)
+      throw new AuthorizationError(message)
   }
+
   denyIf(
     condition: boolean | ((user: U | null) => boolean),
     user: U | null,
     message?: string,
   ): void {
     const denied = typeof condition === 'function' ? condition(user) : condition
-    if (denied) throw new AuthorizationError(message)
+    if (denied)
+      throw new AuthorizationError(message)
   }
 
   /** Bind a user, returning a checker whose methods drop the `user` argument. */
@@ -184,12 +198,14 @@ export class Gate<U extends Authenticatable = Authenticatable> {
   private raw(ability: string, user: U | null, args: Args): Response {
     for (const hook of this.beforeHooks) {
       const r = hook(user, ability, args)
-      if (r !== null && r !== undefined) return toResponse(r)
+      if (r !== null && r !== undefined)
+        return toResponse(r)
     }
     let result = this.callAbility(ability, user, args)
     for (const hook of this.afterHooks) {
       const r = hook(user, ability, result?.allowed() ?? null, args)
-      if (result === null && r !== null && r !== undefined) result = toResponse(r)
+      if (result === null && r !== null && r !== undefined)
+        result = toResponse(r)
     }
     return result ?? Response.deny()
   }
@@ -197,30 +213,37 @@ export class Gate<U extends Authenticatable = Authenticatable> {
   /** Resolve via a policy if one matches args[0], else a named ability. `null` = no handler. */
   private callAbility(ability: string, user: U | null, args: Args): Response | null {
     const viaPolicy = this.callPolicy(ability, user, args)
-    if (viaPolicy !== undefined) return viaPolicy
+    if (viaPolicy !== undefined)
+      return viaPolicy
 
     const cb = this.abilities.get(ability)
-    if (!cb) return null
-    if (user == null && !this.abilityOptions.get(ability)?.allowGuest) return Response.deny()
+    if (!cb)
+      return null
+    if (user == null && !this.abilityOptions.get(ability)?.allowGuest)
+      return Response.deny()
     return toResponse(cb(user, ...args))
   }
 
   /** `undefined` = no policy for these args; `null` = policy exists but lacks the method. */
   private callPolicy(ability: string, user: U | null, args: Args): Response | null | undefined {
     const target = args[0]
-    const ctor: ModelCtor | undefined =
-      typeof target === 'function' ? (target as ModelCtor) : target?.constructor
+    const ctor: ModelCtor | undefined
+      = typeof target === 'function' ? (target as ModelCtor) : target?.constructor
     const policy = ctor ? this.policies.get(ctor) : undefined
-    if (!policy) return undefined
+    if (!policy)
+      return undefined
 
     const method = policy[ability]
-    if (typeof method !== 'function') return null
+    if (typeof method !== 'function')
+      return null
 
     if (typeof policy.before === 'function') {
       const r = policy.before(user, ability)
-      if (r !== null && r !== undefined) return toResponse(r)
+      if (r !== null && r !== undefined)
+        return toResponse(r)
     }
-    if (user == null) return Response.deny()
+    if (user == null)
+      return Response.deny()
 
     // `create`-style checks pass the class as args[0]; drop it before the method.
     const methodArgs = typeof target === 'function' ? args.slice(1) : args
@@ -238,31 +261,39 @@ export class GateForUser<U extends Authenticatable = Authenticatable> {
   allows(ability: string, ...args: Args): boolean {
     return this.gate.allows(ability, this.user, ...args)
   }
+
   denies(ability: string, ...args: Args): boolean {
     return this.gate.denies(ability, this.user, ...args)
   }
+
   can(ability: string, ...args: Args): boolean {
     return this.gate.allows(ability, this.user, ...args)
   }
+
   cannot(ability: string, ...args: Args): boolean {
     return this.gate.denies(ability, this.user, ...args)
   }
+
   any(abilities: string[], ...args: Args): boolean {
     return this.gate.any(abilities, this.user, ...args)
   }
+
   none(abilities: string[], ...args: Args): boolean {
     return this.gate.none(abilities, this.user, ...args)
   }
+
   inspect(ability: string, ...args: Args): Response {
     return this.gate.inspect(ability, this.user, ...args)
   }
+
   authorize(ability: string, ...args: Args): Response {
     return this.gate.authorize(ability, this.user, ...args)
   }
 }
 
 function toResponse(value: Raw): Response {
-  if (value instanceof Response) return value
+  if (value instanceof Response)
+    return value
   return value ? Response.allow() : Response.deny()
 }
 
@@ -279,6 +310,7 @@ export function setDefaultGate<U extends Authenticatable>(instance: Gate<U>): vo
 
 /** The process-wide default gate (created lazily). Configure it in a provider. */
 export function gate<U extends Authenticatable = Authenticatable>(): Gate<U> {
-  if (!defaultGate) defaultGate = new Gate()
+  if (!defaultGate)
+    defaultGate = new Gate()
   return defaultGate
 }

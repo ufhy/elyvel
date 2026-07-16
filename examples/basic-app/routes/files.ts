@@ -16,6 +16,7 @@ export default route()
   .get('/files/download/*', ({ params, status }: any) => {
     const rel = params['*']
     // Reject path traversal before it reaches the disk (defense in depth).
-    if (rel.includes('..')) return status(404, { message: 'Not found' })
+    if (rel.includes('..'))
+      return status(404, { message: 'Not found' })
     return storage('public').download(`uploads/${rel}`)
   })

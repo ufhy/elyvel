@@ -1,14 +1,14 @@
 {
   "name": "@elysia-ravel/broadcasting",
+  "type": "module",
   "version": "0.0.0",
   "description": "Real-time broadcasting for elysia-ravel — Bun-native WebSocket pub/sub, no Pusher needed",
-  "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

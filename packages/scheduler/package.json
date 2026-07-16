@@ -1,14 +1,14 @@
 {
   "name": "@elysia-ravel/scheduler",
+  "type": "module",
   "version": "0.0.0",
   "description": "Laravel-style task scheduling for elysia-ravel — cron expressions, fluent frequencies, schedule:run",
-  "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

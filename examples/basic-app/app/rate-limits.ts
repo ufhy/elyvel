@@ -1,9 +1,10 @@
+import type { RateLimiterStore } from '@elysia-ravel/core'
 import { cache } from '@elysia-ravel/cache'
 import {
   configureRateLimiterStore,
   Limit,
   RateLimiter,
-  type RateLimiterStore,
+
 } from '@elysia-ravel/core'
 
 /**
@@ -22,16 +23,20 @@ class CacheRateLimiterStore implements RateLimiterStore {
       Date.now() + decaySeconds * 1000,
       decaySeconds,
     )
-    if (fresh) await this.repo().put(key, 0, decaySeconds)
+    if (fresh)
+      await this.repo().put(key, 0, decaySeconds)
     return this.repo().increment(key, amount)
   }
+
   async attempts(key: string): Promise<number> {
     return Number(await this.repo().get(key, 0))
   }
+
   async reset(key: string): Promise<void> {
     await this.repo().forget(key)
     await this.repo().forget(`${key}:timer`)
   }
+
   async availableIn(key: string): Promise<number> {
     const timer = Number(await this.repo().get(`${key}:timer`, 0))
     return timer ? Math.max(0, Math.ceil((timer - Date.now()) / 1000)) : 0
@@ -46,7 +51,7 @@ export function configureRateLimits(): void {
   RateLimiter.for('api', () => Limit.perMinute(3))
 
   // `throttle:login` — 100/min overall, but only 2/min per email (segmented).
-  RateLimiter.for('login', (ctx) => [
+  RateLimiter.for('login', ctx => [
     Limit.perMinute(100),
     Limit.perMinute(2).by(`email:${(ctx.query as Record<string, string>).email ?? 'anon'}`),
   ])

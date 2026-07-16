@@ -1,5 +1,5 @@
 /** An email address — a bare string or `{ email, name }`. */
-export type Address = string | { email: string; name?: string }
+export type Address = string | { email: string, name?: string }
 
 export interface Attachment {
   filename: string
@@ -24,39 +24,48 @@ export class Message {
     this.fromAddress = address
     return this
   }
+
   to(...addresses: Address[]): this {
     this.toAddresses.push(...addresses)
     return this
   }
+
   cc(...addresses: Address[]): this {
     this.ccAddresses.push(...addresses)
     return this
   }
+
   bcc(...addresses: Address[]): this {
     this.bccAddresses.push(...addresses)
     return this
   }
+
   replyTo(address: Address): this {
     this.replyToAddress = address
     return this
   }
+
   subject(subject: string): this {
     this.subjectLine = subject
     return this
   }
+
   /** Set the HTML body — a string, or anything with `render()` (a view). */
-  html(body: string | { render: (shared: never) => string }): this {
+  html(body: string | { render(shared: never): string }): this {
     this.htmlBody = typeof body === 'string' ? body : body.render(EMPTY_SHARED as never)
     return this
   }
+
   text(body: string): this {
     this.textBody = body
     return this
   }
+
   attach(attachment: Attachment): this {
     this.attachments.push(attachment)
     return this
   }
+
   header(name: string, value: string): this {
     this.headers[name] = value
     return this
@@ -74,6 +83,7 @@ const EMPTY_SHARED = {
 
 /** Normalize an address to RFC "Name <email>" (or just the email). */
 export function formatAddress(address: Address): string {
-  if (typeof address === 'string') return address
+  if (typeof address === 'string')
+    return address
   return address.name ? `${address.name} <${address.email}>` : address.email
 }

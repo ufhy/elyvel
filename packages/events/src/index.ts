@@ -2,15 +2,15 @@ export {
   configureEventAfterCommit,
   Dispatcher,
   dispatcher,
+  event,
   EventFake,
   type EventKey,
-  event,
   fakeEvents,
-  type Listener,
   listen,
+  type Listener,
   restoreEvents,
-  type Subscriber,
   setDefaultDispatcher,
+  type Subscriber,
 } from './dispatcher'
 export { DispatcherToken, EventServiceProvider } from './provider'
 export {
