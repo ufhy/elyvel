@@ -4,10 +4,18 @@ import { spa } from '../src/spa'
 import { viteTags } from '../src/tags'
 
 describe('viteTags', () => {
-  test('emits the dev client + entry when no manifest exists', () => {
+  test('emits the dev client + entry (under the vite base) when no manifest exists', () => {
     const tags = viteTags({ entry: 'resources/js/app.ts', manifest: 'does/not/exist.json' })
-    expect(tags).toContain('http://localhost:5173/@vite/client')
-    expect(tags).toContain('http://localhost:5173/resources/js/app.ts')
+    // The dev server serves under `base` (default /build/), so the injected
+    // URLs must include it — without it the module requests 404.
+    expect(tags).toContain('http://localhost:5173/build/@vite/client')
+    expect(tags).toContain('http://localhost:5173/build/resources/js/app.ts')
+  })
+
+  test('dev tags honor a custom base', () => {
+    const tags = viteTags({ entry: 'app.ts', manifest: 'nope.json', base: '/assets/' })
+    expect(tags).toContain('http://localhost:5173/assets/@vite/client')
+    expect(tags).toContain('http://localhost:5173/assets/app.ts')
   })
 })
 

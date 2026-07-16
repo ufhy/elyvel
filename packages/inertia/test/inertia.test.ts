@@ -30,8 +30,10 @@ describe('first (non-XHR) load', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/html')
     const body = await res.text()
-    expect(body).toContain('<div id="app" data-page="')
-    expect(body).toContain('&quot;component&quot;:&quot;Home&quot;') // JSON escaped into the attribute
+    expect(body).toContain('<div id="app"></div>') // empty mount root
+    // Inertia v3 reads the initial page from a JSON script tag, not a div attr.
+    expect(body).toContain('<script type="application/json" data-page="app">')
+    expect(body).toContain('"component":"Home"') // JSON in the script's text content
     expect(body).toContain('Sam')
   })
 
@@ -40,8 +42,8 @@ describe('first (non-XHR) load', () => {
       new Request('http://localhost/home'),
     )
     const body = await res.text()
-    expect(body).toContain('http://localhost:5173/@vite/client')
-    expect(body).toContain('http://localhost:5173/resources/js/app.ts')
+    expect(body).toContain('http://localhost:5173/build/@vite/client')
+    expect(body).toContain('http://localhost:5173/build/resources/js/app.ts')
   })
 })
 

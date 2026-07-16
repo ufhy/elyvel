@@ -45,9 +45,12 @@ export function viteTags(options: ViteOptions): string {
     }
   }
 
+  // Dev: the Vite dev server serves under its configured `base` (e.g. /build/),
+  // so the injected client + entry URLs must include it — `${dev}/@vite/client`
+  // without the base 404s.
   const dev = (options.devUrl ?? 'http://localhost:5173').replace(/\/$/, '')
   return (
-    `<script type="module" src="${dev}/@vite/client"></script>`
-    + `<script type="module" src="${dev}/${options.entry}"></script>`
+    `<script type="module" src="${dev}${base}@vite/client"></script>`
+    + `<script type="module" src="${dev}${base}${options.entry}"></script>`
   )
 }

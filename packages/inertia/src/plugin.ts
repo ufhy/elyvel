@@ -38,13 +38,9 @@ export interface InertiaConfig {
   }): string
 }
 
-function escapeAttr(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/'/g, '&#39;')
+/** Escape a JSON string for safe embedding inside a `<script>` element. */
+function scriptJson(value: string): string {
+  return value.replace(/</g, '\\u003c')
 }
 
 function defaultHtml(opts: {
@@ -53,11 +49,14 @@ function defaultHtml(opts: {
   head: string
   ssr?: SsrResult
 }): string {
-  // With SSR, `ssr.body` already contains the rendered `<div id=app data-page>`;
-  // otherwise emit an empty root div the client fills.
+  // With SSR, `ssr.body` already contains the rendered mount + page. Otherwise
+  // emit an empty root the client mounts into, plus the initial page as a
+  // `<script type="application/json" data-page>` — the format Inertia v3 reads
+  // (v1/v2's `<div id data-page>` is ignored by the v3 client → blank page).
   const app = opts.ssr
     ? opts.ssr.body
-    : `<div id="${opts.rootId}" data-page="${escapeAttr(opts.pageJson)}"></div>`
+    : `<div id="${opts.rootId}"></div>`
+      + `<script type="application/json" data-page="${opts.rootId}">${scriptJson(opts.pageJson)}</script>`
   const ssrHead = opts.ssr ? opts.ssr.head.join('') : ''
   return (
     `<!doctype html><html><head><meta charset="utf-8">`
