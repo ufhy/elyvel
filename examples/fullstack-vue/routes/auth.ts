@@ -1,7 +1,7 @@
-import { betterAuthPlugin } from '@elysia-ravel/auth'
+import { betterAuthPlugin, enabledSocialProviders } from '@elysia-ravel/auth'
 import { route } from '@elysia-ravel/core'
 import { Inertia, inertia } from '@elysia-ravel/inertia'
-import { auth, enabledSocialProviders } from '../app/better-auth'
+import { auth } from '../config/auth'
 
 /**
  * Auth kit routes — Inertia + Vue pages backed by the Better Auth JSON API.
@@ -14,7 +14,7 @@ function guest(page: string, props: Record<string, unknown> = {}) {
     user ? Inertia.location('/dashboard') : Inertia.render(page, props)
 }
 
-const social = { socialProviders: enabledSocialProviders() }
+const social = { socialProviders: enabledSocialProviders(auth) }
 
 export default route()
   .use(inertia({ vite: { entry: 'resources/js/app.ts' }, ssr: { bundle: 'public/build/ssr/ssr.js' } }))

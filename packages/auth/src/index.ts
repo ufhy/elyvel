@@ -1,5 +1,12 @@
 export { type BetterAuthLike, betterAuthPlugin, type BetterAuthPluginOptions } from './better-auth'
 export { migrateBetterAuth } from './better-auth-schema'
+export {
+  type AuthMailer,
+  defineAuth,
+  type DefineAuthOptions,
+  enabledSocialProviders,
+  type SocialProvider,
+} from './define-auth'
 export { eloquentAdapter, type EloquentAdapterOptions } from './eloquent-adapter'
 export {
   AuthorizationError,

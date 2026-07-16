@@ -17,6 +17,7 @@ export default antfu(
     ignores: [
       '**/dist',
       '**/node_modules',
+      '.vscode',
       // CLI scaffolding templates are *.tmpl (not valid TS/JS) — never lint them.
       'packages/cli/templates/**',
       '**/*.tmpl',

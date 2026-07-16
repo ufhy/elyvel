@@ -43,10 +43,11 @@ describe('ravel new', () => {
     await newApp('kit-app')
     // auth files scaffolded by the composed installer
     for (const f of [
-      'app/better-auth.ts',
+      'config/auth.ts',
       'config/mail.ts',
       'routes/auth.ts',
       'resources/js/Pages/auth/Login.vue',
+      'resources/js/Pages/Welcome.vue',
       'vite.config.ts',
     ]) {
       expect(existsSync(join(dir, 'kit-app', f))).toBe(true)
