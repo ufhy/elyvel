@@ -3,7 +3,7 @@ import { Link, router, usePage } from '@inertiajs/vue3'
 import { authApi } from '../lib/auth'
 
 const page = usePage()
-const user = () => (page.props as { user?: { name?: string; email?: string } }).user
+const user = () => (page.props as { user?: { name?: string, email?: string } }).user
 
 async function logout() {
   await authApi.signOut()

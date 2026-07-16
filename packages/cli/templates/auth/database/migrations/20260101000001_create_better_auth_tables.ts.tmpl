@@ -1,5 +1,5 @@
-import { migrateBetterAuth } from '@elysia-ravel/auth'
 import type { Migration } from '@elysia-ravel/database'
+import { migrateBetterAuth } from '@elysia-ravel/auth'
 import { auth } from '../../app/better-auth'
 
 /** Better Auth's tables (user/session/account/verification), created in Eloquent. */
