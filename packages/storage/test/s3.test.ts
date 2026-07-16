@@ -50,7 +50,7 @@ beforeAll(async () => {
     }
     await Bun.sleep(100)
   }
-})
+}, 30_000) // explicit hook timeout: MinIO's cold boot can exceed bun's 5s default
 
 afterAll(() => {
   proc?.kill()
