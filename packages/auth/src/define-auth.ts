@@ -19,6 +19,13 @@ export interface DefineAuthOptions {
   social?: SocialProvider[]
   /** Enable TOTP two-factor auth (adds the `twoFactor` table). Default `true`. */
   twoFactor?: boolean
+  /**
+   * Pluralize Better Auth's core table names to match Eloquent's convention —
+   * `users`, `sessions`, `accounts`, `verifications`. Default `true`. Set
+   * `false` to keep Better Auth's singular defaults. (The two-factor plugin
+   * table stays `twoFactor` either way — see the note in the implementation.)
+   */
+  plural?: boolean
   /** Cookie name prefix. Default: a slug of `APP_NAME` (falls back to `app`). */
   cookiePrefix?: string
   /** Deliver the password-reset link (usually via `@elysia-ravel/mail`). */
@@ -67,8 +74,25 @@ function resolveSocial(names: SocialProvider[]): Record<string, { clientId: stri
 export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof betterAuth> {
   const appName = process.env.APP_NAME
   const cookiePrefix = options.cookiePrefix ?? (appName ? slug(appName) : 'app')
+  const plural = options.plural !== false
+
+  // Core table names via per-model `modelName` (respected by BOTH the adapter and
+  // getSchema, so migrations and queries agree — unlike the adapter's `usePlural`,
+  // which the schema generator ignores). Plural to match Eloquent.
+  // NB the two-factor plugin table keeps Better Auth's `twoFactor` name: its
+  // rename option mutates a module-level schema shared across instances, so
+  // renaming it would corrupt any other Better Auth instance in the process.
+  const pluralModels = plural
+    ? {
+        user: { modelName: 'users' },
+        session: { modelName: 'sessions' },
+        account: { modelName: 'accounts' },
+        verification: { modelName: 'verifications' },
+      }
+    : {}
 
   return betterAuth({
+    ...pluralModels,
     database: eloquentAdapter(),
     emailAndPassword: {
       enabled: true,

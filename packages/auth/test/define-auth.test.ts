@@ -41,13 +41,27 @@ describe('defineAuth', () => {
     expect(enabledSocialProviders(defineAuth({ social: ['github', 'google'] }))).toEqual(['github'])
   })
 
+  test('core tables are plural by default (Eloquent convention), singular when opted out', async () => {
+    const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
+    setConnection(conn)
+    const plural = await migrateBetterAuth(new SchemaBuilder(conn), defineAuth({ twoFactor: false }).options)
+    expect(plural).toEqual(expect.arrayContaining(['users', 'sessions', 'accounts', 'verifications']))
+    expect(plural).not.toContain('user')
+
+    const conn2 = await createConnection({ driver: 'sqlite', database: ':memory:' })
+    setConnection(conn2)
+    const singular = await migrateBetterAuth(new SchemaBuilder(conn2), defineAuth({ plural: false, twoFactor: false }).options)
+    expect(singular).toEqual(expect.arrayContaining(['user', 'session', 'account', 'verification']))
+    expect(singular).not.toContain('users')
+  })
+
   test('the built instance runs on the Eloquent adapter (migrate + sign-up)', async () => {
     process.env.APP_KEY = 'base64:test-key'
     const auth = defineAuth({ cookiePrefix: 'x', twoFactor: true })
     const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
     setConnection(conn)
     const created = await migrateBetterAuth(new SchemaBuilder(conn), auth.options)
-    expect(created).toContain('user')
+    expect(created).toContain('users')
     expect(created).toContain('twoFactor')
   })
 })

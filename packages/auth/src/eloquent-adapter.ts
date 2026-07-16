@@ -6,7 +6,6 @@ type QB = ReturnType<typeof table>
 type Row = Record<string, any>
 
 export interface EloquentAdapterOptions {
-  usePlural?: boolean
   debugLogs?: boolean
 }
 
@@ -68,7 +67,10 @@ export function eloquentAdapter(options: EloquentAdapterOptions = {}) {
     config: {
       adapterId: 'eloquent',
       adapterName: 'Eloquent',
-      usePlural: options.usePlural ?? false,
+      // Table names come from Better Auth `modelName` (set by `defineAuth`), which
+      // both this adapter AND getSchema honor. We deliberately DON'T use the
+      // adapter's `usePlural`: getSchema ignores it, so migrations would create
+      // singular tables while queries hit plural ones.
       debugLogs: options.debugLogs ?? false,
       // Let Better Auth normalize values (ISO date strings, 0/1 booleans, JSON
       // strings) so the raw query builder can store them portably on any dialect.
