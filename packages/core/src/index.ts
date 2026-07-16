@@ -15,7 +15,14 @@ export { Container, token } from './container'
 export { cors, type CorsOptions } from './cors'
 export { dateParts, formatDate, getAppTimezone, setAppTimezone } from './datetime'
 export { defineEnv } from './env'
-export { renderErrorPage } from './http/error-page'
+export {
+  configureErrorPage,
+  type ErrorPageContext,
+  type ErrorPageResolver,
+  type ErrorPageResult,
+  type RenderableView,
+  renderErrorPage,
+} from './http/error-page'
 export { errorPages } from './http/error-pages'
 export { download, file, FileResponse, type FileSource, streamDownload } from './http/file'
 export { methodOverride } from './http/method-override'

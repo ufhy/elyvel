@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
+import { configureErrorPage } from '../src/http/error-page'
 import { errorPages } from '../src/http/error-pages'
 
 function makeApp() {
@@ -59,5 +60,45 @@ describe('error pages', () => {
     const ok = await get(app, '/ok', 'text/html')
     expect(ok.status).toBe(200)
     expect(JSON.parse(ok.body)).toEqual({ ok: true })
+  })
+})
+
+describe('configureErrorPage (custom pages)', () => {
+  afterEach(() => configureErrorPage(null))
+
+  test('custom resolver renders on the web lane; API JSON is untouched', async () => {
+    let calls = 0
+    configureErrorPage((status, { message }) => {
+      calls++
+      return status === 404 ? `<h1>Custom ${status}</h1><p>${message ?? ''}</p>` : undefined
+    })
+    const app = makeApp()
+
+    const html = await get(app, '/missing', 'text/html')
+    expect(html.status).toBe(404)
+    expect(html.body).toContain('<h1>Custom 404</h1>')
+
+    // API request must NOT hit the resolver — always JSON (no conflict).
+    const callsBefore = calls
+    const json = await get(app, '/missing', 'application/json')
+    expect(json.type).toContain('application/json')
+    expect(JSON.parse(json.body)).toMatchObject({ status: 404 })
+    expect(calls).toBe(callsBefore) // resolver was not called for JSON
+  })
+
+  test('returning undefined falls back to the default page', async () => {
+    configureErrorPage(() => undefined)
+    const app = makeApp()
+    const html = await get(app, '/missing', 'text/html')
+    expect(html.status).toBe(404)
+    expect(html.body).toContain('Page Not Found') // framework default
+  })
+
+  test('a resolver may return a full Response', async () => {
+    configureErrorPage(() => new Response('gone', { status: 410, headers: { 'content-type': 'text/plain' } }))
+    const app = makeApp()
+    const res = await get(app, '/missing', 'text/html')
+    expect(res.status).toBe(410)
+    expect(res.body).toBe('gone')
   })
 })

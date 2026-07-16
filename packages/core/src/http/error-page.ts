@@ -10,6 +10,55 @@ interface ErrorMeta {
   message: string
 }
 
+/** A view response (from `@elysia-ravel/view`), duck-typed so core stays decoupled. */
+export interface RenderableView {
+  __ravelView: true
+  statusCode?: number
+  render(shared: Record<string, unknown>): string
+}
+
+/** What a custom error-page resolver may return. `undefined` → use the default page. */
+export type ErrorPageResult = string | Response | RenderableView | undefined | null
+
+export interface ErrorPageContext {
+  /** The incoming request (already known to want HTML — resolvers are never called for JSON). */
+  request: Request
+  /** A safe, human message for this error (4xx only; undefined for 5xx). */
+  message?: string
+  /** The underlying error/exception, if any. */
+  error: unknown
+  /** The active session, if the session plugin is mounted (for view shared data). */
+  session?: unknown
+}
+
+/**
+ * Resolve a custom page for an HTTP error. Return HTML, a `Response`, a
+ * `view(...)` result, or `undefined` to fall back to the framework default.
+ * ONLY called for browser/web navigations — API/JSON clients always get JSON.
+ */
+export type ErrorPageResolver = (
+  status: number,
+  context: ErrorPageContext,
+) => ErrorPageResult | Promise<ErrorPageResult>
+
+let customResolver: ErrorPageResolver | null = null
+
+/**
+ * Provide custom error pages (à la publishing Laravel's `resources/views/errors`).
+ * Wire it in a service provider:
+ *
+ *   configureErrorPage((status, { message }) =>
+ *     status === 404 ? view('errors/404', { message }) : undefined)
+ */
+export function configureErrorPage(resolver: ErrorPageResolver | null): void {
+  customResolver = resolver
+}
+
+/** The configured custom resolver, or null. Used by the error-pages plugin. */
+export function errorPageResolver(): ErrorPageResolver | null {
+  return customResolver
+}
+
 const DEFAULTS: Record<number, ErrorMeta> = {
   400: { title: 'Bad Request', message: 'The server could not understand this request.' },
   401: { title: 'Unauthorized', message: 'You need to sign in to continue.' },
