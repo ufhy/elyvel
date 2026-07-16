@@ -1,6 +1,7 @@
 import type { ResolvedSessionConfig } from '../src/session'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
+import { errorPages } from '../src/http/error-pages'
 import { download, file, streamDownload } from '../src/http/file'
 import { methodOverride } from '../src/http/method-override'
 import { expectsJson, wantsHtml } from '../src/http/negotiation'
@@ -177,11 +178,13 @@ const sessionConfig: ResolvedSessionConfig = {
 }
 
 function buildApp() {
-  // Mount order mirrors the Application: request-context, httpResponses, session.
+  // Mount order mirrors the Application: request-context (logs), httpResponses,
+  // session (422 web redirect-back), then errorPages (renders page/JSON).
   return new Elysia()
     .use(requestContext())
     .use(httpResponses())
     .use(sessionPlugin(sessionConfig))
+    .use(errorPages())
     .post('/save', () => redirect('/done').with('status', 'saved'))
     .post('/save-back', () => back().withErrors({ email: ['taken'] }))
     .post('/validate', () => {

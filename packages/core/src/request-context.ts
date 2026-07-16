@@ -1,6 +1,5 @@
 import type { Logger } from './logger'
 import { Elysia } from 'elysia'
-import { expectsJson } from './http/negotiation'
 import { createLogger } from './logger'
 
 interface RequestMeta {
@@ -66,31 +65,29 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
         http.warn(line, context)
       else http.info(line, context)
     })
-    .onError({ as: 'global' }, ({ request, error, code, set }) => {
+    // Log only — rendering (HTML page / JSON) is owned by the errorPages plugin,
+    // and 422 validation redirect-back by the session plugin. Returning undefined
+    // lets those downstream handlers run.
+    .onError({ as: 'global' }, ({ request, error, code }) => {
       const { pathname } = new URL(request.url)
       const requestId = meta.get(request)?.id
       const message = error instanceof Error ? error.message : String(error)
+      const status
+        = typeof (error as { status?: unknown }).status === 'number'
+          ? (error as { status: number }).status
+          : code === 'NOT_FOUND' ? 404 : code === 'VALIDATION' ? 422 : 500
 
-      // Client errors that carry a status (e.g. ValidationException 422,
-      // AuthorizationException 403) are rendered as JSON — duck-typed so core
-      // stays decoupled from the validation package.
-      const status = (error as { status?: unknown }).status
-      if (typeof status === 'number' && status >= 400 && status < 500) {
-        const errors = (error as { errors?: unknown }).errors
-        // A web (non-JSON) validation error is handled by the session plugin's
-        // onError, which redirects back with the errors flashed — let it run.
-        if (errors && status === 422 && !expectsJson(request))
-          return undefined
-        set.status = status
-        http.warn(`${request.method} ${pathname}`, { requestId, status })
-        return errors ? { message, errors } : { message }
+      if (status >= 500) {
+        http.error(`${request.method} ${pathname} threw`, {
+          requestId,
+          code,
+          error: message,
+          stack: error instanceof Error ? error.stack : undefined,
+        })
       }
-
-      http.error(`${request.method} ${pathname} threw`, {
-        requestId,
-        code,
-        error: message,
-        stack: error instanceof Error ? error.stack : undefined,
-      })
+      else {
+        http.warn(`${request.method} ${pathname}`, { requestId, status })
+      }
+      return undefined
     })
 }

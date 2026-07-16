@@ -11,6 +11,7 @@ import { Elysia } from 'elysia'
 import { ConfigRepository, ConfigToken } from './config'
 import { Container } from './container'
 import { setAppTimezone } from './datetime'
+import { errorPages } from './http/error-pages'
 import { methodOverride } from './http/method-override'
 import { httpResponses } from './http/plugin'
 import {
@@ -130,6 +131,8 @@ export class Application {
     app.registerMiddleware()
     app.registerHttpResponses()
     app.registerSession()
+    // After session so its 422 validation redirect-back wins before we render.
+    app.registerErrorPages()
 
     const configured = app.config.get<ServiceProviderClass[]>('app.providers', [])
     const providerClasses = [...configured, ...(options.providers ?? [])]
@@ -274,6 +277,11 @@ export class Application {
   /** Mount response normalization (redirects → 303) before the session plugin. */
   private registerHttpResponses(): void {
     this.elysia.use(httpResponses())
+  }
+
+  /** Render styled HTML error pages for browsers (JSON for API) — framework default. */
+  private registerErrorPages(): void {
+    this.elysia.use(errorPages())
   }
 
   private registerSession(): void {
