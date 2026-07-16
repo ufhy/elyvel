@@ -16,8 +16,11 @@ function guest(page: string, props: Record<string, unknown> = {}) {
 
 const social = { socialProviders: enabledSocialProviders(auth) }
 
+// Applies the saved light/dark preference to <html> before first paint (no flash).
+const themeScript = `<script>(function(){try{var a=localStorage.getItem('appearance')||'system';if(a==='dark'||(a==='system'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})()</script>`
+
 export default route()
-  .use(inertia({ vite: { entry: 'resources/js/app.ts' }, ssr: { bundle: 'public/build/ssr/ssr.js' } }))
+  .use(inertia({ vite: { entry: 'resources/js/app.ts' }, ssr: { bundle: 'public/build/ssr/ssr.js' }, head: themeScript }))
   .use(betterAuthPlugin(auth))
   // Public landing — auth-aware (shows "Dashboard" when signed in), no redirect.
   .get('/', ({ user }: any) => Inertia.render('Welcome', { user }))
@@ -32,4 +35,5 @@ export default route()
   .get('/settings/profile', ({ user }: any) => Inertia.render('settings/Profile', { user }), { auth: true })
   .get('/settings/password', ({ user }: any) => Inertia.render('settings/Password', { user }), { auth: true })
   .get('/settings/two-factor', ({ user }: any) => Inertia.render('settings/TwoFactor', { user }), { auth: true })
+  .get('/settings/appearance', ({ user }: any) => Inertia.render('settings/Appearance', { user }), { auth: true })
   .get('/verify-email', ({ user }: any) => Inertia.render('auth/VerifyEmail', { user }), { auth: true })

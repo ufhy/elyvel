@@ -28,6 +28,12 @@ export interface InertiaConfig {
   vite?: ViteOptions
   /** Server-side rendering — render the page to HTML on first load, then hydrate. */
   ssr?: SsrOptions
+  /**
+   * Extra markup injected into `<head>` of the first-load document, before the
+   * Vite tags. Handy for an inline anti-flash theme script (set `.dark` on
+   * `<html>` from the stored preference before the body paints).
+   */
+  head?: string
   /** Override the full HTML document for a first (non-XHR) load. */
   html?(opts: {
     pageJson: string
@@ -91,7 +97,7 @@ export function inertia(config: InertiaConfig = {}) {
   const resolveVersion = () =>
     typeof config.version === 'function' ? config.version() : (config.version ?? '')
   const renderHtml = config.html ?? (o => defaultHtml(o))
-  const head = config.vite ? viteTags(config.vite) : ''
+  const head = (config.head ?? '') + (config.vite ? viteTags(config.vite) : '')
 
   // Scoped so mounting `.use(inertia())` in a route file applies to that file's
   // routes (like requestContext/auth.guard) — no app-level global mount needed.

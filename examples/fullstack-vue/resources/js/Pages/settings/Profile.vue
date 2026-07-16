@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import UiAlert from '../../components/UiAlert.vue'
 import UiButton from '../../components/UiButton.vue'
 import UiInput from '../../components/UiInput.vue'
-import AppLayout from '../../Layouts/AppLayout.vue'
+import SettingsLayout from '../../Layouts/settings/SettingsLayout.vue'
 import { authApi } from '../../lib/auth'
 
 const page = usePage()
@@ -29,11 +29,11 @@ async function submit() {
 </script>
 
 <template>
-  <AppLayout>
+  <SettingsLayout>
     <div class="max-w-lg">
-      <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
         Profile
-      </h1>
+      </h2>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Update your account's profile information.
       </p>
@@ -60,5 +60,5 @@ async function submit() {
         </div>
       </form>
     </div>
-  </AppLayout>
+  </SettingsLayout>
 </template>
