@@ -1,15 +1,21 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3'
-import ThemeToggle from '../../components/ThemeToggle.vue'
-import { authApi } from '../../lib/auth'
+import type { BreadcrumbItem, User } from '@/types'
+import { Link, usePage } from '@inertiajs/vue3'
+import { ChevronsUpDown } from '@lucide/vue'
+import { computed } from 'vue'
+import AppLogo from '@/components/AppLogo.vue'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import UserInfo from '@/components/UserInfo.vue'
+import UserMenuContent from '@/components/UserMenuContent.vue'
+
+withDefaults(defineProps<{ breadcrumbs?: BreadcrumbItem[] }>(), {
+  breadcrumbs: () => [],
+})
 
 const page = usePage()
-const user = () => (page.props as { user?: { name?: string, email?: string } }).user
-
-async function logout() {
-  await authApi.signOut()
-  router.visit('/login')
-}
+const user = computed(() => (page.props as { user?: User }).user)
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -18,36 +24,43 @@ const nav = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
-    <header class="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+  <div class="flex min-h-screen w-full flex-col bg-background">
+    <header class="border-b border-border">
+      <div class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4">
         <div class="flex items-center gap-6">
-          <div class="h-7 w-7 rounded-lg bg-indigo-600" />
+          <Link href="/dashboard" class="flex items-center">
+            <AppLogo />
+          </Link>
           <nav class="flex gap-4">
             <Link
               v-for="item in nav"
               :key="item.href"
               :href="item.href"
-              class="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+              class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {{ item.label }}
             </Link>
           </nav>
+          <Breadcrumbs v-if="breadcrumbs.length" :breadcrumbs="breadcrumbs" />
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <ThemeToggle />
-          <span class="text-sm text-gray-500 dark:text-gray-400" data-testid="nav-user">{{ user()?.email }}</span>
-          <button
-            class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-            data-testid="logout"
-            @click="logout"
-          >
-            Log out
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              class="flex items-center gap-2 rounded-md p-1 outline-none hover:bg-accent"
+              data-testid="nav-user"
+            >
+              <UserInfo v-if="user" :user="user" />
+              <ChevronsUpDown class="size-4 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="w-56" align="end">
+              <UserMenuContent v-if="user" :user="user" />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
-    <main class="mx-auto max-w-4xl px-4 py-8">
+    <main class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4">
       <slot />
     </main>
   </div>

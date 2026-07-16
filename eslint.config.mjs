@@ -21,6 +21,8 @@ export default antfu(
       // CLI scaffolding templates are *.tmpl (not valid TS/JS) — never lint them.
       'packages/cli/templates/**',
       '**/*.tmpl',
+      // Vendored shadcn-vue primitives — owned by the app, kept in upstream style.
+      '**/resources/js/components/ui/**',
       // READMEs carry illustrative (non-compiling) code fences — don't lint docs.
       '**/*.md',
     ],

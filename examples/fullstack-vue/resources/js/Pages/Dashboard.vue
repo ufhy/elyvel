@@ -1,35 +1,28 @@
 <script setup lang="ts">
-import { usePage } from '@inertiajs/vue3'
-import AppLayout from '../Layouts/AppLayout.vue'
+import type { BreadcrumbItem } from '@/types'
+import PlaceholderPattern from '@/components/PlaceholderPattern.vue'
+import AppLayout from '@/Layouts/AppLayout.vue'
 
-const page = usePage()
-const user = () => (page.props as { user?: { name?: string, email?: string } }).user
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/dashboard' }]
 </script>
 
 <template>
-  <AppLayout>
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white" data-testid="dashboard-heading">
-      Welcome back, {{ user()?.name }}
-    </h1>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-      Here's what's happening in your app.
-    </p>
-    <div class="mt-6 grid gap-4 sm:grid-cols-3">
+  <AppLayout :breadcrumbs="breadcrumbs">
+    <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+      <div class="grid auto-rows-min gap-4 md:grid-cols-3">
+        <div
+          v-for="i in 3"
+          :key="i"
+          class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
+        >
+          <PlaceholderPattern />
+        </div>
+      </div>
       <div
-        v-for="stat in [
-          { label: 'Signed in as', value: user()?.email },
-          { label: 'Plan', value: 'Free' },
-          { label: 'Status', value: 'Active' },
-        ]"
-        :key="stat.label"
-        class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
+        class="relative min-h-screen flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border"
+        data-testid="dashboard-heading"
       >
-        <p class="text-xs font-medium uppercase tracking-wide text-gray-400">
-          {{ stat.label }}
-        </p>
-        <p class="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-white">
-          {{ stat.value }}
-        </p>
+        <PlaceholderPattern />
       </div>
     </div>
   </AppLayout>

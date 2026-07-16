@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3'
 import { ref } from 'vue'
-import UiAlert from '../../components/UiAlert.vue'
-import UiButton from '../../components/UiButton.vue'
-import AuthLayout from '../../Layouts/AuthLayout.vue'
-import { authApi } from '../../lib/auth'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import AuthLayout from '@/Layouts/AuthLayout.vue'
+import { authApi } from '@/lib/auth'
 
 const page = usePage()
 const email = () => (page.props as { user?: { email?: string } }).user?.email ?? ''
@@ -26,19 +26,19 @@ async function logout() {
 
 <template>
   <AuthLayout title="Verify your email" :subtitle="`We sent a link to ${email()}`">
-    <UiAlert v-if="sent" tone="success" data-testid="sent">
-      Verification email sent.
-    </UiAlert>
-    <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+    <Alert v-if="sent" data-testid="sent">
+      <AlertDescription>Verification email sent.</AlertDescription>
+    </Alert>
+    <p class="mb-4 text-sm text-muted-foreground">
       Click the link in the email to activate your account. Didn't get it?
     </p>
     <div class="space-y-2">
-      <UiButton :disabled="busy" data-testid="resend" @click="resend">
+      <Button class="w-full" :disabled="busy" data-testid="resend" @click="resend">
         {{ busy ? 'Sending…' : 'Resend verification email' }}
-      </UiButton>
-      <UiButton variant="ghost" data-testid="logout" @click="logout">
+      </Button>
+      <Button variant="ghost" class="w-full" data-testid="logout" @click="logout">
         Log out
-      </UiButton>
+      </Button>
     </div>
   </AuthLayout>
 </template>

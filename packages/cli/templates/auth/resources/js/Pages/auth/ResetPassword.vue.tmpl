@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { onMounted, ref } from 'vue'
-import UiAlert from '../../components/UiAlert.vue'
-import UiButton from '../../components/UiButton.vue'
-import UiInput from '../../components/UiInput.vue'
-import AuthLayout from '../../Layouts/AuthLayout.vue'
-import { authApi } from '../../lib/auth'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import AuthLayout from '@/Layouts/AuthLayout.vue'
+import { authApi } from '@/lib/auth'
 
 const token = ref('')
 const password = ref('')
@@ -32,19 +33,22 @@ async function submit() {
 <template>
   <AuthLayout title="Reset password" subtitle="Choose a new password">
     <form class="space-y-4" @submit.prevent="submit">
-      <UiAlert v-if="error" data-testid="error">
-        {{ error }}
-      </UiAlert>
-      <UiAlert v-if="!token" data-testid="no-token">
-        Missing or invalid reset token.
-      </UiAlert>
-      <UiInput v-model="password" label="New password" type="password" autocomplete="new-password" />
-      <UiButton type="submit" :disabled="busy || !token" data-testid="submit">
+      <Alert v-if="error" variant="destructive" data-testid="error">
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+      <Alert v-if="!token" variant="destructive" data-testid="no-token">
+        <AlertDescription>Missing or invalid reset token.</AlertDescription>
+      </Alert>
+      <div class="grid gap-2">
+        <Label for="password">New password</Label>
+        <Input id="password" v-model="password" type="password" autocomplete="new-password" required />
+      </div>
+      <Button type="submit" class="w-full" :disabled="busy || !token" data-testid="submit">
         {{ busy ? 'Saving…' : 'Reset password' }}
-      </UiButton>
+      </Button>
     </form>
-    <p class="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
-      <Link href="/login" class="font-medium text-indigo-600 hover:underline">
+    <p class="mt-5 text-center text-sm text-muted-foreground">
+      <Link href="/login" class="font-medium text-foreground hover:underline">
         Back to sign in
       </Link>
     </p>

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3'
 import { ref } from 'vue'
-import UiAlert from '../../components/UiAlert.vue'
-import UiButton from '../../components/UiButton.vue'
-import UiInput from '../../components/UiInput.vue'
-import AuthLayout from '../../Layouts/AuthLayout.vue'
-import { authApi } from '../../lib/auth'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import AuthLayout from '@/Layouts/AuthLayout.vue'
+import { authApi } from '@/lib/auth'
 
 const email = ref('')
 const sent = ref(false)
@@ -27,20 +28,23 @@ async function submit() {
 
 <template>
   <AuthLayout title="Forgot password" subtitle="We'll email you a reset link">
-    <UiAlert v-if="sent" tone="success" data-testid="sent">
-      If that email exists, a reset link is on its way.
-    </UiAlert>
+    <Alert v-if="sent" data-testid="sent">
+      <AlertDescription>If that email exists, a reset link is on its way.</AlertDescription>
+    </Alert>
     <form v-else class="space-y-4" @submit.prevent="submit">
-      <UiAlert v-if="error" data-testid="error">
-        {{ error }}
-      </UiAlert>
-      <UiInput v-model="email" label="Email" type="email" autocomplete="email" />
-      <UiButton type="submit" :disabled="busy" data-testid="submit">
+      <Alert v-if="error" variant="destructive" data-testid="error">
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+      <div class="grid gap-2">
+        <Label for="email">Email</Label>
+        <Input id="email" v-model="email" type="email" autocomplete="email" required />
+      </div>
+      <Button type="submit" class="w-full" :disabled="busy" data-testid="submit">
         {{ busy ? 'Sending…' : 'Email reset link' }}
-      </UiButton>
+      </Button>
     </form>
-    <p class="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
-      <Link href="/login" class="font-medium text-indigo-600 hover:underline">
+    <p class="mt-5 text-center text-sm text-muted-foreground">
+      <Link href="/login" class="font-medium text-foreground hover:underline">
         Back to sign in
       </Link>
     </p>

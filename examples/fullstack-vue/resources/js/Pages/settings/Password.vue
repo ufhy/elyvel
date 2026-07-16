@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import UiAlert from '../../components/UiAlert.vue'
-import UiButton from '../../components/UiButton.vue'
-import UiInput from '../../components/UiInput.vue'
-import SettingsLayout from '../../Layouts/settings/SettingsLayout.vue'
-import { authApi } from '../../lib/auth'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import SettingsLayout from '@/Layouts/settings/SettingsLayout.vue'
+import { authApi } from '@/lib/auth'
 
 const current = ref('')
 const next = ref('')
@@ -31,26 +32,30 @@ async function submit() {
 <template>
   <SettingsLayout>
     <div class="max-w-lg">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+      <h2 class="text-lg font-semibold text-foreground">
         Password
       </h2>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      <p class="mt-1 text-sm text-muted-foreground">
         Use a long, random password to stay secure.
       </p>
       <form class="mt-6 space-y-4" @submit.prevent="submit">
-        <UiAlert v-if="status" tone="success" data-testid="status">
-          {{ status }}
-        </UiAlert>
-        <UiAlert v-if="error" data-testid="error">
-          {{ error }}
-        </UiAlert>
-        <UiInput v-model="current" label="Current password" type="password" autocomplete="current-password" />
-        <UiInput v-model="next" label="New password" type="password" autocomplete="new-password" />
-        <div class="w-40">
-          <UiButton type="submit" :disabled="busy" data-testid="save">
-            {{ busy ? 'Saving…' : 'Change password' }}
-          </UiButton>
+        <Alert v-if="status" data-testid="status">
+          <AlertDescription>{{ status }}</AlertDescription>
+        </Alert>
+        <Alert v-if="error" variant="destructive" data-testid="error">
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
+        <div class="grid gap-2">
+          <Label for="current">Current password</Label>
+          <Input id="current" v-model="current" type="password" autocomplete="current-password" required />
         </div>
+        <div class="grid gap-2">
+          <Label for="next">New password</Label>
+          <Input id="next" v-model="next" type="password" autocomplete="new-password" required />
+        </div>
+        <Button type="submit" :disabled="busy" data-testid="save">
+          {{ busy ? 'Saving…' : 'Change password' }}
+        </Button>
       </form>
     </div>
   </SettingsLayout>

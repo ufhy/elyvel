@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "baseUrl": ".",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": { "@/*": ["resources/js/*"] },
     "types": ["bun-types"],
     "allowImportingTsExtensions": true,
     "strict": true,

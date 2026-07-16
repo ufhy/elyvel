@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3'
-import AppLayout from '../AppLayout.vue'
-
-const page = usePage()
-const currentPath = () => (page.props as { url?: string }).url ?? (typeof window !== 'undefined' ? window.location.pathname : '')
+import type { BreadcrumbItem } from '@/types'
+import { Link } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import Heading from '@/components/Heading.vue'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { useCurrentUrl } from '@/composables/useCurrentUrl'
+import AppLayout from '@/Layouts/AppLayout.vue'
 
 const items = [
   { href: '/settings/profile', label: 'Profile' },
@@ -11,35 +14,47 @@ const items = [
   { href: '/settings/two-factor', label: 'Two-Factor' },
   { href: '/settings/appearance', label: 'Appearance' },
 ]
+
+const { currentUrl, isCurrentOrParentUrl } = useCurrentUrl()
+
+const breadcrumbs = computed<BreadcrumbItem[]>(() => {
+  const current = items.find(i => i.href === currentUrl.value)
+  const crumbs: BreadcrumbItem[] = [{ title: 'Settings', href: '/settings/profile' }]
+  if (current && current.href !== '/settings/profile')
+    crumbs.push({ title: current.label, href: current.href })
+  return crumbs
+})
 </script>
 
 <template>
-  <AppLayout>
-    <div class="mb-6">
-      <h1 class="text-xl font-bold text-gray-900 dark:text-white">
-        Settings
-      </h1>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Manage your account settings and preferences.
-      </p>
-    </div>
-    <div class="flex flex-col gap-8 lg:flex-row">
-      <nav class="flex gap-1 lg:w-48 lg:flex-col">
-        <Link
-          v-for="item in items"
-          :key="item.href"
-          :href="item.href"
-          class="rounded-lg px-3 py-2 text-sm font-medium" :class="[
-            currentPath() === item.href
-              ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/60 dark:hover:text-white',
-          ]"
-        >
-          {{ item.label }}
-        </Link>
-      </nav>
-      <div class="flex-1">
-        <slot />
+  <AppLayout :breadcrumbs="breadcrumbs">
+    <div class="px-4 py-6">
+      <Heading title="Settings" description="Manage your profile and account settings" />
+
+      <div class="flex flex-col lg:flex-row lg:space-x-12">
+        <aside class="w-full max-w-xl lg:w-48">
+          <nav class="flex flex-col space-x-0 space-y-1" aria-label="Settings">
+            <Button
+              v-for="item in items"
+              :key="item.href"
+              variant="ghost"
+              class="w-full justify-start" :class="[{ 'bg-muted': isCurrentOrParentUrl(item.href) }]"
+              as-child
+            >
+              <Link :href="item.href">
+                {{ item.label }}
+              </Link>
+            </Button>
+          </nav>
+        </aside>
+
+        <Separator class="my-6 lg:hidden" />
+
+        <div class="flex-1 md:max-w-2xl">
+          <section class="max-w-xl space-y-12">
+            <slot />
+          </section>
+        </div>
       </div>
     </div>
   </AppLayout>
