@@ -19,6 +19,8 @@ const social = { socialProviders: enabledSocialProviders() }
 export default route()
   .use(inertia({ vite: { entry: 'resources/js/app.ts' }, ssr: { bundle: 'public/build/ssr/ssr.js' } }))
   .use(betterAuthPlugin(auth))
+  // Public landing — auth-aware (shows "Dashboard" when signed in), no redirect.
+  .get('/', ({ user }: any) => Inertia.render('Welcome', { user }))
   .get('/login', guest('auth/Login', social))
   .get('/register', guest('auth/Register', social))
   .get('/forgot-password', guest('auth/ForgotPassword'))
