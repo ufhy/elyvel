@@ -1,3 +1,4 @@
+import { expectsJson } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { gate } from './gate'
 
@@ -10,6 +11,13 @@ export interface BetterAuthLike {
 export interface BetterAuthPluginOptions {
   /** Where Better Auth's routes are mounted. Default `/api/auth`. */
   basePath?: string
+  /**
+   * Where to send a guest who hits a protected PAGE (a browser/Inertia
+   * navigation). API/JSON requests still get a 401. Default `/login`.
+   */
+  loginPath?: string
+  /** Where to send an authenticated-but-unverified user on a page. Default `/verify-email`. */
+  verifyPath?: string
 }
 
 /**
@@ -21,6 +29,9 @@ export interface BetterAuthPluginOptions {
  */
 export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPluginOptions = {}) {
   const base = (options.basePath ?? '/api/auth').replace(/\/$/, '')
+  const loginPath = options.loginPath ?? '/login'
+  const verifyPath = options.verifyPath ?? '/verify-email'
+  const redirectTo = (to: string) => new Response(null, { status: 302, headers: { location: to } })
   return (
     new Elysia({ name: 'ravel-better-auth' })
       // Rebuild the request from Elysia's parsed body — other global plugins may
@@ -56,23 +67,24 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
           if (!enabled)
             return {}
           return {
-            beforeHandle({ user, status }: any) {
+            beforeHandle({ user, status, request }: any) {
               if (!user)
-                return status(401, { message: 'Unauthenticated' })
+                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: 'Unauthenticated' })
             },
           }
         },
         // Require an authenticated AND email-verified user (Laravel's `verified`
-        // middleware): 401 for guests, 403 when the email isn't verified yet.
+        // middleware). Page navigations redirect (to login / the verify notice);
+        // API/JSON requests get 401 / 403.
         verified(enabled: boolean) {
           if (!enabled)
             return {}
           return {
-            beforeHandle({ user, status }: any) {
+            beforeHandle({ user, status, request }: any) {
               if (!user)
-                return status(401, { message: 'Unauthenticated' })
+                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: 'Unauthenticated' })
               if (!user.emailVerified)
-                return status(403, { message: 'Your email address is not verified.' })
+                return !expectsJson(request) ? redirectTo(verifyPath) : status(403, { message: 'Your email address is not verified.' })
             },
           }
         },

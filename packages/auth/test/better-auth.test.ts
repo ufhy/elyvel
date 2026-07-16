@@ -46,26 +46,37 @@ describe('Better Auth over the Eloquent adapter', () => {
     expect(String(row?.email)).toBe('ada@x.test')
   })
 
-  test('session guards a protected route (401 guest, 200 with cookie)', async () => {
+  test('guards: API guest → 401, browser guest → redirect to /login, cookie → 200', async () => {
     const res = await signUp('grace@x.test')
     const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]
 
-    expect((await app.handle(new Request('http://localhost/me'))).status).toBe(401)
+    // API/JSON client gets a 401 to handle itself.
+    const api = await app.handle(new Request('http://localhost/me', { headers: { accept: 'application/json' } }))
+    expect(api.status).toBe(401)
+    // A browser navigation is redirected to the login page instead of raw JSON.
+    const browser = await app.handle(new Request('http://localhost/me', { headers: { accept: 'text/html' } }))
+    expect(browser.status).toBe(302)
+    expect(browser.headers.get('location')).toBe('/login')
+    // Authenticated → through.
     const me = await app.handle(new Request('http://localhost/me', { headers: { cookie } }))
     expect(me.status).toBe(200)
     expect(((await me.json()) as { email: string }).email).toBe('grace@x.test')
   })
 
-  test('verified macro: 401 guest, 403 when email is unverified', async () => {
+  test('verified macro: API 401/403; browser redirects (login / verify-email)', async () => {
     const res = await signUp('mia@x.test')
     const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]
 
-    expect((await app.handle(new Request('http://localhost/verified-only'))).status).toBe(401)
-    // freshly signed-up user is not email-verified yet → 403
-    const blocked = await app.handle(
-      new Request('http://localhost/verified-only', { headers: { cookie } }),
-    )
-    expect(blocked.status).toBe(403)
+    // guest, API → 401
+    const guestApi = await app.handle(new Request('http://localhost/verified-only', { headers: { accept: 'application/json' } }))
+    expect(guestApi.status).toBe(401)
+    // freshly signed-up user isn't verified yet — API → 403
+    const unverifiedApi = await app.handle(new Request('http://localhost/verified-only', { headers: { accept: 'application/json', cookie } }))
+    expect(unverifiedApi.status).toBe(403)
+    // same unverified user in a browser → redirected to the verify notice
+    const unverifiedBrowser = await app.handle(new Request('http://localhost/verified-only', { headers: { accept: 'text/html', cookie } }))
+    expect(unverifiedBrowser.status).toBe(302)
+    expect(unverifiedBrowser.headers.get('location')).toBe('/verify-email')
   })
 
   test('sign-in verifies credentials via the adapter', async () => {
