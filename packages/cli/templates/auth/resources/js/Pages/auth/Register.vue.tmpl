@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { ref } from 'vue'
+import SocialButtons from '../../components/SocialButtons.vue'
 import UiAlert from '../../components/UiAlert.vue'
 import UiButton from '../../components/UiButton.vue'
 import UiInput from '../../components/UiInput.vue'
 import AuthLayout from '../../Layouts/AuthLayout.vue'
 import { authApi } from '../../lib/auth'
+
+defineProps<{ socialProviders?: string[] }>()
 
 const name = ref('')
 const email = ref('')
@@ -39,6 +42,7 @@ async function submit() {
         {{ busy ? 'Creating…' : 'Create account' }}
       </UiButton>
     </form>
+    <SocialButtons :providers="socialProviders" />
     <p class="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
       Already have an account?
       <Link href="/login" class="font-medium text-indigo-600 hover:underline">

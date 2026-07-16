@@ -26,4 +26,20 @@ export const authApi = {
   updateUser: (name: string) => post('update-user', { name }),
   changePassword: (currentPassword: string, newPassword: string) =>
     post('change-password', { currentPassword, newPassword }),
+
+  // ── social sign-in (opt-in; providers configured server-side) ──────────────
+  // Returns { url } — the OAuth page to redirect the browser to.
+  signInSocial: (provider: string, callbackURL = '/dashboard') =>
+    post('sign-in/social', { provider, callbackURL }),
+
+  // ── two-factor (TOTP) ──────────────────────────────────────────────────────
+  // enable → { totpURI, backupCodes }; scan the URI, then confirm with verifyTotp.
+  enableTwoFactor: (password: string) => post('two-factor/enable', { password }),
+  disableTwoFactor: (password: string) => post('two-factor/disable', { password }),
+  // Used both to finish enrollment and to clear the sign-in 2FA challenge.
+  verifyTotp: (code: string, trustDevice = false) =>
+    post('two-factor/verify-totp', { code, trustDevice }),
+  verifyBackupCode: (code: string) => post('two-factor/verify-backup-code', { code }),
+  generateBackupCodes: (password: string) =>
+    post('two-factor/generate-backup-codes', { password }),
 }

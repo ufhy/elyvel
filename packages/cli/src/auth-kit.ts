@@ -16,10 +16,12 @@ const AUTH_DEPS: Record<string, string> = {
   '@inertiajs/vue3': '^3.0.0',
   '@vue/server-renderer': '^3.5.0',
   'better-auth': '^1.6.0',
+  'qrcode': '^1.5.4',
   'vue': '^3.5.0',
 }
 const AUTH_DEV_DEPS: Record<string, string> = {
   '@tailwindcss/vite': '^4.0.0',
+  '@types/qrcode': '^1.5.5',
   '@vitejs/plugin-vue': '^6.0.0',
   'tailwindcss': '^4.0.0',
   'vite': '^8.0.0',
