@@ -41,6 +41,32 @@ describe('Resource', () => {
       meta: { total: 1, perPage: 15 },
     })
   })
+
+  test('when() includes the key only if the condition holds, else omits it', () => {
+    const build = (isAdmin: boolean) =>
+      Resource.item({ id: 1 }, u => ({ id: u.id, role: Resource.when(isAdmin, 'admin') }))
+    expect(build(true)).toEqual({ data: { id: 1, role: 'admin' } })
+    expect(build(false)).toEqual({ data: { id: 1 } }) // key stripped, not null
+  })
+
+  test('when() defers a thunk until the condition is truthy', () => {
+    let called = false
+    const val = () => {
+      called = true
+      return 'x'
+    }
+    Resource.item({ id: 1 }, () => ({ v: Resource.when(false, val) }))
+    expect(called).toBe(false)
+  })
+
+  test('whenLoaded() includes a relation only when eager-loaded', () => {
+    const withPosts = { relations: { posts: [{ id: 9 }] } }
+    const without = { relations: {} }
+    const shape = (m: { relations: Record<string, unknown> }) =>
+      Resource.item(m, () => ({ posts: Resource.whenLoaded(m, 'posts') }))
+    expect(shape(withPosts)).toEqual({ data: { posts: [{ id: 9 }] } })
+    expect(shape(without)).toEqual({ data: {} }) // no lazy N+1, key omitted
+  })
 })
 
 // ── method spoofing ───────────────────────────────────────────────────────────
