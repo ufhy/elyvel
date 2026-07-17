@@ -50,14 +50,16 @@ const registry: Record<string, Dialect | null> = {
   mysql: mysqlOk ? { name: 'mysql', connect: connectMysql } : null,
 }
 
-// Which dialects to run, via `TEST_DIALECTS` (comma-separated). Default is
-// sqlite + pglite (both in-process). MySQL runs as a SEPARATE pass —
-// `TEST_DIALECTS=mysql MYSQL_URL=… bun test` — because co-loading it with
-// pglite's WASM instances in one process exhausts memory.
-const requested = (process.env.TEST_DIALECTS ?? 'sqlite,pglite')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean)
+// By default run every AVAILABLE dialect — sqlite + pglite always, and mysql too
+// when MYSQL_URL is set and reachable. So a plain `bun test` (with MYSQL_URL in
+// the environment, e.g. a gitignored .env) covers all three. Narrow with
+// `TEST_DIALECTS` (comma-separated), e.g. `TEST_DIALECTS=sqlite` for a quick run,
+// or `TEST_DIALECTS=mysql` to isolate MySQL — running all three from inside
+// `packages/database` (rather than the repo root) can exhaust pglite's WASM memory.
+const available = ['sqlite', 'pglite', ...(mysqlOk ? ['mysql'] : [])]
+const requested = process.env.TEST_DIALECTS
+  ? process.env.TEST_DIALECTS.split(',').map(s => s.trim()).filter(Boolean)
+  : available
 
 /** Dialects the Active Record suite runs against. */
 export const dialects: readonly Dialect[] = requested
