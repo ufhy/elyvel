@@ -28,6 +28,7 @@ export { createGuard } from './guard'
 export { Hash } from './hash'
 export { type Attempt, type AuthConfig, AuthManager, createAuth } from './manager'
 export { authHasPlugin, type AuthInstance, AuthServiceProvider, AuthToken } from './provider'
+export { actingAs, actingAsGuest, currentTestActor, stopActingAs } from './testing'
 export { generateToken, hashToken } from './token'
 export type {
   Authenticatable,

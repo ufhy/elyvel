@@ -5,6 +5,7 @@ import { Elysia } from 'elysia'
 import { betterAuthPlugin } from '../src/better-auth'
 import { migrateBetterAuth } from '../src/better-auth-schema'
 import { eloquentAdapter } from '../src/eloquent-adapter'
+import { actingAs, stopActingAs } from '../src/testing'
 
 // Better Auth running entirely on the Eloquent adapter — one connection, no
 // separate DB. If sign-up writes a row we can read back via table('user'), the
@@ -97,5 +98,22 @@ describe('Better Auth over the Eloquent adapter', () => {
       }),
     )
     expect(bad.status).toBeGreaterThanOrEqual(400)
+  })
+
+  test('actingAs authenticates requests without a session cookie', async () => {
+    const me = () => app.handle(new Request('http://localhost/me', { headers: { accept: 'application/json' } }))
+
+    // guest → 401
+    expect((await me()).status).toBe(401)
+
+    // acting as a user → the derive uses it instead of getSession
+    actingAs({ id: 'u1', email: 'ada@x.test', emailVerified: true } as any)
+    const res = await me()
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { email: string }).email).toBe('ada@x.test')
+
+    // cleared → back to guest
+    stopActingAs()
+    expect((await me()).status).toBe(401)
   })
 })

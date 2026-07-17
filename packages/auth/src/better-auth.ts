@@ -2,6 +2,7 @@ import { app, expectsJson, route } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { gate } from './gate'
 import { AuthToken } from './provider'
+import { currentTestActor } from './testing'
 
 /**
  * The authenticated user derived into request context (Better Auth's user +
@@ -73,12 +74,24 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
       // helpers bound to that user (Laravel's `$user->can()` / `Gate::authorize`).
       // NB: not named `session` — that would clobber the framework's cookie-session.
       .derive({ as: 'global' }, async ({ request }: any) => {
-        const result = await resolve().api.getSession({ headers: request.headers })
-        const user: User | null = result?.user ?? null
+        // Test seam: `actingAs(user)` short-circuits session resolution. Defaults
+        // to off (`undefined`), so real requests always hit Better Auth.
+        const override = currentTestActor()
+        let user: User | null
+        let authSession: unknown
+        if (override !== undefined) {
+          user = override
+          authSession = override ? { userId: (override as { id?: unknown }).id } : null
+        }
+        else {
+          const result = await resolve().api.getSession({ headers: request.headers })
+          user = result?.user ?? null
+          authSession = result?.session ?? null
+        }
         const g = gate().forUser(user)
         return {
           user,
-          authSession: result?.session ?? null,
+          authSession: authSession ?? null,
           can: (ability: string, ...args: any[]) => g.allows(ability, ...args),
           cannot: (ability: string, ...args: any[]) => g.denies(ability, ...args),
           authorize: (ability: string, ...args: any[]) => g.authorize(ability, ...args),

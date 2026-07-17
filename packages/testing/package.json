@@ -1,0 +1,27 @@
+{
+  "name": "@elysia-ravel/testing",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Test helpers for elysia-ravel — HTTP test client, response assertions, and database refresh",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@elysia-ravel/database": "workspace:*",
+    "elysia": ">=1.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@elysia-ravel/database": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "elysia": "^1.4.0"
+  }
+}

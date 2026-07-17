@@ -137,8 +137,12 @@
         "elysia": "^1.4.0",
       },
       "peerDependencies": {
+        "@elysiajs/openapi": ">=1.4.0",
         "elysia": ">=1.4.0",
       },
+      "optionalPeers": [
+        "@elysiajs/openapi",
+      ],
     },
     "packages/database": {
       "name": "@elysia-ravel/database",
@@ -224,6 +228,20 @@
       "peerDependencies": {
         "@elysia-ravel/core": "workspace:*",
       },
+    },
+    "packages/testing": {
+      "name": "@elysia-ravel/testing",
+      "version": "0.0.0",
+      "devDependencies": {
+        "elysia": "^1.4.0",
+      },
+      "peerDependencies": {
+        "@elysia-ravel/database": "workspace:*",
+        "elysia": ">=1.4.0",
+      },
+      "optionalPeers": [
+        "@elysia-ravel/database",
+      ],
     },
     "packages/validation": {
       "name": "@elysia-ravel/validation",
@@ -316,6 +334,8 @@
     "@elysia-ravel/support": ["@elysia-ravel/support@workspace:packages/support"],
 
     "@elysia-ravel/telegram": ["@elysia-ravel/telegram@workspace:packages/telegram"],
+
+    "@elysia-ravel/testing": ["@elysia-ravel/testing@workspace:packages/testing"],
 
     "@elysia-ravel/validation": ["@elysia-ravel/validation@workspace:packages/validation"],
 

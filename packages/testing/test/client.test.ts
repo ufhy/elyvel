@@ -1,0 +1,76 @@
+import { beforeEach, describe, expect, test } from 'bun:test'
+import { Elysia } from 'elysia'
+import { createTestClient } from '../src/index'
+
+function makeApp() {
+  return new Elysia()
+    .get('/ping', () => ({ ok: true }))
+    .get('/user/:id', ({ params }) => ({ data: { id: Number(params.id), name: 'Ada' } }))
+    .get('/echo', ({ query }) => ({ q: query.q }))
+    .get('/secret', ({ headers, status }) =>
+      headers.authorization === 'Bearer t0ken' ? { ok: true } : status(401, { message: 'no' }))
+    .post('/users', ({ body, status }) => status(201, { data: body }))
+    .get('/go', ({ redirect }) => redirect('/there', 302))
+    .get('/html', ({ set }) => {
+      set.headers['content-type'] = 'text/html'
+      return '<h1>hi Ada</h1>'
+    })
+}
+
+describe('TestClient', () => {
+  let client: ReturnType<typeof createTestClient>
+  beforeEach(() => {
+    client = createTestClient(makeApp())
+  })
+
+  test('GET + assertOk + json', async () => {
+    const res = await client.get('/ping')
+    res.assertOk()
+    expect(res.json<{ ok: boolean }>()).toEqual({ ok: true })
+  })
+
+  test('assertJson does a deep partial match', async () => {
+    const res = await client.get('/user/1')
+    res.assertStatus(200).assertJson({ data: { name: 'Ada' } })
+  })
+
+  test('assertJsonPath drills into the body', async () => {
+    const res = await client.get('/user/7')
+    res.assertJsonPath('data.id', 7)
+  })
+
+  test('query params are appended', async () => {
+    const res = await client.get('/echo', { query: { q: 'hello' } })
+    res.assertJsonPath('q', 'hello')
+  })
+
+  test('withToken sets Authorization', async () => {
+    const res = await client.withToken('t0ken').get('/secret')
+    res.assertOk()
+  })
+
+  test('unauthenticated request fails the auth check', async () => {
+    const res = await client.get('/secret')
+    res.assertUnauthorized()
+  })
+
+  test('POST json body + assertCreated', async () => {
+    const res = await client.post('/users', { json: { name: 'Grace' } })
+    res.assertCreated().assertJson({ data: { name: 'Grace' } })
+  })
+
+  test('assertRedirect checks 3xx + Location', async () => {
+    const res = await client.get('/go')
+    res.assertRedirect('/there')
+  })
+
+  test('assertHeader + assertSee on an HTML response', async () => {
+    const res = await client.get('/html')
+    res.assertHeader('content-type', 'text/html').assertSee('hi Ada')
+  })
+
+  test('a failed assertion throws', async () => {
+    const res = await client.get('/ping')
+    expect(() => res.assertStatus(404)).toThrow(/Expected status 404/)
+  })
+})
