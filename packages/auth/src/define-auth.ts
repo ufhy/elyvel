@@ -65,6 +65,16 @@ function resolveSocial(names: SocialProvider[]): Record<string, { clientId: stri
 }
 
 /**
+ * Identity helper that pins the type of `config/auth.ts` — the auth counterpart
+ * of `defineAppConfig`. Keeps the config file plain data (`export default
+ * defineAuthConfig({...})`) so it lands in the config repository like every
+ * other `config/*.ts`; the instance is built from it by {@link AuthServiceProvider}.
+ */
+export function defineAuthConfig(config: DefineAuthOptions): DefineAuthOptions {
+  return config
+}
+
+/**
  * Build the app's Better Auth instance from a Laravel-style config, pre-wiring
  * the framework glue: the Eloquent adapter, a secret derived from APP_KEY, the
  * base URL, a per-app cookie prefix, email/password + verification, env-gated

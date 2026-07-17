@@ -99,9 +99,9 @@ export function inertia(config: InertiaConfig = {}) {
   const renderHtml = config.html ?? (o => defaultHtml(o))
   const head = (config.head ?? '') + (config.vite ? viteTags(config.vite) : '')
 
-  // Scoped so mounting `.use(inertia())` in a route file applies to that file's
-  // routes (like requestContext/auth.guard) — no app-level global mount needed.
-  return new Elysia({ name: 'ravel-inertia' }).onAfterHandle({ as: 'scoped' }, async (ctx: any) => {
+  // Global so a single registration (config/middleware.ts `global`) transforms
+  // Inertia responses across every route file — no per-file `.use` needed.
+  return new Elysia({ name: 'ravel-inertia' }).onAfterHandle({ as: 'global' }, async (ctx: any) => {
     const response = ctx.response
     const request = ctx.request as Request
     const isInertia = request.headers.get('x-inertia') === 'true'

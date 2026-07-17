@@ -1,6 +1,7 @@
-import { expectsJson } from '@elysia-ravel/core'
+import { app, expectsJson } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { gate } from './gate'
+import { AuthToken } from './provider'
 
 /** The parts of a Better Auth instance this plugin needs (kept loose to avoid deep generics). */
 export interface BetterAuthLike {
@@ -23,15 +24,21 @@ export interface BetterAuthPluginOptions {
 /**
  * Mount Better Auth into elysia-ravel: routes at `/api/auth/*`, a derived
  * `user`/`session` in context, and an `{ auth: true }` macro that 401s guests.
- * Use it in a route file like `auth.guard()`:
  *
- *   route().use(betterAuthPlugin(auth)).get('/me', ({ user }) => user, { auth: true })
+ *   route().use(betterAuthPlugin()).get('/me', ({ user }) => user, { auth: true })
+ *
+ * The instance defaults to the one bound by `AuthServiceProvider`, resolved
+ * lazily at request time via `app(AuthToken)` — so routes need not import it.
+ * Pass an explicit instance to override.
  */
-export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPluginOptions = {}) {
+export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPluginOptions = {}) {
   const base = (options.basePath ?? '/api/auth').replace(/\/$/, '')
   const loginPath = options.loginPath ?? '/login'
   const verifyPath = options.verifyPath ?? '/verify-email'
   const redirectTo = (to: string) => new Response(null, { status: 302, headers: { location: to } })
+  // Resolved per request: the binding isn't ready until AuthServiceProvider has
+  // booted, which happens after route modules load.
+  const resolve = (): BetterAuthLike => auth ?? app(AuthToken)
   return (
     new Elysia({ name: 'ravel-better-auth' })
       // Rebuild the request from Elysia's parsed body — other global plugins may
@@ -45,13 +52,13 @@ export function betterAuthPlugin(auth: BetterAuthLike, options: BetterAuthPlugin
               body: typeof body === 'string' ? body : JSON.stringify(body),
             })
           : request
-        return auth.handler(req)
+        return resolve().handler(req)
       })
       // Derive the authenticated `user` + `authSession`, plus authorization
       // helpers bound to that user (Laravel's `$user->can()` / `Gate::authorize`).
       // NB: not named `session` — that would clobber the framework's cookie-session.
-      .derive({ as: 'scoped' }, async ({ request }: any) => {
-        const result = await auth.api.getSession({ headers: request.headers })
+      .derive({ as: 'global' }, async ({ request }: any) => {
+        const result = await resolve().api.getSession({ headers: request.headers })
         const user = result?.user ?? null
         const g = gate().forUser(user)
         return {
