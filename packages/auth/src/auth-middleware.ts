@@ -1,8 +1,17 @@
-import { expectsJson, Middleware } from '@elysia-ravel/core'
+import { config, expectsJson, Middleware } from '@elysia-ravel/core'
 
-/** Where to send a guest / unverified user hitting a protected PAGE (browser). */
-const LOGIN_PATH = '/login'
-const VERIFY_PATH = '/verify-email'
+/**
+ * Where to send a guest hitting a protected PAGE (browser). Overridable via
+ *  `config('auth.loginPath')` in config/auth.ts; defaults to `/login`.
+ */
+function loginPath(): string {
+  return config<string>('auth.loginPath', '/login')
+}
+
+/** Where to send an authenticated-but-unverified user. `config('auth.verifyPath')`. */
+function verifyPath(): string {
+  return config<string>('auth.verifyPath', '/verify-email')
+}
 
 function redirect(to: string): Response {
   return new Response(null, { status: 302, headers: { location: to } })
@@ -11,14 +20,14 @@ function redirect(to: string): Response {
 /**
  * `{ middleware: 'auth' }` — require an authenticated user. Reads `user` from
  * context (derived globally by `betterAuthPlugin`). Browser navigations are
- * redirected to `/login`; API/JSON requests get a 401. Laravel's `auth` middleware.
+ * redirected to the login page; API/JSON requests get a 401. Laravel's `auth`.
  */
 export class AuthGuard extends Middleware {
   handle(ctx: any): unknown {
     if (!ctx.user) {
       return expectsJson(ctx.request)
         ? ctx.status(401, { message: 'Unauthenticated' })
-        : redirect(LOGIN_PATH)
+        : redirect(loginPath())
     }
   }
 }
@@ -33,12 +42,12 @@ export class VerifiedGuard extends Middleware {
     if (!ctx.user) {
       return expectsJson(ctx.request)
         ? ctx.status(401, { message: 'Unauthenticated' })
-        : redirect(LOGIN_PATH)
+        : redirect(loginPath())
     }
     if (!ctx.user.emailVerified) {
       return expectsJson(ctx.request)
         ? ctx.status(403, { message: 'Your email address is not verified.' })
-        : redirect(VERIFY_PATH)
+        : redirect(verifyPath())
     }
   }
 }

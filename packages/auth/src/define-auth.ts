@@ -8,7 +8,12 @@ import { eloquentAdapter } from './eloquent-adapter'
  * framework only fills in glue defaults (Eloquent adapter, APP_KEY secret, base
  * URL, cookie prefix, Eloquent-plural table names); everything you pass wins.
  */
-export type DefineAuthOptions = Partial<BetterAuthOptions>
+export type DefineAuthOptions = Partial<BetterAuthOptions> & {
+  /** Where to redirect a guest hitting a protected page (browser). Default `/login`. */
+  loginPath?: string
+  /** Where to redirect an unverified user (browser). Default `/verify-email`. */
+  verifyPath?: string
+}
 
 function slug(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'app'
@@ -37,6 +42,9 @@ export function defineAuthConfig(config: DefineAuthOptions): DefineAuthOptions {
 export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof betterAuth> {
   const appName = process.env.APP_NAME
   const cookiePrefix = appName ? slug(appName) : 'app'
+  // loginPath/verifyPath are framework redirect targets (read by the auth guards
+  // via `config('auth.*')`), NOT Better Auth options — keep them out of the instance.
+  const { loginPath: _loginPath, verifyPath: _verifyPath, ...ba } = options
 
   return betterAuth({
     user: { modelName: 'users' },
@@ -48,11 +56,11 @@ export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof b
     // refuses to boot without APP_KEY (cookie session driver), so this is set.
     secret: process.env.BETTER_AUTH_SECRET ?? process.env.APP_KEY,
     baseURL: process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
-    ...options,
+    ...ba,
     // Deep-merge the nested defaults so a partial override keeps the glue.
-    emailAndPassword: { enabled: true, ...options.emailAndPassword },
-    emailVerification: { sendOnSignUp: true, ...options.emailVerification },
-    advanced: { cookiePrefix, ...options.advanced },
+    emailAndPassword: { enabled: true, ...ba.emailAndPassword },
+    emailVerification: { sendOnSignUp: true, ...ba.emailVerification },
+    advanced: { cookiePrefix, ...ba.advanced },
   } as BetterAuthOptions)
 }
 
