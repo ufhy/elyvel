@@ -44,19 +44,44 @@ if (MYSQL_URL) {
   }
 }
 
+// A REAL Postgres server (the `pg` driver), separate from the in-process pglite.
+// Same external-persistent handling as MySQL — drop tables on connect (CASCADE to
+// ignore FK order). Joins the suite when POSTGRES_URL is reachable; otherwise
+// pglite already covers the Postgres dialect.
+const POSTGRES_URL = process.env.POSTGRES_URL
+
+async function connectPg(): Promise<Connection> {
+  const conn = await createConnection({ driver: 'pg', url: POSTGRES_URL! })
+  for (const t of await listTables(conn)) await conn.unprepared(`DROP TABLE IF EXISTS "${t}" CASCADE`)
+  return conn
+}
+
+let pgOk = false
+if (POSTGRES_URL) {
+  try {
+    const probe = await createConnection({ driver: 'pg', url: POSTGRES_URL })
+    await probe.close()
+    pgOk = true
+  }
+  catch {
+    pgOk = false
+  }
+}
+
 const registry: Record<string, Dialect | null> = {
   sqlite: base[0]!,
   pglite: base[1]!,
+  pg: pgOk ? { name: 'pg', connect: connectPg } : null,
   mysql: mysqlOk ? { name: 'mysql', connect: connectMysql } : null,
 }
 
-// By default run every AVAILABLE dialect — sqlite + pglite always, and mysql too
-// when MYSQL_URL is set and reachable. So a plain `bun test` (with MYSQL_URL in
-// the environment, e.g. a gitignored .env) covers all three. Narrow with
-// `TEST_DIALECTS` (comma-separated), e.g. `TEST_DIALECTS=sqlite` for a quick run,
-// or `TEST_DIALECTS=mysql` to isolate MySQL — running all three from inside
+// By default run every AVAILABLE dialect — sqlite + pglite (in-process, always),
+// plus a real Postgres server (`pg`) when POSTGRES_URL is reachable and MySQL
+// when MYSQL_URL is. So a plain `bun test` (with those URLs in a gitignored .env)
+// covers them all. Narrow with `TEST_DIALECTS` (comma-separated), e.g.
+// `TEST_DIALECTS=sqlite` for a quick run — running every dialect from inside
 // `packages/database` (rather than the repo root) can exhaust pglite's WASM memory.
-const available = ['sqlite', 'pglite', ...(mysqlOk ? ['mysql'] : [])]
+const available = ['sqlite', 'pglite', ...(pgOk ? ['pg'] : []), ...(mysqlOk ? ['mysql'] : [])]
 const requested = process.env.TEST_DIALECTS
   ? process.env.TEST_DIALECTS.split(',').map(s => s.trim()).filter(Boolean)
   : available
