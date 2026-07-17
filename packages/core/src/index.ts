@@ -15,6 +15,7 @@ export { Container, token } from './container'
 export { cors, type CorsOptions } from './cors'
 export { dateParts, formatDate, getAppTimezone, setAppTimezone } from './datetime'
 export { defineEnv } from './env'
+export { type FakeResponse, Http, HttpResponse, PendingRequest } from './http/client'
 export {
   configureErrorPage,
   type ErrorPageContext,
