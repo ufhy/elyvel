@@ -1,6 +1,7 @@
 import type { ConfigData } from './config'
 import type { SessionConfig } from './config-schema'
 import type { Token } from './container'
+import type { OpenApiConfig } from './http/openapi'
 import type { LogChannelConfig, LogLevel, Transport } from './logger'
 import type { MiddlewareConfig } from './middleware'
 import type { ServiceProvider, ServiceProviderClass } from './service-provider'
@@ -13,6 +14,7 @@ import { Container } from './container'
 import { setAppTimezone } from './datetime'
 import { errorPages } from './http/error-pages'
 import { methodOverride } from './http/method-override'
+import { openApiPlugin } from './http/openapi'
 import { httpResponses } from './http/plugin'
 import {
   BufferedFileTransport,
@@ -161,6 +163,8 @@ export class Application {
     app.registerSession()
     // After session so its 422 validation redirect-back wins before we render.
     app.registerErrorPages()
+    // Before routes so the OpenAPI plugin observes them all.
+    await app.registerOpenApi()
 
     const configured = app.config.get<ServiceProviderClass[]>('app.providers', [])
     const providerClasses = [...configured, ...(options.providers ?? [])]
@@ -312,6 +316,25 @@ export class Application {
   /** Render styled HTML error pages for browsers (JSON for API) — framework default. */
   private registerErrorPages(): void {
     this.elysia.use(errorPages())
+  }
+
+  /**
+   * Mount interactive OpenAPI docs (Scalar UI at `/openapi`, spec at `/openapi/json`),
+   * built from Elysia's typed route schemas. On by default outside production; set
+   * `config('openapi.enabled')` to override. Skipped if `@elysiajs/openapi` is absent.
+   */
+  private async registerOpenApi(): Promise<void> {
+    const cfg = this.config.get<OpenApiConfig | undefined>('openapi') ?? {}
+    const env = this.config.get<string>('app.env') ?? process.env.NODE_ENV ?? 'development'
+    if ((cfg.enabled ?? env !== 'production') === false)
+      return
+    const plugin = await openApiPlugin({
+      ...cfg,
+      title: cfg.title ?? this.config.get<string>('app.name') ?? 'API',
+      version: cfg.version ?? this.config.get<string>('app.version') ?? '1.0.0',
+    })
+    if (plugin)
+      this.elysia.use(plugin)
   }
 
   private registerSession(): void {
