@@ -11,6 +11,7 @@ import {
   statusCommand,
 } from './commands/db'
 import { keyGenerate } from './commands/key'
+import { down, up } from './commands/maintenance'
 import { make } from './commands/make'
 import { newApp } from './commands/new'
 import {
@@ -111,6 +112,14 @@ async function main(): Promise<number> {
 
   if (command === 'serve') {
     return serve(flags)
+  }
+
+  if (command === 'down') {
+    return down(flags)
+  }
+
+  if (command === 'up') {
+    return up()
   }
 
   if (command === 'migrate') {

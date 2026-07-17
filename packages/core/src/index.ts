@@ -57,6 +57,14 @@ export {
   type Transport,
 } from './logger'
 export {
+  bringDown,
+  bringUp,
+  type DownPayload,
+  isDownForMaintenance,
+  maintenanceMode,
+  readDownPayload,
+} from './maintenance'
+export {
   defineMiddlewareConfig,
   group,
   type GroupItem,

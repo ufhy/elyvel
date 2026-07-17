@@ -29,6 +29,7 @@ import {
   LogManagerToken,
 
 } from './logger'
+import { maintenanceMode } from './maintenance'
 import {
   globalMiddlewarePlugin,
 
@@ -157,6 +158,8 @@ export class Application {
     setAppTimezone(app.config.get<string>('app.timezone') ?? 'UTC')
     app.registerLogger()
     app.registerCoreBindings()
+    // Earliest guard: a maintenance outage short-circuits every request.
+    app.registerMaintenance()
     app.registerHttpLogger()
     app.registerMiddleware()
     app.registerHttpResponses()
@@ -282,6 +285,15 @@ export class Application {
       default:
         return []
     }
+  }
+
+  /** The maintenance-mode `down` file path (`storage/framework/down`). */
+  maintenanceFile(): string {
+    return this.path('storage/framework/down')
+  }
+
+  private registerMaintenance(): void {
+    this.elysia.use(maintenanceMode(this.maintenanceFile()))
   }
 
   private registerHttpLogger(): void {
