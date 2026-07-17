@@ -17,3 +17,5 @@ examples/*/storage/
 # Playwright MCP scratch
 .playwright-mcp/
 .claude/settings.json
+# local scratch/experiments (not tracked)
+playground/
