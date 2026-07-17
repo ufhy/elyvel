@@ -43,8 +43,10 @@ These are **not all on by default** — review them before you deploy:
 - [ ] Set a strong `APP_KEY` (`ravel key:generate`) — required for signed cookies
       and `encrypted` model casts.
 - [ ] Enable secure cookies: `session.secure = true` (HTTPS-only) in production.
-- [ ] Apply CSRF to state-changing web routes: `{ middleware: 'csrf' }` on your
-      web route group. It is **opt-in**, not global.
+- [ ] Route browser/session traffic through the built-in **`web` group**
+      (`route().use(group('web'))`), which applies CSRF. It's a group, not a
+      global — API/token routes are CSRF-immune and stay out of it. Requires
+      sessions enabled.
 - [ ] Protect mass-assignment: set `fillable` (or `guarded`) on every model that
       is filled from request input. **Models are unguarded by default** — with an
       empty `fillable` every column is mass-assignable. Note this is *less strict

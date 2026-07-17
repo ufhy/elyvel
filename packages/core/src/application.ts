@@ -309,10 +309,14 @@ export class Application {
    */
   private registerMiddleware(): void {
     const config = this.config.get<MiddlewareConfig | undefined>('middleware') ?? {}
-    // Seed built-in aliases (user config can override them).
+    // Seed built-in aliases + groups (user config can override them). The `web`
+    // group bundles CSRF (Laravel's web group) — apply it to browser/session
+    // routes with `group('web')`. It's a group, not a global, so API/token routes
+    // (which are CSRF-immune) stay clean; override by defining your own `web`.
     registerMiddlewareRegistry({
       ...config,
       aliases: { throttle: ThrottleMiddleware, csrf: CsrfMiddleware, ...config.aliases },
+      groups: { web: ['csrf'], ...config.groups },
     })
     if (config.global?.length) {
       this.elysia.use(globalMiddlewarePlugin(config.global))
