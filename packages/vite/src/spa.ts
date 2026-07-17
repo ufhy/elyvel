@@ -1,5 +1,5 @@
 import type { ViteOptions } from './tags'
-import { staticFiles } from '@elysia-ravel/core'
+import { configureErrorPage, staticFiles } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { viteTags } from './tags'
 
@@ -12,6 +12,8 @@ export interface SpaOptions extends ViteOptions {
   buildDir?: string
   /** `<title>` for the shell document. */
   title?: string
+  /** Extra `<head>` HTML injected before the Vite tags (e.g. an anti-flash theme script). */
+  head?: string
   /** Serve the built assets at `base`. Set false if another route already does. Default true. */
   assets?: boolean
   /** Override the shell HTML. */
@@ -39,7 +41,7 @@ export function spa(options: SpaOptions) {
   const prefix = (options.prefix ?? '').replace(/\/+$/, '')
   const rootId = options.rootId ?? 'app'
   const base = (options.base ?? '/build/').replace(/\/+$/, '')
-  const head = viteTags(options)
+  const head = (options.head ?? '') + viteTags(options)
   const render = options.html ?? defaultShell
   const shell = () => render({ head, rootId, title: options.title })
 
@@ -48,8 +50,24 @@ export function spa(options: SpaOptions) {
     return shell()
   }
 
+  // Client-side deep links (e.g. /dashboard) have no server route, so they 404.
+  // Serve the shell for those browser 404s via the error-page resolver — it's
+  // only invoked for HTML navigations, so JSON API 404s still get JSON, and real
+  // routes (the Better Auth handler, /api/*, assets) keep priority over a `/*`.
+  configureErrorPage((status, { request }) => {
+    if (status !== 404)
+      return undefined
+    const path = new URL(request.url).pathname
+    if (path.startsWith('/api') || path.startsWith(base))
+      return undefined
+    return new Response(shell(), {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+  })
+
   const app = new Elysia({ name: `ravel-spa-${prefix || 'root'}` })
   if (options.assets !== false)
     app.use(staticFiles({ prefix: base, dir: options.buildDir ?? 'public/build' }))
-  return app.get(prefix || '/', serveShell).get(`${prefix}/*`, serveShell)
+  return app.get(prefix || '/', serveShell)
 }

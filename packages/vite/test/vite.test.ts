@@ -1,3 +1,4 @@
+import { errorPageResolver } from '@elysia-ravel/core'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { spa } from '../src/spa'
@@ -32,10 +33,20 @@ describe('spa()', () => {
     expect(body).toContain('@vite/client') // dev tags injected
   })
 
-  test('serves the shell for deep links under the prefix (client routing)', async () => {
-    const res = await app().handle(new Request('http://localhost/dashboard/settings/profile'))
-    expect(res.status).toBe(200)
-    expect(await res.text()).toContain('<div id="app"></div>')
+  test('registers an error-page resolver that serves the shell for browser deep links', async () => {
+    app() // calling spa() installs the resolver used for client-side deep links
+    const resolve = errorPageResolver()
+    expect(resolve).toBeTruthy()
+
+    // A browser 404 on a client route → the SPA shell (200), so vue-router renders.
+    const page = await resolve!(404, { request: new Request('http://localhost/settings/profile'), error: null })
+    expect(page).toBeInstanceOf(Response)
+    expect((page as Response).status).toBe(200)
+    expect(await (page as Response).text()).toContain('<div id="app"></div>')
+
+    // API 404s are left alone (they stay JSON), as are asset requests.
+    const api = await resolve!(404, { request: new Request('http://localhost/api/nope'), error: null })
+    expect(api).toBeUndefined()
   })
 
   test('a route OUTSIDE the prefix is not shadowed by the SPA', async () => {

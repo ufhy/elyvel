@@ -18,6 +18,7 @@ export { defineEnv } from './env'
 export {
   configureErrorPage,
   type ErrorPageContext,
+  errorPageResolver,
   type ErrorPageResolver,
   type ErrorPageResult,
   type RenderableView,
