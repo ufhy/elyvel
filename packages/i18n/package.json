@@ -1,0 +1,15 @@
+{
+  "name": "@elysia-ravel/i18n",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Localization for elysia-ravel — translation lines, :placeholder replacement, and pluralization (mirrors Illuminate\\Translation)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

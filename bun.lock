@@ -167,6 +167,10 @@
         "@elysia-ravel/core": "workspace:*",
       },
     },
+    "packages/i18n": {
+      "name": "@elysia-ravel/i18n",
+      "version": "0.0.0",
+    },
     "packages/inertia": {
       "name": "@elysia-ravel/inertia",
       "version": "0.0.0",
@@ -318,6 +322,8 @@
     "@elysia-ravel/database": ["@elysia-ravel/database@workspace:packages/database"],
 
     "@elysia-ravel/events": ["@elysia-ravel/events@workspace:packages/events"],
+
+    "@elysia-ravel/i18n": ["@elysia-ravel/i18n@workspace:packages/i18n"],
 
     "@elysia-ravel/inertia": ["@elysia-ravel/inertia@workspace:packages/inertia"],
 
