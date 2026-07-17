@@ -45,9 +45,12 @@ These are **not all on by default** — review them before you deploy:
 - [ ] Enable secure cookies: `session.secure = true` (HTTPS-only) in production.
 - [ ] Apply CSRF to state-changing web routes: `{ middleware: 'csrf' }` on your
       web route group. It is **opt-in**, not global.
-- [ ] Protect mass-assignment: set `$fillable` (or `$guarded`) on every model that
-      is filled from request input. **Models are unguarded by default** (matching
-      Laravel), so an empty `$fillable` allows every column to be mass-assigned.
+- [ ] Protect mass-assignment: set `fillable` (or `guarded`) on every model that
+      is filled from request input. **Models are unguarded by default** — with an
+      empty `fillable` every column is mass-assignable. Note this is *less strict
+      than Laravel*, which guards by default and rejects mass-assignment until you
+      declare `fillable`. Until that default is reconsidered, treat declaring
+      `fillable` as mandatory for any model bound to request input.
 - [ ] Apply `throttle` to authentication and other sensitive routes.
 - [ ] Disable OpenAPI docs in production unless intentionally public
       (`config('openapi.enabled') = false`; already off by default outside dev).
