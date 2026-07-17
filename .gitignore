@@ -17,5 +17,7 @@ examples/*/storage/
 # Playwright MCP scratch
 .playwright-mcp/
 .claude/settings.json
+# editor workspace settings (local)
+.vscode/
 # local scratch/experiments (not tracked)
 playground/
