@@ -8,7 +8,7 @@ import type { ResolvedSessionConfig } from './session'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Elysia } from 'elysia'
-import { ConfigRepository, ConfigToken } from './config'
+import { ConfigRepository, ConfigToken, setConfigRepository } from './config'
 import { Container } from './container'
 import { setAppTimezone } from './datetime'
 import { errorPages } from './http/error-pages'
@@ -77,6 +77,33 @@ export interface CreateAppOptions {
  * added through {@link ServiceProvider}s, and the underlying Elysia instance
  * is always reachable via {@link Application.elysia} so nothing is hidden.
  */
+// The running application for this process, set by create(). Backs the global
+// app()/config() helpers so code outside a provider can reach the container —
+// one running app per process, mirroring the setAppTimezone default pattern.
+let currentApp: Application | null = null
+
+/** The running application. Throws if called before `Application.create()`. */
+export function application(): Application {
+  if (!currentApp) {
+    throw new Error(
+      '[elysia-ravel] No application has booted yet. Call Application.create() first.',
+    )
+  }
+  return currentApp
+}
+
+/**
+ * Global access to the running application / container — Laravel's `app()`
+ * helper. With no argument returns the {@link Application}; with a token it
+ * resolves that binding from the container.
+ */
+export function app(): Application
+export function app<T>(token: Token<T>): T
+export function app<T>(token?: Token<T>): Application | T {
+  const instance = application()
+  return token ? instance.make(token) : instance
+}
+
 export class Application {
   readonly elysia: Elysia
   readonly container = new Container()
@@ -122,6 +149,7 @@ export class Application {
   static async create(options: CreateAppOptions = {}): Promise<Application> {
     const basePath = options.basePath ?? process.cwd()
     const app = new Application(basePath)
+    currentApp = app
 
     await app.loadConfig()
     setAppTimezone(app.config.get<string>('app.timezone') ?? 'UTC')
@@ -165,7 +193,9 @@ export class Application {
       }
     }
 
-    this.container.instance(ConfigToken, new ConfigRepository(data))
+    const repository = new ConfigRepository(data)
+    this.container.instance(ConfigToken, repository)
+    setConfigRepository(repository)
   }
 
   private registerLogger(): void {

@@ -1,7 +1,7 @@
 export type { CreateAppOptions } from './application'
-export { Application, createApp } from './application'
+export { app, Application, application, createApp } from './application'
 export type { ConfigData, ConfigSchema } from './config'
-export { ConfigRepository, ConfigToken } from './config'
+export { config, ConfigRepository, ConfigToken } from './config'
 export {
   type AppConfig,
   defineAppConfig,

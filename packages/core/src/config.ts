@@ -50,3 +50,28 @@ export class ConfigRepository {
 }
 
 export const ConfigToken = token<ConfigRepository>('config')
+
+// ── global accessor (set at boot from Application.loadConfig) ─────────────────
+// Mirrors the module-level default pattern used by setAppTimezone: one running
+// app per process, so the repository is a process-wide singleton once booted.
+let repository: ConfigRepository | null = null
+
+/** Bind the process-wide config repository. Called by the application at boot. */
+export function setConfigRepository(repo: ConfigRepository | null): void {
+  repository = repo
+}
+
+/**
+ * Read a config value by dot-path, e.g. `config('app.timezone')` — Laravel's
+ * `config()` helper. Backed by the repository built at boot from `config/*.ts`,
+ * so it is available anywhere after boot (config loads before routes/providers).
+ */
+export function config<T = unknown>(path: string, fallback?: T): T {
+  if (!repository) {
+    throw new Error(
+      '[elysia-ravel] config() called before the application booted. '
+      + 'Config is available once Application.create() has loaded config/*.ts.',
+    )
+  }
+  return repository.get<T>(path, fallback as T)
+}

@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia'
 import { Elysia } from 'elysia'
 
 /**
@@ -33,7 +34,7 @@ export abstract class Middleware {
 
 export type MiddlewareClass = new () => Middleware
 /** A middleware entry: a class, a raw Elysia plugin, or (in groups) an alias name. */
-export type MiddlewareItem = MiddlewareClass | Elysia
+export type MiddlewareItem = MiddlewareClass | AnyElysia
 export type GroupItem = MiddlewareItem | string
 /** A "guard" — a middleware class or an alias spec string like `throttle:60,1`. */
 type Guard = MiddlewareClass | string
