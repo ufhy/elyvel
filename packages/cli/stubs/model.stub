@@ -3,6 +3,11 @@ import { Model } from '@elysia-ravel/eloquent'
 /** {{class}} model — an Eloquent-style Active Record over the `{{table}}` table. */
 export class {{class}} extends Model {
   static override table = '{{table}}'
+
+  // Mass assignment is guarded by default. Whitelist the columns that may be set
+  // via create()/fill() (or set `guarded = []` to allow all):
+  //   static override fillable = ['title', 'body']
+
   // static override hidden = ['password']
   // static override casts = { id: 'int' }
 }

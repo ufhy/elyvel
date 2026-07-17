@@ -6,6 +6,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Item extends Model {
+  static override guarded = []
   static override table = 'items'
   static override timestamps = false
   declare id: number
@@ -57,12 +58,14 @@ for (const d of dialects) {
 
 describe('multiple connections', () => {
   class Main extends Model {
+    static override guarded = []
     static override table = 'mains'
     static override timestamps = false
     declare id: number
     declare label: string
   }
   class Report extends Model {
+    static override guarded = []
     static override table = 'reports'
     static override timestamps = false
     static override connection = 'analytics'

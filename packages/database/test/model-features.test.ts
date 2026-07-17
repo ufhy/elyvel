@@ -6,6 +6,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Post extends Model {
+  static override guarded = []
   static override table = 'posts'
   static override timestamps = false
   static override casts = {
@@ -34,6 +35,7 @@ class Post extends Model {
 // Events registered once at module load; test clears the log before acting.
 const events: string[] = []
 class Auditable extends Model {
+  static override guarded = []
   static override table = 'auditables'
   static override timestamps = false
   declare id: number

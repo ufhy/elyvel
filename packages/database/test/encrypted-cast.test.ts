@@ -8,6 +8,7 @@ import { dialects } from './dialects'
 setEncryptionKey('test-secret-key')
 
 class Secret extends Model {
+  static override guarded = []
   static override table = 'secrets'
   static override timestamps = false
   static override casts = { payload: 'encrypted' } as const

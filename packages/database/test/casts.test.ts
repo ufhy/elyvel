@@ -5,6 +5,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Setting extends Model {
+  static override guarded = []
   static override table = 'settings'
   static override timestamps = false
   static override casts = { active: 'boolean', meta: 'json', count: 'int' } as const

@@ -5,6 +5,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class User extends Model {
+  static override guarded = []
   static override table = 'users'
   static override timestamps = false
   static override hidden = ['password']
@@ -21,6 +22,7 @@ class User extends Model {
 }
 
 class Account extends Model {
+  static override guarded = []
   static override table = 'accounts'
   static override timestamps = false
   static override visible = ['id', 'label'] // whitelist

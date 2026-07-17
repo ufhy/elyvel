@@ -202,10 +202,14 @@ export class Model {
   static appends: string[] = []
   /** Computed read accessors: `{ full_name: (m) => `${m.first} ${m.last}` }`. */
   static accessors: Record<string, (model: Model) => unknown> = {}
-  /** Mass-assignable attributes (whitelist). Empty = allow all not guarded. */
+  /** Mass-assignable attributes (whitelist). Set this to allow `create`/`fill`. */
   static fillable: string[] = []
-  /** Guarded attributes (blacklist). `['*']` guards everything. */
-  static guarded: string[] = []
+  /**
+   * Guarded attributes (blacklist). Defaults to `['*']` — guarded by default, like
+   * Laravel: a model is mass-assignment-protected until you declare `fillable`
+   * (whitelist) or narrow `guarded` (blacklist). Set `guarded = []` to allow all.
+   */
+  static guarded: string[] = ['*']
 
   /** When true, mass-assignment protection is bypassed globally. */
   static unguarded = false
@@ -223,6 +227,15 @@ export class Model {
     if (this.isGuarded(key))
       return false
     return this.fillable.length === 0
+  }
+
+  /**
+   * "Totally guarded" — no `fillable` whitelist and everything is guarded. Filling
+   * such a model with any attribute is a mistake (Laravel throws rather than
+   * silently drop it), which is what makes the default safe out of the box.
+   */
+  static totallyGuarded(): boolean {
+    return this.fillable.length === 0 && this.guarded.includes('*')
   }
 
   /** Disable mass-assignment protection (globally). */
@@ -573,8 +586,16 @@ export class Model {
   fill(attributes: Attributes): this {
     const self = this.self()
     for (const [key, value] of Object.entries(attributes)) {
-      if (self.isFillable(key))
+      if (self.isFillable(key)) {
         this.setAttribute(key, value)
+      }
+      else if (self.totallyGuarded()) {
+        throw new Error(
+          `[eloquent] Add [${key}] to the \`fillable\` array on ${self.name} to allow mass assignment, `
+          + `or set \`static guarded = []\` to make the model unguarded.`,
+        )
+      }
+      // Otherwise (a whitelist/blacklist is defined) the key is silently skipped.
     }
     return this
   }

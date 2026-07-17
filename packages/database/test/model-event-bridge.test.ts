@@ -4,6 +4,7 @@ import { configureModelEventDispatcher, Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
 
 class Thing extends Model {
+  static override guarded = []
   static override table = 'things'
   static override timestamps = false
   declare id: number
@@ -11,6 +12,7 @@ class Thing extends Model {
 }
 
 class SoftThing extends Model {
+  static override guarded = []
   static override table = 'soft_things'
   static override timestamps = false
   static override softDeletes = true

@@ -9,6 +9,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Widget extends Model {
+  static override guarded = []
   static override table = 'widgets'
   static override timestamps = false
   declare id: number

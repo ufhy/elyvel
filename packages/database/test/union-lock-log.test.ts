@@ -7,6 +7,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Item extends Model {
+  static override guarded = []
   static override table = 'items'
   static override timestamps = false
   declare id: number

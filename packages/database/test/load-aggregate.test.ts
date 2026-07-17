@@ -6,6 +6,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Post extends Model {
+  static override guarded = []
   static override table = 'posts'
   static override timestamps = false
   declare id: number
@@ -13,6 +14,7 @@ class Post extends Model {
   declare votes: number
 }
 class User extends Model {
+  static override guarded = []
   static override table = 'users'
   static override timestamps = false
   declare id: number

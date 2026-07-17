@@ -5,6 +5,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class History extends Model {
+  static override guarded = []
   static override table = 'histories'
   static override timestamps = false
   declare id: number
@@ -12,12 +13,14 @@ class History extends Model {
   declare note: string
 }
 class SupplierUser extends Model {
+  static override guarded = []
   static override table = 'users'
   static override timestamps = false
   declare id: number
   declare supplier_id: number
 }
 class Supplier extends Model {
+  static override guarded = []
   static override table = 'suppliers'
   static override timestamps = false
   declare id: number
@@ -27,6 +30,7 @@ class Supplier extends Model {
 }
 
 class Tag extends Model {
+  static override guarded = []
   static override table = 'tags'
   static override timestamps = false
   declare id: number
@@ -36,6 +40,7 @@ class Tag extends Model {
   }
 }
 class Post extends Model {
+  static override guarded = []
   static override table = 'posts'
   static override timestamps = false
   declare id: number
@@ -45,6 +50,7 @@ class Post extends Model {
   }
 }
 class Video extends Model {
+  static override guarded = []
   static override table = 'videos'
   static override timestamps = false
   declare id: number

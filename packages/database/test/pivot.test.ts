@@ -5,12 +5,14 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Role extends Model {
+  static override guarded = []
   static override table = 'roles'
   static override timestamps = false
   declare id: number
   declare name: string
 }
 class User extends Model {
+  static override guarded = []
   static override table = 'users'
   static override timestamps = false
   declare id: number

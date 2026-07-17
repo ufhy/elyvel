@@ -5,6 +5,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Post extends Model {
+  static override guarded = []
   static override table = 'posts'
   declare id: number
   declare title: string
@@ -71,6 +72,7 @@ for (const d of dialects) {
 
     test('append + toArray', async () => {
       class Widget extends Model {
+        static override guarded = []
         static override table = 'posts'
         static override accessors = { slug: (m: Model) => `post-${m.getAttribute('id')}` }
         declare id: number
@@ -91,6 +93,7 @@ describe('unguard + custom timestamp columns (sqlite)', () => {
       t.string('name')
     })
     class Item extends Model {
+      static override guarded = []
       static override table = 'items'
       static override fillable = ['name']
       declare id: number

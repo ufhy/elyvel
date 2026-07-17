@@ -42,3 +42,36 @@ for (const d of dialects) {
     })
   })
 }
+
+// Guarded-by-default (like Laravel): a model with no `fillable`/`guarded` is
+// "totally guarded" and rejects mass assignment until you declare intent.
+class Bare extends Model {
+  static override table = 'bare'
+  declare name: string
+}
+class Open extends Model {
+  static override table = 'open'
+  static override guarded = [] // opt back into unguarded
+  declare name: string
+}
+
+describe('mass assignment defaults', () => {
+  test('a fresh model is guarded by default and throws on mass assignment', () => {
+    expect(() => new Bare({ name: 'x' })).toThrow(/Add \[name\] to the `fillable`/)
+  })
+
+  test('the guard error names the offending key and the escape hatch', () => {
+    expect(() => new Bare({ name: 'x' })).toThrow(/set `static guarded = \[\]`/)
+  })
+
+  test('`guarded = []` opts back into fully unguarded', () => {
+    expect(() => new Open({ name: 'x' })).not.toThrow()
+    expect(new Open({ name: 'x' }).name).toBe('x')
+  })
+
+  test('forceFill bypasses the guard even when totally guarded', () => {
+    const m = new Bare()
+    m.forceFill({ name: 'x' })
+    expect(m.name).toBe('x')
+  })
+})

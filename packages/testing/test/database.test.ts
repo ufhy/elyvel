@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { refreshDatabase } from '../src/index'
 
 class Widget extends Model {
+  static override guarded = []
   static override table = 'widgets'
   static override timestamps = false
   declare id: number

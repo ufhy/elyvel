@@ -5,6 +5,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Article extends Model {
+  static override guarded = []
   static override table = 'articles'
   static override timestamps = false
   static override softDeletes = true
@@ -13,6 +14,7 @@ class Article extends Model {
 }
 
 class Task extends Model {
+  static override guarded = []
   static override table = 'tasks'
   static override timestamps = false
   declare id: number

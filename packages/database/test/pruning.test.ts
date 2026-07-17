@@ -6,6 +6,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Log extends Model {
+  static override guarded = []
   static override table = 'logs'
   static override timestamps = false
   declare id: number
@@ -17,6 +18,7 @@ class Log extends Model {
 }
 
 class Kept extends Model {
+  static override guarded = []
   static override table = 'kept'
   static override timestamps = false
   declare id: number

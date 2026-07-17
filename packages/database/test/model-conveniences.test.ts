@@ -5,6 +5,7 @@ import { SchemaBuilder } from '../src/schema'
 import { dialects } from './dialects'
 
 class Post extends Model {
+  static override guarded = []
   static override table = 'posts'
   declare id: number
   declare title: string
@@ -12,6 +13,7 @@ class Post extends Model {
 }
 
 class Token extends Model {
+  static override guarded = []
   static override table = 'tokens'
   static override timestamps = false
   static override primaryKey = 'id'
