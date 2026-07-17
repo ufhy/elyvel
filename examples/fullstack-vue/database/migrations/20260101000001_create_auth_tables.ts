@@ -1,6 +1,6 @@
 import type { Migration } from '@elysia-ravel/database'
-import { migrateBetterAuth } from '@elysia-ravel/auth'
-import { auth } from '../../config/auth'
+import { AuthToken, migrateBetterAuth } from '@elysia-ravel/auth'
+import { app } from '@elysia-ravel/core'
 
 /**
  * Better Auth's tables (users, sessions, accounts, verifications), created in
@@ -10,7 +10,7 @@ import { auth } from '../../config/auth'
  */
 export default {
   up: async (schema) => {
-    await migrateBetterAuth(schema, auth.options)
+    await migrateBetterAuth(schema, app(AuthToken).options)
   },
   down: async (schema) => {
     for (const t of ['twoFactor', 'verifications', 'accounts', 'sessions', 'users'])

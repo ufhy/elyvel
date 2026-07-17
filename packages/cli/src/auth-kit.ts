@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates')
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
+/** Files the kit overwrites even if present (its full-stack version wins). */
+const KIT_OVERRIDES = new Set(['routes/web.ts'])
 
 /** Packages the auth kit adds to the host app (merged into package.json). */
 const AUTH_DEPS: Record<string, string> = {
@@ -52,23 +54,40 @@ async function mergePackageJson(cwd: string): Promise<void> {
   await Bun.write(path, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
-/** Register MailServiceProvider in config/app.ts (needed for reset/verify email). */
-async function registerMailProvider(cwd: string): Promise<boolean> {
+/**
+ * Register the auth kit's service providers in config/app.ts — Mail (reset /
+ * verify email) and Auth (builds the Better Auth instance from config/auth.ts).
+ * Idempotent: each provider is added only if not already present.
+ */
+async function registerProviders(cwd: string): Promise<boolean> {
   const path = join(cwd, 'config', 'app.ts')
   if (!existsSync(path))
     return false
   let src = await readFile(path, 'utf8')
-  if (src.includes('MailServiceProvider'))
-    return true
   const importAnchor = 'import { EloquentServiceProvider } from \'@elysia-ravel/database\''
   const providerAnchor = 'EloquentServiceProvider,'
   if (!src.includes(importAnchor) || !src.includes(providerAnchor))
     return false
-  src = src.replace(
-    importAnchor,
-    `${importAnchor}\nimport { MailServiceProvider } from '@elysia-ravel/mail'`,
-  )
-  src = src.replace(providerAnchor, `${providerAnchor} MailServiceProvider,`)
+
+  if (!src.includes('MailServiceProvider')) {
+    src = src.replace(
+      importAnchor,
+      `${importAnchor}\nimport { MailServiceProvider } from '@elysia-ravel/mail'`,
+    )
+    src = src.replace(providerAnchor, `${providerAnchor} MailServiceProvider,`)
+  }
+
+  if (!src.includes('AuthServiceProvider')) {
+    src = src.replace(
+      importAnchor,
+      `import { AuthServiceProvider } from '@elysia-ravel/auth'\n${importAnchor}`,
+    )
+    const mailAnchor = 'MailServiceProvider,'
+    src = src.includes(mailAnchor)
+      ? src.replace(mailAnchor, `${mailAnchor} AuthServiceProvider,`)
+      : src.replace(providerAnchor, `${providerAnchor} AuthServiceProvider,`)
+  }
+
   await Bun.write(path, src)
   return true
 }
@@ -95,8 +114,11 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
       continue
     const parent = (entry as { parentPath?: string, path?: string }).parentPath ?? templatesDir
     const abs = join(parent, entry.name)
-    const dest = join(cwd, outputPath(relative(templatesDir, abs)))
-    if (existsSync(dest)) {
+    const rel = outputPath(relative(templatesDir, abs))
+    const dest = join(cwd, rel)
+    // The full-stack kit's web routes supersede the base health-only stub, so
+    // web.ts is overwritten; every other file is left untouched if it exists.
+    if (existsSync(dest) && !KIT_OVERRIDES.has(rel)) {
       console.log(`  skip (exists) ${relative(cwd, dest)}`)
       skipped++
       continue
@@ -107,13 +129,14 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
   }
 
   await mergePackageJson(cwd)
-  const providerOk = await registerMailProvider(cwd)
+  const providerOk = await registerProviders(cwd)
 
   console.log(`\n✓ Installed auth (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
   if (!providerOk) {
     console.log(
-      '  ! Could not auto-register MailServiceProvider — add it to config/app.ts providers:',
+      '  ! Could not auto-register providers — add them to config/app.ts providers:',
     )
+    console.log('      import { AuthServiceProvider } from \'@elysia-ravel/auth\'')
     console.log('      import { MailServiceProvider } from \'@elysia-ravel/mail\'')
   }
   if (!quiet) {
