@@ -5,19 +5,33 @@ import { fileURLToPath } from 'node:url'
 
 const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates')
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
-/** Files the kit overwrites even if present (its full-stack version wins). */
-const KIT_OVERRIDES = new Set(['routes/web.ts'])
 
-/** Packages the auth kit adds to the host app (merged into package.json). */
-const AUTH_DEPS: Record<string, string> = {
+/** Starter kits selectable via `ravel new <name> --kit=<name>`. */
+export type KitName = 'vue' | 'spa'
+
+interface Kit {
+  /** Sub-directory under templates/. */
+  dir: string
+  /** Human label for logs. */
+  label: string
+  /** Packages merged into dependencies. */
+  deps: Record<string, string>
+  /** Packages merged into devDependencies. */
+  devDeps: Record<string, string>
+  /** npm scripts merged in (build steps differ per kit). */
+  scripts: Record<string, string>
+  /** Files the kit overwrites even if they already exist. */
+  overrides: Set<string>
+  /** Trailing "Next steps" lines. */
+  nextSteps: string[]
+}
+
+// Shared by every Vue-based kit (shadcn-vue + Better Auth UI foundation).
+const SHARED_DEPS: Record<string, string> = {
   '@elysia-ravel/auth': 'workspace:*',
-  '@elysia-ravel/inertia': 'workspace:*',
   '@elysia-ravel/mail': 'workspace:*',
-  '@elysia-ravel/view': 'workspace:*',
   '@elysia-ravel/vite': 'workspace:*',
-  '@inertiajs/vue3': '^3.0.0',
   '@lucide/vue': '^1.17.0',
-  '@vue/server-renderer': '^3.5.0',
   '@vueuse/core': '^12.8.2',
   'better-auth': '^1.6.0',
   'class-variance-authority': '^0.7.1',
@@ -28,12 +42,60 @@ const AUTH_DEPS: Record<string, string> = {
   'tw-animate-css': '^1.2.5',
   'vue': '^3.5.0',
 }
-const AUTH_DEV_DEPS: Record<string, string> = {
+const SHARED_DEV_DEPS: Record<string, string> = {
   '@tailwindcss/vite': '^4.0.0',
   '@types/qrcode': '^1.5.5',
   '@vitejs/plugin-vue': '^6.0.0',
   'tailwindcss': '^4.0.0',
   'vite': '^8.0.0',
+}
+
+const KITS: Record<KitName, Kit> = {
+  vue: {
+    dir: 'auth',
+    label: 'Vue + Inertia',
+    deps: {
+      ...SHARED_DEPS,
+      '@elysia-ravel/inertia': 'workspace:*',
+      '@elysia-ravel/view': 'workspace:*',
+      '@inertiajs/vue3': '^3.0.0',
+      '@vue/server-renderer': '^3.5.0',
+    },
+    devDeps: { ...SHARED_DEV_DEPS },
+    scripts: { 'build': 'vite build', 'build:ssr': 'vite build --ssr' },
+    overrides: new Set(['routes/web.ts']),
+    nextSteps: [
+      'bun install',
+      'bun run migrate      # creates the Better Auth tables',
+      'bun run build        # build the Inertia/Vue assets (or `bun run dev` for HMR)',
+      'bun run dev',
+    ],
+  },
+  spa: {
+    dir: 'spa',
+    label: 'Vue SPA (Vite, no Inertia)',
+    deps: { ...SHARED_DEPS, 'vue-router': '^4.5.0' },
+    devDeps: { ...SHARED_DEV_DEPS },
+    scripts: { build: 'vite build' },
+    overrides: new Set(['routes/web.ts']),
+    nextSteps: [
+      'bun install',
+      'bun run migrate      # creates the Better Auth tables',
+      'bun run build        # build the SPA assets (or `bun run dev` for HMR)',
+      'bun run dev',
+    ],
+  },
+}
+
+export function isKitName(value: string): value is KitName {
+  return value in KITS
+}
+
+export const kitNames = Object.keys(KITS) as KitName[]
+
+/** The "Next steps" lines for a kit (printed once by `ravel new`). */
+export function kitNextSteps(kitName: KitName): string[] {
+  return KITS[kitName].nextSteps
 }
 
 function outputPath(rel: string): string {
@@ -44,20 +106,19 @@ function outputPath(rel: string): string {
   return dir === '.' ? mapped : join(dir, mapped)
 }
 
-/** Merge auth deps into the app's package.json (only adding what's missing). */
-async function mergePackageJson(cwd: string): Promise<void> {
+/** Merge a kit's deps/devDeps/scripts into the app's package.json (missing only). */
+async function mergePackageJson(cwd: string, kit: Kit): Promise<void> {
   const path = join(cwd, 'package.json')
   const pkg = JSON.parse(await readFile(path, 'utf8'))
-  pkg.dependencies = { ...AUTH_DEPS, ...pkg.dependencies }
-  pkg.devDependencies = { ...AUTH_DEV_DEPS, ...pkg.devDependencies }
-  pkg.scripts = { 'build': 'vite build', 'build:ssr': 'vite build --ssr', ...pkg.scripts }
+  pkg.dependencies = { ...kit.deps, ...pkg.dependencies }
+  pkg.devDependencies = { ...kit.devDeps, ...pkg.devDependencies }
+  pkg.scripts = { ...kit.scripts, ...pkg.scripts }
   await Bun.write(path, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
 /**
- * Register the auth kit's service providers in config/app.ts — Mail (reset /
- * verify email) and Auth (builds the Better Auth instance from config/auth.ts).
- * Idempotent: each provider is added only if not already present.
+ * Register the kit's service providers in config/app.ts — Mail (reset / verify
+ * email) and Auth (builds the Better Auth instance). Idempotent.
  */
 async function registerProviders(cwd: string): Promise<boolean> {
   const path = join(cwd, 'config', 'app.ts')
@@ -93,11 +154,15 @@ async function registerProviders(cwd: string): Promise<boolean> {
 }
 
 /**
- * Scaffold the auth kit (Better Auth + Inertia/Vue UI) into an app directory.
- * Internal helper composed by `ravel new` — not a standalone CLI command.
+ * Scaffold a starter kit into an app directory (Better Auth backend + a Vue
+ * frontend — Inertia for `vue`, a Vite SPA for `spa`). Composed by `ravel new`.
  * `quiet` suppresses the trailing "Next steps" (new prints them once).
  */
-export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false): Promise<number> {
+export async function scaffoldKit(
+  kitName: KitName,
+  cwd: string = process.cwd(),
+  quiet = false,
+): Promise<number> {
   if (!existsSync(join(cwd, 'config', 'app.ts'))) {
     console.error(
       '✗ Not an elysia-ravel app (no config/app.ts). Run this inside your app directory.',
@@ -105,7 +170,8 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
     return 1
   }
 
-  const templatesDir = join(templatesRoot, 'auth')
+  const kit = KITS[kitName]
+  const templatesDir = join(templatesRoot, kit.dir)
   const entries = await readdir(templatesDir, { recursive: true, withFileTypes: true })
   let written = 0
   let skipped = 0
@@ -118,7 +184,7 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
     const dest = join(cwd, rel)
     // The full-stack kit's web routes supersede the base health-only stub, so
     // web.ts is overwritten; every other file is left untouched if it exists.
-    if (existsSync(dest) && !KIT_OVERRIDES.has(rel)) {
+    if (existsSync(dest) && !kit.overrides.has(rel)) {
       console.log(`  skip (exists) ${relative(cwd, dest)}`)
       skipped++
       continue
@@ -128,23 +194,18 @@ export async function scaffoldAuthKit(cwd: string = process.cwd(), quiet = false
     written++
   }
 
-  await mergePackageJson(cwd)
+  await mergePackageJson(cwd, kit)
   const providerOk = await registerProviders(cwd)
 
-  console.log(`\n✓ Installed auth (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
+  console.log(`\n✓ Installed ${kit.label} kit (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
   if (!providerOk) {
-    console.log(
-      '  ! Could not auto-register providers — add them to config/app.ts providers:',
-    )
+    console.log('  ! Could not auto-register providers — add them to config/app.ts providers:')
     console.log('      import { AuthServiceProvider } from \'@elysia-ravel/auth\'')
     console.log('      import { MailServiceProvider } from \'@elysia-ravel/mail\'')
   }
   if (!quiet) {
     console.log('\nNext steps:')
-    console.log('  bun install')
-    console.log('  bun run migrate      # creates the Better Auth tables')
-    console.log('  bun run build        # build the Inertia/Vue assets (or `bun run dev` for HMR)')
-    console.log('  bun run dev')
+    for (const line of kit.nextSteps) console.log(`  ${line}`)
   }
   return 0
 }

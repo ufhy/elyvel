@@ -1,9 +1,10 @@
+import type { KitName } from '../kits'
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scaffoldAuthKit } from '../auth-kit'
+import { isKitName, kitNames, kitNextSteps, scaffoldKit } from '../kits'
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'base')
 
@@ -34,9 +35,18 @@ function outputPath(rel: string): string {
 }
 
 /** Scaffold a new elysia-ravel application skeleton (Laravel's `laravel new`). */
-export async function newApp(rawName?: string): Promise<number> {
+export async function newApp(
+  rawName?: string,
+  flags: Record<string, string | boolean> = {},
+): Promise<number> {
   if (!rawName) {
-    console.error('Missing name. Usage: ravel new <name>')
+    console.error('Missing name. Usage: ravel new <name> [--kit=vue|spa]')
+    return 1
+  }
+
+  const kit: KitName = typeof flags.kit === 'string' ? (flags.kit as KitName) : 'vue'
+  if (typeof flags.kit === 'string' && !isKitName(flags.kit)) {
+    console.error(`✗ Unknown kit "${flags.kit}". Available: ${kitNames.join(', ')}`)
     return 1
   }
   if (!existsSync(templatesDir)) {
@@ -80,15 +90,12 @@ export async function newApp(rawName?: string): Promise<number> {
 
   console.log(`✓ Created ${vars.appName} in ${rawName}/ (${count} files, .env + APP_KEY set)`)
 
-  // Full-stack by default: apply the auth kit (Better Auth + Inertia/Vue UI).
-  // Everything comes from the installer — no manual package/file edits.
-  await scaffoldAuthKit(target, true)
+  // Full-stack by default: apply the selected starter kit (Better Auth + a Vue
+  // frontend). Everything comes from the installer — no manual package/file edits.
+  await scaffoldKit(kit, target, true)
 
   console.log('\nNext steps:')
   console.log(`  cd ${rawName}`)
-  console.log('  bun install')
-  console.log('  bun run migrate')
-  console.log('  bun run build   # build the Inertia/Vue assets (or `bun run dev` for HMR)')
-  console.log('  bun run dev')
+  for (const line of kitNextSteps(kit)) console.log(`  ${line}`)
   return 0
 }

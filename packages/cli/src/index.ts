@@ -102,7 +102,7 @@ async function main(): Promise<number> {
   }
 
   if (command === 'new') {
-    return newApp(rest[0])
+    return newApp(rest[0], flags)
   }
 
   if (command === 'key:generate') {
