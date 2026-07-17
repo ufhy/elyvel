@@ -25,3 +25,13 @@ export class AuthServiceProvider extends ServiceProvider {
       defineAuth(config<DefineAuthOptions>('auth', {})))
   }
 }
+
+/**
+ * Whether `config/auth.ts` registers a Better Auth plugin with the given id —
+ * e.g. `authHasPlugin('two-factor')`. Drives feature-gated routes and nav
+ * without hard-coding a per-feature flag: it just inspects the plugin list.
+ */
+export function authHasPlugin(id: string): boolean {
+  const plugins = config<Array<{ id?: string }>>('auth.plugins', []) ?? []
+  return plugins.some(p => p?.id === id)
+}

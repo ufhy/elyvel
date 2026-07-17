@@ -1,29 +1,48 @@
 import { defineAuthConfig } from '@elysia-ravel/auth'
 import { Mail } from '@elysia-ravel/mail'
+import { twoFactor } from 'better-auth/plugins'
 
 /**
- * Authentication (Better Auth) config — plain data, like every other
- * `config/*.ts`, so it lands in the config repository (`config('auth.twoFactor')`)
- * and is shared to the frontend. The instance is built from this by
- * `AuthServiceProvider` (registered in `config/app.ts`).
- *
- * - `social`: a provider turns on only when its env credentials are set
- *   (e.g. GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET) — opt-in per deploy.
- * - `twoFactor`: TOTP + backup codes (adds the `twoFactor` table). Set `false`
- *   to drop the plugin AND hide its routes + settings nav entry.
- * - Need a raw Better Auth option? Pass `betterAuth: { ... }`.
+ * Authentication config — **native Better Auth options**. The framework fills in
+ * the glue (Eloquent adapter, APP_KEY secret, base URL, cookie prefix, plural
+ * table names); everything here is standard Better Auth, so its docs apply
+ * directly. Plain data, so it lands in the config repository and is shared to
+ * the frontend; the instance is built by `AuthServiceProvider` (config/app.ts).
  */
 export default defineAuthConfig({
-  social: ['github', 'google'],
-  twoFactor: true,
-  sendResetPassword: ({ user, url }) =>
-    Mail.to(user.email)
-      .subject('Reset your password')
-      .html(`<p>Hi ${user.name ?? ''},</p><p>Reset your password: <a href="${url}">${url}</a></p>`)
-      .send(),
-  sendVerificationEmail: ({ user, url }) =>
-    Mail.to(user.email)
-      .subject('Verify your email address')
-      .html(`<p>Hi ${user.name ?? ''},</p><p>Verify your email: <a href="${url}">${url}</a></p>`)
-      .send(),
+  // Features are plugins — add/remove freely (e.g. passkey(), organization()).
+  // `twoFactor` adds TOTP + backup codes; drop it to turn two-factor off.
+  plugins: [twoFactor()],
+
+  // Social sign-in — a provider is offered only when its env credentials exist.
+  socialProviders: {
+    ...(process.env.GITHUB_CLIENT_ID && {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+      },
+    }),
+    ...(process.env.GOOGLE_CLIENT_ID && {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      },
+    }),
+  },
+
+  emailAndPassword: {
+    enabled: true,
+    sendResetPassword: ({ user, url }) =>
+      Mail.to(user.email)
+        .subject('Reset your password')
+        .html(`<p>Hi ${user.name ?? ''},</p><p>Reset your password: <a href="${url}">${url}</a></p>`)
+        .send(),
+  },
+  emailVerification: {
+    sendVerificationEmail: ({ user, url }) =>
+      Mail.to(user.email)
+        .subject('Verify your email address')
+        .html(`<p>Hi ${user.name ?? ''},</p><p>Verify your email: <a href="${url}">${url}</a></p>`)
+        .send(),
+  },
 })

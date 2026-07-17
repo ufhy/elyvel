@@ -1,9 +1,10 @@
 import { createConnection, SchemaBuilder, setConnection } from '@elysia-ravel/database'
+import { twoFactor } from 'better-auth/plugins'
 import { afterEach, describe, expect, test } from 'bun:test'
 import { migrateBetterAuth } from '../src/better-auth-schema'
 import { defineAuth, enabledSocialProviders } from '../src/define-auth'
 
-const ENV_KEYS = ['APP_NAME', 'APP_KEY', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET']
+const ENV_KEYS = ['APP_NAME', 'APP_KEY']
 const saved: Record<string, string | undefined> = {}
 for (const k of ENV_KEYS) saved[k] = process.env[k]
 afterEach(() => {
@@ -15,49 +16,41 @@ afterEach(() => {
 })
 
 describe('defineAuth', () => {
-  test('pre-wires cookie prefix (from APP_NAME), secret, and the 2FA plugin', () => {
+  test('pre-wires cookie prefix (from APP_NAME) + secret; passes plugins through', () => {
     process.env.APP_NAME = 'Fullstack Vue'
     process.env.APP_KEY = 'base64:test-key'
-    const auth = defineAuth({ twoFactor: true })
+    const auth = defineAuth({ plugins: [twoFactor()] })
     expect(auth.options.advanced?.cookiePrefix).toBe('fullstack_vue')
     expect(auth.options.secret).toBe('base64:test-key')
-    // twoFactor plugin present → its schema is derivable
     expect(auth.options.plugins?.some(p => p.id === 'two-factor')).toBe(true)
   })
 
-  test('explicit cookiePrefix wins; twoFactor:false drops the plugin', () => {
-    const auth = defineAuth({ cookiePrefix: 'myapp', twoFactor: false })
+  test('native options override the framework defaults', () => {
+    const auth = defineAuth({ advanced: { cookiePrefix: 'myapp' }, plugins: [] })
     expect(auth.options.advanced?.cookiePrefix).toBe('myapp')
     expect(auth.options.plugins?.some(p => p.id === 'two-factor')).toBe(false)
   })
 
-  test('social providers activate only when their env credentials are set', () => {
-    delete process.env.GITHUB_CLIENT_ID
-    delete process.env.GITHUB_CLIENT_SECRET
-    expect(enabledSocialProviders(defineAuth({ social: ['github'] }))).toEqual([])
-
-    process.env.GITHUB_CLIENT_ID = 'id'
-    process.env.GITHUB_CLIENT_SECRET = 'secret'
-    expect(enabledSocialProviders(defineAuth({ social: ['github', 'google'] }))).toEqual(['github'])
+  test('social providers come straight from the passed options', () => {
+    expect(enabledSocialProviders(defineAuth({}))).toEqual([])
+    expect(
+      enabledSocialProviders(
+        defineAuth({ socialProviders: { github: { clientId: 'id', clientSecret: 'secret' } } }),
+      ),
+    ).toEqual(['github'])
   })
 
-  test('core tables are plural by default (Eloquent convention), singular when opted out', async () => {
+  test('core tables are plural (Eloquent convention)', async () => {
     const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
     setConnection(conn)
-    const plural = await migrateBetterAuth(new SchemaBuilder(conn), defineAuth({ twoFactor: false }).options)
-    expect(plural).toEqual(expect.arrayContaining(['users', 'sessions', 'accounts', 'verifications']))
-    expect(plural).not.toContain('user')
-
-    const conn2 = await createConnection({ driver: 'sqlite', database: ':memory:' })
-    setConnection(conn2)
-    const singular = await migrateBetterAuth(new SchemaBuilder(conn2), defineAuth({ plural: false, twoFactor: false }).options)
-    expect(singular).toEqual(expect.arrayContaining(['user', 'session', 'account', 'verification']))
-    expect(singular).not.toContain('users')
+    const tables = await migrateBetterAuth(new SchemaBuilder(conn), defineAuth({}).options)
+    expect(tables).toEqual(expect.arrayContaining(['users', 'sessions', 'accounts', 'verifications']))
+    expect(tables).not.toContain('user')
   })
 
-  test('the built instance runs on the Eloquent adapter (migrate + sign-up)', async () => {
+  test('the built instance runs on the Eloquent adapter (migrate + 2FA plugin table)', async () => {
     process.env.APP_KEY = 'base64:test-key'
-    const auth = defineAuth({ cookiePrefix: 'x', twoFactor: true })
+    const auth = defineAuth({ plugins: [twoFactor()] })
     const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
     setConnection(conn)
     const created = await migrateBetterAuth(new SchemaBuilder(conn), auth.options)

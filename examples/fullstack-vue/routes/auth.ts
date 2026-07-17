@@ -1,5 +1,5 @@
-import { AuthToken, enabledSocialProviders } from '@elysia-ravel/auth'
-import { app, config, route } from '@elysia-ravel/core'
+import { authHasPlugin, AuthToken, enabledSocialProviders } from '@elysia-ravel/auth'
+import { app, route } from '@elysia-ravel/core'
 import { Inertia } from '@elysia-ravel/inertia'
 
 /**
@@ -18,7 +18,7 @@ function guest(page: string, props: Props | (() => Props) = {}) {
 // Enabled social providers, resolved per request from the bound auth instance.
 const social = () => ({ socialProviders: enabledSocialProviders(app(AuthToken)) })
 
-const twoFactorEnabled = config<boolean>('auth.twoFactor', true) !== false
+const twoFactorEnabled = authHasPlugin('two-factor')
 
 const router = route()
   .get('/login', guest('auth/Login', social))

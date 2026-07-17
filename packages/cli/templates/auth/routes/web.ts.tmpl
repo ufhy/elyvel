@@ -1,4 +1,5 @@
-import { config, route } from '@elysia-ravel/core'
+import { authHasPlugin } from '@elysia-ravel/auth'
+import { route } from '@elysia-ravel/core'
 import { Inertia } from '@elysia-ravel/inertia'
 
 /**
@@ -9,7 +10,7 @@ import { Inertia } from '@elysia-ravel/inertia'
 
 // Expose enabled auth features to every page (the settings nav hides Two-Factor
 // when it's off). Shared once, merged into all page props.
-Inertia.share('auth', { twoFactor: config<boolean>('auth.twoFactor', true) !== false })
+Inertia.share('auth', { twoFactor: authHasPlugin('two-factor') })
 
 export default route()
   .get('/api/health', () => ({ status: 'ok' }))

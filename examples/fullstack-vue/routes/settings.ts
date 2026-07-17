@@ -1,4 +1,5 @@
-import { config, route } from '@elysia-ravel/core'
+import { authHasPlugin } from '@elysia-ravel/auth'
+import { route } from '@elysia-ravel/core'
 import { Inertia } from '@elysia-ravel/inertia'
 
 /**
@@ -6,7 +7,7 @@ import { Inertia } from '@elysia-ravel/inertia'
  * authenticated user. Two-factor is registered only when enabled in
  * config/auth.ts. The `auth` guard + `user` come from the global middleware.
  */
-const twoFactorEnabled = config<boolean>('auth.twoFactor', true) !== false
+const twoFactorEnabled = authHasPlugin('two-factor')
 
 const router = route()
   .get('/settings/profile', ({ user }: any) => Inertia.render('settings/Profile', { user }), { middleware: 'auth' })
