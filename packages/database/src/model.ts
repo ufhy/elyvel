@@ -384,7 +384,10 @@ export class Model {
 
   static hydrate<M extends Model>(this: ModelClass<M>, row: Attributes): M {
     const model = new this()
-    model.attributes = { ...row }
+    // Take ownership of the driver's per-row object instead of copying it — one
+    // fewer allocation per row on read-heavy scans. `original` still gets its own
+    // snapshot so dirty tracking compares against the loaded state.
+    model.attributes = row
     model.original = { ...row }
     model.exists = true
     return model
