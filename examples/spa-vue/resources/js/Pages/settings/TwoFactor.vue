@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useAuth } from '@/composables/useAuth'
 import QRCode from 'qrcode'
 import { ref } from 'vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAuth } from '@/composables/useAuth'
 import SettingsLayout from '@/Layouts/settings/SettingsLayout.vue'
 import { authApi } from '@/lib/auth'
 

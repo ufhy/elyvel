@@ -1,5 +1,5 @@
-import { defineAppConfig } from '@elysia-ravel/core'
 import { AuthServiceProvider } from '@elysia-ravel/auth'
+import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
 import { MailServiceProvider } from '@elysia-ravel/mail'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
