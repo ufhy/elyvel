@@ -1,16 +1,16 @@
-import { AuthToken, authHasPlugin, enabledSocialProviders } from '@elysia-ravel/auth'
-import { app, route } from '@elysia-ravel/core'
+import { authHasPlugin, AuthToken, enabledSocialProviders, webRoute } from '@elysia-ravel/auth'
+import { app } from '@elysia-ravel/core'
 
 /**
- * JSON API for the SPA. Auth actions live at `/api/auth/*` (Better Auth, mounted
- * globally by betterAuthPlugin); this adds app endpoints. `user` is derived
- * globally, so `{ middleware: 'auth' }` protects routes and reads it from context.
+ * JSON API for the SPA. Auth actions live at `/api/auth/*` (Better Auth, wired
+ * by webRoute); this adds app endpoints. `webRoute()` gives a typed `user` and
+ * the `{ middleware: 'auth' }` guard.
  */
-export default route()
+export default webRoute()
   // Feature flags + enabled social providers for the client (login page, nav).
   .get('/api/config', () => ({
     social: enabledSocialProviders(app(AuthToken)),
     twoFactor: authHasPlugin('two-factor'),
   }))
   // The authenticated user (SPA also uses /api/auth/get-session directly).
-  .get('/api/user', ({ user }: any) => ({ user }), { middleware: 'auth' })
+  .get('/api/user', ({ user }) => ({ user }), { middleware: 'auth' })

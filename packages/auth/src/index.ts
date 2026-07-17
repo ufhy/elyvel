@@ -1,5 +1,11 @@
 export { AuthGuard, VerifiedGuard } from './auth-middleware'
-export { type BetterAuthLike, betterAuthPlugin, type BetterAuthPluginOptions } from './better-auth'
+export {
+  type BetterAuthLike,
+  betterAuthPlugin,
+  type BetterAuthPluginOptions,
+  type User,
+  webRoute,
+} from './better-auth'
 export { migrateBetterAuth } from './better-auth-schema'
 export {
   defineAuth,

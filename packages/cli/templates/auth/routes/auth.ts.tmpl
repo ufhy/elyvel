@@ -1,17 +1,17 @@
-import { AuthToken, authHasPlugin, enabledSocialProviders } from '@elysia-ravel/auth'
-import { app, route } from '@elysia-ravel/core'
+import type { User } from '@elysia-ravel/auth'
+import { authHasPlugin, AuthToken, enabledSocialProviders, webRoute } from '@elysia-ravel/auth'
+import { app } from '@elysia-ravel/core'
 import { Inertia } from '@elysia-ravel/inertia'
 
 /**
  * Authentication flow pages (login, register, password reset, email verify,
- * two-factor challenge). The Better Auth backend (`/api/auth/*`) + `user` are
- * provided globally (config/middleware.ts); all auth actions call `/api/auth/*`
- * from the client (lib/auth.ts). Guest pages redirect to /dashboard when
- * already signed in.
+ * two-factor challenge). The Better Auth backend (`/api/auth/*`) is wired by
+ * `webRoute()`; all auth actions call `/api/auth/*` from the client
+ * (lib/auth.ts). Guest pages redirect to /dashboard when already signed in.
  */
 type Props = Record<string, unknown>
 function guest(page: string, props: Props | (() => Props) = {}) {
-  return ({ user }: any) =>
+  return ({ user }: { user: User | null }) =>
     user ? Inertia.location('/dashboard') : Inertia.render(page, typeof props === 'function' ? props() : props)
 }
 
@@ -20,12 +20,12 @@ const social = () => ({ socialProviders: enabledSocialProviders(app(AuthToken)) 
 
 const twoFactorEnabled = authHasPlugin('two-factor')
 
-const router = route()
+const router = webRoute()
   .get('/login', guest('auth/Login', social))
   .get('/register', guest('auth/Register', social))
   .get('/forgot-password', guest('auth/ForgotPassword'))
   .get('/reset-password', guest('auth/ResetPassword'))
-  .get('/verify-email', ({ user }: any) => Inertia.render('auth/VerifyEmail', { user }), { middleware: 'auth' })
+  .get('/verify-email', ({ user }) => Inertia.render('auth/VerifyEmail', { user }), { middleware: 'auth' })
 
 // Sign-in 2FA challenge (reached when sign-in returns `twoFactorRedirect`); only
 // when two-factor is enabled. Not guarded — the session is only half-established.

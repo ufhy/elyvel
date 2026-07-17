@@ -1,7 +1,22 @@
-import { app, expectsJson } from '@elysia-ravel/core'
+import { app, expectsJson, route } from '@elysia-ravel/core'
 import { Elysia } from 'elysia'
 import { gate } from './gate'
 import { AuthToken } from './provider'
+
+/**
+ * The authenticated user derived into request context (Better Auth's user +
+ * common plugin fields). This is the type of `ctx.user` in route handlers.
+ */
+export interface User {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image?: string | null
+  createdAt?: Date
+  updatedAt?: Date
+  twoFactorEnabled?: boolean | null
+}
 
 /** The parts of a Better Auth instance this plugin needs (kept loose to avoid deep generics). */
 export interface BetterAuthLike {
@@ -59,7 +74,7 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
       // NB: not named `session` — that would clobber the framework's cookie-session.
       .derive({ as: 'global' }, async ({ request }: any) => {
         const result = await resolve().api.getSession({ headers: request.headers })
-        const user = result?.user ?? null
+        const user: User | null = result?.user ?? null
         const g = gate().forUser(user)
         return {
           user,
@@ -116,4 +131,18 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
         },
       })
   )
+}
+
+/**
+ * A `route()` with Better Auth wired in — handlers get a typed `user`
+ * (`User | null`) and the `{ middleware: 'auth' }` guard, with no `.use` or
+ * `: any` at the call site:
+ *
+ *   webRoute().get('/dashboard', ({ user }) => user, { middleware: 'auth' })
+ *
+ * The plugin is deduped by name, so mounting it per route file adds only the
+ * types — the handler + session derive still run once per request.
+ */
+export function webRoute(prefix?: string, options: { middleware?: string[] } = {}) {
+  return route(prefix, options).use(betterAuthPlugin())
 }
