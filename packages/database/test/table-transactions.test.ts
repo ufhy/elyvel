@@ -1,12 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection, transaction, useConnection } from '../src/connection'
+import { setConnection, transaction, useConnection } from '../src/connection'
 import { table } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
+import { dialects } from './dialects'
 
 for (const d of dialects) {
   describe(`table() + transactions (${d.name})`, () => {

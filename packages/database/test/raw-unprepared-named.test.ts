@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, raw, setConnection, unprepared } from '../src/connection'
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
+import { raw, setConnection, unprepared } from '../src/connection'
+import { dialects } from './dialects'
 
 for (const d of dialects) {
   describe(`unprepared + named bindings (${d.name})`, () => {

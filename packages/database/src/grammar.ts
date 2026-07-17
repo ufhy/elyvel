@@ -118,7 +118,7 @@ export abstract class Grammar {
     return `ALTER TABLE ${this.wrap(from)} RENAME TO ${this.wrap(to)}`
   }
 
-  compileDropIndex(name: string): string {
+  compileDropIndex(name: string, _table: string): string {
     return `DROP INDEX ${this.wrap(name)}`
   }
 
@@ -287,6 +287,11 @@ class MysqlGrammar extends Grammar {
       .split('.')
       .map(part => (part === '*' ? part : `\`${part.replace(/`/g, '``')}\``))
       .join('.')
+  }
+
+  // MySQL can't `DROP INDEX name` standalone — it needs the owning table.
+  override compileDropIndex(name: string, table: string): string {
+    return `ALTER TABLE ${this.wrap(table)} DROP INDEX ${this.wrap(name)}`
   }
 
   protected columnType(c: ColumnDefinition): string {

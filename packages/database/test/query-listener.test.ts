@@ -1,12 +1,12 @@
 import type { QueryErrored, QueryExecuted } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import {
-  createConnection,
 
   setConnection,
 } from '../src/connection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Widget extends Model {
   static override table = 'widgets'
@@ -14,11 +14,6 @@ class Widget extends Model {
   declare id: number
   declare name: string
 }
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`query listeners (${d.name})`, () => {

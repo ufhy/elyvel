@@ -531,6 +531,8 @@ function mysqlPoolOptions(config: MysqlConnectionConfig): Record<string, unknown
       user: decodeURIComponent(u.username),
       password: decodeURIComponent(u.password),
       database: u.pathname.replace(/^\//, ''),
+      // Allow `unprepared` multi-statement DDL (à la `DB::unprepared`).
+      multipleStatements: true,
     }
   }
   return {
@@ -539,6 +541,7 @@ function mysqlPoolOptions(config: MysqlConnectionConfig): Record<string, unknown
     user: config.user,
     password: config.password,
     database: config.database,
+    multipleStatements: true,
   }
 }
 

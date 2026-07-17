@@ -3,13 +3,9 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { createConnection } from '../src/connection'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 const UID = '11111111-1111-1111-1111-111111111111'
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`column types (${d.name})`, () => {

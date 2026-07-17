@@ -1,13 +1,9 @@
 import type { Connection } from '../src/index'
 import { describe, expect, test } from 'bun:test'
-import { createConnection, freshMigrate, migrate } from '../src/index'
+import { freshMigrate, migrate } from '../src/index'
+import { dialects } from './dialects'
 
 const dir = new URL('./fixtures/migrations', import.meta.url).pathname
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 async function tableExists(conn: Connection, name: string): Promise<boolean> {
   try {

@@ -1,8 +1,9 @@
 import type { EloquentBuilder } from '../src/eloquent-builder'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection, transaction } from '../src/connection'
+import { setConnection, transaction } from '../src/connection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Post extends Model {
   static override table = 'posts'
@@ -43,11 +44,6 @@ for (const e of ['creating', 'created', 'saving', 'saved', 'deleting', 'deleted'
     events.push(e)
   })
 }
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`model features (${d.name})`, () => {

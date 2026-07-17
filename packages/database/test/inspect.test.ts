@@ -1,13 +1,9 @@
 import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection } from '../src/connection'
+import { setConnection } from '../src/connection'
 import { countRows, listTables, openConnectionCount, tableColumns } from '../src/inspect'
 import { SchemaBuilder } from '../src/schema'
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
+import { dialects } from './dialects'
 
 for (const d of dialects) {
   describe(`inspect (${d.name})`, () => {

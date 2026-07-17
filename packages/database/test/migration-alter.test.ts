@@ -4,11 +4,7 @@ import { createConnection, setConnection } from '../src/connection'
 import { tableColumns } from '../src/inspect'
 import { table } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
+import { dialects } from './dialects'
 
 for (const d of dialects) {
   describe(`migration ALTER (${d.name})`, () => {

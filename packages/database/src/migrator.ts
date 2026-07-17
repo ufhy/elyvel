@@ -17,7 +17,9 @@ const TABLE = '_ravel_migrations'
 
 async function ensureLedger(conn: Connection): Promise<void> {
   await conn.statement(
-    `CREATE TABLE IF NOT EXISTS ${TABLE} (name TEXT PRIMARY KEY, batch INTEGER NOT NULL, ran_at TEXT NOT NULL)`,
+    // `name` is a PRIMARY KEY, so it must be VARCHAR (not TEXT) — MySQL rejects
+    // a TEXT/BLOB key without a length; VARCHAR(255) works on all three dialects.
+    `CREATE TABLE IF NOT EXISTS ${TABLE} (name VARCHAR(255) PRIMARY KEY, batch INTEGER NOT NULL, ran_at TEXT NOT NULL)`,
   )
 }
 async function ranNames(conn: Connection): Promise<Set<string>> {

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection } from '../src/connection'
+import { setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Article extends Model {
   static override table = 'articles'
@@ -19,11 +20,6 @@ class Task extends Model {
 }
 // A named global scope applied to every Task query.
 Task.addGlobalScope('pending', qb => qb.where('done', 0))
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`soft deletes + global scopes (${d.name})`, () => {

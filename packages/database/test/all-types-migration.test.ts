@@ -1,15 +1,10 @@
 import type { Connection } from '../src/connection'
 import { describe, expect, test } from 'bun:test'
-import { createConnection } from '../src/connection'
 import { migrate, rollback } from '../src/migrator'
 import { QueryBuilder } from '../src/query-builder'
+import { dialects } from './dialects'
 
 const dir = new URL('./fixtures/all-types', import.meta.url).pathname
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 async function tableExists(conn: Connection, name: string): Promise<boolean> {
   try {

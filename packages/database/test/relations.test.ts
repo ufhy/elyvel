@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection } from '../src/connection'
+import { setConnection } from '../src/connection'
 import { EloquentCollection } from '../src/eloquent-collection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class User extends Model {
   static override table = 'users'
@@ -34,11 +35,6 @@ class Profile extends Model {
   declare user_id: number
   declare bio: string
 }
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`relationships (${d.name})`, () => {

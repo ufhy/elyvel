@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, setConnection } from '../src/connection'
+import { setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Setting extends Model {
   static override table = 'settings'
@@ -12,11 +13,6 @@ class Setting extends Model {
   declare meta: any
   declare count: number
 }
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`casts (${d.name})`, () => {

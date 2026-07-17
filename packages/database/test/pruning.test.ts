@@ -1,8 +1,9 @@
 import type { EloquentBuilder } from '../src'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Model } from '../src'
-import { createConnection, setConnection } from '../src/connection'
+import { setConnection } from '../src/connection'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Log extends Model {
   static override table = 'logs'
@@ -20,11 +21,6 @@ class Kept extends Model {
   static override timestamps = false
   declare id: number
 }
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`pruning (${d.name})`, () => {

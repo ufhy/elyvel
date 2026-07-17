@@ -3,6 +3,7 @@ import { createConnection, setConnection, useConnection } from '../src/connectio
 import { defineFactory } from '../src/factory'
 import { Model } from '../src/model'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Item extends Model {
   static override table = 'items'
@@ -11,11 +12,6 @@ class Item extends Model {
   declare n: number
 }
 const itemFactory = defineFactory(Item, i => ({ n: i }))
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`cursor + factory (${d.name})`, () => {

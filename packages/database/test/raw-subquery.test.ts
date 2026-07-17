@@ -1,9 +1,10 @@
 import type { Connection } from '../src/connection'
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { createConnection, raw, setConnection } from '../src/connection'
+import { raw, setConnection } from '../src/connection'
 import { Model } from '../src/model'
 import { QueryBuilder } from '../src/query-builder'
 import { SchemaBuilder } from '../src/schema'
+import { dialects } from './dialects'
 
 class Post extends Model {
   static override table = 'posts'
@@ -19,11 +20,6 @@ class User extends Model {
   declare name: string
   declare age: number
 }
-
-const dialects = [
-  { name: 'sqlite', connect: () => createConnection({ driver: 'sqlite', database: ':memory:' }) },
-  { name: 'pglite', connect: () => createConnection({ driver: 'pglite' }) },
-] as const
 
 for (const d of dialects) {
   describe(`raw + subquery (${d.name})`, () => {

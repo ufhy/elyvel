@@ -262,7 +262,7 @@ export class SchemaBuilder {
       await run(g.compileRenameColumn(table, from, to))
     for (const name of blueprint.dropColumns) await run(g.compileDropColumn(table, name))
     for (const index of blueprint.indexes) await run(g.compileCreateIndex(table, index))
-    for (const name of blueprint.dropIndexes) await run(g.compileDropIndex(name))
+    for (const name of blueprint.dropIndexes) await run(g.compileDropIndex(name, table))
     for (const name of blueprint.dropForeigns) await run(g.compileDropForeign(table, name))
   }
 
