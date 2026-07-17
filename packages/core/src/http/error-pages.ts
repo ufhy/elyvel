@@ -1,6 +1,19 @@
+import type { RenderableView } from './error-page'
 import { Elysia } from 'elysia'
 import { defaultErrorMessage, errorPageResolver, renderErrorPage } from './error-page'
 import { expectsJson } from './negotiation'
+
+/** The parts of a session the error views read (from `@elysia-ravel/session`). */
+interface SessionLike {
+  get?(key: string): unknown
+  token?(): string
+}
+
+/** How Elysia wraps a returned `status(code, body)` — `{ code, response }`. */
+interface StatusResponse {
+  code: number
+  response: unknown
+}
 
 /**
  * Framework default error handling (à la Laravel's exception handler): turn HTTP
@@ -11,9 +24,9 @@ import { expectsJson } from './negotiation'
  * Apps customize the HTML via `configureErrorPage(...)` — that resolver is only
  * consulted on the web lane, so JSON/API responses are never affected.
  */
-function resolveStatus(code: string, error: any): number {
-  if (typeof error?.status === 'number')
-    return error.status
+function resolveStatus(code: string, error: unknown): number {
+  if (typeof (error as { status?: unknown } | null)?.status === 'number')
+    return (error as { status: number }).status
   switch (code) {
     case 'NOT_FOUND':
       return 404
@@ -48,7 +61,7 @@ function jsonBody(status: number, message: string | undefined, errors: unknown):
 }
 
 /** Shared view data (errors/old/flash/csrf) for a custom error view. */
-function viewShared(session: any): Record<string, unknown> {
+function viewShared(session: SessionLike | undefined): Record<string, unknown> {
   const oldInput = (session?.get?.('_old_input') ?? {}) as Record<string, unknown>
   return {
     errors: session?.get?.('errors') ?? {},
@@ -76,10 +89,11 @@ async function webResponse(status: number, message: string | undefined, error: u
         ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
         return custom
       }
-      if (typeof custom === 'object' && (custom as any).__ravelView === true) {
-        ctx.set.status = (custom as any).statusCode ?? status
+      if (typeof custom === 'object' && (custom as RenderableView).__ravelView === true) {
+        const view = custom as RenderableView
+        ctx.set.status = view.statusCode ?? status
         ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
-        return (custom as any).render(viewShared(ctx.session))
+        return view.render(viewShared(ctx.session))
       }
     }
   }
@@ -108,12 +122,12 @@ export function errorPages() {
       // navigations, rewrite it into a page (API/JSON is left as-is).
       .onAfterHandle({ as: 'global' }, async (ctx: any) => {
         const res = ctx.response
-        if (!res || typeof res !== 'object' || typeof (res as any).code !== 'number')
+        if (!res || typeof res !== 'object' || typeof (res as StatusResponse).code !== 'number')
           return
-        const status = (res as any).code
+        const status = (res as StatusResponse).code
         if (status < 400 || expectsJson(ctx.request))
           return
-        const body = (res as any).response
+        const body = (res as StatusResponse).response
         const message
           = body && typeof body === 'object' && 'message' in body ? String(body.message) : undefined
         return webResponse(status, safeMessage(status, message), undefined, ctx)

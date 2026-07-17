@@ -1,3 +1,5 @@
+import type { MiddlewareContext } from '@elysia-ravel/core'
+import type { User } from './better-auth'
 import { config, expectsJson, Middleware } from '@elysia-ravel/core'
 
 /**
@@ -23,8 +25,9 @@ function redirect(to: string): Response {
  * redirected to the login page; API/JSON requests get a 401. Laravel's `auth`.
  */
 export class AuthGuard extends Middleware {
-  handle(ctx: any): unknown {
-    if (!ctx.user) {
+  handle(ctx: MiddlewareContext): unknown {
+    const user = ctx.user as User | null
+    if (!user) {
       return expectsJson(ctx.request)
         ? ctx.status(401, { message: 'Unauthenticated' })
         : redirect(loginPath())
@@ -38,13 +41,14 @@ export class AuthGuard extends Middleware {
  * verify notice); API/JSON requests get 401 / 403.
  */
 export class VerifiedGuard extends Middleware {
-  handle(ctx: any): unknown {
-    if (!ctx.user) {
+  handle(ctx: MiddlewareContext): unknown {
+    const user = ctx.user as User | null
+    if (!user) {
       return expectsJson(ctx.request)
         ? ctx.status(401, { message: 'Unauthenticated' })
         : redirect(loginPath())
     }
-    if (!ctx.user.emailVerified) {
+    if (!user.emailVerified) {
       return expectsJson(ctx.request)
         ? ctx.status(403, { message: 'Your email address is not verified.' })
         : redirect(verifyPath())
