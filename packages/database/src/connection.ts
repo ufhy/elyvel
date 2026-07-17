@@ -463,7 +463,11 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
       // max:1 — our Connection is a single logical connection: BEGIN/…/COMMIT must
       // run on the SAME socket. With a pool, transaction statements would scatter
       // across connections (and postgres-js rejects unsafe BEGIN unless max:1).
-      const client = postgres(config.url, { max: 1 })
+      // Parse the URL into explicit fields (à la mysql) rather than handing the raw
+      // string to postgres-js: an unencoded char in the password makes its lenient
+      // URL parser silently drop the username and fall back to the OS user — a
+      // baffling `role "<you>" does not exist`. Explicit fields can't be dropped.
+      const client = postgres({ ...pgClientOptions(config.url), max: 1 })
       return {
         dialect: 'pg',
         grammar: grammarFor('pg'),
@@ -518,6 +522,30 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         },
       }
     }
+  }
+}
+
+/**
+ * postgres-js connection options from a `postgres://` URL. Parsed with the strict
+ * WHATWG URL parser so a malformed/unencoded password fails loudly here instead of
+ * silently degrading to the OS user inside postgres-js.
+ */
+function pgClientOptions(url: string): Record<string, unknown> {
+  let u: URL
+  try {
+    u = new URL(url)
+  }
+  catch {
+    throw new Error(
+      `[database] Invalid Postgres URL. If the password contains characters like @ / : # ? they must be percent-encoded (e.g. @ → %40). Got: ${url.replace(/:[^:@/]*@/, ':****@')}`,
+    )
+  }
+  return {
+    host: u.hostname || 'localhost',
+    port: u.port ? Number(u.port) : 5432,
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: u.pathname.replace(/^\//, ''),
   }
 }
 
