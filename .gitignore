@@ -19,5 +19,4 @@ examples/*/storage/
 .claude/settings.json
 # editor workspace settings (local)
 .vscode/
-# local scratch/experiments (not tracked)
-playground/
+# local scratch/experiments — folder itself is tracked (see playground/.gitignore), contents are not
