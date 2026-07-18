@@ -1,4 +1,5 @@
-import { Model } from '@elysia-ravel/eloquent'
+import { Model } from '@elysia-ravel/database'
+// import type { Dayjs } from '@elysia-ravel/database'
 
 /** {{class}} model — an Eloquent-style Active Record over the `{{table}}` table. */
 export class {{class}} extends Model {
@@ -10,6 +11,12 @@ export class {{class}} extends Model {
 
   // static override hidden = ['password']
   // static override casts = { id: 'int' }
+
+  // Typed columns for editor autocomplete. Date columns (and created_at/
+  // updated_at) are cast to a dayjs object, so declare them as `Dayjs`:
+  //   declare id: number
+  //   declare title: string
+  //   declare published_at: Dayjs   // → .format('DD/MM/YYYY'), .add(1, 'day'), .tz(…)
 }
 
 export default {{class}}

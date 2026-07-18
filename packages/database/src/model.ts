@@ -253,7 +253,11 @@ export class Model {
     this.unguarded = false
   }
 
-  /** Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`. */
+  /**
+   * Attribute casts, e.g. `{ active: 'boolean', meta: 'json', age: 'int' }`.
+   * `'date'`/`'datetime'` (and the auto-cast `created_at`/`updated_at`/`deleted_at`)
+   * return a dayjs date object — declare those fields as `Dayjs`.
+   */
   static casts: Record<string, Cast> = {}
   /** Named local scopes: `{ active: (q) => q.where('active', 1) }`. */
   static scopes: Record<string, (query: EloquentBuilder<any>, ...args: unknown[]) => void> = {}

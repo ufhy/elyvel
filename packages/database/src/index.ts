@@ -80,4 +80,7 @@ export {
 export { Blueprint, SchemaBuilder } from './schema'
 export { runSeeders, Seeder, type SeederClass } from './seeder'
 export { DatabaseToken } from './tokens'
+// Re-exported so model authors get the date type/helper alongside Model: `date`
+// casts (and created_at/updated_at) return a Dayjs — declare fields as `Dayjs`.
+export { date, type Dayjs, now } from '@elysia-ravel/core'
 export { Collection, LazyCollection } from '@elysia-ravel/support'
