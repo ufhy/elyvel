@@ -1,9 +1,9 @@
-import type { Model } from './model'
+import type { Model, ModelClass } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
 import type { Relation } from './relations'
 import { LazyCollection } from '@elysia-ravel/support'
 import { EloquentCollection } from './eloquent-collection'
-import { eagerLoad } from './relations'
+import { eagerLoad, MorphTo } from './relations'
 
 type Row = Record<string, unknown>
 /** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */
@@ -68,6 +68,14 @@ export class EloquentBuilder<M extends Model> {
     negate: boolean
     operator?: string
     count?: number
+  }[] = []
+
+  private readonly morphSpecs: {
+    name: string
+    types: ModelClass<Model>[]
+    constrain?: EagerConstraint
+    boolean: 'AND' | 'OR'
+    negate: boolean
   }[] = []
 
   private trashed: 'default' | 'with' | 'only' = 'default'
@@ -152,6 +160,29 @@ export class EloquentBuilder<M extends Model> {
 
   orWhereDoesntHave(name: string, constrain?: EagerConstraint): this {
     this.hasSpecs.push({ name, constrain, boolean: 'OR', negate: true })
+    return this
+  }
+
+  /**
+   * `whereHas` for a `morphTo` relation. Because the target table varies, name the
+   * types to check: rows kept are those whose morph target is one of `types` and
+   * (optionally) matches `constrain`.
+   *
+   * @example
+   * Comment.query().whereHasMorph('commentable', [Post, Video], q => q.where('published', true))
+   */
+  whereHasMorph(name: string, types: ModelClass<Model>[], constrain?: EagerConstraint): this {
+    this.morphSpecs.push({ name, types, constrain, boolean: 'AND', negate: false })
+    return this
+  }
+
+  orWhereHasMorph(name: string, types: ModelClass<Model>[], constrain?: EagerConstraint): this {
+    this.morphSpecs.push({ name, types, constrain, boolean: 'OR', negate: false })
+    return this
+  }
+
+  whereDoesntHaveMorph(name: string, types: ModelClass<Model>[], constrain?: EagerConstraint): this {
+    this.morphSpecs.push({ name, types, constrain, boolean: 'AND', negate: true })
     return this
   }
 
@@ -440,6 +471,22 @@ export class EloquentBuilder<M extends Model> {
           this.qb.whereIn(column, values)
         }
       }
+    }
+
+    for (const spec of this.morphSpecs) {
+      const relation = this.relationOf(spec.name)
+      if (!(relation instanceof MorphTo))
+        continue
+      const { typeField, idField, groups } = await relation.morphExistence(spec.types, spec.constrain)
+      // (type = A AND id IN […]) OR (type = B AND id IN […]) …
+      const build = (q: QueryBuilder): void => {
+        for (const g of groups)
+          q.orWhere(sub => sub.where(typeField, g.type).whereIn(idField, g.ids))
+      }
+      if (spec.negate)
+        spec.boolean === 'OR' ? this.qb.orWhereNot(build) : this.qb.whereNot(build)
+      else
+        spec.boolean === 'OR' ? this.qb.orWhere(build) : this.qb.where(build)
     }
   }
 

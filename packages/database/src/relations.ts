@@ -575,7 +575,30 @@ export class MorphTo extends Relation<Model> {
   }
 
   async existenceKeys(): Promise<ExistenceKeys> {
-    throw new Error('[eloquent] whereHas is not supported on morphTo relations')
+    throw new Error(
+      '[eloquent] whereHas is ambiguous on a morphTo relation (the target table varies). '
+      + 'Use whereHasMorph(name, [ModelA, ModelB], constrain) and name the types to check.',
+    )
+  }
+
+  /**
+   * Existence data for `whereHasMorph`: for each requested target type, the PKs
+   * of rows matching `constrain`, plus the parent's type/id morph columns — so the
+   * builder can assemble `(type = A AND id IN …) OR (type = B AND id IN …)`.
+   */
+  async morphExistence(
+    types: ModelClass<Model>[],
+    constrain?: RelationConstraint<Model>,
+  ): Promise<{ typeField: string, idField: string, groups: { type: string, ids: unknown[] }[] }> {
+    const groups: { type: string, ids: unknown[] }[] = []
+    for (const cls of types) {
+      const type = Object.keys(this.typeMap).find(k => this.typeMap[k] === cls) ?? cls.name
+      const query = cls.query().select(cls.primaryKey)
+      constrain?.(query)
+      const ids = (await query.get()).all().map(m => m.getAttribute(cls.primaryKey))
+      groups.push({ type, ids })
+    }
+    return { typeField: this.typeField, idField: this.idField, groups }
   }
 }
 
@@ -638,8 +661,23 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
     return (await this.get()).first()
   }
 
-  async existenceKeys(): Promise<ExistenceKeys> {
-    throw new Error('[eloquent] whereHas is not supported on hasManyThrough relations')
+  async existenceKeys(constrain?: RelationConstraint<R>): Promise<ExistenceKeys> {
+    // Walk far → through → parent: far rows (constrained) give the through keys,
+    // and those through rows give the parent keys that have a matching far row.
+    const farQuery = this.related.query().select(this.secondKey)
+    constrain?.(farQuery)
+    const throughIds = [
+      ...new Set((await farQuery.get()).all().map(m => m.getAttribute(this.secondKey))),
+    ]
+    if (throughIds.length === 0)
+      return { column: this.localKey, values: [] }
+    const throughRows = (
+      await this.through.query().select(this.firstKey).whereIn(this.secondLocalKey, throughIds).get()
+    ).all()
+    return {
+      column: this.localKey,
+      values: [...new Set(throughRows.map(t => t.getAttribute(this.firstKey)))],
+    }
   }
 }
 
