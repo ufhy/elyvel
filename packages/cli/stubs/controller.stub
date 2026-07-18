@@ -3,11 +3,14 @@ import { Controller, type MiddlewareContext } from '@elyvel/core'
 /**
  * {{class}} — a RESTful controller. Wire it up in a `routes/` file:
  *
- *   import { resource } from '@elyvel/core'
+ *   import { apiResource } from '@elyvel/core'
  *   import { {{class}} } from '../app/controllers/{{class}}'
- *   export default resource('/{{kebab}}', {{class}})
+ *   export default apiResource('/{{kebab}}', {{class}})
  *
- * Only the methods you define are routed (index/store/show/update/destroy).
+ * Only the methods you define are routed. `apiResource` wires the 5 JSON
+ * actions (index/store/show/update/destroy). Rendering a form instead (e.g.
+ * an Inertia page)? Add `create`/`edit` methods and use `resource` instead —
+ * it wires all 7, à la Laravel's `Route::resource`.
  */
 export class {{class}} extends Controller {
   /** GET /{{kebab}} */

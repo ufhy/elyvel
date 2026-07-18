@@ -9,15 +9,19 @@ export type RouteHandler = (context: MiddlewareContext) => unknown
 
 /**
  * Base class for controllers. Extend it and define RESTful methods
- * (`index`, `store`, `show`, `update`, `destroy`); wire them up with
- * {@link resource}. Plain classes work too — the base is just for familiarity.
+ * (`index`, `create`, `store`, `show`, `edit`, `update`, `destroy`); wire them
+ * up with {@link resource} or {@link apiResource}. Plain classes work too —
+ * the base is just for familiarity.
  */
 export abstract class Controller {}
 
-/** The five RESTful resource actions (API-style: no HTML `create`/`edit` forms). */
-export type ResourceAction = 'index' | 'store' | 'show' | 'update' | 'destroy'
+/** The seven RESTful resource actions, à la Laravel's `Route::resource`. */
+export type ResourceAction = 'index' | 'create' | 'store' | 'show' | 'edit' | 'update' | 'destroy'
 
-const ALL_ACTIONS: ResourceAction[] = ['index', 'store', 'show', 'update', 'destroy']
+const ALL_ACTIONS: ResourceAction[] = ['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']
+
+/** `create`/`edit` render forms (e.g. an Inertia page) — not meaningful for a JSON API. */
+const API_ACTIONS: ResourceAction[] = ALL_ACTIONS.filter(a => a !== 'create' && a !== 'edit')
 
 /** Resolves the route id into a model instance (e.g. an Eloquent model class). */
 export interface ModelBinder {
@@ -58,12 +62,12 @@ export interface ResourceOptions {
 type ControllerInstance = Partial<Record<ResourceAction, RouteHandler>>
 export type ControllerClass = new () => ControllerInstance
 
-function selectedActions(options: ResourceOptions): ResourceAction[] {
+function selectedActions(options: ResourceOptions, base: ResourceAction[]): ResourceAction[] {
   if (options.only)
-    return ALL_ACTIONS.filter(a => options.only?.includes(a))
+    return base.filter(a => options.only?.includes(a))
   if (options.except)
-    return ALL_ACTIONS.filter(a => !options.except?.includes(a))
-  return ALL_ACTIONS
+    return base.filter(a => !options.except?.includes(a))
+  return base
 }
 
 function middlewareFor(action: ResourceAction, options: ResourceOptions): string[] {
@@ -74,7 +78,35 @@ function middlewareFor(action: ResourceAction, options: ResourceOptions): string
 }
 
 /**
- * Register RESTful routes for a controller, à la Laravel's `Route::apiResource`:
+ * Register RESTful routes for a controller, à la Laravel's `Route::resource`:
+ *
+ * | Verb        | Path          | Action    |
+ * |-------------|---------------|-----------|
+ * | GET         | `/`           | `index`   |
+ * | GET         | `/create`     | `create`  |
+ * | POST        | `/`           | `store`   |
+ * | GET         | `/:id`        | `show`    |
+ * | GET         | `/:id/edit`   | `edit`    |
+ * | PUT / PATCH | `/:id`        | `update`  |
+ * | DELETE      | `/:id`        | `destroy` |
+ *
+ * `create`/`edit` are meant for rendering a form (e.g. `Inertia.render(...)`)
+ * — for a JSON-only API, use {@link apiResource} instead. Only actions the
+ * controller actually defines are wired. Returns an Elysia plugin —
+ * default-export it from a `routes/` file or compose with `.use()`.
+ */
+export function resource(
+  path: string,
+  Controller: ControllerClass,
+  options: ResourceOptions = {},
+): Elysia {
+  return buildResource(path, Controller, options, ALL_ACTIONS)
+}
+
+/**
+ * Register RESTful **JSON API** routes for a controller, à la Laravel's
+ * `Route::apiResource` — like {@link resource}, but without `create`/`edit`
+ * (which render forms, not meaningful for a JSON API):
  *
  * | Verb        | Path        | Action    |
  * |-------------|-------------|-----------|
@@ -83,14 +115,20 @@ function middlewareFor(action: ResourceAction, options: ResourceOptions): string
  * | GET         | `/:id`      | `show`    |
  * | PUT / PATCH | `/:id`      | `update`  |
  * | DELETE      | `/:id`      | `destroy` |
- *
- * Only actions the controller actually defines are wired. Returns an Elysia
- * plugin — default-export it from a `routes/` file or compose with `.use()`.
  */
-export function resource(
+export function apiResource(
   path: string,
   Controller: ControllerClass,
   options: ResourceOptions = {},
+): Elysia {
+  return buildResource(path, Controller, options, API_ACTIONS)
+}
+
+function buildResource(
+  path: string,
+  Controller: ControllerClass,
+  options: ResourceOptions,
+  base: ResourceAction[],
 ): Elysia {
   const instance = new Controller()
   const param = options.param ?? 'id'
@@ -114,7 +152,7 @@ export function resource(
 
   // Wrap id-based actions with model binding when `bind` is set.
   const bindAction = (action: ResourceAction, handler: RouteHandler): RouteHandler => {
-    const needsModel = action === 'show' || action === 'update' || action === 'destroy'
+    const needsModel = action === 'show' || action === 'edit' || action === 'update' || action === 'destroy'
     if (!options.bind || !needsModel)
       return handler
     return async (ctx) => {
@@ -142,7 +180,7 @@ export function resource(
       named(`${options.name}.${action}`, fullPath(suffix))
   }
 
-  for (const action of selectedActions(options)) {
+  for (const action of selectedActions(options, base)) {
     const handler = bind(action)
     if (!handler)
       continue
@@ -151,6 +189,11 @@ export function resource(
         r = r.get('/', handler, opts(action))
         nameRoute(action, '')
         break
+      case 'create':
+        // Registered before `/:id` so it isn't swallowed by the id route.
+        r = r.get('/create', handler, opts(action))
+        nameRoute(action, '/create')
+        break
       case 'store':
         r = r.post('/', handler, opts(action))
         nameRoute(action, '')
@@ -158,6 +201,10 @@ export function resource(
       case 'show':
         r = r.get(idPath, handler, opts(action))
         nameRoute(action, idPath)
+        break
+      case 'edit':
+        r = r.get(`${idPath}/edit`, handler, opts(action))
+        nameRoute(action, `${idPath}/edit`)
         break
       case 'update':
         r = r.put(idPath, handler, opts(action)).patch(idPath, handler, opts(action))
@@ -171,9 +218,6 @@ export function resource(
   }
   return r as Elysia
 }
-
-/** Alias for {@link resource} — mirrors Laravel's `apiResource` naming. */
-export const apiResource = resource
 
 /** Singleton resource actions (no `:id` — one instance per context, e.g. `/profile`). */
 export type SingletonAction = 'show' | 'update' | 'destroy' | 'store'

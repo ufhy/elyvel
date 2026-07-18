@@ -2,15 +2,23 @@ import type { MiddlewareContext } from '../src/middleware'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { registerMiddlewareRegistry } from '../src/middleware'
-import { Controller, resource } from '../src/routing'
+import { apiResource, Controller, resource } from '../src/routing'
 
 class PostController extends Controller {
   async index() {
     return [{ id: 1 }, { id: 2 }]
   }
 
+  async create() {
+    return { form: 'create' }
+  }
+
   async show(ctx: MiddlewareContext) {
     return { id: Number(ctx.params.id) }
+  }
+
+  async edit(ctx: MiddlewareContext) {
+    return { form: 'edit', id: Number(ctx.params.id) }
   }
 
   async store(ctx: MiddlewareContext) {
@@ -75,6 +83,26 @@ describe('resource routing', () => {
 
     const deleted = await app.handle(new Request('http://localhost/posts/3', { method: 'DELETE' }))
     expect(await deleted.json()).toEqual({ deleted: true })
+  })
+
+  test('resource() wires create/edit (à la Route::resource)', async () => {
+    expect(await (await app.handle(new Request('http://localhost/posts/create'))).json()).toEqual({
+      form: 'create',
+    })
+    expect(await (await app.handle(new Request('http://localhost/posts/7/edit'))).json()).toEqual({
+      form: 'edit',
+      id: 7,
+    })
+  })
+
+  test('apiResource() excludes create/edit (à la Route::apiResource)', async () => {
+    const api = new Elysia().use(apiResource('/posts', PostController))
+    // No dedicated /create route → falls through to show, id="create" (matches Laravel's own apiResource semantics).
+    expect(await (await api.handle(new Request('http://localhost/posts/create'))).json()).toEqual({
+      id: null, // Number('create') is NaN, and JSON.stringify(NaN) serializes as null.
+    })
+    // No dedicated /:id/edit route at all.
+    expect((await api.handle(new Request('http://localhost/posts/7/edit'))).status).not.toBe(200)
   })
 
   test('only wires the requested actions', async () => {
