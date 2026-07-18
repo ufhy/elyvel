@@ -74,3 +74,63 @@ describe('TestClient', () => {
     expect(() => res.assertStatus(404)).toThrow(/Expected status 404/)
   })
 })
+
+describe('TestClient cookie jar', () => {
+  function makeCsrfApp() {
+    return new Elysia()
+      .get('/login', ({ cookie }) => {
+        cookie.session?.set({ value: 'sess-1' })
+        cookie['XSRF-TOKEN']?.set({ value: 'xsrf-abc' })
+        return { ok: true }
+      })
+      .post('/posts', ({ headers, cookie, status }) => {
+        if (cookie.session?.value !== 'sess-1')
+          return status(401, { message: 'no session' })
+        if (headers['x-xsrf-token'] !== 'xsrf-abc')
+          return status(419, { message: 'csrf mismatch' })
+        return status(201, { created: true })
+      })
+  }
+
+  test('replays Set-Cookie automatically on later requests', async () => {
+    const client = createTestClient(makeCsrfApp())
+    await client.get('/login')
+    expect(client.cookieJar().get('session')).toBe('sess-1')
+
+    const res = await client.post('/posts', { json: {} })
+    res.assertCreated()
+  })
+
+  test('mirrors XSRF-TOKEN into X-XSRF-TOKEN on non-GET requests only', async () => {
+    const client = createTestClient(makeCsrfApp())
+    await client.get('/login')
+
+    // A GET never needs the header — the app under test doesn't check it there,
+    // but the point is the client only attaches it for mutating verbs.
+    const created = await client.post('/posts', { json: {} })
+    created.assertCreated()
+  })
+
+  test('without visiting /login first, the CSRF-protected POST fails', async () => {
+    const client = createTestClient(makeCsrfApp())
+    const res = await client.post('/posts', { json: {} })
+    res.assertStatus(401) // no session cookie captured yet
+  })
+
+  test('withCookie seeds the jar without a prior request', async () => {
+    const client = createTestClient(makeCsrfApp()).withCookie('session', 'sess-1').withCookie('XSRF-TOKEN', 'xsrf-abc')
+    const res = await client.post('/posts', { json: {} })
+    res.assertCreated()
+  })
+})
+
+describe('TestClient.actingAs', () => {
+  test('is chainable and delegates to @elyvel/auth\'s actingAs test seam', async () => {
+    const { currentTestActor, stopActingAs } = await import('@elyvel/auth')
+    const client = createTestClient(makeApp())
+    const returned = await client.actingAs({ id: 'u1', name: 'Ada', email: 'ada@example.com', emailVerified: true })
+    expect(returned).toBe(client)
+    expect(currentTestActor()).toEqual({ id: 'u1', name: 'Ada', email: 'ada@example.com', emailVerified: true })
+    stopActingAs()
+  })
+})

@@ -21,13 +21,37 @@ export interface RequestOptions {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 
+const SAFE_METHODS = new Set<Method>(['GET', 'HEAD', 'OPTIONS'])
+
+/** Parses the `name=value` pair out of a `Set-Cookie` string (ignores attributes). */
+function cookiePair(setCookie: string): [string, string] | undefined {
+  const raw = setCookie.split(';')[0] ?? ''
+  const eq = raw.indexOf('=')
+  if (eq === -1)
+    return undefined
+  return [raw.slice(0, eq), decodeURIComponent(raw.slice(eq + 1))]
+}
+
 /**
  * A fluent HTTP test client that drives an app through its `handle()` method —
  * no socket, no port. Every call resolves to a {@link TestResponse}.
+ *
+ * Carries a cookie jar like a browser would: every `Set-Cookie` the app sends
+ * back is remembered and replayed on later requests from the same client —
+ * session cookies just work across a multi-request flow (sign in, then act).
+ * It also mirrors the readable `XSRF-TOKEN` cookie (set by the session
+ * plugin) into an `X-XSRF-TOKEN` header on every non-GET request, the same
+ * double-submit convention Inertia/axios use in a real browser — so testing
+ * a CSRF-protected `POST`/`PUT`/`DELETE` needs no manual token plumbing:
+ *
+ *   const client = createTestClient(app)
+ *   await client.get('/login')             // captures the session + XSRF cookies
+ *   await client.post('/posts', { json })  // XSRF header attached automatically
  */
 export class TestClient {
   private readonly baseUrl: string
   private readonly defaultHeaders: Record<string, string> = {}
+  private readonly cookies = new Map<string, string>()
 
   constructor(private readonly app: Handleable, baseUrl = 'http://localhost') {
     this.baseUrl = baseUrl.replace(/\/$/, '')
@@ -44,11 +68,27 @@ export class TestClient {
     return this.withHeaders({ authorization: `${scheme} ${token}` })
   }
 
-  /** Send a `Cookie` header. */
+  /** Seed a cookie (merges into the automatic jar — same as one set by the app). */
   withCookie(name: string, value: string): this {
-    const existing = this.defaultHeaders.cookie
-    const cookie = `${name}=${value}`
-    this.defaultHeaders.cookie = existing ? `${existing}; ${cookie}` : cookie
+    this.cookies.set(name, value)
+    return this
+  }
+
+  /** Every cookie captured so far (from `withCookie` or a prior response's `Set-Cookie`). */
+  cookieJar(): ReadonlyMap<string, string> {
+    return this.cookies
+  }
+
+  /**
+   * Act as `user` for every subsequent request on this client, via
+   * `@elyvel/auth`'s test seam (`actingAs`) — dynamically imported so this
+   * package stays usable without an auth dependency. Note that seam is
+   * process-global, not per-client; call {@link stopActingAs} when done if
+   * other clients/tests in the same run need to run unauthenticated.
+   */
+  async actingAs(user: unknown): Promise<this> {
+    const { actingAs } = await import('@elyvel/auth')
+    actingAs(user as never)
     return this
   }
 
@@ -84,6 +124,14 @@ export class TestClient {
     }
 
     const headers = new Headers({ ...this.defaultHeaders, ...options.headers })
+    if (this.cookies.size > 0 && !headers.has('cookie'))
+      headers.set('cookie', [...this.cookies].map(([k, v]) => `${k}=${v}`).join('; '))
+    if (!SAFE_METHODS.has(method) && !headers.has('x-xsrf-token')) {
+      const xsrf = this.cookies.get('XSRF-TOKEN')
+      if (xsrf)
+        headers.set('x-xsrf-token', xsrf)
+    }
+
     let body: RequestInit['body']
     if (options.json !== undefined) {
       body = JSON.stringify(options.json)
@@ -95,6 +143,11 @@ export class TestClient {
     }
 
     const response = await this.app.handle(new Request(url.toString(), { method, headers, body }))
+    for (const raw of response.headers.getSetCookie()) {
+      const pair = cookiePair(raw)
+      if (pair)
+        this.cookies.set(...pair)
+    }
     return TestResponse.of(response)
   }
 }
