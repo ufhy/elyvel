@@ -1,6 +1,6 @@
-import type { Token } from '@elysia-ravel/core'
+import type { Token } from '@elyvel/core'
 import type { DefineAuthOptions } from './define-auth'
-import { config, ServiceProvider, token } from '@elysia-ravel/core'
+import { config, ServiceProvider, token } from '@elyvel/core'
 import { defineAuth } from './define-auth'
 
 /** The application's Better Auth instance, as built by {@link defineAuth}. */

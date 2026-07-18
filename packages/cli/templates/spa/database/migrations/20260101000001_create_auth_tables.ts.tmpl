@@ -1,6 +1,6 @@
-import type { Migration } from '@elysia-ravel/database'
-import { AuthToken, migrateBetterAuth } from '@elysia-ravel/auth'
-import { app } from '@elysia-ravel/core'
+import type { Migration } from '@elyvel/database'
+import { AuthToken, migrateBetterAuth } from '@elyvel/auth'
+import { app } from '@elyvel/core'
 
 /**
  * Better Auth's tables (users, sessions, accounts, verifications), created in

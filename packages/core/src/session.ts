@@ -2,7 +2,7 @@ import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
@@ -291,7 +291,7 @@ export function configureDatabaseSession(adapter: SessionDbAdapter): void {
 class DatabaseSessionStore implements SessionStore {
   private adapter(): SessionDbAdapter {
     if (!sessionDbAdapter) {
-      throw new Error('[elysia-ravel] database session driver needs configureDatabaseSession(...).')
+      throw new Error('[elyvel] database session driver needs configureDatabaseSession(...).')
     }
     return sessionDbAdapter
   }
@@ -373,7 +373,7 @@ function makeStore(config: ResolvedSessionConfig): SessionStore | null {
 export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
   const store = makeStore(config)
 
-  const plugin: any = new Elysia({ name: 'ravel-session' })
+  const plugin: any = new Elysia({ name: 'elyvel-session' })
     .derive({ as: 'global' }, async ({ cookie }) => {
       const raw = cookie[config.cookie]?.value as string | undefined
       let sid: string | undefined

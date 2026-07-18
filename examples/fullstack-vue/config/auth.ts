@@ -1,5 +1,5 @@
-import { defineAuthConfig } from '@elysia-ravel/auth'
-import { Mail } from '@elysia-ravel/mail'
+import { defineAuthConfig } from '@elyvel/auth'
+import { Mail } from '@elyvel/mail'
 import { twoFactor } from 'better-auth/plugins'
 
 /**

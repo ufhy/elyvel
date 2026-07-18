@@ -1,4 +1,4 @@
-import { createConnection, SchemaBuilder, setConnection } from '@elysia-ravel/database'
+import { createConnection, SchemaBuilder, setConnection } from '@elyvel/database'
 import { twoFactor } from 'better-auth/plugins'
 import { afterEach, describe, expect, test } from 'bun:test'
 import { migrateBetterAuth } from '../src/better-auth-schema'

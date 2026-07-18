@@ -1,7 +1,7 @@
 import type { Html } from './html'
 import { html, raw } from './html'
 
-/** The fields a paginator needs to render links (matches @elysia-ravel/database's Paginator). */
+/** The fields a paginator needs to render links (matches @elyvel/database's Paginator). */
 export interface PaginatorLike {
   currentPage: number
   lastPage: number

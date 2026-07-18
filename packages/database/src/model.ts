@@ -1,5 +1,5 @@
 import type { EagerConstraint } from './eloquent-builder'
-import { date } from '@elysia-ravel/core'
+import { date } from '@elyvel/core'
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
@@ -126,7 +126,7 @@ const MODEL_EVENTS = new WeakMap<Function, Map<ModelEvent, EventListener[]>>()
  * dispatcher (à la Laravel's `eloquent.<event>: <Model>`). Wire it once at boot,
  * e.g. `configureModelEventDispatcher((name, model) => event(name, model))`, then
  * `listen('eloquent.created: User', ...)`. Kept injectable so the database
- * package stays decoupled from `@elysia-ravel/events`.
+ * package stays decoupled from `@elyvel/events`.
  */
 type ModelEventDispatcher = (eventName: string, model: Model) => void | Promise<void>
 let modelEventDispatcher: ModelEventDispatcher | null = null

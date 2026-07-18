@@ -1,5 +1,5 @@
-import { authHasPlugin, AuthToken, enabledSocialProviders, webRoute } from '@elysia-ravel/auth'
-import { app } from '@elysia-ravel/core'
+import { authHasPlugin, AuthToken, enabledSocialProviders, webRoute } from '@elyvel/auth'
+import { app } from '@elyvel/core'
 
 /**
  * JSON API for the SPA. Auth actions live at `/api/auth/*` (Better Auth, wired

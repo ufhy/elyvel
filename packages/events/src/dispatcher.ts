@@ -135,7 +135,7 @@ export class Dispatcher {
 // ── dispatch-after-commit ─────────────────────────────────────────────────────
 type AfterCommitHook = (callback: () => void) => void
 let afterCommitHook: AfterCommitHook | null = null
-/** Wire transaction-aware event dispatch (e.g. to `@elysia-ravel/database`'s `afterCommit`). */
+/** Wire transaction-aware event dispatch (e.g. to `@elyvel/database`'s `afterCommit`). */
 export function configureEventAfterCommit(hook: AfterCommitHook): void {
   afterCommitHook = hook
 }

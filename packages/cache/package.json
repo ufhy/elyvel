@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/cache",
+  "name": "@elyvel/cache",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style cache for elysia-ravel — repository API, memory + file stores",
+  "description": "Laravel-style cache for elyvel — repository API, memory + file stores",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   }
 }

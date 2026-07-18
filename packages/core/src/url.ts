@@ -31,14 +31,14 @@ export function clearRouteNames(): void {
 export function urlFor(name: string, params: Record<string, string | number> = {}): string {
   const template = routeNames.get(name)
   if (!template) {
-    throw new Error(`[elysia-ravel] No named route "${name}".`)
+    throw new Error(`[elyvel] No named route "${name}".`)
   }
   const used = new Set<string>()
   const path = template.replace(/:(\w+)\??/g, (_match, key: string) => {
     used.add(key)
     const value = params[key]
     if (value === undefined) {
-      throw new Error(`[elysia-ravel] Missing parameter "${key}" for route "${name}".`)
+      throw new Error(`[elyvel] Missing parameter "${key}" for route "${name}".`)
     }
     return encodeURIComponent(String(value))
   })

@@ -1,4 +1,4 @@
-import { Response } from '@elysia-ravel/auth'
+import { Response } from '@elyvel/auth'
 
 /**
  * {{class}} — authorization policy for the {{resource}} resource. Each method is

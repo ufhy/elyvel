@@ -19,7 +19,7 @@ export function isEncrypted(body: string): boolean {
 
 export function encryptString(plaintext: string): string {
   if (!key)
-    throw new Error('[elysia-ravel] Encrypted jobs need configureJobEncryption(secret).')
+    throw new Error('[elyvel] Encrypted jobs need configureJobEncryption(secret).')
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, iv)
   const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
@@ -29,7 +29,7 @@ export function encryptString(plaintext: string): string {
 
 export function decryptString(body: string): string {
   if (!key)
-    throw new Error('[elysia-ravel] Encrypted jobs need configureJobEncryption(secret).')
+    throw new Error('[elyvel] Encrypted jobs need configureJobEncryption(secret).')
   const raw = Buffer.from(body.slice(PREFIX.length), 'base64')
   const iv = raw.subarray(0, 12)
   const tag = raw.subarray(12, 28)

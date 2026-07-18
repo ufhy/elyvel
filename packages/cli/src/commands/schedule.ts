@@ -1,10 +1,10 @@
-import { createApp } from '@elysia-ravel/core'
-import { ScheduleToken } from '@elysia-ravel/scheduler'
+import { createApp } from '@elyvel/core'
+import { ScheduleToken } from '@elyvel/scheduler'
 
 /**
- * `ravel schedule:run` — run every task that is due right now. Point a single
+ * `elyvel schedule:run` — run every task that is due right now. Point a single
  * system cron entry at this every minute:
- *   cd /path/to/app && ravel schedule:run >> /dev/null 2>&1
+ *   cd /path/to/app && elyvel schedule:run >> /dev/null 2>&1
  */
 export async function scheduleRunCommand(): Promise<number> {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
@@ -33,7 +33,7 @@ export async function scheduleRunCommand(): Promise<number> {
 }
 
 /**
- * `ravel schedule:work` — a long-running scheduler for local dev: ticks once a
+ * `elyvel schedule:work` — a long-running scheduler for local dev: ticks once a
  * minute and runs due tasks (so you don't need a system cron entry).
  */
 export async function scheduleWorkCommand(): Promise<number> {
@@ -55,7 +55,7 @@ export async function scheduleWorkCommand(): Promise<number> {
 }
 
 /**
- * `ravel schedule:test [name]` — run tasks immediately regardless of their cron
+ * `elyvel schedule:test [name]` — run tasks immediately regardless of their cron
  * (all tasks, or one by name), for verifying task logic.
  */
 export async function scheduleTestCommand(name?: string): Promise<number> {
@@ -81,7 +81,7 @@ export async function scheduleTestCommand(name?: string): Promise<number> {
   return failed > 0 ? 1 : 0
 }
 
-/** `ravel schedule:list` — show every registered task and its cron expression. */
+/** `elyvel schedule:list` — show every registered task and its cron expression. */
 export async function scheduleListCommand(): Promise<number> {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   const schedule = app.make(ScheduleToken)

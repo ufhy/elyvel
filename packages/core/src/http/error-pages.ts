@@ -3,7 +3,7 @@ import { Elysia } from 'elysia'
 import { defaultErrorMessage, errorPageResolver, renderErrorPage } from './error-page'
 import { expectsJson } from './negotiation'
 
-/** The parts of a session the error views read (from `@elysia-ravel/session`). */
+/** The parts of a session the error views read (from `@elyvel/session`). */
 interface SessionLike {
   get?(key: string): unknown
   token?(): string
@@ -89,7 +89,7 @@ async function webResponse(status: number, message: string | undefined, error: u
         ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
         return custom
       }
-      if (typeof custom === 'object' && (custom as RenderableView).__ravelView === true) {
+      if (typeof custom === 'object' && (custom as RenderableView).__elyvelView === true) {
         const view = custom as RenderableView
         ctx.set.status = view.statusCode ?? status
         ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
@@ -104,7 +104,7 @@ async function webResponse(status: number, message: string | undefined, error: u
 
 export function errorPages() {
   return (
-    new Elysia({ name: 'ravel-error-pages' })
+    new Elysia({ name: 'elyvel-error-pages' })
       // Thrown errors + unmatched routes (request-context has logged; the session
       // plugin has already redirected web 422 validation errors before us).
       .onError({ as: 'global' }, async (ctx: any) => {

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 const DEFAULT_ENTRIES = ['server.ts', 'src/server.ts', 'bootstrap/server.ts']
 const VITE_CONFIGS = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs']
 
-/** Handle `ravel serve [--entry path] [--watch] [--no-vite]`. */
+/** Handle `elyvel serve [--entry path] [--watch] [--no-vite]`. */
 export async function serve(flags: Record<string, string | boolean>): Promise<number> {
   const cwd = process.cwd()
 

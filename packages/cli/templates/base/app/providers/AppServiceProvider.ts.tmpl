@@ -1,4 +1,4 @@
-import { ServiceProvider } from '@elysia-ravel/core'
+import { ServiceProvider } from '@elyvel/core'
 
 /**
  * The application's own service provider — bind app-wide services into the
@@ -13,7 +13,7 @@ export class AppServiceProvider extends ServiceProvider {
     // your own HTML / a view / a Response here to override — `undefined` keeps
     // the default. Only runs for browser navigations; API clients always get JSON.
     //
-    //   import { configureErrorPage } from '@elysia-ravel/core'
+    //   import { configureErrorPage } from '@elyvel/core'
     //   configureErrorPage((status, { message }) =>
     //     status === 404 ? view('errors/404', { message }) : undefined)
   }

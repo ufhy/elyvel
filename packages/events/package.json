@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/events",
+  "name": "@elyvel/events",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style event dispatcher for elysia-ravel",
+  "description": "Laravel-style event dispatcher for elyvel",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   }
 }

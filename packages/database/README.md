@@ -1,7 +1,7 @@
-# @elysia-ravel/database
+# @elyvel/database
 
 A Laravel Eloquent-style Active Record ORM for [Bun](https://bun.sh), built for the
-[elysia-ravel](../../README.md) framework. Define your models and migrations once
+[elyvel](../../README.md) framework. Define your models and migrations once
 and run them unchanged on **SQLite**, **Postgres**, or **MySQL** — switching
 databases is a config change, not a rewrite.
 
@@ -22,12 +22,12 @@ Drivers: `bun:sqlite` (built in), `@electric-sql/pglite` (embedded Postgres, WAS
 
 ## Configuration
 
-In an elysia-ravel app, register the service provider and describe your
+In an elyvel app, register the service provider and describe your
 connections. Swapping the database is just changing `default`.
 
 ```ts
 // config/database.ts
-import { defineDatabaseConfig } from '@elysia-ravel/database'
+import { defineDatabaseConfig } from '@elyvel/database'
 
 export default defineDatabaseConfig({
   default: process.env.DB_CONNECTION ?? 'sqlite',
@@ -41,7 +41,7 @@ export default defineDatabaseConfig({
 
 ```ts
 // config/app.ts
-import { EloquentServiceProvider } from '@elysia-ravel/database'
+import { EloquentServiceProvider } from '@elyvel/database'
 
 export default defineAppConfig({
   key: process.env.APP_KEY, // secret for `encrypted` casts (AES-256-GCM)
@@ -52,7 +52,7 @@ export default defineAppConfig({
 ### Standalone (no framework)
 
 ```ts
-import { createConnection, setConnection } from '@elysia-ravel/database'
+import { createConnection, setConnection } from '@elyvel/database'
 
 const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
 setConnection(conn) // becomes the default connection used by models
@@ -63,7 +63,7 @@ setConnection(conn) // becomes the default connection used by models
 ## Defining models
 
 ```ts
-import { Model } from '@elysia-ravel/database'
+import { Model } from '@elyvel/database'
 
 export class User extends Model {
   static override table = 'users'
@@ -123,7 +123,7 @@ Laravel's `DB::table()` — the standalone form returns raw rows and can target 
 named connection:
 
 ```ts
-import { table } from '@elysia-ravel/database'
+import { table } from '@elyvel/database'
 
 const rows = await table('users').where('active', true).orderByDesc('id').get()
 await table('logs', 'analytics').count() // second arg = named connection
@@ -189,7 +189,7 @@ Raw SQL against the connection — positional or named bindings, plus `unprepare
 for multi-statement DDL:
 
 ```ts
-import { raw, unprepared } from '@elysia-ravel/database'
+import { raw, unprepared } from '@elyvel/database'
 
 await raw('SELECT * FROM users WHERE id = :id', { id: 1 }) // :name → ? / $n
 await raw('SELECT * FROM users WHERE age > ?', [18])
@@ -306,7 +306,7 @@ Migrations use the schema builder — never raw SQL — so they run on any drive
 
 ```ts
 // database/migrations/20260101000000_create_posts_table.ts
-import type { Migration } from '@elysia-ravel/database'
+import type { Migration } from '@elyvel/database'
 
 export default {
   up: (schema) =>
@@ -352,16 +352,16 @@ export default {
 Run them with the CLI:
 
 ```bash
-ravel migrate            # run pending migrations
-ravel migrate:fresh      # drop everything and re-migrate
-ravel migrate:rollback   # roll back the last batch
-ravel migrate:status
-ravel db:seed
+elyvel migrate            # run pending migrations
+elyvel migrate:fresh      # drop everything and re-migrate
+elyvel migrate:rollback   # roll back the last batch
+elyvel migrate:status
+elyvel db:seed
 
-ravel db                 # open the native shell (sqlite3 / psql)
-ravel db:show            # list tables with row counts
-ravel db:table users     # describe a table's columns
-ravel db:monitor --max=100   # open-connection count (Postgres)
+elyvel db                 # open the native shell (sqlite3 / psql)
+elyvel db:show            # list tables with row counts
+elyvel db:table users     # describe a table's columns
+elyvel db:monitor --max=100   # open-connection count (Postgres)
 ```
 
 ---
@@ -369,7 +369,7 @@ ravel db:monitor --max=100   # open-connection count (Postgres)
 ## Transactions
 
 ```ts
-import { transaction } from '@elysia-ravel/database'
+import { transaction } from '@elyvel/database'
 
 await transaction(async () => {
   const user = await User.create({ name: 'Ada' })
@@ -389,7 +389,7 @@ await transaction(async () => {
 })
 
 // Manual control
-import { beginTransaction, commit, rollBack } from '@elysia-ravel/database'
+import { beginTransaction, commit, rollBack } from '@elyvel/database'
 await beginTransaction()
 try {
   // ...
@@ -404,7 +404,7 @@ try {
 
 ## Model pruning
 
-Delete stale records in batches — schedule `ravel model:prune` via cron.
+Delete stale records in batches — schedule `elyvel model:prune` via cron.
 
 ```ts
 class PersonalAccessToken extends Model {
@@ -417,8 +417,8 @@ class PersonalAccessToken extends Model {
 ```
 
 ```bash
-ravel model:prune                       # prune every prunable model
-ravel model:prune PersonalAccessToken   # prune one model
+elyvel model:prune                       # prune every prunable model
+elyvel model:prune PersonalAccessToken   # prune one model
 ```
 
 `prune(chunkSize = 1000)` fires a `pruning` event per record (a hook to clean up

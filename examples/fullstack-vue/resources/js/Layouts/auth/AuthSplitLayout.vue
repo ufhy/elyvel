@@ -12,7 +12,7 @@ defineProps<{ title: string, subtitle?: string }>()
         <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-foreground/10">
           <LayoutGrid class="h-4 w-4" />
         </div>
-        <span class="font-semibold">Ravel</span>
+        <span class="font-semibold">Elyvel</span>
       </div>
       <blockquote class="space-y-2">
         <p class="text-lg">

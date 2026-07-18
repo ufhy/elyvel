@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/notifications",
+  "name": "@elyvel/notifications",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style notifications for elysia-ravel — multi-channel (mail/database/telegram/broadcast)",
+  "description": "Laravel-style notifications for elyvel — multi-channel (mail/database/telegram/broadcast)",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,8 +13,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*",
-    "@elysia-ravel/mail": "workspace:*",
-    "@elysia-ravel/telegram": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/mail": "workspace:*",
+    "@elyvel/telegram": "workspace:*"
   }
 }

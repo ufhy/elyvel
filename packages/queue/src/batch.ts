@@ -78,7 +78,7 @@ export function batchAdapter(): BatchAdapter | null {
 }
 function requireAdapter(): BatchAdapter {
   if (!adapter)
-    throw new Error('[elysia-ravel] Job batching needs configureBatches(adapter).')
+    throw new Error('[elyvel] Job batching needs configureBatches(adapter).')
   return adapter
 }
 

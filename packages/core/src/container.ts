@@ -101,7 +101,7 @@ export class Container {
     const binding = this.bindings.get(token.key)
     if (!binding) {
       throw new Error(
-        `[elysia-ravel] No binding registered for token "${token.key}". `
+        `[elyvel] No binding registered for token "${token.key}". `
         + 'Did you forget to register its service provider?',
       )
     }

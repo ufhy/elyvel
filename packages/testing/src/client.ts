@@ -1,7 +1,7 @@
 import { TestResponse } from './response'
 
 /**
- * Anything that can handle a `Request` — an elysia-ravel `Application` or a bare
+ * Anything that can handle a `Request` — an elyvel `Application` or a bare
  * Elysia instance both satisfy this, so the client stays framework-decoupled.
  */
 export interface Handleable {

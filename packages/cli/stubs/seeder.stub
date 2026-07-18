@@ -1,4 +1,4 @@
-import { Seeder } from '@elysia-ravel/database'
+import { Seeder } from '@elyvel/database'
 
 export class {{class}} extends Seeder {
   override async run(): Promise<void> {

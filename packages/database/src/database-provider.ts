@@ -1,7 +1,7 @@
 import type { Connection, ConnectionConfig } from './connection'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { ServiceProvider } from '@elysia-ravel/core'
+import { ServiceProvider } from '@elyvel/core'
 import {
 
   createConnection,
@@ -23,7 +23,7 @@ export class EloquentServiceProvider extends ServiceProvider {
     const config = this.app.config.get<ConnectionConfig | undefined>(`database.connections.${name}`)
     if (!config) {
       throw new Error(
-        `[elysia-ravel] Database connection "${name}" is not defined in config/database.ts.`,
+        `[elyvel] Database connection "${name}" is not defined in config/database.ts.`,
       )
     }
 

@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/telegram",
+  "name": "@elyvel/telegram",
   "type": "module",
   "version": "0.0.0",
-  "description": "Telegram Bot API client for elysia-ravel — send messages (and a notifications channel)",
+  "description": "Telegram Bot API client for elyvel — send messages (and a notifications channel)",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   }
 }

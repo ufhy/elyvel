@@ -106,11 +106,11 @@ describe('partial reloads', () => {
 
 describe('shared props', () => {
   test('Inertia.share merges into every page', async () => {
-    Inertia.share('appName', 'Ravel')
+    Inertia.share('appName', 'Elyvel')
     Inertia.share('user', () => ({ id: 1 }))
     const res = await build().handle(inertiaReq('/home'))
     const page = (await res.json()) as { props: Record<string, unknown> }
-    expect(page.props.appName).toBe('Ravel')
+    expect(page.props.appName).toBe('Elyvel')
     expect(page.props.user).toEqual({ id: 1 })
   })
 })

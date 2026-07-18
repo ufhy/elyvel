@@ -1,4 +1,4 @@
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 
 /** Which "size" variant a message uses, based on the value's type. */
 export type SizeKind = 'numeric' | 'string' | 'array' | 'file'

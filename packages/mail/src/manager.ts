@@ -28,7 +28,7 @@ export class MailManager {
     const cfg: MailTransportConfig | undefined
       = this.config.mailers?.[name] ?? (name === 'log' ? { transport: 'log' } : undefined)
     if (!cfg)
-      throw new Error(`[elysia-ravel] Mail transport "${name}" is not defined in config/mail.ts.`)
+      throw new Error(`[elyvel] Mail transport "${name}" is not defined in config/mail.ts.`)
     switch (cfg.transport) {
       case 'array':
         return new ArrayTransport()

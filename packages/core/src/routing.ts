@@ -1,5 +1,5 @@
 import type { MiddlewareContext } from './middleware'
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { route } from './middleware'
 import { named } from './url'
@@ -267,7 +267,7 @@ export function invoke(Controller: InvokableClass): RouteHandler {
   const instance = new Controller()
   const fn = instance.handle ?? instance.__invoke
   if (typeof fn !== 'function') {
-    throw new TypeError(`[elysia-ravel] ${Controller.name} must define handle() or __invoke().`)
+    throw new TypeError(`[elyvel] ${Controller.name} must define handle() or __invoke().`)
   }
   return ctx => fn.call(instance, ctx)
 }
@@ -278,7 +278,7 @@ export function invoke(Controller: InvokableClass): RouteHandler {
  * root. Runs whenever no other route matches.
  */
 export function fallback(handler: RouteHandler): Elysia {
-  const plugin: any = new Elysia({ name: 'ravel-fallback' }).onError({ as: 'global' }, (ctx) => {
+  const plugin: any = new Elysia({ name: 'elyvel-fallback' }).onError({ as: 'global' }, (ctx) => {
     if (ctx.code === 'NOT_FOUND')
       return handler(ctx as unknown as MiddlewareContext)
   })

@@ -1,5 +1,5 @@
 import type { ViewShared } from '../src/view'
-import { httpResponses } from '@elysia-ravel/core'
+import { httpResponses } from '@elyvel/core'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { document, escape, html, raw } from '../src/html'
@@ -78,7 +78,7 @@ describe('view()', () => {
 describe('View.share', () => {
   test('shared globals (value + lazy) are merged into every view', () => {
     View.flushShared()
-    View.share('appName', 'Ravel')
+    View.share('appName', 'Elyvel')
     View.share('now', () => 'computed')
     const out = view(
       (_p, s) => html`<span>${String(s.globals.appName)}:${String(s.globals.now)}</span>`,
@@ -88,7 +88,7 @@ describe('View.share', () => {
       flash: (_k, d) => d,
       csrf: '',
     })
-    expect(out).toBe('<span>Ravel:computed</span>')
+    expect(out).toBe('<span>Elyvel:computed</span>')
     View.flushShared()
   })
 })

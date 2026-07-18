@@ -1,5 +1,5 @@
-import { route } from '@elysia-ravel/core'
-import { spa } from '@elysia-ravel/vite'
+import { route } from '@elyvel/core'
+import { spa } from '@elyvel/vite'
 
 /**
  * Serve the Vue SPA shell (with Vite tags) for every non-API route, so
@@ -11,5 +11,5 @@ import { spa } from '@elysia-ravel/vite'
 const themeScript = `<script>(function(){try{var a=localStorage.getItem('appearance')||'system';if(a==='dark'||(a==='system'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})()</script>`
 
 export default route().use(
-  spa({ entry: 'resources/js/app.ts', title: 'Ravel SPA', head: themeScript }),
+  spa({ entry: 'resources/js/app.ts', title: 'Elyvel SPA', head: themeScript }),
 )

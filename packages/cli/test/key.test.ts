@@ -9,7 +9,7 @@ let cwd: string
 
 beforeEach(() => {
   cwd = process.cwd()
-  dir = mkdtempSync(join(tmpdir(), 'ravel-key-'))
+  dir = mkdtempSync(join(tmpdir(), 'elyvel-key-'))
   process.chdir(dir)
 })
 afterEach(() => {
@@ -19,7 +19,7 @@ afterEach(() => {
 
 const env = () => readFileSync(join(dir, '.env'), 'utf8')
 
-describe('ravel key:generate', () => {
+describe('elyvel key:generate', () => {
   test('replaces an existing APP_KEY= line', async () => {
     writeFileSync(join(dir, '.env'), 'APP_NAME="X"\nAPP_KEY=\nPORT=3000\n')
     expect(await keyGenerate()).toBe(0)

@@ -1,6 +1,6 @@
-import type { Token } from '@elysia-ravel/core'
+import type { Token } from '@elyvel/core'
 import type { CacheConfig } from './config-schema'
-import { ServiceProvider, token } from '@elysia-ravel/core'
+import { ServiceProvider, token } from '@elyvel/core'
 import { CacheManager, setDefaultCache } from './manager'
 
 export const CacheToken: Token<CacheManager> = token<CacheManager>('cache')

@@ -1,4 +1,4 @@
-import { Model, SchemaBuilder } from '@elysia-ravel/database'
+import { Model, SchemaBuilder } from '@elyvel/database'
 import { describe, expect, test } from 'bun:test'
 import { refreshDatabase } from '../src/index'
 

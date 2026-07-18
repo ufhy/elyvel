@@ -16,7 +16,7 @@ export interface ModelSerializer {
   hydrate(ref: ModelReference): Promise<unknown>
 }
 
-const MARKER = '__ravel_model__'
+const MARKER = '__elyvel_model__'
 
 let serializer: ModelSerializer | null = null
 export function configureModelSerializer(store: ModelSerializer): void {
@@ -26,7 +26,7 @@ export function modelSerializer(): ModelSerializer | null {
   return serializer
 }
 
-/** Replace model values in a payload with `{ __ravel_model__: ref }` markers. */
+/** Replace model values in a payload with `{ __elyvel_model__: ref }` markers. */
 export function dehydrateData(data: Record<string, unknown>): Record<string, unknown> {
   if (!serializer)
     return data

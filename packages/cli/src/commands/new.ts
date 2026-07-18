@@ -34,13 +34,13 @@ function outputPath(rel: string): string {
   return dir === '.' ? mapped : join(dir, mapped)
 }
 
-/** Scaffold a new elysia-ravel application skeleton (Laravel's `laravel new`). */
+/** Scaffold a new elyvel application skeleton (Laravel's `laravel new`). */
 export async function newApp(
   rawName?: string,
   flags: Record<string, string | boolean> = {},
 ): Promise<number> {
   if (!rawName) {
-    console.error('Missing name. Usage: ravel new <name> [--kit=vue|spa]')
+    console.error('Missing name. Usage: elyvel new <name> [--kit=vue|spa]')
     return 1
   }
 

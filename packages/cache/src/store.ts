@@ -131,7 +131,7 @@ export class FileStore implements CacheStore {
 
 /**
  * DB-backed cache. The `cache` package stays DB-agnostic: the app injects an
- * adapter (wired to `@elysia-ravel/database`) via {@link configureDatabaseCache}.
+ * adapter (wired to `@elyvel/database`) via {@link configureDatabaseCache}.
  * `expiresAt` is epoch-ms or null (forever).
  */
 export interface CacheDbAdapter {
@@ -149,7 +149,7 @@ export function configureDatabaseCache(adapter: CacheDbAdapter): void {
 function requireAdapter(): CacheDbAdapter {
   if (!dbAdapter) {
     throw new Error(
-      '[elysia-ravel] database cache store needs configureDatabaseCache(...) at boot.',
+      '[elyvel] database cache store needs configureDatabaseCache(...) at boot.',
     )
   }
   return dbAdapter

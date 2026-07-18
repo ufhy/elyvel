@@ -1,5 +1,5 @@
 {
-  "name": "@elysia-ravel/database",
+  "name": "@elyvel/database",
   "type": "module",
   "version": "0.0.0",
   "description": "A Laravel Eloquent-style Active Record ORM for Bun (SQLite + Postgres + MySQL)",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   },
   "peerDependenciesMeta": {
     "kysely": {
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
-    "@elysia-ravel/support": "workspace:*"
+    "@elyvel/support": "workspace:*"
   },
   "devDependencies": {
     "kysely": "^0.29.3",

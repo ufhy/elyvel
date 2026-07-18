@@ -1,7 +1,7 @@
-import type { Connection, Model, SeederClass } from '@elysia-ravel/database'
+import type { Connection, Model, SeederClass } from '@elyvel/database'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { createApp } from '@elysia-ravel/core'
+import { createApp } from '@elyvel/core'
 import {
 
   countRows,
@@ -16,7 +16,7 @@ import {
 
   status,
   tableColumns,
-} from '@elysia-ravel/database'
+} from '@elyvel/database'
 
 /** A model constructor with the static pruning API. */
 type PrunableClass = typeof Model & { prune(chunkSize?: number): Promise<number> }
@@ -27,7 +27,7 @@ async function boot() {
   return { app, conn: app.make(DatabaseToken) }
 }
 
-/** `ravel migrate` / `ravel migrate:fresh`. */
+/** `elyvel migrate` / `elyvel migrate:fresh`. */
 export async function migrateCommand(fresh: boolean): Promise<number> {
   const { app, conn } = await boot()
   const dir = app.path('database/migrations')
@@ -44,7 +44,7 @@ export async function migrateCommand(fresh: boolean): Promise<number> {
   return 0
 }
 
-/** `ravel migrate:rollback` — roll back the most recent batch. */
+/** `elyvel migrate:rollback` — roll back the most recent batch. */
 export async function rollbackCommand(): Promise<number> {
   const { app, conn } = await boot()
   const rolledBack = await rollback(conn, app.path('database/migrations'))
@@ -57,7 +57,7 @@ export async function rollbackCommand(): Promise<number> {
   return 0
 }
 
-/** `ravel migrate:status` — show applied/pending migrations. */
+/** `elyvel migrate:status` — show applied/pending migrations. */
 export async function statusCommand(): Promise<number> {
   const { app, conn } = await boot()
   const rows = await status(conn, app.path('database/migrations'))
@@ -70,14 +70,14 @@ export async function statusCommand(): Promise<number> {
   return 0
 }
 
-/** `ravel db:seed` — runs `database/seeders/DatabaseSeeder.ts`. */
+/** `elyvel db:seed` — runs `database/seeders/DatabaseSeeder.ts`. */
 export async function seedCommand(): Promise<number> {
   const { app } = await boot()
   const seederPath = app.path('database/seeders/DatabaseSeeder.ts')
 
   if (!existsSync(seederPath)) {
     console.error(
-      'No database/seeders/DatabaseSeeder.ts found. Create one with: ravel make:seeder Database',
+      'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
     )
     return 1
   }
@@ -94,7 +94,7 @@ export async function seedCommand(): Promise<number> {
 }
 
 /**
- * `ravel model:prune [Name]` — permanently delete records matched by each model's
+ * `elyvel model:prune [Name]` — permanently delete records matched by each model's
  * `prunable()`. With a name, prunes just `app/models/<Name>.ts`; otherwise scans
  * `app/models/` and prunes every model that overrides `prunable()`.
  */
@@ -140,7 +140,7 @@ export async function pruneCommand(name?: string): Promise<number> {
   return 0
 }
 
-/** `ravel db:show` — list tables with row counts. */
+/** `elyvel db:show` — list tables with row counts. */
 export async function dbShowCommand(): Promise<number> {
   const { app, conn } = await boot()
   const connection = conn as Connection
@@ -161,10 +161,10 @@ export async function dbShowCommand(): Promise<number> {
   return 0
 }
 
-/** `ravel db:table <name>` — describe a table's columns. */
+/** `elyvel db:table <name>` — describe a table's columns. */
 export async function dbTableCommand(table?: string): Promise<number> {
   if (!table) {
-    console.error('Usage: ravel db:table <name>')
+    console.error('Usage: elyvel db:table <name>')
     return 1
   }
   const { conn } = await boot()
@@ -187,7 +187,7 @@ export async function dbTableCommand(table?: string): Promise<number> {
   return 0
 }
 
-/** `ravel db:monitor [--max=N]` — report open connections (Postgres only). */
+/** `elyvel db:monitor [--max=N]` — report open connections (Postgres only). */
 export async function dbMonitorCommand(max = 100): Promise<number> {
   const { conn } = await boot()
   const connection = conn as Connection
@@ -206,7 +206,7 @@ export async function dbMonitorCommand(max = 100): Promise<number> {
   return 0
 }
 
-/** `ravel db` — open the native database shell (sqlite3 / psql). */
+/** `elyvel db` — open the native database shell (sqlite3 / psql). */
 export async function dbShellCommand(): Promise<number> {
   const { app } = await boot()
   const name = app.config.get<string>('database.default', 'sqlite')

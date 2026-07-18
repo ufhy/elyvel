@@ -1,10 +1,10 @@
 # Spa Vue
 
-A [elysia-ravel](https://github.com/ufhy/elysia-ravel) application.
+A [elyvel](https://github.com/ufhy/elyvel) application.
 
 ## Getting started
 
-`ravel new` already created your `.env` with a generated `APP_KEY`.
+`elyvel new` already created your `.env` with a generated `APP_KEY`.
 
 ```bash
 bun install
@@ -24,5 +24,5 @@ database/     Migrations and seeders
 server.ts     Entry point — boots the framework
 ```
 
-Add code with the CLI: `ravel make:model Post`, `ravel make:controller PostController`,
-`ravel make:migration create_posts_table`, `ravel make:policy Post --model`.
+Add code with the CLI: `elyvel make:model Post`, `elyvel make:controller PostController`,
+`elyvel make:migration create_posts_table`, `elyvel make:policy Post --model`.

@@ -73,7 +73,7 @@ export interface SessionConfig {
   files?: string
   /** Connection URL for the `redis` driver (default: Bun's REDIS_URL / localhost). */
   redisUrl?: string
-  /** Session cookie name. Default `ravel_session`. */
+  /** Session cookie name. Default `elyvel_session`. */
   cookie?: string
   /** Cookie lifetime in seconds. Default 7200 (2h). */
   lifetime?: number

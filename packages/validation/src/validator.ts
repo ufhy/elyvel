@@ -261,7 +261,7 @@ export class Validator {
 
           const rule = RULES[name]
           if (!rule)
-            throw new Error(`[elysia-ravel] Unknown validation rule "${name}".`)
+            throw new Error(`[elyvel] Unknown validation rule "${name}".`)
           if (empty && !rule.implicit)
             continue
 

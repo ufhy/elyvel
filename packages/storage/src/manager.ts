@@ -20,7 +20,7 @@ export class FilesystemManager {
     if (!disk) {
       const cfg = this.config.disks?.[key]
       if (!cfg)
-        throw new Error(`[elysia-ravel] Disk "${key}" is not defined in config/filesystems.ts.`)
+        throw new Error(`[elyvel] Disk "${key}" is not defined in config/filesystems.ts.`)
       disk = this.resolve(cfg)
       this.disks.set(key, disk)
     }
@@ -51,7 +51,7 @@ export function setDefaultStorage(manager: FilesystemManager): void {
 /** The default disk (or a named disk). */
 export function storage(disk?: string): FilesystemDisk {
   if (!defaultManager)
-    throw new Error('[elysia-ravel] Storage is not configured. Register StorageServiceProvider.')
+    throw new Error('[elyvel] Storage is not configured. Register StorageServiceProvider.')
   return defaultManager.disk(disk)
 }
 
@@ -61,7 +61,7 @@ export function storage(disk?: string): FilesystemDisk {
  * Returns the fake disk. Call it in tests before exercising uploads.
  */
 export function fakeStorage(name = 'local'): FilesystemDisk {
-  const root = join(tmpdir(), `ravel-storage-${crypto.randomUUID()}`)
+  const root = join(tmpdir(), `elyvel-storage-${crypto.randomUUID()}`)
   const disk = new LocalDisk({ driver: 'local', root, url: '/storage', visibility: 'public' })
   const manager = new FilesystemManager({ default: name })
   // Seed the cache so `disk(name)` and the default both return the fake.

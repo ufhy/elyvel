@@ -45,10 +45,10 @@ export type ViewTemplate<P> = (props: P, shared: ViewShared) => Html | string
 /**
  * A rendered-view response. Returned from a handler; the framework's response
  * normalizer builds {@link ViewShared} from the session and sends `text/html`.
- * Duck-typed via `__ravelView` so core stays decoupled from this package.
+ * Duck-typed via `__elyvelView` so core stays decoupled from this package.
  */
 export class ViewResponse<P> {
-  readonly __ravelView = true
+  readonly __elyvelView = true
   private httpStatus = 200
 
   constructor(

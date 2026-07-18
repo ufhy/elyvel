@@ -37,7 +37,7 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
   const meta = new WeakMap<Request, RequestMeta>()
   const http = logger.child('http')
 
-  return new Elysia({ name: 'ravel-request-context' })
+  return new Elysia({ name: 'elyvel-request-context' })
     .onRequest(({ request }) => {
       meta.set(request, { start: performance.now(), id: crypto.randomUUID() })
     })

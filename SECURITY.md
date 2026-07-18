@@ -16,7 +16,7 @@ and credit reporters who wish to be named once a fix ships.
 
 ## Supported versions
 
-elysia-ravel is **pre-1.0** (see [CONTRIBUTING.md](./CONTRIBUTING.md#versioning--stability)).
+elyvel is **pre-1.0** (see [CONTRIBUTING.md](./CONTRIBUTING.md#versioning--stability)).
 Only the latest published version receives security fixes until 1.0.
 
 ## Built-in protections
@@ -25,7 +25,7 @@ The framework ships secure defaults for the common web risks:
 
 - **SQL injection** — the query builder and Eloquent layer always send values as
   bound parameters (dialect placeholders); user input is never interpolated into SQL.
-- **Password storage** — handled by Better Auth (`@elysia-ravel/auth`); passwords
+- **Password storage** — handled by Better Auth (`@elyvel/auth`); passwords
   are hashed, never stored or logged in plaintext.
 - **Session cookies** — `httpOnly` and `SameSite=Lax` by default, signed with
   `app.key` / `session.secret`.
@@ -40,7 +40,7 @@ The framework ships secure defaults for the common web risks:
 
 These are **not all on by default** — review them before you deploy:
 
-- [ ] Set a strong `APP_KEY` (`ravel key:generate`) — required for signed cookies
+- [ ] Set a strong `APP_KEY` (`elyvel key:generate`) — required for signed cookies
       and `encrypted` model casts.
 - [ ] Enable secure cookies: `session.secure = true` (HTTPS-only) in production.
 - [ ] Route browser/session traffic through the built-in **`web` group**

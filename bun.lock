@@ -18,14 +18,14 @@
       "name": "fullstack-vue",
       "version": "0.0.0",
       "dependencies": {
-        "@elysia-ravel/auth": "workspace:*",
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/database": "workspace:*",
-        "@elysia-ravel/i18n": "workspace:*",
-        "@elysia-ravel/inertia": "workspace:*",
-        "@elysia-ravel/mail": "workspace:*",
-        "@elysia-ravel/view": "workspace:*",
-        "@elysia-ravel/vite": "workspace:*",
+        "@elyvel/auth": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/database": "workspace:*",
+        "@elyvel/i18n": "workspace:*",
+        "@elyvel/inertia": "workspace:*",
+        "@elyvel/mail": "workspace:*",
+        "@elyvel/view": "workspace:*",
+        "@elyvel/vite": "workspace:*",
         "@inertiajs/vue3": "^3.0.0",
         "@lucide/vue": "^1.17.0",
         "@vue/server-renderer": "^3.5.0",
@@ -42,7 +42,7 @@
       },
       "devDependencies": {
         "@antfu/eslint-config": "^9.1.0",
-        "@elysia-ravel/cli": "workspace:*",
+        "@elyvel/cli": "workspace:*",
         "@tailwindcss/vite": "^4.0.0",
         "@types/qrcode": "^1.5.5",
         "@vitejs/plugin-vue": "^6.0.0",
@@ -55,11 +55,11 @@
       "name": "spa-vue",
       "version": "0.0.0",
       "dependencies": {
-        "@elysia-ravel/auth": "workspace:*",
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/database": "workspace:*",
-        "@elysia-ravel/mail": "workspace:*",
-        "@elysia-ravel/vite": "workspace:*",
+        "@elyvel/auth": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/database": "workspace:*",
+        "@elyvel/mail": "workspace:*",
+        "@elyvel/vite": "workspace:*",
         "@lucide/vue": "^1.17.0",
         "@vueuse/core": "^12.8.2",
         "better-auth": "^1.6.0",
@@ -75,7 +75,7 @@
       },
       "devDependencies": {
         "@antfu/eslint-config": "^9.1.0",
-        "@elysia-ravel/cli": "workspace:*",
+        "@elyvel/cli": "workspace:*",
         "@tailwindcss/vite": "^4.0.0",
         "@types/bun": "^1.3.14",
         "@types/qrcode": "^1.5.5",
@@ -86,53 +86,53 @@
       },
     },
     "packages/auth": {
-      "name": "@elysia-ravel/auth",
+      "name": "@elyvel/auth",
       "version": "0.0.0",
       "devDependencies": {
         "better-auth": "^1.6.0",
       },
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/database": "workspace:*",
-        "@elysia-ravel/support": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/database": "workspace:*",
+        "@elyvel/support": "workspace:*",
         "better-auth": ">=1.2.0",
         "elysia": ">=1.4.0",
       },
     },
     "packages/broadcasting": {
-      "name": "@elysia-ravel/broadcasting",
+      "name": "@elyvel/broadcasting",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/notifications": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/notifications": "workspace:*",
       },
     },
     "packages/cache": {
-      "name": "@elysia-ravel/cache",
+      "name": "@elyvel/cache",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/cli": {
-      "name": "@elysia-ravel/cli",
+      "name": "@elyvel/cli",
       "version": "0.0.0",
       "bin": {
-        "ravel": "./src/index.ts",
+        "elyvel": "./src/index.ts",
       },
       "dependencies": {
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/database": "workspace:*",
-        "@elysia-ravel/queue": "workspace:*",
-        "@elysia-ravel/scheduler": "workspace:*",
-        "@elysia-ravel/validation": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/database": "workspace:*",
+        "@elyvel/queue": "workspace:*",
+        "@elyvel/scheduler": "workspace:*",
+        "@elyvel/validation": "workspace:*",
       },
       "peerDependencies": {
         "elysia": ">=1.4.0",
       },
     },
     "packages/core": {
-      "name": "@elysia-ravel/core",
+      "name": "@elyvel/core",
       "version": "0.0.0",
       "dependencies": {
         "@sinclair/typebox": "^0.34.52",
@@ -144,8 +144,8 @@
         "elysia": "^1.4.0",
       },
       "peerDependencies": {
-        "@elysia-ravel/support": "workspace:*",
         "@elysiajs/openapi": ">=1.4.0",
+        "@elyvel/support": "workspace:*",
         "elysia": ">=1.4.0",
       },
       "optionalPeers": [
@@ -153,11 +153,11 @@
       ],
     },
     "packages/database": {
-      "name": "@elysia-ravel/database",
+      "name": "@elyvel/database",
       "version": "0.0.0",
       "dependencies": {
         "@electric-sql/pglite": "^0.5.4",
-        "@elysia-ravel/support": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
       "devDependencies": {
         "kysely": "^0.29.3",
@@ -165,35 +165,35 @@
         "postgres": "^3.4.9",
       },
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/events": {
-      "name": "@elysia-ravel/events",
+      "name": "@elyvel/events",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/i18n": {
-      "name": "@elysia-ravel/i18n",
+      "name": "@elyvel/i18n",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/support": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/inertia": {
-      "name": "@elysia-ravel/inertia",
+      "name": "@elyvel/inertia",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/vite": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/vite": "workspace:*",
         "elysia": ">=1.4.0",
       },
     },
     "packages/mail": {
-      "name": "@elysia-ravel/mail",
+      "name": "@elyvel/mail",
       "version": "0.0.0",
       "devDependencies": {
         "@types/nodemailer": "^8.0.1",
@@ -201,84 +201,84 @@
         "smtp-server": "^3.13.0",
       },
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/notifications": {
-      "name": "@elysia-ravel/notifications",
+      "name": "@elyvel/notifications",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
-        "@elysia-ravel/mail": "workspace:*",
-        "@elysia-ravel/telegram": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/mail": "workspace:*",
+        "@elyvel/telegram": "workspace:*",
       },
     },
     "packages/queue": {
-      "name": "@elysia-ravel/queue",
+      "name": "@elyvel/queue",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/scheduler": {
-      "name": "@elysia-ravel/scheduler",
+      "name": "@elyvel/scheduler",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/storage": {
-      "name": "@elysia-ravel/storage",
+      "name": "@elyvel/storage",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/support": {
-      "name": "@elysia-ravel/support",
+      "name": "@elyvel/support",
       "version": "0.0.0",
     },
     "packages/telegram": {
-      "name": "@elysia-ravel/telegram",
+      "name": "@elyvel/telegram",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
       },
     },
     "packages/testing": {
-      "name": "@elysia-ravel/testing",
+      "name": "@elyvel/testing",
       "version": "0.0.0",
       "devDependencies": {
         "elysia": "^1.4.0",
       },
       "peerDependencies": {
-        "@elysia-ravel/database": "workspace:*",
+        "@elyvel/database": "workspace:*",
         "elysia": ">=1.4.0",
       },
       "optionalPeers": [
-        "@elysia-ravel/database",
+        "@elyvel/database",
       ],
     },
     "packages/validation": {
-      "name": "@elysia-ravel/validation",
+      "name": "@elyvel/validation",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/support": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/view": {
-      "name": "@elysia-ravel/view",
+      "name": "@elyvel/view",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
         "elysia": ">=1.4.0",
       },
     },
     "packages/vite": {
-      "name": "@elysia-ravel/vite",
+      "name": "@elyvel/vite",
       "version": "0.0.0",
       "peerDependencies": {
-        "@elysia-ravel/core": "workspace:*",
+        "@elyvel/core": "workspace:*",
         "elysia": ">=1.4.0",
       },
     },
@@ -324,49 +324,49 @@
 
     "@electric-sql/pglite": ["@electric-sql/pglite@0.5.4", "", {}, "sha512-yYZUyyXrHU7tPlCjwZQJ6hIG9DscdCCn7Uk0mYKwC1FeHX286AbcmFveMiRBEak8e9iPupjsoVImN3yJZVed2g=="],
 
-    "@elysia-ravel/auth": ["@elysia-ravel/auth@workspace:packages/auth"],
-
-    "@elysia-ravel/broadcasting": ["@elysia-ravel/broadcasting@workspace:packages/broadcasting"],
-
-    "@elysia-ravel/cache": ["@elysia-ravel/cache@workspace:packages/cache"],
-
-    "@elysia-ravel/cli": ["@elysia-ravel/cli@workspace:packages/cli"],
-
-    "@elysia-ravel/core": ["@elysia-ravel/core@workspace:packages/core"],
-
-    "@elysia-ravel/database": ["@elysia-ravel/database@workspace:packages/database"],
-
-    "@elysia-ravel/events": ["@elysia-ravel/events@workspace:packages/events"],
-
-    "@elysia-ravel/i18n": ["@elysia-ravel/i18n@workspace:packages/i18n"],
-
-    "@elysia-ravel/inertia": ["@elysia-ravel/inertia@workspace:packages/inertia"],
-
-    "@elysia-ravel/mail": ["@elysia-ravel/mail@workspace:packages/mail"],
-
-    "@elysia-ravel/notifications": ["@elysia-ravel/notifications@workspace:packages/notifications"],
-
-    "@elysia-ravel/queue": ["@elysia-ravel/queue@workspace:packages/queue"],
-
-    "@elysia-ravel/scheduler": ["@elysia-ravel/scheduler@workspace:packages/scheduler"],
-
-    "@elysia-ravel/storage": ["@elysia-ravel/storage@workspace:packages/storage"],
-
-    "@elysia-ravel/support": ["@elysia-ravel/support@workspace:packages/support"],
-
-    "@elysia-ravel/telegram": ["@elysia-ravel/telegram@workspace:packages/telegram"],
-
-    "@elysia-ravel/testing": ["@elysia-ravel/testing@workspace:packages/testing"],
-
-    "@elysia-ravel/validation": ["@elysia-ravel/validation@workspace:packages/validation"],
-
-    "@elysia-ravel/view": ["@elysia-ravel/view@workspace:packages/view"],
-
-    "@elysia-ravel/vite": ["@elysia-ravel/vite@workspace:packages/vite"],
-
     "@elysiajs/eden": ["@elysiajs/eden@1.4.9", "", { "peerDependencies": { "elysia": ">=1.4.19" } }, "sha512-3CKVD4ycVjB8nCNssfmhnUuq3SzSHkUES3v5PNCFr9LxIrx39/HVRAZ8z2sLxrFqzUs48dCBZaxoZzJ5UUVHDA=="],
 
     "@elysiajs/openapi": ["@elysiajs/openapi@1.4.15", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-HDtGIrWfFJk6UJS7qbgRmjifbSqnnRGDM3CsU/GVJkxLbEVEkNuQDf+Quh9fGbytSrJ8g4+tX9eVjshYhCH29w=="],
+
+    "@elyvel/auth": ["@elyvel/auth@workspace:packages/auth"],
+
+    "@elyvel/broadcasting": ["@elyvel/broadcasting@workspace:packages/broadcasting"],
+
+    "@elyvel/cache": ["@elyvel/cache@workspace:packages/cache"],
+
+    "@elyvel/cli": ["@elyvel/cli@workspace:packages/cli"],
+
+    "@elyvel/core": ["@elyvel/core@workspace:packages/core"],
+
+    "@elyvel/database": ["@elyvel/database@workspace:packages/database"],
+
+    "@elyvel/events": ["@elyvel/events@workspace:packages/events"],
+
+    "@elyvel/i18n": ["@elyvel/i18n@workspace:packages/i18n"],
+
+    "@elyvel/inertia": ["@elyvel/inertia@workspace:packages/inertia"],
+
+    "@elyvel/mail": ["@elyvel/mail@workspace:packages/mail"],
+
+    "@elyvel/notifications": ["@elyvel/notifications@workspace:packages/notifications"],
+
+    "@elyvel/queue": ["@elyvel/queue@workspace:packages/queue"],
+
+    "@elyvel/scheduler": ["@elyvel/scheduler@workspace:packages/scheduler"],
+
+    "@elyvel/storage": ["@elyvel/storage@workspace:packages/storage"],
+
+    "@elyvel/support": ["@elyvel/support@workspace:packages/support"],
+
+    "@elyvel/telegram": ["@elyvel/telegram@workspace:packages/telegram"],
+
+    "@elyvel/testing": ["@elyvel/testing@workspace:packages/testing"],
+
+    "@elyvel/validation": ["@elyvel/validation@workspace:packages/validation"],
+
+    "@elyvel/view": ["@elyvel/view@workspace:packages/view"],
+
+    "@elyvel/vite": ["@elyvel/vite@workspace:packages/vite"],
 
     "@emnapi/core": ["@emnapi/core@1.11.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.2", "tslib": "^2.4.0" } }, "sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ=="],
 

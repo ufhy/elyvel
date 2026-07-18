@@ -86,7 +86,7 @@ export async function make(
     return 1
   }
   if (!rawName) {
-    console.error(`Missing name. Usage: ravel make:${type} <Name>`)
+    console.error(`Missing name. Usage: elyvel make:${type} <Name>`)
     return 1
   }
 

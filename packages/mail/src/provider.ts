@@ -1,6 +1,6 @@
-import type { Token } from '@elysia-ravel/core'
+import type { Token } from '@elyvel/core'
 import type { MailConfig } from './config-schema'
-import { ServiceProvider, token } from '@elysia-ravel/core'
+import { ServiceProvider, token } from '@elyvel/core'
 import { MailManager, setDefaultMailer } from './manager'
 
 export const MailToken: Token<MailManager> = token<MailManager>('mail')

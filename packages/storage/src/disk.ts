@@ -1,10 +1,10 @@
-import type { FileResponse } from '@elysia-ravel/core'
+import type { FileResponse } from '@elyvel/core'
 import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 import { existsSync, statSync } from 'node:fs'
 import { appendFile, chmod, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
 // biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
 import { dirname, extname, posix, resolve, sep } from 'node:path'
-import { download } from '@elysia-ravel/core'
+import { download } from '@elyvel/core'
 import { S3Client } from 'bun'
 
 /** Raw content accepted by write operations. */
@@ -155,7 +155,7 @@ export class LocalDisk implements FilesystemDisk {
     const rootAbs = resolve(this.root)
     const full = resolve(rootAbs, path)
     if (full !== rootAbs && !full.startsWith(rootAbs + sep)) {
-      throw new PathEscapeError(`[elysia-ravel] Path "${path}" escapes the disk root.`)
+      throw new PathEscapeError(`[elyvel] Path "${path}" escapes the disk root.`)
     }
     return full
   }
@@ -294,7 +294,7 @@ export class LocalDisk implements FilesystemDisk {
     _options?: TemporaryUrlOptions,
   ): Promise<string> {
     throw new Error(
-      '[elysia-ravel] temporaryUrl is not supported by the local driver. Use the s3 driver, or serve files through a signed route.',
+      '[elyvel] temporaryUrl is not supported by the local driver. Use the s3 driver, or serve files through a signed route.',
     )
   }
 
@@ -304,7 +304,7 @@ export class LocalDisk implements FilesystemDisk {
     _options?: TemporaryUrlOptions,
   ): Promise<{ url: string, headers: Record<string, string> }> {
     throw new Error(
-      '[elysia-ravel] temporaryUploadUrl is not supported by the local driver. Use the s3 driver.',
+      '[elyvel] temporaryUploadUrl is not supported by the local driver. Use the s3 driver.',
     )
   }
 
@@ -618,7 +618,7 @@ export class ScopedDisk implements FilesystemDisk {
     const joined = posix.normalize(posix.join(base, path))
     if (joined !== base && !joined.startsWith(`${base}/`)) {
       throw new PathEscapeError(
-        `[elysia-ravel] Path "${path}" escapes the scoped prefix "${this.prefix}".`,
+        `[elyvel] Path "${path}" escapes the scoped prefix "${this.prefix}".`,
       )
     }
     return joined

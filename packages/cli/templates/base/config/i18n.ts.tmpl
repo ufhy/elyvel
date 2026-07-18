@@ -1,4 +1,4 @@
-import { defineI18nConfig } from '@elysia-ravel/i18n'
+import { defineI18nConfig } from '@elyvel/i18n'
 
 /**
  * Localization. Translation files live in `lang/<locale>/<group>.ts` (and
@@ -6,7 +6,7 @@ import { defineI18nConfig } from '@elysia-ravel/i18n'
  * Use `__('group.key', { name })` anywhere, or the context-injected `ctx.__` /
  * `ctx.locale`. Set the active locale per request with `setRequestLocale(...)`
  * (e.g. from a signed-in user's preference).
- * Run `ravel lang:publish <locale>` to scaffold editable message files.
+ * Run `elyvel lang:publish <locale>` to scaffold editable message files.
  */
 export default defineI18nConfig({
   locale: process.env.APP_LOCALE ?? 'en',

@@ -1,8 +1,8 @@
-import type { ViteOptions } from '@elysia-ravel/vite'
+import type { ViteOptions } from '@elyvel/vite'
 import type { Page } from './response'
 import { existsSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
-import { viteTags } from '@elysia-ravel/vite'
+import { viteTags } from '@elyvel/vite'
 import { Elysia } from 'elysia'
 import { buildProps, InertiaLocation, InertiaResponse } from './response'
 
@@ -101,7 +101,7 @@ export function inertia(config: InertiaConfig = {}) {
 
   // Global so a single registration (config/middleware.ts `global`) transforms
   // Inertia responses across every route file — no per-file `.use` needed.
-  return new Elysia({ name: 'ravel-inertia' }).onAfterHandle({ as: 'global' }, async (ctx: any) => {
+  return new Elysia({ name: 'elyvel-inertia' }).onAfterHandle({ as: 'global' }, async (ctx: any) => {
     const response = ctx.response
     const request = ctx.request as Request
     const isInertia = request.headers.get('x-inertia') === 'true'

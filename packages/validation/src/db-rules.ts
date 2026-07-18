@@ -1,6 +1,6 @@
 /**
  * DB-backed rules (`unique`, `exists`) need a query. To keep this package
- * DB-agnostic, the app injects a resolver (wired to `@elysia-ravel/database`).
+ * DB-agnostic, the app injects a resolver (wired to `@elyvel/database`).
  */
 export interface DbRuleResolver {
   /** Count rows in `table` where `column` = `value` (optionally excluding an id). */
@@ -17,7 +17,7 @@ export function configureDbRules(r: DbRuleResolver): void {
 export function getDbResolver(): DbRuleResolver {
   if (!resolver) {
     throw new Error(
-      '[elysia-ravel] `unique`/`exists` need a DB resolver. Call configureDbRules(...) at boot.',
+      '[elyvel] `unique`/`exists` need a DB resolver. Call configureDbRules(...) at boot.',
     )
   }
   return resolver

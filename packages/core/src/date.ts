@@ -1,5 +1,5 @@
 /**
- * The framework's date object — a configured dayjs (elysia-ravel's Carbon). All
+ * The framework's date object — a configured dayjs (elyvel's Carbon). All
  * model date/datetime/timestamp attributes are cast to this, so every date has a
  * rich, chainable, timezone-aware API: `user.created_at.format('DD/MM/YYYY')`,
  * `.add(3, 'day')`, `.fromNow()`, `.tz('Asia/Makassar')`.

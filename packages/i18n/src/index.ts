@@ -1,9 +1,9 @@
 /**
- * Localization for elysia-ravel. Use the global {@link __}/{@link trans} helpers
+ * Localization for elyvel. Use the global {@link __}/{@link trans} helpers
  * backed by a default {@link Translator}, or construct your own instance.
  *
  * @example
- * import { __, loadTranslations, setLocale } from '@elysia-ravel/i18n'
+ * import { __, loadTranslations, setLocale } from '@elyvel/i18n'
  * await loadTranslations('./lang')     // lang/en/messages.ts, lang/id/messages.ts, …
  * setLocale('id')
  * __('messages.welcome', { name: 'Ada' })          // "Selamat datang, Ada"

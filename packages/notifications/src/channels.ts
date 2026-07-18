@@ -1,7 +1,7 @@
 import type { Notifiable, Notification } from './notification'
 import { randomUUID } from 'node:crypto'
-import { mailManager } from '@elysia-ravel/mail'
-import { telegram } from '@elysia-ravel/telegram'
+import { mailManager } from '@elyvel/mail'
+import { telegram } from '@elyvel/telegram'
 import { notifiableKey, routeFor } from './notification'
 
 /** A delivery channel — sends a notification to a notifiable. */
@@ -72,7 +72,7 @@ export class DatabaseChannel implements Channel {
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
     if (!dbAdapter) {
       throw new Error(
-        '[elysia-ravel] database notifications need configureDatabaseNotifications(...).',
+        '[elyvel] database notifications need configureDatabaseNotifications(...).',
       )
     }
     const data = notification.toDatabase?.(notifiable) ?? notification.toArray?.(notifiable) ?? {}

@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/view",
+  "name": "@elyvel/view",
   "type": "module",
   "version": "0.0.0",
-  "description": "Server-side HTML views for elysia-ravel — safe html template tag + view() responses",
+  "description": "Server-side HTML views for elyvel — safe html template tag + view() responses",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*",
+    "@elyvel/core": "workspace:*",
     "elysia": ">=1.4.0"
   }
 }

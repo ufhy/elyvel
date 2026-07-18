@@ -1,6 +1,6 @@
-import type { MiddlewareContext } from '@elysia-ravel/core'
+import type { MiddlewareContext } from '@elyvel/core'
 import type { User } from './better-auth'
-import { config, expectsJson, Middleware } from '@elysia-ravel/core'
+import { config, expectsJson, Middleware } from '@elyvel/core'
 
 /**
  * Where to send a guest hitting a protected PAGE (browser). Overridable via

@@ -1,4 +1,4 @@
-import { Collection } from '@elysia-ravel/support'
+import { Collection } from '@elyvel/support'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { setConnection } from '../src/connection'
 import { Model } from '../src/model'

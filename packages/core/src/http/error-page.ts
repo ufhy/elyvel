@@ -4,16 +4,16 @@
  * match the scaffold's landing (dark, indigo accent, faint grid). The core
  * error handler renders this for browser navigations; API clients get JSON.
  */
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 
 interface ErrorMeta {
   title: string
   message: string
 }
 
-/** A view response (from `@elysia-ravel/view`), duck-typed so core stays decoupled. */
+/** A view response (from `@elyvel/view`), duck-typed so core stays decoupled. */
 export interface RenderableView {
-  __ravelView: true
+  __elyvelView: true
   statusCode?: number
   render(shared: Record<string, unknown>): string
 }
@@ -74,7 +74,7 @@ const DEFAULTS: Record<number, ErrorMeta> = {
 
 /**
  * Canonical English defaults for the `errors` translation group — the status
- * pages plus the short JSON messages emitted by the guards. `ravel lang:publish`
+ * pages plus the short JSON messages emitted by the guards. `elyvel lang:publish`
  * dumps this to `lang/<locale>/errors.ts` so it can be restyled/translated.
  */
 export const ERROR_LANG_DEFAULTS: Record<string, ErrorMeta | string> = {

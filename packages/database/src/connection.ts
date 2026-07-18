@@ -591,7 +591,7 @@ export function useConnection(name?: string): Connection {
   const connection = name ? connections.get(name) : current
   if (!connection) {
     throw new Error(
-      `[elysia-ravel] No database connection${name ? ` "${name}"` : ''}. Register EloquentServiceProvider (config/database.ts).`,
+      `[elyvel] No database connection${name ? ` "${name}"` : ''}. Register EloquentServiceProvider (config/database.ts).`,
     )
   }
   return connection

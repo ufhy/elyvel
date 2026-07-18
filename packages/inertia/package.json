@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/inertia",
+  "name": "@elyvel/inertia",
   "type": "module",
   "version": "0.0.0",
-  "description": "Inertia.js server-side adapter for elysia-ravel — full-stack SPA (Vue/React/Svelte) without an API",
+  "description": "Inertia.js server-side adapter for elyvel — full-stack SPA (Vue/React/Svelte) without an API",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,8 +13,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*",
-    "@elysia-ravel/vite": "workspace:*",
+    "@elyvel/core": "workspace:*",
+    "@elyvel/vite": "workspace:*",
     "elysia": ">=1.4.0"
   }
 }

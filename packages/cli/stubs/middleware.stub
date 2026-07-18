@@ -1,4 +1,4 @@
-import { Middleware, type MiddlewareContext } from '@elysia-ravel/core'
+import { Middleware, type MiddlewareContext } from '@elyvel/core'
 
 /**
  * {{class}} — register it in `config/middleware.ts` under `aliases`, then apply

@@ -68,10 +68,10 @@ describe('Schedule task kinds', () => {
     await expect(ev.run(monday0800)).rejects.toThrow(/exit 3/)
   })
 
-  test('command() registers a `ravel <cmd>` event named accordingly', () => {
+  test('command() registers a `elyvel <cmd>` event named accordingly', () => {
     const s = new Schedule()
     const ev = s.command('migrate --force')
-    expect(ev.name).toBe('ravel migrate --force')
+    expect(ev.name).toBe('elyvel migrate --force')
     expect(s.events).toHaveLength(1)
   })
 })

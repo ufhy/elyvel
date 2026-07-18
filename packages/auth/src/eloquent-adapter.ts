@@ -1,5 +1,5 @@
 import type { CleanedWhere } from 'better-auth/adapters'
-import { table } from '@elysia-ravel/database'
+import { table } from '@elyvel/database'
 import { createAdapterFactory } from 'better-auth/adapters'
 
 type QB = ReturnType<typeof table>
@@ -56,7 +56,7 @@ function applyWhere(qb: QB, where?: CleanedWhere[]): QB {
 }
 
 /**
- * A Better Auth database adapter backed by elysia-ravel's Eloquent query builder.
+ * A Better Auth database adapter backed by elyvel's Eloquent query builder.
  * Every Better Auth DB operation runs through `table()` on the app's default
  * connection — no separate connection or ORM. Pass it as `database`:
  *
@@ -128,7 +128,7 @@ export function eloquentAdapter(options: EloquentAdapterOptions = {}) {
   })
 }
 
-/** Map a Better Auth field type to an elysia-ravel Blueprint column call. */
+/** Map a Better Auth field type to an elyvel Blueprint column call. */
 function columnFor(
   name: string,
   attr: { type?: unknown, required?: boolean, unique?: boolean },
@@ -165,7 +165,7 @@ function buildMigration(tables: Record<string, { fields: Record<string, any> }>)
     drops.push(`    schema.dropIfExists(${JSON.stringify(tableName)})`)
   }
   return (
-    `import type { Migration } from '@elysia-ravel/database'\n\n`
+    `import type { Migration } from '@elyvel/database'\n\n`
     + `export default {\n`
     + `  up: async (schema) => {\n${creates.map(c => c.replace('    schema', '    await schema')).join('\n')}\n  },\n`
     + `  down: async (schema) => {\n${drops.map(d => d.replace('    schema', '    await schema')).join('\n')}\n  },\n`

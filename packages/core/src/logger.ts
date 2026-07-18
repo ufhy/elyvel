@@ -480,7 +480,7 @@ export class LogManager {
     const logger = this.channels.get(name)
     if (!logger) {
       throw new Error(
-        `[elysia-ravel] Log channel "${name}" is not defined. Available: ${[...this.channels.keys()].join(', ')}`,
+        `[elyvel] Log channel "${name}" is not defined. Available: ${[...this.channels.keys()].join(', ')}`,
       )
     }
     return logger

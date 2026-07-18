@@ -40,7 +40,7 @@ export async function loadRoutes(dir: string): Promise<Elysia[]> {
     }
     else {
       console.warn(
-        `[elysia-ravel] "${file}" was skipped: expected a default-exported Elysia instance.`,
+        `[elyvel] "${file}" was skipped: expected a default-exported Elysia instance.`,
       )
     }
   }

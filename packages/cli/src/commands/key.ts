@@ -9,7 +9,7 @@ function generateKey(): string {
 }
 
 /**
- * `ravel key:generate [--show] [--force]` — set APP_KEY in the app's `.env`
+ * `elyvel key:generate [--show] [--force]` — set APP_KEY in the app's `.env`
  * (Laravel's `key:generate`). `--show` prints a key without writing; `--force`
  * allows overwriting an existing key when APP_ENV=production.
  */

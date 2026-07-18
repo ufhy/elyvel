@@ -1,4 +1,4 @@
-import { createApp } from '@elysia-ravel/core'
+import { createApp } from '@elyvel/core'
 
 interface ElysiaRoute {
   method: string
@@ -7,7 +7,7 @@ interface ElysiaRoute {
 
 const METHOD_ORDER = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ALL']
 
-/** `ravel route:list` — list every registered HTTP route (method + path). */
+/** `elyvel route:list` — list every registered HTTP route (method + path). */
 export async function routeListCommand(): Promise<number> {
   // Boot with routes so `routes/` files are mounted.
   const app = await createApp({ basePath: process.cwd() })

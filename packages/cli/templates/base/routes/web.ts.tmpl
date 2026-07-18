@@ -1,4 +1,4 @@
-import { route } from '@elysia-ravel/core'
+import { route } from '@elyvel/core'
 
 /**
  * Web routes. Files under routes/ are auto-mounted at boot. Return a value and
@@ -9,7 +9,7 @@ import { route } from '@elysia-ravel/core'
  * applies CSRF protection (needs sessions enabled). API/token routes don't —
  * they're CSRF-immune — so leave them out of it:
  *
- *   import { group, route } from '@elysia-ravel/core'
+ *   import { group, route } from '@elyvel/core'
  *   export default route()
  *     .use(group('web'))                 // CSRF for cookie-based routes
  *     .post('/profile', updateProfile)

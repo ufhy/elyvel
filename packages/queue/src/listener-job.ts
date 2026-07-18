@@ -2,7 +2,7 @@ import type { DispatchOptions } from './manager'
 import { Job, registerJob } from './job'
 import { dispatch } from './manager'
 
-/** Structural shape of a queued event listener (duck-typed — no dep on @elysia-ravel/events). */
+/** Structural shape of a queued event listener (duck-typed — no dep on @elyvel/events). */
 interface ListenerLike {
   handle(event: unknown, name: string): unknown | Promise<unknown>
   failed?(event: unknown, error: unknown): unknown | Promise<void>
@@ -34,7 +34,7 @@ export class ListenerJob extends Job {
     const cls = registry.get(this.listenerName)
     if (!cls) {
       throw new Error(
-        `[elysia-ravel] Unknown queued listener "${this.listenerName}". Register it with registerListener().`,
+        `[elyvel] Unknown queued listener "${this.listenerName}". Register it with registerListener().`,
       )
     }
     return new cls()

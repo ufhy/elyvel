@@ -89,7 +89,7 @@ let currentApp: Application | null = null
 export function application(): Application {
   if (!currentApp) {
     throw new Error(
-      '[elysia-ravel] No application has booted yet. Call Application.create() first.',
+      '[elyvel] No application has booted yet. Call Application.create() first.',
     )
   }
   return currentApp
@@ -117,7 +117,7 @@ export class Application {
 
   private constructor(basePath: string) {
     this.basePath = basePath
-    this.elysia = new Elysia({ name: 'elysia-ravel' })
+    this.elysia = new Elysia({ name: 'elyvel' })
   }
 
   /** Absolute path helper rooted at {@link basePath}. */
@@ -372,13 +372,13 @@ export class Application {
     const secret = cfg.secret ?? this.config.get<string | undefined>('app.key')
     if (driver === 'cookie' && !secret) {
       throw new Error(
-        '[elysia-ravel] Session cookie driver needs a secret — set `app.key` or `session.secret`.',
+        '[elyvel] Session cookie driver needs a secret — set `app.key` or `session.secret`.',
       )
     }
     this.elysia.use(
       sessionPlugin({
         driver,
-        cookie: cfg.cookie ?? 'ravel_session',
+        cookie: cfg.cookie ?? 'elyvel_session',
         lifetime: cfg.lifetime ?? 7200,
         secret: secret ?? '',
         files: this.path(cfg.files ?? 'storage/framework/sessions'),
@@ -449,7 +449,7 @@ export class Application {
       },
     })
     ws?.onServer?.(server)
-    this.logger.info(`${this.config.get('app.name') ?? 'elysia-ravel'} listening`, {
+    this.logger.info(`${this.config.get('app.name') ?? 'elyvel'} listening`, {
       url: `http://localhost:${resolved}`,
     })
     return this

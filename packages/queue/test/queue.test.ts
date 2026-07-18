@@ -463,7 +463,7 @@ describe('model serialization', () => {
 
     // the job is created with a STALE copy; the worker must re-fetch fresh
     const serialized = serializeJob(new ModelJob(new FakeUser(1, 'stale-alice')))
-    expect(serialized.data.user).toEqual({ __ravel_model__: { model: 'FakeUser', id: 1 } })
+    expect(serialized.data.user).toEqual({ __elyvel_model__: { model: 'FakeUser', id: 1 } })
 
     const store = new MemoryQueueStore()
     await store.push(encodeBody(serialized))

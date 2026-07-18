@@ -4,22 +4,22 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "ravel serve",
+    "dev": "elyvel serve",
     "start": "bun server.ts",
-    "migrate": "ravel migrate",
-    "migrate:fresh": "ravel migrate:fresh",
-    "key:generate": "ravel key:generate",
+    "migrate": "elyvel migrate",
+    "migrate:fresh": "elyvel migrate:fresh",
+    "key:generate": "elyvel key:generate",
     "lint": "eslint .",
     "format": "eslint . --fix"
   },
   "dependencies": {
-    "@elysia-ravel/core": "workspace:*",
-    "@elysia-ravel/database": "workspace:*",
+    "@elyvel/core": "workspace:*",
+    "@elyvel/database": "workspace:*",
     "elysia": "^1.4.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
-    "@elysia-ravel/cli": "workspace:*",
+    "@elyvel/cli": "workspace:*",
     "@types/bun": "^1.3.14",
     "eslint": "^10.0.0"
   }

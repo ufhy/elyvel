@@ -1,5 +1,5 @@
-import type { Message } from '@elysia-ravel/mail'
-import type { TelegramMessage } from '@elysia-ravel/telegram'
+import type { Message } from '@elyvel/mail'
+import type { TelegramMessage } from '@elyvel/telegram'
 
 /**
  * A recipient of notifications. `routeNotificationFor(channel)` returns the

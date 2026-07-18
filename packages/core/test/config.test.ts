@@ -2,12 +2,12 @@ import { describe, expect, test } from 'bun:test'
 import { ConfigRepository } from '../src/config'
 
 const repo = new ConfigRepository({
-  app: { name: 'Ravel', port: 3000, nested: { deep: true } },
+  app: { name: 'Elyvel', port: 3000, nested: { deep: true } },
 })
 
 describe('ConfigRepository', () => {
   test('resolves dot-paths', () => {
-    expect(repo.get<string>('app.name')).toBe('Ravel')
+    expect(repo.get<string>('app.name')).toBe('Elyvel')
     expect(repo.get<number>('app.port')).toBe(3000)
     expect(repo.get<boolean>('app.nested.deep')).toBe(true)
   })

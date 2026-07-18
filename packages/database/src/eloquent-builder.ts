@@ -1,7 +1,7 @@
 import type { Model, ModelClass } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
 import type { Relation } from './relations'
-import { LazyCollection } from '@elysia-ravel/support'
+import { LazyCollection } from '@elyvel/support'
 import { EloquentCollection } from './eloquent-collection'
 import { eagerLoad, MorphTo } from './relations'
 

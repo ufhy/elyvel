@@ -122,7 +122,7 @@ export function reconstructJob(serialized: SerializedJob): Job {
   const cls = registry.get(serialized.job)
   if (!cls) {
     throw new Error(
-      `[elysia-ravel] Unknown job "${serialized.job}". Register it with registerJob(${serialized.job}).`,
+      `[elyvel] Unknown job "${serialized.job}". Register it with registerJob(${serialized.job}).`,
     )
   }
   const job = Object.create(cls.prototype) as Job

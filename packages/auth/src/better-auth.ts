@@ -1,5 +1,5 @@
-import { app, expectsJson, route } from '@elysia-ravel/core'
-import { trans } from '@elysia-ravel/support'
+import { app, expectsJson, route } from '@elyvel/core'
+import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { gate } from './gate'
 import { AuthToken } from './provider'
@@ -39,7 +39,7 @@ export interface BetterAuthPluginOptions {
 }
 
 /**
- * Mount Better Auth into elysia-ravel: routes at `/api/auth/*`, a derived
+ * Mount Better Auth into elyvel: routes at `/api/auth/*`, a derived
  * `user`/`session` in context, and an `{ auth: true }` macro that 401s guests.
  *
  *   route().use(betterAuthPlugin()).get('/me', ({ user }) => user, { auth: true })
@@ -57,7 +57,7 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
   // booted, which happens after route modules load.
   const resolve = (): BetterAuthLike => auth ?? app(AuthToken)
   return (
-    new Elysia({ name: 'ravel-better-auth' })
+    new Elysia({ name: 'elyvel-better-auth' })
       // Rebuild the request from Elysia's parsed body — other global plugins may
       // have already consumed the stream, and Better Auth reads request.json().
       .all(`${base}/*`, ({ request, body }: any) => {

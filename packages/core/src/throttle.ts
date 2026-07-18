@@ -1,5 +1,5 @@
 import type { MiddlewareContext } from './middleware'
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 import { Middleware } from './middleware'
 
 // ── store (injectable) ──────────────────────────────────────────────────────

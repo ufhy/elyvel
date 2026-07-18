@@ -1,4 +1,4 @@
-import { defineMailConfig } from '@elysia-ravel/mail'
+import { defineMailConfig } from '@elyvel/mail'
 
 /**
  * Mail config. `log` writes emails to the logger (dev default) — so the

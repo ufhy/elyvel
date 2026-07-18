@@ -6,7 +6,7 @@ import { defineConfig } from 'vite'
 /**
  * Vite build for the Vue SPA (no Inertia, no SSR).
  *   vite build → client assets + manifest under public/build
- * During dev, run `vite` (or `ravel serve` + `vite`) and the server injects the
+ * During dev, run `vite` (or `elyvel serve` + `vite`) and the server injects the
  * dev client instead of the built manifest.
  */
 export default defineConfig({

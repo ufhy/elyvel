@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/scheduler",
+  "name": "@elyvel/scheduler",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style task scheduling for elysia-ravel — cron expressions, fluent frequencies, schedule:run",
+  "description": "Laravel-style task scheduling for elyvel — cron expressions, fluent frequencies, schedule:run",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 import type { Connection } from './connection'
-import { currentTimezone, dateParts, zonedStartOfDayUtc } from '@elysia-ravel/core'
-import { LazyCollection } from '@elysia-ravel/support'
+import { currentTimezone, dateParts, zonedStartOfDayUtc } from '@elyvel/core'
+import { LazyCollection } from '@elyvel/support'
 import { useConnection } from './connection'
 
 export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like'

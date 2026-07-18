@@ -27,7 +27,7 @@ export class CacheManager {
     const cfg: CacheStoreConfig | undefined
       = this.config.stores?.[name] ?? (name === 'memory' ? { driver: 'memory' } : undefined)
     if (!cfg) {
-      throw new Error(`[elysia-ravel] Cache store "${name}" is not defined in config/cache.ts.`)
+      throw new Error(`[elyvel] Cache store "${name}" is not defined in config/cache.ts.`)
     }
     if (cfg.driver === 'file') {
       return new Repository(new FileStore(cfg.path ?? 'storage/framework/cache'))

@@ -34,46 +34,46 @@ import {
 import { serve } from './commands/serve'
 
 const BANNER = `
-ravel — the elysia-ravel CLI
+elyvel — the elyvel CLI
 
 Usage:
-  ravel new <name>                            Scaffold a new elysia-ravel app
-  ravel key:generate [--show] [--force]       Set APP_KEY in .env (--show prints; --force overwrites in prod)
-  ravel serve [--entry <path>] [--no-watch]   Start the dev server
-  ravel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
+  elyvel new <name>                            Scaffold a new elyvel app
+  elyvel key:generate [--show] [--force]       Set APP_KEY in .env (--show prints; --force overwrites in prod)
+  elyvel serve [--entry <path>] [--no-watch]   Start the dev server
+  elyvel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
 
-  ravel migrate                               Run pending migrations
-  ravel migrate:fresh                         Drop all tables and re-migrate
-  ravel migrate:rollback                      Roll back the last migration batch
-  ravel migrate:status                        Show applied/pending migrations
-  ravel db:seed                               Run database/seeders/DatabaseSeeder
-  ravel model:prune [Name]                    Prune stale records (all prunable models, or one)
+  elyvel migrate                               Run pending migrations
+  elyvel migrate:fresh                         Drop all tables and re-migrate
+  elyvel migrate:rollback                      Roll back the last migration batch
+  elyvel migrate:status                        Show applied/pending migrations
+  elyvel db:seed                               Run database/seeders/DatabaseSeeder
+  elyvel model:prune [Name]                    Prune stale records (all prunable models, or one)
 
-  ravel db                                    Open the native database shell (sqlite3 / psql)
-  ravel db:show                               List tables with row counts
-  ravel db:table <name>                       Describe a table's columns
-  ravel db:monitor [--max=N]                  Report open connections (Postgres)
-  ravel route:list                            List all registered HTTP routes
-  ravel queue:work [--connection=<name>]      Process queued jobs
+  elyvel db                                    Open the native database shell (sqlite3 / psql)
+  elyvel db:show                               List tables with row counts
+  elyvel db:table <name>                       Describe a table's columns
+  elyvel db:monitor [--max=N]                  Report open connections (Postgres)
+  elyvel route:list                            List all registered HTTP routes
+  elyvel queue:work [--connection=<name>]      Process queued jobs
                    [--queue=high,default] [--once|--stop-when-empty|--max=N]
                    [--sleep=N] [--retry-after=N]
-  ravel queue:failed                          List failed jobs
-  ravel queue:retry <id> | --all              Re-queue failed jobs
-  ravel queue:forget <id>                     Delete a failed job
-  ravel queue:flush                           Delete all failed jobs
-  ravel queue:prune-failed [--hours=24]       Delete failed jobs older than N hours
-  ravel queue:restart                         Gracefully restart running workers
-  ravel schedule:run                          Run scheduled tasks that are due now
-  ravel schedule:work                         Run the scheduler in-process (dev; ticks each minute)
-  ravel schedule:test [name]                  Run scheduled tasks now regardless of cron
-  ravel schedule:list                         List scheduled tasks and their cron
+  elyvel queue:failed                          List failed jobs
+  elyvel queue:retry <id> | --all              Re-queue failed jobs
+  elyvel queue:forget <id>                     Delete a failed job
+  elyvel queue:flush                           Delete all failed jobs
+  elyvel queue:prune-failed [--hours=24]       Delete failed jobs older than N hours
+  elyvel queue:restart                         Gracefully restart running workers
+  elyvel schedule:run                          Run scheduled tasks that are due now
+  elyvel schedule:work                         Run the scheduler in-process (dev; ticks each minute)
+  elyvel schedule:test [name]                  Run scheduled tasks now regardless of cron
+  elyvel schedule:list                         List scheduled tasks and their cron
 
-  ravel make:controller <Name>                Generate a controller plugin
-  ravel make:middleware <Name>                Generate a middleware plugin
-  ravel make:model <Name>                     Generate a model + table schema
-  ravel make:migration <name>                 Generate a migration
-  ravel make:seeder <Name>                    Generate a seeder
-  ravel make:policy <Name> [--model[=Model]]  Generate an authorization policy
+  elyvel make:controller <Name>                Generate a controller plugin
+  elyvel make:middleware <Name>                Generate a middleware plugin
+  elyvel make:model <Name>                     Generate a model + table schema
+  elyvel make:migration <name>                 Generate a migration
+  elyvel make:seeder <Name>                    Generate a seeder
+  elyvel make:policy <Name> [--model[=Model]]  Generate an authorization policy
 `
 
 /** Split argv into positionals and `--flag[=value]` pairs. */

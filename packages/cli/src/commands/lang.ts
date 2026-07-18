@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { ERROR_LANG_DEFAULTS } from '@elysia-ravel/core'
-import { DEFAULT_MESSAGES } from '@elysia-ravel/validation'
+import { ERROR_LANG_DEFAULTS } from '@elyvel/core'
+import { DEFAULT_MESSAGES } from '@elyvel/validation'
 
 /** Serialize a (nested string) object as an idiomatic TS object literal. */
 function toTsLiteral(value: unknown, indent = 0): string {
@@ -26,7 +26,7 @@ function writeGroup(dir: string, name: string, data: unknown, force: boolean): b
     console.log(`  • skipped ${rel} (exists — use --force)`)
     return false
   }
-  const banner = `// Published by \`ravel lang:publish\`. Edit freely — restyle the wording or\n`
+  const banner = `// Published by \`elyvel lang:publish\`. Edit freely — restyle the wording or\n`
     + `// translate the values; keys are matched by the framework.\n\n`
   writeFileSync(file, `${banner}export default ${toTsLiteral(data)}\n`, 'utf8')
   console.log(`  ✓ ${rel}`)
@@ -34,7 +34,7 @@ function writeGroup(dir: string, name: string, data: unknown, force: boolean): b
 }
 
 /**
- * `ravel lang:publish [locale] [--force]` — dump the framework's built-in message
+ * `elyvel lang:publish [locale] [--force]` — dump the framework's built-in message
  * defaults (validation + errors) to `lang/<locale>/` so they can be restyled or
  * translated. Existing files are left alone unless `--force`.
  */

@@ -17,7 +17,7 @@ export interface FileOptions {
  * with the right `Content-Type` and `Content-Disposition`.
  */
 export class FileResponse {
-  readonly __ravelFile = true
+  readonly __elyvelFile = true
   constructor(
     readonly source: FileSource,
     readonly options: FileOptions,

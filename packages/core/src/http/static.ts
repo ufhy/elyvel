@@ -17,7 +17,7 @@ export function staticFiles(options: StaticFilesOptions) {
   const prefix = (options.prefix ?? '').replace(/\/+$/, '')
   const root = resolve(process.cwd(), options.dir)
 
-  return new Elysia({ name: `ravel-static-${prefix || 'root'}` }).get(
+  return new Elysia({ name: `elyvel-static-${prefix || 'root'}` }).get(
     `${prefix}/*`,
     async ({ params, set }: any) => {
       const rel = (params['*'] ?? '') as string

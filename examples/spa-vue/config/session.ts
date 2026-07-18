@@ -1,4 +1,4 @@
-import { defineSessionConfig } from '@elysia-ravel/core'
+import { defineSessionConfig } from '@elyvel/core'
 
 /**
  * Session config. The `cookie` driver stores the (encrypted) session in a
@@ -6,6 +6,6 @@ import { defineSessionConfig } from '@elysia-ravel/core'
  */
 export default defineSessionConfig({
   driver: 'cookie',
-  cookie: 'ravel_session',
+  cookie: 'elyvel_session',
   lifetime: 60 * 120, // 2 hours
 })

@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/support",
+  "name": "@elyvel/support",
   "type": "module",
   "version": "0.0.0",
-  "description": "Foundational utilities (Collection, …) shared across elysia-ravel — mirrors Illuminate\\Support",
+  "description": "Foundational utilities (Collection, …) shared across elyvel — mirrors Illuminate\\Support",
   "exports": {
     ".": "./src/index.ts"
   },

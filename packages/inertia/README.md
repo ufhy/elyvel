@@ -1,14 +1,14 @@
-# @elysia-ravel/inertia
+# @elyvel/inertia
 
-The server side of [Inertia.js](https://inertiajs.com) for elysia-ravel — build a
+The server side of [Inertia.js](https://inertiajs.com) for elyvel — build a
 full-stack SPA with **Vue, React, or Svelte** and no separate API. Your
 controllers return a component name + props; Inertia handles the rest.
 
 ## Server (identical for all three frameworks)
 
 ```ts
-import { Inertia, inertia } from '@elysia-ravel/inertia'
-import { route } from '@elysia-ravel/core'
+import { Inertia, inertia } from '@elyvel/inertia'
+import { route } from '@elyvel/core'
 
 export default route()
   .use(inertia({

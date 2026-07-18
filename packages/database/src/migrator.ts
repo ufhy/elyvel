@@ -13,7 +13,7 @@ export interface Migration {
   down(schema: SchemaBuilder): void | Promise<void>
 }
 
-const TABLE = '_ravel_migrations'
+const TABLE = '_elyvel_migrations'
 
 async function ensureLedger(conn: Connection): Promise<void> {
   await conn.statement(

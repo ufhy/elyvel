@@ -37,7 +37,7 @@ export class TelegramClient {
       result?: T
     }
     if (!res.ok || data.ok === false) {
-      throw new Error(`[elysia-ravel] Telegram ${method} failed: ${data.description ?? res.status}`)
+      throw new Error(`[elyvel] Telegram ${method} failed: ${data.description ?? res.status}`)
     }
     return data.result as T
   }
@@ -48,7 +48,7 @@ export class TelegramClient {
     const chatId = m.chatId ?? this.options.defaultChatId
     if (chatId === undefined) {
       throw new Error(
-        '[elysia-ravel] Telegram sendMessage needs a chatId (or config.defaultChatId).',
+        '[elyvel] Telegram sendMessage needs a chatId (or config.defaultChatId).',
       )
     }
     return this.call('sendMessage', {

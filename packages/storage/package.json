@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/storage",
+  "name": "@elyvel/storage",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style file storage for elysia-ravel — local + S3 (Bun-native) disks",
+  "description": "Laravel-style file storage for elyvel — local + S3 (Bun-native) disks",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   }
 }

@@ -1,10 +1,10 @@
 /**
  * A tiny translation seam so framework packages can emit translatable messages
- * without depending on `@elysia-ravel/i18n`. `support` has no dependencies and
+ * without depending on `@elyvel/i18n`. `support` has no dependencies and
  * everything depends on it, so this avoids a dependency cycle.
  *
  * By default `trans()` returns the provided English fallback (or the key), so
- * the framework works untranslated out of the box. When `@elysia-ravel/i18n` is
+ * the framework works untranslated out of the box. When `@elyvel/i18n` is
  * installed, its service provider calls {@link setMessageTranslator} to route
  * these calls through the real, locale-aware translator.
  */
@@ -20,7 +20,7 @@ export type MessageTranslator = (
 
 let translator: MessageTranslator | null = null
 
-/** Register the active translator (called by `@elysia-ravel/i18n`). */
+/** Register the active translator (called by `@elyvel/i18n`). */
 export function setMessageTranslator(fn: MessageTranslator | null): void {
   translator = fn
 }

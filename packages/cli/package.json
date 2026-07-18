@@ -1,11 +1,11 @@
 {
-  "name": "@elysia-ravel/cli",
+  "name": "@elyvel/cli",
   "type": "module",
   "version": "0.0.0",
-  "description": "The `ravel` command-line generator and dev server",
+  "description": "The `elyvel` command-line generator and dev server",
   "main": "./src/index.ts",
   "bin": {
-    "ravel": "./src/index.ts"
+    "elyvel": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -14,10 +14,10 @@
     "elysia": ">=1.4.0"
   },
   "dependencies": {
-    "@elysia-ravel/core": "workspace:*",
-    "@elysia-ravel/database": "workspace:*",
-    "@elysia-ravel/queue": "workspace:*",
-    "@elysia-ravel/scheduler": "workspace:*",
-    "@elysia-ravel/validation": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/database": "workspace:*",
+    "@elyvel/queue": "workspace:*",
+    "@elyvel/scheduler": "workspace:*",
+    "@elyvel/validation": "workspace:*"
   }
 }

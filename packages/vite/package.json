@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/vite",
+  "name": "@elyvel/vite",
   "type": "module",
   "version": "0.0.0",
-  "description": "Vite integration for elysia-ravel — asset tags + serve a Vite SPA (no Inertia required)",
+  "description": "Vite integration for elyvel — asset tags + serve a Vite SPA (no Inertia required)",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*",
+    "@elyvel/core": "workspace:*",
     "elysia": ">=1.4.0"
   }
 }

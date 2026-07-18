@@ -1,4 +1,4 @@
-import { staticFiles } from '@elysia-ravel/core'
+import { staticFiles } from '@elyvel/core'
 
 /**
  * Serve the Vite build output at `/build/*`. In production a CDN or reverse

@@ -4,7 +4,7 @@ import { createSSRApp, h } from 'vue'
 
 /**
  * Inertia SSR entry. Default-exports a `render(page)` returning `{ head, body }`.
- * The elysia-ravel Inertia adapter imports this built bundle in-process (Bun).
+ * The elyvel Inertia adapter imports this built bundle in-process (Bun).
  */
 export default (page: Parameters<typeof createInertiaApp>[0]['page']) =>
   createInertiaApp({

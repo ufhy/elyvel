@@ -9,7 +9,7 @@ let cwd: string
 
 beforeEach(() => {
   cwd = process.cwd()
-  dir = mkdtempSync(join(tmpdir(), 'ravel-new-'))
+  dir = mkdtempSync(join(tmpdir(), 'elyvel-new-'))
   process.chdir(dir)
 })
 afterEach(() => {
@@ -19,7 +19,7 @@ afterEach(() => {
 
 const read = (app: string, rel: string) => readFileSync(join(dir, app, rel), 'utf8')
 
-describe('ravel new', () => {
+describe('elyvel new', () => {
   test('scaffolds the base skeleton', async () => {
     expect(await newApp('my-app')).toBe(0)
     for (const f of [
@@ -54,7 +54,7 @@ describe('ravel new', () => {
     }
     const pkg = JSON.parse(read('kit-app', 'package.json'))
     expect(pkg.dependencies['better-auth']).toBeDefined()
-    expect(pkg.dependencies['@elysia-ravel/auth']).toBeDefined()
+    expect(pkg.dependencies['@elyvel/auth']).toBeDefined()
     // MailServiceProvider auto-registered
     expect(read('kit-app', 'config/app.ts')).toContain('MailServiceProvider')
   })

@@ -6,10 +6,10 @@ import { CsrfMiddleware, sessionPlugin } from '../src/session'
 
 const cfg: ResolvedSessionConfig = {
   driver: 'cookie',
-  cookie: 'ravel_session',
+  cookie: 'elyvel_session',
   lifetime: 7200,
   secret: 'test-secret',
-  files: '/tmp/ravel-test-sessions',
+  files: '/tmp/elyvel-test-sessions',
   path: '/',
   secure: false,
   httpOnly: true,
@@ -64,7 +64,7 @@ describe('session (cookie driver)', () => {
 describe('server-side session drivers (memory / file / database)', () => {
   const { mkdtempSync } = require('node:fs') as typeof import('node:fs')
   const { tmpdir } = require('node:os') as typeof import('node:os')
-  const dir = mkdtempSync(`${tmpdir()}/ravel-sess-`)
+  const dir = mkdtempSync(`${tmpdir()}/elyvel-sess-`)
 
   // in-memory adapter for the database driver
   const dbRows = new Map<string, string>()

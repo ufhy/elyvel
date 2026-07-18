@@ -1,9 +1,9 @@
-import { Controller, type MiddlewareContext } from '@elysia-ravel/core'
+import { Controller, type MiddlewareContext } from '@elyvel/core'
 
 /**
  * {{class}} — a RESTful controller. Wire it up in a `routes/` file:
  *
- *   import { resource } from '@elysia-ravel/core'
+ *   import { resource } from '@elyvel/core'
  *   import { {{class}} } from '../app/controllers/{{class}}'
  *   export default resource('/{{kebab}}', {{class}})
  *

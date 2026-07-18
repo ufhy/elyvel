@@ -1,4 +1,4 @@
-# Contributing to elysia-ravel
+# Contributing to elyvel
 
 Thanks for your interest in improving the framework.
 
@@ -22,7 +22,7 @@ and land with tests for the behavior it adds or fixes.
 
 ## Versioning & stability
 
-elysia-ravel follows [Semantic Versioning](https://semver.org) — with an explicit
+elyvel follows [Semantic Versioning](https://semver.org) — with an explicit
 pre-1.0 caveat.
 
 ### Pre-1.0 (current)
@@ -49,7 +49,7 @@ least one MINOR release with a runtime/type warning).
 
 ### What counts as "public API"
 
-The exports of each `@elysia-ravel/*` package entry point, the CLI commands, and
+The exports of each `@elyvel/*` package entry point, the CLI commands, and
 the documented config file shapes. Anything under a package's internal paths, or
 marked `@internal`, may change at any time.
 

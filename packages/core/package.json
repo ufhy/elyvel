@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/core",
+  "name": "@elyvel/core",
   "type": "module",
   "version": "0.0.0",
-  "description": "Core kernel for the elysia-ravel framework",
+  "description": "Core kernel for the elyvel framework",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -14,8 +14,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/support": "workspace:*",
     "@elysiajs/openapi": ">=1.4.0",
+    "@elyvel/support": "workspace:*",
     "elysia": ">=1.4.0"
   },
   "peerDependenciesMeta": {

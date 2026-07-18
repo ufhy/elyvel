@@ -69,7 +69,7 @@ export function setConfigRepository(repo: ConfigRepository | null): void {
 export function config<T = unknown>(path: string, fallback?: T): T {
   if (!repository) {
     throw new Error(
-      '[elysia-ravel] config() called before the application booted. '
+      '[elyvel] config() called before the application booted. '
       + 'Config is available once Application.create() has loaded config/*.ts.',
     )
   }

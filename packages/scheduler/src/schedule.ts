@@ -1,6 +1,6 @@
 import { ScheduledEvent } from './event'
 
-/** Anything with a `handle()` — e.g. an `@elysia-ravel/queue` Job. */
+/** Anything with a `handle()` — e.g. an `@elyvel/queue` Job. */
 interface Runnable {
   handle(): void | Promise<void>
 }
@@ -17,7 +17,7 @@ export interface ScheduleRunResult {
  * The task schedule — Laravel's `Illuminate\Console\Scheduling\Schedule`.
  * Register work with `call`/`job`/`command`/`exec`, chain a frequency on the
  * returned {@link ScheduledEvent}, then run due tasks with `run()` (invoked
- * every minute by `ravel schedule:run` from system cron).
+ * every minute by `elyvel schedule:run` from system cron).
  */
 export class Schedule {
   readonly events: ScheduledEvent[] = []
@@ -42,10 +42,10 @@ export class Schedule {
     return this.add(new ScheduledEvent(() => runShell(command)).named(command))
   }
 
-  /** Schedule a `ravel <command>` invocation. */
-  command(ravelCommand: string): ScheduledEvent {
+  /** Schedule a `elyvel <command>` invocation. */
+  command(elyvelCommand: string): ScheduledEvent {
     return this.add(
-      new ScheduledEvent(() => runShell(`ravel ${ravelCommand}`)).named(`ravel ${ravelCommand}`),
+      new ScheduledEvent(() => runShell(`elyvel ${elyvelCommand}`)).named(`elyvel ${elyvelCommand}`),
     )
   }
 

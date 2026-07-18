@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/validation",
+  "name": "@elyvel/validation",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style validation for elysia-ravel — rule DSL, message bag, FormRequest",
+  "description": "Laravel-style validation for elyvel — rule DSL, message bag, FormRequest",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/support": "workspace:*"
+    "@elyvel/support": "workspace:*"
   }
 }

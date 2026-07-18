@@ -1,5 +1,5 @@
 /**
- * A lazy, streaming collection over an async source — the Elysia-ravel take on
+ * A lazy, streaming collection over an async source — the Elysia-elyvel take on
  * Laravel's `LazyCollection`. Nothing is materialized until iterated, so it
  * stays memory-bounded over large result sets (used by `Model.query().cursor()`).
  */

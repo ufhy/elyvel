@@ -1,7 +1,7 @@
-import type { User } from '@elysia-ravel/auth'
-import { authHasPlugin, AuthToken, enabledSocialProviders, webRoute } from '@elysia-ravel/auth'
-import { app } from '@elysia-ravel/core'
-import { Inertia } from '@elysia-ravel/inertia'
+import type { User } from '@elyvel/auth'
+import { authHasPlugin, AuthToken, enabledSocialProviders, webRoute } from '@elyvel/auth'
+import { app } from '@elyvel/core'
+import { Inertia } from '@elyvel/inertia'
 
 /**
  * Authentication flow pages (login, register, password reset, email verify,

@@ -6,11 +6,11 @@ import { S3Disk } from '../src/index'
 
 // ── boot a real MinIO server (S3-compatible) if the binary is available ──────
 const PORT = 9911
-const BUCKET = 'ravel-test'
+const BUCKET = 'elyvel-test'
 const KEY = 'minioadmin'
 const SECRET = 'minioadmin'
 const endpoint = `http://localhost:${PORT}`
-const dataDir = join(tmpdir(), `ravel-minio-${crypto.randomUUID()}`)
+const dataDir = join(tmpdir(), `elyvel-minio-${crypto.randomUUID()}`)
 
 let proc: import('bun').Subprocess | null = null
 let live = false

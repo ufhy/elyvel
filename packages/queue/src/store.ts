@@ -181,7 +181,7 @@ export function configureDatabaseQueue(adapter: QueueDbAdapter): void {
 }
 function requireAdapter(): QueueDbAdapter {
   if (!dbAdapter)
-    throw new Error('[elysia-ravel] database queue needs configureDatabaseQueue(...).')
+    throw new Error('[elyvel] database queue needs configureDatabaseQueue(...).')
   return dbAdapter
 }
 

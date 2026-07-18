@@ -12,7 +12,7 @@ function makeApp() {
 }
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'ravel-maint-'))
+  dir = mkdtempSync(join(tmpdir(), 'elyvel-maint-'))
   file = join(dir, 'storage/framework/down')
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
@@ -45,7 +45,7 @@ describe('maintenance mode', () => {
     const redirect = await app.handle(new Request('http://localhost/?secret=s3cret'))
     expect(redirect.status).toBe(302)
     const cookie = (redirect.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
-    expect(cookie).toBe('ravel_maintenance=s3cret')
+    expect(cookie).toBe('elyvel_maintenance=s3cret')
 
     const passed = await app.handle(new Request('http://localhost/', { headers: { cookie } }))
     expect(passed.status).toBe(200)

@@ -46,7 +46,7 @@ export class SmtpTransport implements Transport {
       nodemailer = await import('nodemailer')
     }
     catch {
-      throw new Error('[elysia-ravel] SMTP transport needs `nodemailer` installed.')
+      throw new Error('[elyvel] SMTP transport needs `nodemailer` installed.')
     }
     const transporter = nodemailer.createTransport({
       host: this.options.host,

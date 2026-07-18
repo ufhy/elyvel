@@ -1,4 +1,4 @@
-import { ConfigRepository, setConfigRepository } from '@elysia-ravel/core'
+import { ConfigRepository, setConfigRepository } from '@elyvel/core'
 import { afterEach, describe, expect, test } from 'bun:test'
 import { AuthGuard, VerifiedGuard } from '../src/auth-middleware'
 

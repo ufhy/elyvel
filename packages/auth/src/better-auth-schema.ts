@@ -1,10 +1,10 @@
-import type { SchemaBuilder } from '@elysia-ravel/database'
+import type { SchemaBuilder } from '@elyvel/database'
 import type { BetterAuthOptions } from 'better-auth'
 import { getSchema } from 'better-auth/db'
 
 /**
  * Create Better Auth's tables (user/session/account/verification + any plugin
- * tables) using elysia-ravel's schema builder — one connection, all in Eloquent.
+ * tables) using elyvel's schema builder — one connection, all in Eloquent.
  * Call it from a migration: `await migrateBetterAuth(schema, auth.options)`.
  * Returns the created table names.
  */

@@ -1,5 +1,5 @@
-import { Model } from '@elysia-ravel/database'
-// import type { Dayjs } from '@elysia-ravel/database'
+import { Model } from '@elyvel/database'
+// import type { Dayjs } from '@elyvel/database'
 
 /** {{class}} model — an Eloquent-style Active Record over the `{{table}}` table. */
 export class {{class}} extends Model {

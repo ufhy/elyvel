@@ -1,8 +1,8 @@
-import { setMessageTranslator } from '@elysia-ravel/support'
+import { setMessageTranslator } from '@elyvel/support'
 import { afterEach, describe, expect, test } from 'bun:test'
 import { formatMessage } from '../src/messages'
 
-// Simulate what @elysia-ravel/i18n's provider does: register a translator that
+// Simulate what @elyvel/i18n's provider does: register a translator that
 // serves Indonesian messages. formatMessage should route through it, with the
 // English default surviving for any key the translator doesn't know.
 const id: Record<string, string> = {

@@ -1,4 +1,4 @@
-import type { Application } from '@elysia-ravel/core'
+import type { Application } from '@elyvel/core'
 import { describe, expect, test } from 'bun:test'
 import { useConnection } from '../src/connection'
 import { EloquentServiceProvider } from '../src/database-provider'

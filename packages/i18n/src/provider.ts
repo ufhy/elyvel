@@ -1,7 +1,7 @@
 import type { Replacements } from './translator'
 import { existsSync } from 'node:fs'
-import { ServiceProvider } from '@elysia-ravel/core'
-import { setMessageTranslator } from '@elysia-ravel/support'
+import { ServiceProvider } from '@elyvel/core'
+import { setMessageTranslator } from '@elyvel/support'
 import { __, currentLocale, getTranslator, trans, transChoice } from './index'
 
 /** `config/i18n.ts` shape. */
@@ -41,7 +41,7 @@ export class I18nServiceProvider extends ServiceProvider {
       translator.handleMissing((key, locale) => log.warn('missing translation', { key, locale }))
     }
 
-    // Route @elysia-ravel/support's `trans()` (validation/errors) through the real
+    // Route @elyvel/support's `trans()` (validation/errors) through the real
     // translator, honoring the per-request locale. Missing keys return undefined
     // so the caller's English fallback is used.
     setMessageTranslator((key, replace) =>

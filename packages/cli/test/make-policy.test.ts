@@ -9,7 +9,7 @@ let cwd: string
 
 beforeEach(() => {
   cwd = process.cwd()
-  dir = mkdtempSync(join(tmpdir(), 'ravel-make-'))
+  dir = mkdtempSync(join(tmpdir(), 'elyvel-make-'))
   process.chdir(dir)
 })
 afterEach(() => {
@@ -24,7 +24,7 @@ describe('make:policy', () => {
     expect(await make('policy', 'Post')).toBe(0)
     const src = read('app/policies/PostPolicy.ts')
     expect(src).toContain('export class PostPolicy')
-    expect(src).toContain('import { Response } from \'@elysia-ravel/auth\'')
+    expect(src).toContain('import { Response } from \'@elyvel/auth\'')
     expect(src).toContain('update(user:')
     expect(src).not.toContain('createGate') // old stub is gone
   })

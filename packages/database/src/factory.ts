@@ -4,7 +4,7 @@ import type { Attributes, Model, ModelClass } from './model'
 export type FactoryDefinition = (index: number) => Attributes
 
 /**
- * A model factory for seeding/tests — the Elysia-ravel take on Laravel factories.
+ * A model factory for seeding/tests — the Elysia-elyvel take on Laravel factories.
  * `make` builds unsaved instances; `create` persists them.
  */
 export class Factory<M extends Model> {

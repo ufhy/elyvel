@@ -28,7 +28,7 @@ for (const d of dialects) {
       const conn = await d.connect()
       await migrate(conn, dir)
       const rows = await conn.select<{ batch: number | string }>(
-        'SELECT batch FROM _ravel_migrations',
+        'SELECT batch FROM _elyvel_migrations',
       )
       expect(Number(rows[0]?.batch)).toBe(1)
     })

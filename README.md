@@ -1,4 +1,4 @@
-# elysia-ravel
+# elyvel
 
 A Laravel-inspired, **Elysia-first** application framework for [Bun](https://bun.sh).
 
@@ -13,10 +13,10 @@ end-to-end type-safety. No facades, no runtime magic, no lost types.
 
 | Package | Description |
 | --- | --- |
-| [`@elysia-ravel/core`](packages/core) | Kernel: `Application`, `ServiceProvider`, typed `Container`, config + env, logger, route auto-loader |
-| [`@elysia-ravel/orm`](packages/orm) | Drizzle ORM, multi-driver (SQLite · Postgres · PGlite): `defineModel`, imperative migrations, seeders |
-| [`@elysia-ravel/auth`](packages/auth) | Token auth guard, password hashing, and an authorization gate |
-| [`@elysia-ravel/cli`](packages/cli) | The `ravel` command — dev server + generators + migrate/seed |
+| [`@elyvel/core`](packages/core) | Kernel: `Application`, `ServiceProvider`, typed `Container`, config + env, logger, route auto-loader |
+| [`@elyvel/orm`](packages/orm) | Drizzle ORM, multi-driver (SQLite · Postgres · PGlite): `defineModel`, imperative migrations, seeders |
+| [`@elyvel/auth`](packages/auth) | Token auth guard, password hashing, and an authorization gate |
+| [`@elyvel/cli`](packages/cli) | The `elyvel` command — dev server + generators + migrate/seed |
 | [`examples/basic-app`](examples/basic-app) | A minimal, runnable reference app |
 
 ## Quick start
@@ -24,13 +24,13 @@ end-to-end type-safety. No facades, no runtime magic, no lost types.
 ```bash
 bun install
 cd examples/basic-app
-bun run server.ts        # or: ravel serve
+bun run server.ts        # or: elyvel serve
 # → http://localhost:3000/api/health
 ```
 
 ## Concepts
 
-| Laravel | elysia-ravel |
+| Laravel | elyvel |
 | --- | --- |
 | Service Provider | `ServiceProvider` (register → boot lifecycle) |
 | Container / Facade | Typed `Container` + `token<T>()`, resolved explicitly |
@@ -38,12 +38,12 @@ bun run server.ts        # or: ravel serve
 | Routing + Controller | Elysia plugins auto-loaded from `routes/` |
 | Eloquent | `defineModel(table)` over Drizzle — async, typed `all/find/create/where/query`; same model on SQLite/Postgres |
 | DB switching | Change `default` in `config/database.ts` (drivers: `sqlite`/`pg`/`pglite`) — no app code changes |
-| Migrations / Seeders | Imperative `up`/`down` files + `Seeder` classes, tracked in `_ravel_migrations` |
+| Migrations / Seeders | Imperative `up`/`down` files + `Seeder` classes, tracked in `_elyvel_migrations` |
 | Auth (Sanctum) | `createAuth(...).guard()` Elysia plugin — token guard, `{ auth: true }` macro, typed `user` in context |
 | Gate / Policies | `createGate<User>().define(ability, fn)` → `allows` / `authorize` |
 | Hashing | `Hash.make` / `Hash.verify` over `Bun.password` (argon2) |
 | Logging | Leveled `Logger` with channels/stack, console/file/daily/buffered transports, size & daily rotation, key + pattern redaction, per-request correlation id, and `app.catchExceptions()` |
-| Artisan | `ravel serve`, `ravel migrate[:fresh]`, `ravel db:seed`, `ravel make:*` |
+| Artisan | `elyvel serve`, `elyvel migrate[:fresh]`, `elyvel db:seed`, `elyvel make:*` |
 
 ## Conventions
 

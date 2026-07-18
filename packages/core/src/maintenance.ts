@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
 
@@ -16,7 +16,7 @@ export interface DownPayload {
   status?: number
 }
 
-const BYPASS_COOKIE = 'ravel_maintenance'
+const BYPASS_COOKIE = 'elyvel_maintenance'
 
 /** Put the app into maintenance mode by writing the `down` file. */
 export function bringDown(file: string, payload: DownPayload = {}): void {
@@ -63,7 +63,7 @@ function cookieHas(header: string | null, name: string, value: string): boolean 
  * through for the rest of the outage. Mounted before routes so it covers everything.
  */
 export function maintenanceMode(file: string) {
-  return new Elysia({ name: 'ravel-maintenance' }).onRequest(({ request }) => {
+  return new Elysia({ name: 'elyvel-maintenance' }).onRequest(({ request }) => {
     const payload = readDownPayload(file)
     if (!payload)
       return

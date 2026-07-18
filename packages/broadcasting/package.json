@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/broadcasting",
+  "name": "@elyvel/broadcasting",
   "type": "module",
   "version": "0.0.0",
-  "description": "Real-time broadcasting for elysia-ravel — Bun-native WebSocket pub/sub, no Pusher needed",
+  "description": "Real-time broadcasting for elyvel — Bun-native WebSocket pub/sub, no Pusher needed",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*",
-    "@elysia-ravel/notifications": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/notifications": "workspace:*"
   }
 }

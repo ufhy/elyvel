@@ -1,5 +1,5 @@
-import { AuthGuard, betterAuthPlugin, VerifiedGuard } from '@elysia-ravel/auth'
-import { defineMiddlewareConfig } from '@elysia-ravel/core'
+import { AuthGuard, betterAuthPlugin, VerifiedGuard } from '@elyvel/auth'
+import { defineMiddlewareConfig } from '@elyvel/core'
 
 /**
  * HTTP middleware wiring — the app's central bootstrap (à la Laravel's

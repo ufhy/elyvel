@@ -22,8 +22,8 @@ const mainNavItems: NavItem[] = [
 ]
 
 const footerNavItems: NavItem[] = [
-  { title: 'Repository', href: 'https://github.com/ufhy/elysia-ravel', icon: FolderGit2 },
-  { title: 'Documentation', href: 'https://github.com/ufhy/elysia-ravel#readme', icon: BookOpen },
+  { title: 'Repository', href: 'https://github.com/ufhy/elyvel', icon: FolderGit2 },
+  { title: 'Documentation', href: 'https://github.com/ufhy/elyvel#readme', icon: BookOpen },
 ]
 </script>
 

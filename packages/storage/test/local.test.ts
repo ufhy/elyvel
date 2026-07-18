@@ -6,7 +6,7 @@ import { fakeStorage, FilesystemManager, LocalDisk, storage } from '../src/index
 
 const roots: string[] = []
 function freshRoot(): string {
-  const root = join(tmpdir(), `ravel-storage-test-${crypto.randomUUID()}`)
+  const root = join(tmpdir(), `elyvel-storage-test-${crypto.randomUUID()}`)
   roots.push(root)
   return root
 }

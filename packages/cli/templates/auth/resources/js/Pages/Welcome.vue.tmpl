@@ -33,10 +33,10 @@ const features = [
           <div class="grid h-8 w-8 place-items-center rounded-lg bg-indigo-500 text-sm font-black text-white">
             r
           </div>
-          <span class="font-mono text-sm tracking-tight text-gray-300">elysia-ravel</span>
+          <span class="font-mono text-sm tracking-tight text-gray-300">elyvel</span>
         </div>
         <nav class="flex items-center gap-5 text-sm text-gray-400">
-          <a href="https://github.com/ufhy/elysia-ravel" class="transition hover:text-white">GitHub</a>
+          <a href="https://github.com/ufhy/elyvel" class="transition hover:text-white">GitHub</a>
           <Link v-if="user" href="/dashboard" class="transition hover:text-white">
             Dashboard
           </Link>
@@ -108,7 +108,7 @@ const features = [
       </main>
 
       <footer class="border-t border-white/5 py-6 font-mono text-xs text-gray-600">
-        elysia-ravel · {{ new Date().getFullYear() }}
+        elyvel · {{ new Date().getFullYear() }}
       </footer>
     </div>
   </div>

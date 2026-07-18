@@ -31,7 +31,7 @@ class CaptureTransport implements Transport {
 
 describe('transports', () => {
   test('FileTransport appends one JSON line per entry', () => {
-    const path = join(tmpdir(), `ravel-log-${process.pid}-${Date.now()}.log`)
+    const path = join(tmpdir(), `elyvel-log-${process.pid}-${Date.now()}.log`)
     const logger = new Logger({ level: 'info', transports: [new FileTransport(path)] })
     logger.info('first', { x: 1 })
     logger.warn('second')
@@ -61,7 +61,7 @@ describe('transports', () => {
   })
 
   test('FileTransport rotates when the file exceeds maxBytes', () => {
-    const path = join(tmpdir(), `ravel-rot-${process.pid}-${Date.now()}.log`)
+    const path = join(tmpdir(), `elyvel-rot-${process.pid}-${Date.now()}.log`)
     const logger = new Logger({
       level: 'info',
       transports: [new FileTransport(path, { maxBytes: 200, maxFiles: 3 })],
@@ -80,7 +80,7 @@ describe('transports', () => {
   })
 
   test('BufferedFileTransport batches lines until flushed', () => {
-    const path = join(tmpdir(), `ravel-buf-${process.pid}-${Date.now()}.log`)
+    const path = join(tmpdir(), `elyvel-buf-${process.pid}-${Date.now()}.log`)
     const t = new BufferedFileTransport(path, { flushEvery: 100 })
     t.log(entry('a'))
     t.log(entry('b'))
@@ -93,7 +93,7 @@ describe('transports', () => {
   })
 
   test('FileTransport gzips rotated files when compress is on', () => {
-    const path = join(tmpdir(), `ravel-gz-${process.pid}-${Date.now()}.log`)
+    const path = join(tmpdir(), `elyvel-gz-${process.pid}-${Date.now()}.log`)
     const logger = new Logger({
       level: 'info',
       transports: [new FileTransport(path, { maxBytes: 200, maxFiles: 3, compress: true })],
@@ -111,7 +111,7 @@ describe('transports', () => {
   })
 
   test('DailyFileTransport writes to a per-day file', () => {
-    const dir = join(tmpdir(), `ravel-daily-${process.pid}-${Date.now()}`)
+    const dir = join(tmpdir(), `elyvel-daily-${process.pid}-${Date.now()}`)
     const t = new DailyFileTransport(join(dir, 'app'))
     t.log(entry('morning', '2026-07-11T08:00:00.000Z'))
 

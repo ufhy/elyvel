@@ -1,9 +1,9 @@
-import type { Channel, Notifiable, Notification } from '@elysia-ravel/notifications'
+import type { Channel, Notifiable, Notification } from '@elyvel/notifications'
 import {
 
   notifiableKey,
   routeFor,
-} from '@elysia-ravel/notifications'
+} from '@elyvel/notifications'
 import { broadcaster } from './manager'
 
 /**

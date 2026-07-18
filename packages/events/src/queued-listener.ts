@@ -11,7 +11,7 @@ export interface ListenerJobContext {
  * A queued event listener (Laravel's `implements ShouldQueue`). Extend this and
  * implement `handle`; when the event is dispatched, the listener is pushed onto
  * the queue instead of running synchronously (requires a queuer — wire one with
- * {@link configureListenerQueuer}, e.g. `@elysia-ravel/queue`'s `queueListener`).
+ * {@link configureListenerQueuer}, e.g. `@elyvel/queue`'s `queueListener`).
  *
  * Add any of these optional hooks as plain methods (read via duck-typing):
  *   `shouldQueue(event): boolean` — false to run inline instead of queueing
@@ -52,7 +52,7 @@ export function isQueuedListener(listener: unknown): listener is QueuedListener 
   return listener instanceof QueuedListener
 }
 
-// ── injectable queuer (wired by the app, e.g. to @elysia-ravel/queue) ─────────
+// ── injectable queuer (wired by the app, e.g. to @elyvel/queue) ─────────
 export type ListenerQueuer = (
   listener: QueuedListener,
   event: AnyEvent,

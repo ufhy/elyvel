@@ -1,4 +1,4 @@
-import { Response } from '@elysia-ravel/auth'
+import { Response } from '@elyvel/auth'
 import type { {{Model}} } from '../models/{{Model}}'
 
 /**

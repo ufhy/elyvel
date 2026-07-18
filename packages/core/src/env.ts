@@ -28,7 +28,7 @@ export function defineEnv<T extends TObject>(
     const errors = [...Value.Errors(schema, withDefaults)]
       .map(error => `  - ${error.path || '/'}: ${error.message}`)
       .join('\n')
-    throw new Error(`[elysia-ravel] Invalid environment variables:\n${errors}`)
+    throw new Error(`[elyvel] Invalid environment variables:\n${errors}`)
   }
 
   return withDefaults as Static<T>

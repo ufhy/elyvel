@@ -5,18 +5,18 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "ravel serve",
+    "dev": "elyvel serve",
     "start": "bun server.ts",
-    "migrate": "ravel migrate",
-    "migrate:fresh": "ravel migrate:fresh",
-    "key:generate": "ravel key:generate",
+    "migrate": "elyvel migrate",
+    "migrate:fresh": "elyvel migrate:fresh",
+    "key:generate": "elyvel key:generate",
     "lint": "eslint .",
     "format": "eslint . --fix"
   },
   "dependencies": {
-    "@elysia-ravel/auth": "workspace:*",
-    "@elysia-ravel/mail": "workspace:*",
-    "@elysia-ravel/vite": "workspace:*",
+    "@elyvel/auth": "workspace:*",
+    "@elyvel/mail": "workspace:*",
+    "@elyvel/vite": "workspace:*",
     "@lucide/vue": "^1.17.0",
     "@vueuse/core": "^12.8.2",
     "better-auth": "^1.6.0",
@@ -28,8 +28,8 @@
     "tw-animate-css": "^1.2.5",
     "vue": "^3.5.0",
     "vue-router": "^4.5.0",
-    "@elysia-ravel/core": "workspace:*",
-    "@elysia-ravel/database": "workspace:*",
+    "@elyvel/core": "workspace:*",
+    "@elyvel/database": "workspace:*",
     "elysia": "^1.4.0"
   },
   "devDependencies": {
@@ -39,7 +39,7 @@
     "tailwindcss": "^4.0.0",
     "vite": "^8.0.0",
     "@antfu/eslint-config": "^9.1.0",
-    "@elysia-ravel/cli": "workspace:*",
+    "@elyvel/cli": "workspace:*",
     "@types/bun": "^1.3.14",
     "eslint": "^10.0.0"
   }

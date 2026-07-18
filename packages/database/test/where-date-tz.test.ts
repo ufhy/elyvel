@@ -1,5 +1,5 @@
 import type { Connection } from '../src/connection'
-import { runWithTimezone } from '@elysia-ravel/core'
+import { runWithTimezone } from '@elyvel/core'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { setConnection } from '../src/connection'
 import { QueryBuilder } from '../src/query-builder'

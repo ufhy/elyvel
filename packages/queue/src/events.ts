@@ -37,7 +37,7 @@ export const Queue = {
  * dispatcher (like the Eloquent bridge). Wire it once at boot, e.g.
  * `configureQueueEventDispatcher((name, payload) => event(name, payload))`, then
  * `listen('queue.failed', ...)`. Kept injectable so the queue package stays
- * decoupled from `@elysia-ravel/events`.
+ * decoupled from `@elyvel/events`.
  */
 type QueueEventDispatcher = (
   eventName: string,

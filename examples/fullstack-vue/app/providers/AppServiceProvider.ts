@@ -1,4 +1,4 @@
-import { ServiceProvider } from '@elysia-ravel/core'
+import { ServiceProvider } from '@elyvel/core'
 
 /**
  * The application's own service provider — bind app-wide services into the

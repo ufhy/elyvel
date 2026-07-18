@@ -192,7 +192,7 @@ describe('staticFiles', () => {
 // ── wired app: redirect + validation negotiation ──────────────────────────────
 const sessionConfig: ResolvedSessionConfig = {
   driver: 'cookie',
-  cookie: 'ravel_session',
+  cookie: 'elyvel_session',
   lifetime: 7200,
   secret: 'a'.repeat(32),
   files: '',
@@ -226,7 +226,7 @@ describe('redirect responses', () => {
     const res = await buildApp().handle(new Request('http://localhost/save', { method: 'POST' }))
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toBe('/done')
-    expect(res.headers.get('set-cookie')).toContain('ravel_session=') // flash persisted
+    expect(res.headers.get('set-cookie')).toContain('elyvel_session=') // flash persisted
   })
 
   test('back() resolves to the Referer', async () => {
@@ -248,7 +248,7 @@ describe('validation negotiation', () => {
     )
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toBe('/form')
-    expect(res.headers.get('set-cookie')).toContain('ravel_session=')
+    expect(res.headers.get('set-cookie')).toContain('elyvel_session=')
   })
 
   test('API request → 422 JSON with the error bag', async () => {

@@ -1,4 +1,4 @@
-import type { Connection, ConnectionConfig } from '@elysia-ravel/database'
+import type { Connection, ConnectionConfig } from '@elyvel/database'
 
 export interface RefreshOptions {
   /** Connection to spin up. Defaults to an in-memory SQLite database. */
@@ -13,7 +13,7 @@ export interface RefreshOptions {
  * The default in-memory SQLite connection is discarded when it goes out of scope,
  * so tests are naturally isolated — Laravel's `RefreshDatabase`, minus the trait.
  *
- * `@elysia-ravel/database` is imported lazily so this package stays usable (for
+ * `@elyvel/database` is imported lazily so this package stays usable (for
  * the HTTP client alone) in projects that don't depend on the database layer.
  *
  * @example
@@ -22,7 +22,7 @@ export interface RefreshOptions {
  * })
  */
 export async function refreshDatabase(options: RefreshOptions = {}): Promise<Connection> {
-  const { createConnection, setConnection } = await import('@elysia-ravel/database')
+  const { createConnection, setConnection } = await import('@elyvel/database')
   const connection = await createConnection(
     options.connection ?? { driver: 'sqlite', database: ':memory:' },
   )

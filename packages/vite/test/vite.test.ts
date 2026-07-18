@@ -1,4 +1,4 @@
-import { errorPageResolver } from '@elysia-ravel/core'
+import { errorPageResolver } from '@elyvel/core'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { spa } from '../src/spa'

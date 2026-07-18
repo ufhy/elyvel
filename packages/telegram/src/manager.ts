@@ -10,7 +10,7 @@ export function setDefaultTelegram(client: TelegramClient): void {
 export function telegram(): TelegramClient {
   if (!defaultClient) {
     throw new Error(
-      '[elysia-ravel] Telegram is not configured. Register TelegramServiceProvider / set a token.',
+      '[elyvel] Telegram is not configured. Register TelegramServiceProvider / set a token.',
     )
   }
   return defaultClient

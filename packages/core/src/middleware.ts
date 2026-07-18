@@ -85,7 +85,7 @@ function instantiate(guard: Guard): { instance: Middleware, args: string[] } {
   const Cls = aliases.get(name)
   if (!Cls) {
     throw new Error(
-      `[elysia-ravel] Unknown middleware "${name}". Register it in config/middleware.ts (aliases).`,
+      `[elyvel] Unknown middleware "${name}". Register it in config/middleware.ts (aliases).`,
     )
   }
   return { instance: new Cls(), args }
@@ -173,12 +173,12 @@ export function route(prefix?: string, options: { middleware?: string[] } = {}) 
 export function group(name: string): Elysia {
   const items = groups.get(name)
   if (!items) {
-    throw new Error(`[elysia-ravel] Unknown middleware group "${name}" (config/middleware.ts).`)
+    throw new Error(`[elyvel] Unknown middleware group "${name}" (config/middleware.ts).`)
   }
   const plugins = items.filter(isElysia)
   const guards = items.filter((i): i is Guard => !isElysia(i))
 
-  let plugin: any = new Elysia({ name: `ravel-group-${name}` })
+  let plugin: any = new Elysia({ name: `elyvel-group-${name}` })
   for (const p of plugins) plugin = plugin.use(p)
   if (guards.length) {
     plugin = plugin
@@ -203,7 +203,7 @@ export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
   const plugins = items.filter(isElysia)
   const guards = items.filter((i): i is MiddlewareClass => !isElysia(i))
 
-  let plugin: any = new Elysia({ name: 'ravel-global-middleware' })
+  let plugin: any = new Elysia({ name: 'elyvel-global-middleware' })
   for (const p of plugins) plugin = plugin.use(p)
   if (guards.length) {
     plugin = plugin

@@ -1,5 +1,5 @@
-import { authHasPlugin, webRoute } from '@elysia-ravel/auth'
-import { Inertia } from '@elysia-ravel/inertia'
+import { authHasPlugin, webRoute } from '@elyvel/auth'
+import { Inertia } from '@elyvel/inertia'
 
 /**
  * Settings routes (profile, password, appearance, two-factor) — all require an

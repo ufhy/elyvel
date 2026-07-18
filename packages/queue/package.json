@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/queue",
+  "name": "@elyvel/queue",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style queues for elysia-ravel — jobs, workers, sync/memory/database/redis drivers",
+  "description": "Laravel-style queues for elyvel — jobs, workers, sync/memory/database/redis drivers",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   }
 }

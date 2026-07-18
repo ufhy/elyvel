@@ -1,10 +1,10 @@
 import type { Model } from './model'
-import { Collection } from '@elysia-ravel/support'
+import { Collection } from '@elyvel/support'
 import { eagerLoad } from './relations'
 
 /**
  * The collection returned by Eloquent queries. Extends the foundational
- * {@link Collection} (from `@elysia-ravel/support`) with model-aware helpers —
+ * {@link Collection} (from `@elyvel/support`) with model-aware helpers —
  * exactly Laravel's `Illuminate\Database\Eloquent\Collection extends
  * Illuminate\Support\Collection`.
  */

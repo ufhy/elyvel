@@ -1,5 +1,5 @@
 import type { ViteOptions } from './tags'
-import { configureErrorPage, staticFiles } from '@elysia-ravel/core'
+import { configureErrorPage, staticFiles } from '@elyvel/core'
 import { Elysia } from 'elysia'
 import { viteTags } from './tags'
 
@@ -66,7 +66,7 @@ export function spa(options: SpaOptions) {
     })
   })
 
-  const app = new Elysia({ name: `ravel-spa-${prefix || 'root'}` })
+  const app = new Elysia({ name: `elyvel-spa-${prefix || 'root'}` })
   if (options.assets !== false)
     app.use(staticFiles({ prefix: base, dir: options.buildDir ?? 'public/build' }))
   return app.get(prefix || '/', serveShell)

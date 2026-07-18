@@ -1,8 +1,8 @@
-import { createApp } from '@elysia-ravel/core'
-import { failedJobs, QueueToken, restartSignal, Worker } from '@elysia-ravel/queue'
+import { createApp } from '@elyvel/core'
+import { failedJobs, QueueToken, restartSignal, Worker } from '@elyvel/queue'
 
 /**
- * `ravel queue:work` — process jobs off a queue connection.
+ * `elyvel queue:work` — process jobs off a queue connection.
  *
  * Flags:
  *   --connection=<name>   Connection from config/queue.ts (default: configured default)
@@ -68,7 +68,7 @@ function notConfigured(): number {
   return 1
 }
 
-/** `ravel queue:failed` — list recorded failed jobs. */
+/** `elyvel queue:failed` — list recorded failed jobs. */
 export async function queueFailedCommand(): Promise<number> {
   const { repo } = await bootFailed()
   if (!repo)
@@ -86,7 +86,7 @@ export async function queueFailedCommand(): Promise<number> {
   return 0
 }
 
-/** `ravel queue:retry <id>` or `--all` — re-queue failed jobs. */
+/** `elyvel queue:retry <id>` or `--all` — re-queue failed jobs. */
 export async function queueRetryCommand(
   id: string | undefined,
   flags: Record<string, string | boolean>,
@@ -120,7 +120,7 @@ export async function queueRetryCommand(
   return 0
 }
 
-/** `ravel queue:forget <id>` — delete a failed job. */
+/** `elyvel queue:forget <id>` — delete a failed job. */
 export async function queueForgetCommand(id: string | undefined): Promise<number> {
   const { repo } = await bootFailed()
   if (!repo)
@@ -134,7 +134,7 @@ export async function queueForgetCommand(id: string | undefined): Promise<number
   return removed ? 0 : 1
 }
 
-/** `ravel queue:flush` — delete all failed jobs. */
+/** `elyvel queue:flush` — delete all failed jobs. */
 export async function queueFlushCommand(): Promise<number> {
   const { repo } = await bootFailed()
   if (!repo)
@@ -144,7 +144,7 @@ export async function queueFlushCommand(): Promise<number> {
   return 0
 }
 
-/** `ravel queue:restart` — signal running workers to exit gracefully after their current job. */
+/** `elyvel queue:restart` — signal running workers to exit gracefully after their current job. */
 export async function queueRestartCommand(): Promise<number> {
   await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   const signal = restartSignal()
@@ -160,7 +160,7 @@ export async function queueRestartCommand(): Promise<number> {
   return 0
 }
 
-/** `ravel queue:prune-failed [--hours=24]` — delete failed jobs older than N hours. */
+/** `elyvel queue:prune-failed [--hours=24]` — delete failed jobs older than N hours. */
 export async function queuePruneFailedCommand(
   flags: Record<string, string | boolean>,
 ): Promise<number> {

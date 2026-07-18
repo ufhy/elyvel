@@ -1,5 +1,5 @@
-import { createApp } from '@elysia-ravel/core'
-import { setMessageTranslator, trans as supportTrans } from '@elysia-ravel/support'
+import { createApp } from '@elyvel/core'
+import { setMessageTranslator, trans as supportTrans } from '@elyvel/support'
 import { afterAll, describe, expect, test } from 'bun:test'
 import { __, getLocale, getTranslator, I18nServiceProvider, runWithLocale } from '../src/index'
 

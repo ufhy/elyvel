@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates')
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
 
-/** Starter kits selectable via `ravel new <name> --kit=<name>`. */
+/** Starter kits selectable via `elyvel new <name> --kit=<name>`. */
 export type KitName = 'vue' | 'spa'
 
 interface Kit {
@@ -28,9 +28,9 @@ interface Kit {
 
 // Shared by every Vue-based kit (shadcn-vue + Better Auth UI foundation).
 const SHARED_DEPS: Record<string, string> = {
-  '@elysia-ravel/auth': 'workspace:*',
-  '@elysia-ravel/mail': 'workspace:*',
-  '@elysia-ravel/vite': 'workspace:*',
+  '@elyvel/auth': 'workspace:*',
+  '@elyvel/mail': 'workspace:*',
+  '@elyvel/vite': 'workspace:*',
   '@lucide/vue': '^1.17.0',
   '@vueuse/core': '^12.8.2',
   'better-auth': '^1.6.0',
@@ -56,8 +56,8 @@ const KITS: Record<KitName, Kit> = {
     label: 'Vue + Inertia',
     deps: {
       ...SHARED_DEPS,
-      '@elysia-ravel/inertia': 'workspace:*',
-      '@elysia-ravel/view': 'workspace:*',
+      '@elyvel/inertia': 'workspace:*',
+      '@elyvel/view': 'workspace:*',
       '@inertiajs/vue3': '^3.0.0',
       '@vue/server-renderer': '^3.5.0',
     },
@@ -93,7 +93,7 @@ export function isKitName(value: string): value is KitName {
 
 export const kitNames = Object.keys(KITS) as KitName[]
 
-/** The "Next steps" lines for a kit (printed once by `ravel new`). */
+/** The "Next steps" lines for a kit (printed once by `elyvel new`). */
 export function kitNextSteps(kitName: KitName): string[] {
   return KITS[kitName].nextSteps
 }
@@ -125,7 +125,7 @@ async function registerProviders(cwd: string): Promise<boolean> {
   if (!existsSync(path))
     return false
   let src = await readFile(path, 'utf8')
-  const importAnchor = 'import { EloquentServiceProvider } from \'@elysia-ravel/database\''
+  const importAnchor = 'import { EloquentServiceProvider } from \'@elyvel/database\''
   const providerAnchor = 'EloquentServiceProvider,'
   if (!src.includes(importAnchor) || !src.includes(providerAnchor))
     return false
@@ -133,7 +133,7 @@ async function registerProviders(cwd: string): Promise<boolean> {
   if (!src.includes('MailServiceProvider')) {
     src = src.replace(
       importAnchor,
-      `${importAnchor}\nimport { MailServiceProvider } from '@elysia-ravel/mail'`,
+      `${importAnchor}\nimport { MailServiceProvider } from '@elyvel/mail'`,
     )
     src = src.replace(providerAnchor, `${providerAnchor} MailServiceProvider,`)
   }
@@ -141,7 +141,7 @@ async function registerProviders(cwd: string): Promise<boolean> {
   if (!src.includes('AuthServiceProvider')) {
     src = src.replace(
       importAnchor,
-      `import { AuthServiceProvider } from '@elysia-ravel/auth'\n${importAnchor}`,
+      `import { AuthServiceProvider } from '@elyvel/auth'\n${importAnchor}`,
     )
     const mailAnchor = 'MailServiceProvider,'
     src = src.includes(mailAnchor)
@@ -155,7 +155,7 @@ async function registerProviders(cwd: string): Promise<boolean> {
 
 /**
  * Scaffold a starter kit into an app directory (Better Auth backend + a Vue
- * frontend — Inertia for `vue`, a Vite SPA for `spa`). Composed by `ravel new`.
+ * frontend — Inertia for `vue`, a Vite SPA for `spa`). Composed by `elyvel new`.
  * `quiet` suppresses the trailing "Next steps" (new prints them once).
  */
 export async function scaffoldKit(
@@ -165,7 +165,7 @@ export async function scaffoldKit(
 ): Promise<number> {
   if (!existsSync(join(cwd, 'config', 'app.ts'))) {
     console.error(
-      '✗ Not an elysia-ravel app (no config/app.ts). Run this inside your app directory.',
+      '✗ Not an elyvel app (no config/app.ts). Run this inside your app directory.',
     )
     return 1
   }
@@ -200,8 +200,8 @@ export async function scaffoldKit(
   console.log(`\n✓ Installed ${kit.label} kit (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
   if (!providerOk) {
     console.log('  ! Could not auto-register providers — add them to config/app.ts providers:')
-    console.log('      import { AuthServiceProvider } from \'@elysia-ravel/auth\'')
-    console.log('      import { MailServiceProvider } from \'@elysia-ravel/mail\'')
+    console.log('      import { AuthServiceProvider } from \'@elyvel/auth\'')
+    console.log('      import { MailServiceProvider } from \'@elyvel/mail\'')
   }
   if (!quiet) {
     console.log('\nNext steps:')

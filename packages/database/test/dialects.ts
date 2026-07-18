@@ -17,7 +17,7 @@ const base: Dialect[] = [
 // MySQL is an external, persistent database, and its DDL auto-commits — so it
 // can't be isolated by transaction rollback like the others. Instead, drop every
 // table on connect for a clean slate per test. It joins the full suite whenever
-// MYSQL_URL points at a reachable server (e.g. `MYSQL_URL=mysql://root:pw@localhost/ravel_test`),
+// MYSQL_URL points at a reachable server (e.g. `MYSQL_URL=mysql://root:pw@localhost/elyvel_test`),
 // and is skipped otherwise so the default run needs no MySQL server.
 const MYSQL_URL = process.env.MYSQL_URL
 

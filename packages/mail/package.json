@@ -1,8 +1,8 @@
 {
-  "name": "@elysia-ravel/mail",
+  "name": "@elyvel/mail",
   "type": "module",
   "version": "0.0.0",
-  "description": "Laravel-style mail for elysia-ravel — Mailables, transports (log/array/smtp)",
+  "description": "Laravel-style mail for elyvel — Mailables, transports (log/array/smtp)",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elysia-ravel/core": "workspace:*"
+    "@elyvel/core": "workspace:*"
   },
   "devDependencies": {
     "@types/nodemailer": "^8.0.1",

@@ -34,7 +34,7 @@ export interface DispatchOptions {
 /** Runs `callback` after the current DB transaction commits (or immediately). */
 type AfterCommitHook = (callback: () => void | Promise<void>) => void
 let afterCommitHook: AfterCommitHook | null = null
-/** Wire transaction-aware dispatching (e.g. to `@elysia-ravel/database`'s `afterCommit`). */
+/** Wire transaction-aware dispatching (e.g. to `@elyvel/database`'s `afterCommit`). */
 export function configureAfterCommit(hook: AfterCommitHook): void {
   afterCommitHook = hook
 }
@@ -64,7 +64,7 @@ export class QueueManager {
       = this.config.connections?.[name] ?? (name === 'sync' ? { driver: 'sync' } : undefined)
     if (!cfg) {
       throw new Error(
-        `[elysia-ravel] Queue connection "${name}" is not defined in config/queue.ts.`,
+        `[elyvel] Queue connection "${name}" is not defined in config/queue.ts.`,
       )
     }
     switch (cfg.driver) {

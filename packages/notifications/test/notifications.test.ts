@@ -1,7 +1,7 @@
-import type { ArrayTransport } from '@elysia-ravel/mail'
+import type { ArrayTransport } from '@elyvel/mail'
 import type { Notifiable, StoredNotification } from '../src/index'
-import { MailManager, Message, setDefaultMailer } from '@elysia-ravel/mail'
-import { setDefaultTelegram, TelegramClient } from '@elysia-ravel/telegram'
+import { MailManager, Message, setDefaultMailer } from '@elyvel/mail'
+import { setDefaultTelegram, TelegramClient } from '@elyvel/telegram'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { DatabaseChannel, MailChannel, TelegramChannel } from '../src/channels'
 import {

@@ -11,7 +11,7 @@ import { RedirectResponse } from './redirect'
  * and persisted on the way out.
  */
 export function httpResponses() {
-  return new Elysia({ name: 'ravel-http-responses' }).onAfterHandle(
+  return new Elysia({ name: 'elyvel-http-responses' }).onAfterHandle(
     { as: 'global' },
     (ctx: any) => {
       const response = ctx.response
@@ -33,9 +33,9 @@ export function httpResponses() {
         }
         return options.fromPath ? Bun.file(source as string) : source
       }
-      // A view response (from @elysia-ravel/view) — duck-typed so core stays
+      // A view response (from @elyvel/view) — duck-typed so core stays
       // decoupled. Build shared data from the session and render to text/html.
-      if (response && typeof response === 'object' && response.__ravelView === true) {
+      if (response && typeof response === 'object' && response.__elyvelView === true) {
         const session = ctx.session
         const oldInput = (session?.get?.('_old_input') ?? {}) as Record<string, unknown>
         const shared = {

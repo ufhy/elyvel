@@ -33,7 +33,7 @@ export function cors(options: CorsOptions = {}): Elysia {
       set.headers['access-control-max-age'] = String(options.maxAge)
   }
 
-  const plugin: any = new Elysia({ name: 'ravel-cors' }).onRequest(({ request, set }) => {
+  const plugin: any = new Elysia({ name: 'elyvel-cors' }).onRequest(({ request, set }) => {
     apply(set)
     if (request.method === 'OPTIONS') {
       set.status = 204

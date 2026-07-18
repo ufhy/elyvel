@@ -12,7 +12,7 @@ import { LocalDisk, ScopedDisk } from '../src/index'
 
 const roots: string[] = []
 function makeDisk(): LocalDisk {
-  const root = join(tmpdir(), `ravel-storage-cov-${crypto.randomUUID()}`)
+  const root = join(tmpdir(), `elyvel-storage-cov-${crypto.randomUUID()}`)
   roots.push(root)
   return new LocalDisk({ driver: 'local', root, url: '/storage', visibility: 'public' })
 }
@@ -29,7 +29,7 @@ describe('LocalDisk — download + error paths', () => {
     const disk = makeDisk()
     await disk.put('docs/report.txt', 'hi')
     const res = disk.download('docs/report.txt', 'out.txt')
-    expect((res as { __ravelFile?: boolean }).__ravelFile).toBe(true)
+    expect((res as { __elyvelFile?: boolean }).__elyvelFile).toBe(true)
     expect(res.options.disposition).toBe('attachment')
     expect(res.options.name).toBe('out.txt')
     expect(String(res.source)).toContain('docs/report.txt')

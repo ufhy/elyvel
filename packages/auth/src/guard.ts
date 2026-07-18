@@ -1,6 +1,6 @@
 import type { AuthManager } from './manager'
 import type { Authenticatable } from './types'
-import { trans } from '@elysia-ravel/support'
+import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 
 const BEARER = 'Bearer '
@@ -16,7 +16,7 @@ const BEARER = 'Bearer '
  * every route that uses this plugin — end-to-end type-safety, no casts.
  */
 export function createGuard<U extends Authenticatable>(manager: AuthManager<U>) {
-  return new Elysia({ name: 'ravel-auth' })
+  return new Elysia({ name: 'elyvel-auth' })
     .derive({ as: 'scoped' }, async ({ headers }) => {
       const header = headers.authorization
       const token = header?.startsWith(BEARER) ? header.slice(BEARER.length) : null
