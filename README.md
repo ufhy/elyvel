@@ -1,4 +1,12 @@
-# elyvel
+<p align="center">
+  <img src="art/logo.svg" width="84" height="84" alt="elyvel" />
+</p>
+
+<h1 align="center">elyvel</h1>
+
+<p align="center">A Laravel-inspired, <strong>Elysia-first</strong> application framework for <a href="https://bun.sh">Bun</a>.</p>
+
+---
 
 A Laravel-inspired, **Elysia-first** application framework for [Bun](https://bun.sh).
 
