@@ -1,6 +1,7 @@
 import { AuthServiceProvider } from '@elysia-ravel/auth'
 import { defineAppConfig } from '@elysia-ravel/core'
 import { EloquentServiceProvider } from '@elysia-ravel/database'
+import { I18nServiceProvider } from '@elysia-ravel/i18n'
 import { MailServiceProvider } from '@elysia-ravel/mail'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 
@@ -14,5 +15,11 @@ export default defineAppConfig({
   key: process.env.APP_KEY, // secret for `encrypted` model casts (AES-256-GCM)
   port: Number(process.env.PORT ?? 3000),
 
-  providers: [EloquentServiceProvider, MailServiceProvider, AuthServiceProvider, AppServiceProvider],
+  providers: [
+    EloquentServiceProvider,
+    I18nServiceProvider,
+    MailServiceProvider,
+    AuthServiceProvider,
+    AppServiceProvider,
+  ],
 })

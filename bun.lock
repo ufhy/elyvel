@@ -18,6 +18,7 @@
         "@elysia-ravel/auth": "workspace:*",
         "@elysia-ravel/core": "workspace:*",
         "@elysia-ravel/database": "workspace:*",
+        "@elysia-ravel/i18n": "workspace:*",
         "@elysia-ravel/inertia": "workspace:*",
         "@elysia-ravel/mail": "workspace:*",
         "@elysia-ravel/view": "workspace:*",
