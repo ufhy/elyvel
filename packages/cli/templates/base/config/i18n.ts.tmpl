@@ -1,0 +1,15 @@
+import { defineI18nConfig } from '@elysia-ravel/i18n'
+
+/**
+ * Localization. Translation files live in `lang/<locale>/<group>.ts` (and
+ * `lang/<locale>.ts` for whole-sentence keys) and are auto-loaded at boot.
+ * Each request's locale is detected from `?lang=` or the `Accept-Language`
+ * header (restricted to `locales`); use `__('group.key', { name })` anywhere.
+ */
+export default defineI18nConfig({
+  locale: process.env.APP_LOCALE ?? 'en',
+  fallback: 'en',
+  path: 'lang',
+  locales: ['en', 'id'],
+  detect: true,
+})

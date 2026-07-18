@@ -170,6 +170,10 @@
     "packages/i18n": {
       "name": "@elysia-ravel/i18n",
       "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/core": "workspace:*",
+        "@elysia-ravel/support": "workspace:*",
+      },
     },
     "packages/inertia": {
       "name": "@elysia-ravel/inertia",

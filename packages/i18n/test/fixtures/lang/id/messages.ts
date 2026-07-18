@@ -1,3 +1,1 @@
-export default {
-  welcome: 'Selamat datang, :name',
-}
+export default { welcome: 'Selamat datang, :name' }

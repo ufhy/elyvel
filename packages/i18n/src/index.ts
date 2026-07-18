@@ -10,17 +10,32 @@
  * transChoice('messages.apples', 3, { count: 3 })  // ":count apples" → "3 apples"
  */
 import type { Replacements, TranslatorOptions } from './translator'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { Translator } from './translator'
 
 export { selectPluralSegment } from './pluralize'
-export {
-  type LinesTree,
-  type Replacements,
-  Translator,
-  type TranslatorOptions,
-} from './translator'
+export { defineI18nConfig, type I18nConfig, I18nServiceProvider } from './provider'
 
 let translator = new Translator()
+
+// Per-request locale (concurrency-safe): each request runs in its own async
+// scope, so a global mutable locale would race between parallel requests.
+const localeStore = new AsyncLocalStorage<string>()
+
+/** The locale in effect right now: the request scope's, else the default. */
+export function currentLocale(): string {
+  return localeStore.getStore() ?? translator.getLocale()
+}
+
+/** Run `fn` with `locale` active for its entire async continuation. */
+export function runWithLocale<T>(locale: string, fn: () => T): T {
+  return localeStore.run(locale, fn)
+}
+
+/** Set the locale for the rest of the current async scope (e.g. a request). */
+export function setRequestLocale(locale: string): void {
+  localeStore.enterWith(locale)
+}
 
 /** The process-wide default translator (backs the global helpers). */
 export function getTranslator(): Translator {
@@ -51,19 +66,19 @@ export function setLocale(locale: string): void {
   translator.setLocale(locale)
 }
 
-/** The default translator's active locale. */
+/** The active locale (request scope's, else the default). */
 export function getLocale(): string {
-  return translator.getLocale()
+  return currentLocale()
 }
 
 /** Translate a key with `:placeholder` replacement (Laravel's `__`). */
 export function __(key: string, replace?: Replacements, locale?: string): string {
-  return translator.get(key, replace, locale)
+  return translator.get(key, replace, locale ?? currentLocale())
 }
 
 /** Alias of {@link __}. */
 export function trans(key: string, replace?: Replacements, locale?: string): string {
-  return translator.get(key, replace, locale)
+  return translator.get(key, replace, locale ?? currentLocale())
 }
 
 /** Translate with pluralization based on `number` (Laravel's `trans_choice`). */
@@ -73,5 +88,12 @@ export function transChoice(
   replace?: Replacements,
   locale?: string,
 ): string {
-  return translator.choice(key, number, replace, locale)
+  return translator.choice(key, number, replace, locale ?? currentLocale())
 }
+
+export {
+  type LinesTree,
+  type Replacements,
+  Translator,
+  type TranslatorOptions,
+} from './translator'

@@ -11,5 +11,9 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@elysia-ravel/core": "workspace:*",
+    "@elysia-ravel/support": "workspace:*"
   }
 }
