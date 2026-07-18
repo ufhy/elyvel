@@ -11,6 +11,7 @@ import {
   statusCommand,
 } from './commands/db'
 import { keyGenerate } from './commands/key'
+import { langPublish } from './commands/lang'
 import { down, up } from './commands/maintenance'
 import { make } from './commands/make'
 import { newApp } from './commands/new'
@@ -39,6 +40,7 @@ Usage:
   ravel new <name>                            Scaffold a new elysia-ravel app
   ravel key:generate [--show] [--force]       Set APP_KEY in .env (--show prints; --force overwrites in prod)
   ravel serve [--entry <path>] [--no-watch]   Start the dev server
+  ravel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
 
   ravel migrate                               Run pending migrations
   ravel migrate:fresh                         Drop all tables and re-migrate
@@ -120,6 +122,10 @@ async function main(): Promise<number> {
 
   if (command === 'up') {
     return up()
+  }
+
+  if (command === 'lang:publish') {
+    return langPublish(rest[0], flags)
   }
 
   if (command === 'migrate') {

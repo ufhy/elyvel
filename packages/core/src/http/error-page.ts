@@ -72,6 +72,21 @@ const DEFAULTS: Record<number, ErrorMeta> = {
   503: { title: 'Service Unavailable', message: 'We’re down for a moment — back shortly.' },
 }
 
+/**
+ * Canonical English defaults for the `errors` translation group — the status
+ * pages plus the short JSON messages emitted by the guards. `ravel lang:publish`
+ * dumps this to `lang/<locale>/errors.ts` so it can be restyled/translated.
+ */
+export const ERROR_LANG_DEFAULTS: Record<string, ErrorMeta | string> = {
+  ...DEFAULTS,
+  throttle: 'Too Many Requests',
+  csrf: 'CSRF token mismatch.',
+  not_found: ':resource not found',
+  unauthenticated: 'Unauthenticated',
+  unverified: 'Your email address is not verified.',
+  unauthorized: 'This action is unauthorized.',
+}
+
 /** Translated title/message for a status, falling back to the built-in English. */
 function errorMeta(status: number): ErrorMeta {
   const fallback = DEFAULTS[status] ?? { title: 'Error', message: 'An unexpected error occurred.' }

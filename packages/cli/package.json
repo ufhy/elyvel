@@ -17,6 +17,7 @@
     "@elysia-ravel/core": "workspace:*",
     "@elysia-ravel/database": "workspace:*",
     "@elysia-ravel/queue": "workspace:*",
-    "@elysia-ravel/scheduler": "workspace:*"
+    "@elysia-ravel/scheduler": "workspace:*",
+    "@elysia-ravel/validation": "workspace:*"
   }
 }

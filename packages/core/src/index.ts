@@ -18,6 +18,7 @@ export { defineEnv } from './env'
 export { type FakeResponse, Http, HttpResponse, PendingRequest } from './http/client'
 export {
   configureErrorPage,
+  ERROR_LANG_DEFAULTS,
   type ErrorPageContext,
   errorPageResolver,
   type ErrorPageResolver,
