@@ -1,4 +1,5 @@
 import type { EagerConstraint } from './eloquent-builder'
+import { date } from '@elysia-ravel/core'
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
@@ -66,7 +67,8 @@ function castGet(cast: Cast, value: unknown): unknown {
       return typeof value === 'string' ? JSON.parse(value) : value
     case 'date':
     case 'datetime':
-      return value instanceof Date ? value : new Date(String(value))
+      // A rich, timezone-aware date object (dayjs) — `.format()`, `.add()`, `.tz()`…
+      return date(value as Date | string | number)
     case 'encrypted':
       return JSON.parse(decrypt(String(value)))
   }
@@ -87,7 +89,10 @@ function castStore(cast: Cast, value: unknown, dialect: string): unknown {
       return typeof value === 'string' ? value : JSON.stringify(value)
     case 'date':
     case 'datetime':
-      return value instanceof Date ? value.toISOString() : String(value)
+      // dayjs and Date both expose toISOString() → store as UTC ISO with `Z`.
+      return typeof (value as { toISOString?: unknown }).toISOString === 'function'
+        ? (value as Date).toISOString()
+        : String(value)
     case 'encrypted':
       return encrypt(JSON.stringify(value))
     default:
@@ -553,9 +558,19 @@ export class Model {
     const accessor = self.accessors[key]
     if (accessor)
       return accessor(this)
-    const type = self.casts[key]
+    const type = this.effectiveCast(key)
     const value = this.attributes[key]
     return type ? castGet(type, value) : value
+  }
+
+  /** The cast for `key`, auto-treating the timestamp columns as `datetime`. */
+  private effectiveCast(key: string): Cast | undefined {
+    const self = this.self()
+    if (self.casts[key])
+      return self.casts[key]
+    if (key === self.createdAtColumn || key === self.updatedAtColumn || key === self.deletedAtColumn)
+      return 'datetime'
+    return undefined
   }
 
   /** Hide attributes for this instance only (chainable). */
@@ -572,12 +587,12 @@ export class Model {
 
   /** Attributes in DB-storage form (casts applied for the active dialect). */
   private toStorage(attributes: Attributes): Attributes {
-    const casts = this.self().casts
     const dialect = useConnection(this.self().connection).dialect
     const out: Attributes = { ...attributes }
     for (const key of Object.keys(out)) {
-      if (casts[key])
-        out[key] = castStore(casts[key], out[key], dialect)
+      const cast = this.effectiveCast(key)
+      if (cast)
+        out[key] = castStore(cast, out[key], dialect)
     }
     return out
   }

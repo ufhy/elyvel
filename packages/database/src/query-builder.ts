@@ -773,8 +773,11 @@ export class QueryBuilder {
     }
   }
 
-  /** A `YYYY-MM-DD` calendar date in `tz` from a Date/number/ISO-string value. */
+  /** A `YYYY-MM-DD` calendar date in `tz` from a Date/dayjs/number/ISO-string value. */
   private toDateString(value: unknown, tz: string): string {
+    // dayjs (or any object with format()) → format the local calendar date directly.
+    if (value && typeof (value as { format?: unknown }).format === 'function')
+      return (value as { format(f: string): string }).format('YYYY-MM-DD')
     if (value instanceof Date || typeof value === 'number') {
       const p = dateParts(value as Date | number, tz)
       return `${p.year}-${p.month}-${p.day}`

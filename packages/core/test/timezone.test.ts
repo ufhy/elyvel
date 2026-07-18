@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { createApp } from '../src/application'
+import { today } from '../src/date'
 import {
   currentTimezone,
   dateParts,
   runWithTimezone,
   setAppTimezone,
   timezoneOffset,
-  today,
   zonedStartOfDayUtc,
 } from '../src/datetime'
 

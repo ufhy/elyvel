@@ -95,8 +95,15 @@ for (const d of dialects) {
       const when = new Date('2026-01-02T03:04:05.000Z')
       await Post.create({ title: 'A', views: 3, status: 'x', published_at: when, tags: ['a', 'b'] })
       const post = await Post.find(1)
-      expect(post?.published_at).toBeInstanceOf(Date)
-      expect(post?.published_at.toISOString()).toBe(when.toISOString())
+      // date cast → dayjs object: rich API, round-trips to the same UTC instant.
+      const publishedAt = post?.published_at as unknown as {
+        isValid(): boolean
+        toISOString(): string
+        format(f: string): string
+      }
+      expect(publishedAt.isValid()).toBe(true)
+      expect(publishedAt.toISOString()).toBe(when.toISOString())
+      expect(publishedAt.format('DD/MM/YYYY')).toBe('02/01/2026')
       expect(post?.tags).toEqual(['a', 'b'])
     })
 

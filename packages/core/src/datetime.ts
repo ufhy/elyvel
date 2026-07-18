@@ -46,20 +46,6 @@ function toDate(value: DateInput): Date {
   return value instanceof Date ? value : new Date(value)
 }
 
-/** The current instant (UTC; format it for display). Laravel's `now()`. */
-export function now(): Date {
-  return new Date()
-}
-
-/**
- * Today's calendar date (`YYYY-MM-DD`) in the given timezone (default: the current
- * one). Use for "is it today?" comparisons that must respect the local day.
- */
-export function today(timezone: string = currentTimezone()): string {
-  const p = dateParts(now(), timezone)
-  return `${p.year}-${p.month}-${p.day}`
-}
-
 /**
  * Format an instant in the current timezone (or an override), via `Intl`.
  *
@@ -105,7 +91,7 @@ export function dateParts(
  * because it's evaluated at that instant. Positive means ahead of UTC (e.g.
  * Asia/Makassar → 480).
  */
-export function timezoneOffset(timezone: string, at: Date = now()): number {
+export function timezoneOffset(timezone: string, at: Date = new Date()): number {
   const p = dateParts(at, timezone)
   const asUtc = Date.UTC(
     Number(p.year),

@@ -13,17 +13,16 @@ export {
 export type { Token } from './container'
 export { Container, token } from './container'
 export { cors, type CorsOptions } from './cors'
+export { date, type DateInput, dayjs, type Dayjs, isDate, now, today } from './date'
 export {
   currentTimezone,
   dateParts,
   formatDate,
   getAppTimezone,
-  now,
   runWithTimezone,
   setAppTimezone,
   setRequestTimezone,
   timezoneOffset,
-  today,
   zonedStartOfDayUtc,
 } from './datetime'
 export { defineEnv } from './env'

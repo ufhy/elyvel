@@ -34,7 +34,10 @@ for (const d of dialects) {
       expect(user.id).toBe(1)
       expect(user.name).toBe('Ada')
       expect(user.exists).toBe(true)
-      expect(typeof user.getAttribute('created_at')).toBe('string')
+      // Timestamps auto-cast to a dayjs date object (rich, tz-aware).
+      const createdAt = user.getAttribute('created_at') as { isValid(): boolean, toISOString(): string }
+      expect(createdAt.isValid()).toBe(true)
+      expect(createdAt.toISOString()).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     })
 
     test('hidden attributes are excluded from toJSON', async () => {
