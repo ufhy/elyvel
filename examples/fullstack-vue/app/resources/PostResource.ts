@@ -20,7 +20,7 @@ export function postResource(post: Post, viewerId?: string) {
     created_at: post.created_at.toISOString(),
     is_mine: Resource.when(viewerId !== undefined, () => viewerId === post.user_id),
     comments: Resource.whenLoaded(post, 'comments', (comments: Comment[]) =>
-      comments.map(c => commentResource(c))),
+      comments.map(c => commentResource(c, viewerId))),
   }
 }
 

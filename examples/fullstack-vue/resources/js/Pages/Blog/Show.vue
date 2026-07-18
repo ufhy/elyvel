@@ -10,6 +10,7 @@ interface CommentItem {
   author_name: string
   body: string
   created_at: string
+  is_mine?: boolean
 }
 
 interface PostDetail {
@@ -66,12 +67,13 @@ async function submitComment() {
 }
 
 async function deleteComment(id: number) {
-  await fetch(`/blog/${props.post.id}/comments/${id}`, {
+  const res = await fetch(`/blog/${props.post.id}/comments/${id}`, {
     method: 'DELETE',
     credentials: 'include',
     headers: { 'x-xsrf-token': xsrfToken() },
   })
-  router.reload({ only: ['post'] })
+  if (res.ok)
+    router.reload({ only: ['post'] })
 }
 
 function destroyPost() {
@@ -125,7 +127,7 @@ const breadcrumbs: BreadcrumbItem[] = [
             <div class="flex items-center justify-between">
               <span class="font-medium text-foreground">{{ comment.author_name }}</span>
               <Button
-                v-if="user()"
+                v-if="comment.is_mine"
                 variant="ghost"
                 size="sm"
                 class="h-auto p-0 text-xs text-muted-foreground hover:text-destructive"

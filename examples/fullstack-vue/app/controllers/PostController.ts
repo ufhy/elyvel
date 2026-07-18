@@ -31,7 +31,7 @@ export class PostController extends Controller {
     const paginator = await cache().remember(`blog:posts:${page}`, 60, () =>
       Post.query().where('published', true).orderBy('published_at', 'desc').paginate(PER_PAGE, page))
     const posts = Resource.paginated(paginator, p => postResource(p, user?.id))
-    return Inertia.render('Blog/Index', { posts })
+    return Inertia.render('Blog/Index', { posts, user })
   }
 
   /** GET /blog/create — any signed-in user may author a post. */
@@ -63,7 +63,7 @@ export class PostController extends Controller {
       return ctx.status(404, { message: trans('errors.not_found', { resource: 'post' }, 'Post not found') })
     }
     await post.load('comments')
-    return Inertia.render('Blog/Show', { post: postResource(post, user?.id) })
+    return Inertia.render('Blog/Show', { post: postResource(post, user?.id), user })
   }
 
   /** GET /blog/:id/edit */
