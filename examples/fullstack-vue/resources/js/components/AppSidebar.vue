@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NavItem } from '@/types'
 import { Link } from '@inertiajs/vue3'
-import { BookOpen, FolderGit2, LayoutGrid } from '@lucide/vue'
+import { BookOpen, FolderGit2, LayoutGrid, Newspaper } from '@lucide/vue'
 import AppLogo from '@/components/AppLogo.vue'
 import NavFooter from '@/components/NavFooter.vue'
 import NavMain from '@/components/NavMain.vue'
@@ -15,10 +15,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { dashboard } from '@/routes'
+import { blog, dashboard } from '@/routes'
 
 const mainNavItems: NavItem[] = [
   { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+  { title: 'Blog', href: blog(), icon: Newspaper },
 ]
 
 const footerNavItems: NavItem[] = [

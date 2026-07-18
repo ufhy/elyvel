@@ -1,9 +1,13 @@
 import { AuthServiceProvider } from '@elyvel/auth'
+import { CacheServiceProvider } from '@elyvel/cache'
 import { defineAppConfig } from '@elyvel/core'
 import { EloquentServiceProvider } from '@elyvel/database'
 import { I18nServiceProvider } from '@elyvel/i18n'
 import { MailServiceProvider } from '@elyvel/mail'
+import { NotificationServiceProvider } from '@elyvel/notifications'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
+import { EventServiceProvider } from '../app/providers/EventServiceProvider'
+import { ScheduleServiceProvider } from '../app/providers/ScheduleServiceProvider'
 
 /**
  * Application config. `defineAppConfig` pins the type, so your editor
@@ -19,6 +23,10 @@ export default defineAppConfig({
     EloquentServiceProvider,
     I18nServiceProvider,
     MailServiceProvider,
+    CacheServiceProvider,
+    NotificationServiceProvider,
+    EventServiceProvider,
+    ScheduleServiceProvider,
     AuthServiceProvider,
     AppServiceProvider,
   ],
