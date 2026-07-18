@@ -1,0 +1,17 @@
+/**
+ * {{class}} — a listener. Register it in your EventServiceProvider:
+ *
+ *   protected override listen = [
+ *     [SomeEvent, [new {{class}}()]],
+ *   ]
+ *
+ * Runs inline by default; to run it on the queue instead, implement
+ * `@elyvel/queue`'s `QueuedListener` (adds a `shouldQueue` you can toggle).
+ */
+export class {{class}} {
+  async handle(event: unknown): Promise<void> {
+    void event
+  }
+}
+
+export default {{class}}

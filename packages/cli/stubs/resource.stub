@@ -1,0 +1,23 @@
+import { Resource } from '@elyvel/core'
+
+/**
+ * {{class}} — shapes a model into JSON/Inertia props (Laravel's API
+ * Resources). Use directly, or via {@link Resource.collection}/
+ * {@link Resource.paginated} for lists:
+ *
+ *   Resource.item(model, {{camel}})
+ *   Resource.collection(models, {{camel}})
+ *
+ * `Resource.when`/`Resource.whenLoaded` conditionally omit a key entirely
+ * (never serialize `null`/`undefined` in its place) — handy for fields that
+ * depend on the viewer, or relations that are only sometimes eager-loaded.
+ */
+export function {{camel}}(model: /* import your model type */ any) {
+  return {
+    id: model.id,
+    // is_mine: Resource.when(viewerId !== undefined, () => viewerId === model.user_id),
+    // comments: Resource.whenLoaded(model, 'comments', (cs) => cs.map(commentResource)),
+  }
+}
+
+export default {{camel}}

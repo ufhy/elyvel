@@ -1,0 +1,22 @@
+import type { Notifiable } from '@elyvel/notifications'
+import { Notification } from '@elyvel/notifications'
+
+/**
+ * {{class}} — a notification (Laravel's `Notification`). Implement only the
+ * channels `via()` returns (`toMail`/`toDatabase`/`toArray`/`toTelegram`/
+ * `toBroadcast`), then send it:
+ *
+ *   import { notify } from '@elyvel/notifications'
+ *   await notify(user, new {{class}}(...))
+ */
+export class {{class}} extends Notification {
+  override via(_notifiable: Notifiable): string[] {
+    return ['mail']
+  }
+
+  // override toMail(notifiable: Notifiable) {
+  //   return new Message().subject('...').html('...')
+  // }
+}
+
+export default {{class}}

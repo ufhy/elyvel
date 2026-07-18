@@ -1,0 +1,27 @@
+import type { Rules } from '@elyvel/validation'
+import { FormRequest } from '@elyvel/validation'
+
+/**
+ * {{class}} — a Form Request (Laravel's `FormRequest`). Validate (and
+ * optionally authorize) a request from inside a controller action:
+ *
+ *   const data = await {{class}}.validate(ctx)
+ *
+ * Throws on failure — `authorize() === false` throws 403, a failed rule
+ * throws 422 — the framework's default error pipeline turns either into a
+ * JSON body (API) or a redirect-back-with-errors (web).
+ */
+export class {{class}} extends FormRequest {
+  rules(): Rules {
+    return {
+      // title: 'required|string|max:255',
+    }
+  }
+
+  // Defaults to true (anyone). Return false to 403, or check the request:
+  // override authorize(ctx: RequestLike): boolean {
+  //   return true
+  // }
+}
+
+export default {{class}}

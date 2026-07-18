@@ -1,0 +1,9 @@
+import { defineBroadcastConfig } from '@elyvel/broadcasting'
+
+/**
+ * Broadcasting driver. `log` writes broadcast events to the logger (dev
+ * default); `websocket` uses Bun's native WebSocket pub/sub.
+ */
+export default defineBroadcastConfig({
+  driver: (process.env.BROADCAST_DRIVER as 'websocket' | 'log' | 'array' | undefined) ?? 'log',
+})

@@ -70,6 +70,52 @@ const blueprints: Record<string, Blueprint> = {
     filename: n => `${timestamp()}_${n.snake}.ts`,
     vars: n => ({ table: migrationTable(n.snake) }),
   },
+  request: {
+    stub: 'request',
+    suffix: 'Request',
+    dir: 'app/requests',
+    filename: n => `${n.class}.ts`,
+  },
+  resource: {
+    stub: 'resource',
+    suffix: 'Resource',
+    dir: 'app/resources',
+    filename: n => `${n.class}.ts`,
+  },
+  event: {
+    stub: 'event',
+    suffix: '',
+    dir: 'app/events',
+    filename: n => `${n.class}.ts`,
+  },
+  listener: {
+    stub: 'listener',
+    suffix: '',
+    dir: 'app/listeners',
+    filename: n => `${n.class}.ts`,
+  },
+  notification: {
+    stub: 'notification',
+    suffix: 'Notification',
+    dir: 'app/notifications',
+    filename: n => `${n.class}.ts`,
+  },
+  provider: {
+    stub: 'provider',
+    suffix: 'ServiceProvider',
+    dir: 'app/providers',
+    filename: n => `${n.class}.ts`,
+  },
+  factory: {
+    stub: 'factory',
+    suffix: 'Factory',
+    dir: 'database/factories',
+    filename: n => `${n.class}.ts`,
+    vars: (n) => {
+      const model = makeNames(n.snake.replace(/_factory$/, ''))
+      return { Model: model.class }
+    },
+  },
 }
 
 /** Handle `make:<type> <Name>`, returning an exit code. */

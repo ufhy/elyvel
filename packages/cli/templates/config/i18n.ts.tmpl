@@ -1,0 +1,16 @@
+import { defineI18nConfig } from '@elyvel/i18n'
+
+/**
+ * Localization. Translation files live in `lang/<locale>/<group>.ts` (and
+ * `lang/<locale>.ts` for whole-sentence keys) and are auto-loaded at boot.
+ * Use `__('group.key', { name })` anywhere, or the context-injected `ctx.__` /
+ * `ctx.locale`. Set the active locale per request with `setRequestLocale(...)`
+ * (e.g. from a signed-in user's preference).
+ * Run `elyvel lang:publish <locale>` to scaffold editable message files.
+ */
+export default defineI18nConfig({
+  locale: process.env.APP_LOCALE ?? 'en',
+  fallback: 'en',
+  path: 'lang',
+  logMissing: process.env.APP_ENV !== 'production', // warn on untranslated keys in dev
+})

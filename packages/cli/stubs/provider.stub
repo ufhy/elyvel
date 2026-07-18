@@ -1,0 +1,18 @@
+import { ServiceProvider } from '@elyvel/core'
+
+/**
+ * {{class}} — a service provider. Register it in `config/app.ts`'s
+ * `providers` array (order matters — `register()` runs for every provider
+ * before any `boot()` does).
+ */
+export class {{class}} extends ServiceProvider {
+  override register(): void {
+    // this.app.container.instance(SomeToken, new SomeService())
+  }
+
+  override boot(): void {
+    // Startup logic — every provider is registered by now.
+  }
+}
+
+export default {{class}}

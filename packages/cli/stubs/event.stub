@@ -1,0 +1,16 @@
+/**
+ * {{class}} — a plain event class. Dispatch it after something happens:
+ *
+ *   import { event } from '@elyvel/events'
+ *   await event(new {{class}}(...))
+ *
+ * Register a listener for it in your EventServiceProvider's `listen` map
+ * (`elyvel make:listener` scaffolds one).
+ */
+export class {{class}} {
+  constructor(
+    // public readonly post: Post,
+  ) {}
+}
+
+export default {{class}}

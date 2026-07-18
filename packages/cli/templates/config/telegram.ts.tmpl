@@ -1,0 +1,6 @@
+import { defineTelegramConfig } from '@elyvel/telegram'
+
+/** Telegram Bot API config — used by the `telegram` notification channel. */
+export default defineTelegramConfig({
+  token: process.env.TELEGRAM_BOT_TOKEN ?? '',
+})

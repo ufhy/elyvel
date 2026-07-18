@@ -1,0 +1,17 @@
+import { defineFactory } from '@elyvel/database'
+// import { faker } from '@faker-js/faker'
+import { {{Model}} } from '../../app/models/{{Model}}'
+
+/**
+ * {{class}} — a model factory for seeding/tests (Laravel's factories, via
+ * Faker). `.make()` builds unsaved instances; `.create()` persists them:
+ *
+ *   await {{camel}}().count(5).create()
+ *   {{camel}}().makeOne({ title: 'Fixed title' })
+ */
+export const {{camel}} = defineFactory({{Model}}, () => ({
+  // title: faker.lorem.sentence(),
+  // body: faker.lorem.paragraphs(3),
+}))
+
+export default {{camel}}

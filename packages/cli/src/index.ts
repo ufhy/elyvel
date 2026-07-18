@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { configPublish } from './commands/config'
 import {
   dbMonitorCommand,
   dbShellCommand,
@@ -73,7 +74,16 @@ Usage:
   elyvel make:model <Name>                     Generate a model + table schema
   elyvel make:migration <name>                 Generate a migration
   elyvel make:seeder <Name>                    Generate a seeder
+  elyvel make:factory <Name>                   Generate a model factory (Faker)
   elyvel make:policy <Name> [--model[=Model]]  Generate an authorization policy
+  elyvel make:request <Name>                   Generate a Form Request
+  elyvel make:resource <Name>                  Generate an API Resource transform
+  elyvel make:event <Name>                     Generate an event class
+  elyvel make:listener <Name>                  Generate an event listener
+  elyvel make:notification <Name>              Generate a notification
+  elyvel make:provider <Name>                  Generate a service provider
+
+  elyvel config:publish [name...] [--force]    Publish default config files to config/
 `
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
@@ -126,6 +136,10 @@ async function main(): Promise<number> {
 
   if (command === 'lang:publish') {
     return langPublish(rest[0], flags)
+  }
+
+  if (command === 'config:publish') {
+    return configPublish(rest, flags)
   }
 
   if (command === 'migrate') {
