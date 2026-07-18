@@ -28,13 +28,18 @@ function compareCount(value: number, operator: string, target: number): boolean 
   }
 }
 
-/** A page of results plus pagination metadata. */
+/**
+ * A page of results plus pagination metadata. The index signature lets it
+ * pass straight into `@elyvel/core`'s `Resource.paginated(paginator, ...)`
+ * without a cast.
+ */
 export interface Paginator<M extends Model> {
   data: EloquentCollection<M>
   total: number
   perPage: number
   currentPage: number
   lastPage: number
+  [key: string]: unknown
 }
 /** A page without a total COUNT (cheaper) — just "is there more?". */
 export interface SimplePaginator<M extends Model> {
@@ -42,6 +47,7 @@ export interface SimplePaginator<M extends Model> {
   perPage: number
   currentPage: number
   hasMore: boolean
+  [key: string]: unknown
 }
 /** Keyset (cursor) pagination — scales to large offsets. */
 export interface CursorPaginator<M extends Model> {

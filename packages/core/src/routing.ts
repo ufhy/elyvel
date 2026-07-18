@@ -34,7 +34,16 @@ export interface ResourceOptions {
   only?: ResourceAction[]
   /** Wire every action except these. */
   except?: ResourceAction[]
-  /** Route parameter name for the id (default `id`). */
+  /**
+   * Route parameter name for the id (default `id`).
+   *
+   * Matters when nesting resources under the same parent path: Elysia's
+   * router rejects two differently-named dynamic segments at the same tree
+   * depth. `resource('/posts', PostController)` composed with
+   * `resource('/:post/comments', CommentController)` (via `.use()`) collide
+   * unless the parent's own id param is ALSO named `post`
+   * (`{ param: 'post' }`) — both trees must agree on the segment name.
+   */
   param?: string
   /**
    * Middleware to apply. An array applies to every action; an object applies
@@ -94,6 +103,9 @@ function middlewareFor(action: ResourceAction, options: ResourceOptions): string
  * — for a JSON-only API, use {@link apiResource} instead. Only actions the
  * controller actually defines are wired. Returns an Elysia plugin —
  * default-export it from a `routes/` file or compose with `.use()`.
+ *
+ * Nesting another resource underneath (`.use(resource('/:post/comments', ...))`)
+ * needs both resources to share the same id param name — see {@link ResourceOptions.param}.
  */
 export function resource(
   path: string,

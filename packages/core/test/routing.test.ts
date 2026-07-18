@@ -137,4 +137,27 @@ describe('resource routing', () => {
     // non-guarded action still works
     expect((await guarded.handle(new Request('http://localhost/things'))).status).toBe(200)
   })
+
+  test('nested resources need a matching param name (Elysia router constraint)', async () => {
+    class CommentController extends Controller {
+      async store(ctx: MiddlewareContext) {
+        return { postId: ctx.params.post, body: ctx.body }
+      }
+    }
+
+    // Same param name ("post") on both — no collision.
+    const nested = new Elysia().use(
+      resource('/nested-posts', PostController, { param: 'post' }).use(
+        resource('/:post/comments', CommentController, { only: ['store'] }),
+      ),
+    )
+    const res = await nested.handle(
+      new Request('http://localhost/nested-posts/7/comments', {
+        method: 'POST',
+        headers: json,
+        body: '{}',
+      }),
+    )
+    expect(await res.json()).toEqual({ postId: '7', body: {} })
+  })
 })

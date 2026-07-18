@@ -19,6 +19,20 @@ interface HasRelations {
   relations: Record<string, unknown>
 }
 
+/**
+ * A plain array, or anything array-like via `.all()` — e.g. `@elyvel/database`'s
+ * `EloquentCollection` (structural, so core stays decoupled from the DB layer).
+ * Pass the collection straight through: `Resource.collection(posts.data, ...)`
+ * needs neither `.all()` nor `.toArray()` — the latter would silently
+ * serialize each Model via `toObject()`, dropping eager-loaded `relations`
+ * that `whenLoaded` depends on.
+ */
+type ItemList<T> = T[] | { all(): T[] }
+
+function itemsOf<T>(list: ItemList<T>): T[] {
+  return Array.isArray(list) ? list : list.all()
+}
+
 /** Recursively drop keys whose value is the {@link MISSING} sentinel. */
 function strip(value: unknown): unknown {
   if (Array.isArray(value))
@@ -42,20 +56,22 @@ export const Resource = {
   },
 
   /** Wrap a list under `data`, optionally transforming each item. */
-  collection<T>(items: T[], transform?: (item: T) => unknown): { data: unknown[] } {
-    return { data: transform ? items.map(i => strip(transform(i))) : items }
+  collection<T>(items: ItemList<T>, transform?: (item: T) => unknown): { data: unknown[] } {
+    const list = itemsOf(items)
+    return { data: transform ? list.map(i => strip(transform(i))) : list }
   },
 
   /**
-   * Wrap a paginator (any object with a `data` array) as `{ data, meta }`, where
+   * Wrap a paginator (any object with a `data` list) as `{ data, meta }`, where
    * `meta` is every other field on the paginator (total, perPage, currentPage…).
    */
   paginated<T>(
-    paginator: { data: T[] } & Record<string, unknown>,
+    paginator: { data: ItemList<T> } & Record<string, unknown>,
     transform?: (item: T) => unknown,
   ): { data: unknown[], meta: Record<string, unknown> } {
     const { data, ...meta } = paginator
-    return { data: transform ? data.map(i => strip(transform(i))) : data, meta }
+    const list = itemsOf(data)
+    return { data: transform ? list.map(i => strip(transform(i))) : list, meta }
   },
 
   /**
