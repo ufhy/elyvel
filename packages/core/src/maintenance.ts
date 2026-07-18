@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { trans } from '@elysia-ravel/support'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
 
@@ -86,7 +87,7 @@ export function maintenanceMode(file: string) {
       return
 
     const status = payload.status ?? 503
-    const message = payload.message ?? 'Service Unavailable'
+    const message = payload.message ?? trans('errors.503.message', {}, 'Service Unavailable')
     const headers: Record<string, string> = {}
     if (payload.retryAfter)
       headers['retry-after'] = String(payload.retryAfter)

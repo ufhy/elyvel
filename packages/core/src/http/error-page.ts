@@ -4,6 +4,7 @@
  * match the scaffold's landing (dark, indigo accent, faint grid). The core
  * error handler renders this for browser navigations; API clients get JSON.
  */
+import { trans } from '@elysia-ravel/support'
 
 interface ErrorMeta {
   title: string
@@ -71,9 +72,18 @@ const DEFAULTS: Record<number, ErrorMeta> = {
   503: { title: 'Service Unavailable', message: 'We’re down for a moment — back shortly.' },
 }
 
+/** Translated title/message for a status, falling back to the built-in English. */
+function errorMeta(status: number): ErrorMeta {
+  const fallback = DEFAULTS[status] ?? { title: 'Error', message: 'An unexpected error occurred.' }
+  return {
+    title: trans(`errors.${status}.title`, {}, fallback.title),
+    message: trans(`errors.${status}.message`, {}, fallback.message),
+  }
+}
+
 /** A human-readable default message for a status (for JSON error bodies). */
 export function defaultErrorMessage(status: number): string {
-  return DEFAULTS[status]?.message ?? 'An unexpected error occurred.'
+  return errorMeta(status).message
 }
 
 function escapeHtml(value: string): string {
@@ -86,7 +96,7 @@ function escapeHtml(value: string): string {
 
 /** A complete, styled HTML document for an HTTP error status. */
 export function renderErrorPage(status: number, options: { message?: string } = {}): string {
-  const meta = DEFAULTS[status] ?? { title: 'Error', message: 'An unexpected error occurred.' }
+  const meta = errorMeta(status)
   const title = escapeHtml(meta.title)
   const message = escapeHtml(options.message?.trim() || meta.message)
   return `<!doctype html>

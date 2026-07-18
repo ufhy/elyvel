@@ -1,3 +1,5 @@
+import { trans } from '@elysia-ravel/support'
+
 /** Which "size" variant a message uses, based on the value's type. */
 export type SizeKind = 'numeric' | 'string' | 'array' | 'file'
 
@@ -124,10 +126,19 @@ interface MessageInput {
 export function formatMessage(input: MessageInput): string {
   const { rule, attribute, args, sizeKind, custom = {}, attributes = {} } = input
 
+  // Resolution order: caller-supplied custom message → translation
+  // (`validation.<rule>`, or `validation.<rule>.<sizeKind>` for size rules) →
+  // built-in English default. `trans` returns the English fallback untranslated
+  // when i18n is absent, so nothing regresses.
+  const defaultTemplate = pickTemplate(rule, sizeKind) ?? FALLBACK
+  const key = typeof DEFAULT_MESSAGES[rule] === 'object'
+    ? `validation.${rule}.${sizeKind}`
+    : `validation.${rule}`
   const template
-    = custom[`${attribute}.${rule}`] ?? custom[rule] ?? pickTemplate(rule, sizeKind) ?? FALLBACK
+    = custom[`${attribute}.${rule}`] ?? custom[rule] ?? trans(key, {}, defaultTemplate)
 
-  const displayName = attributes[attribute] ?? humanizeAttribute(attribute)
+  const displayName = attributes[attribute]
+    ?? trans(`validation.attributes.${attribute}`, {}, humanizeAttribute(attribute))
 
   return template
     .replaceAll(':attribute', displayName)

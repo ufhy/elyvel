@@ -1,4 +1,5 @@
 import type { MiddlewareContext } from './middleware'
+import { trans } from '@elysia-ravel/support'
 import { Elysia } from 'elysia'
 import { route } from './middleware'
 import { named } from './url'
@@ -121,7 +122,7 @@ export function resource(
       if (model === null || model === undefined) {
         return options.onMissing
           ? options.onMissing(ctx)
-          : ctx.status(404, { message: `${label} not found` })
+          : ctx.status(404, { message: trans('errors.not_found', { resource: label }, `${label} not found`) })
       }
       ctx.model = model
       return handler(ctx)

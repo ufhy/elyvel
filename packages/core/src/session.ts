@@ -2,6 +2,7 @@ import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { trans } from '@elysia-ravel/support'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
@@ -473,7 +474,7 @@ export class CsrfMiddleware extends Middleware {
     if (!session)
       return // sessions not enabled → nothing to verify
     if (requestToken(ctx) !== session.token()) {
-      return ctx.status(419, { message: 'CSRF token mismatch.' })
+      return ctx.status(419, { message: trans('errors.csrf', {}, 'CSRF token mismatch.') })
     }
   }
 }

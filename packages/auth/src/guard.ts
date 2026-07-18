@@ -1,5 +1,6 @@
 import type { AuthManager } from './manager'
 import type { Authenticatable } from './types'
+import { trans } from '@elysia-ravel/support'
 import { Elysia } from 'elysia'
 
 const BEARER = 'Bearer '
@@ -27,7 +28,7 @@ export function createGuard<U extends Authenticatable>(manager: AuthManager<U>) 
         return {
           beforeHandle({ user, status }) {
             if (enabled && !user) {
-              return status(401, { message: 'Unauthenticated' })
+              return status(401, { message: trans('errors.unauthenticated', {}, 'Unauthenticated') })
             }
           },
         }

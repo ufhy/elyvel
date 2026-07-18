@@ -1,4 +1,5 @@
 import type { MiddlewareContext } from './middleware'
+import { trans } from '@elysia-ravel/support'
 import { Middleware } from './middleware'
 
 // ── store (injectable) ──────────────────────────────────────────────────────
@@ -246,7 +247,7 @@ export class ThrottleMiddleware extends Middleware {
     setRateHeaders(ctx, limit, count)
     if (count > limit) {
       ctx.set.headers['retry-after'] = String(await store.availableIn(key))
-      return ctx.status(429, { message: 'Too Many Requests' })
+      return ctx.status(429, { message: trans('errors.throttle', {}, 'Too Many Requests') })
     }
   }
 
@@ -286,7 +287,7 @@ export class ThrottleMiddleware extends Middleware {
     ctx.set.headers['retry-after'] = String(await store.availableIn(key))
     if (limit.responseCallback)
       return limit.responseCallback(ctx, ctx.set.headers)
-    return ctx.status(429, { message: 'Too Many Requests' })
+    return ctx.status(429, { message: trans('errors.throttle', {}, 'Too Many Requests') })
   }
 
   /** Response-based counting for `.after()` limits — increment only when it opts in. */

@@ -90,6 +90,7 @@
       "peerDependencies": {
         "@elysia-ravel/core": "workspace:*",
         "@elysia-ravel/database": "workspace:*",
+        "@elysia-ravel/support": "workspace:*",
         "better-auth": ">=1.2.0",
         "elysia": ">=1.4.0",
       },
@@ -137,6 +138,7 @@
         "elysia": "^1.4.0",
       },
       "peerDependencies": {
+        "@elysia-ravel/support": "workspace:*",
         "@elysiajs/openapi": ">=1.4.0",
         "elysia": ">=1.4.0",
       },
@@ -254,6 +256,9 @@
     "packages/validation": {
       "name": "@elysia-ravel/validation",
       "version": "0.0.0",
+      "peerDependencies": {
+        "@elysia-ravel/support": "workspace:*",
+      },
     },
     "packages/view": {
       "name": "@elysia-ravel/view",
