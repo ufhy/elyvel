@@ -1,4 +1,5 @@
 import type { Connection } from './connection'
+import { currentTimezone, dateParts, zonedStartOfDayUtc } from '@elysia-ravel/core'
 import { LazyCollection } from '@elysia-ravel/support'
 import { useConnection } from './connection'
 
@@ -704,6 +705,11 @@ export class QueryBuilder {
   private datePartSql(w: WhereClause, bindings: unknown[]): string {
     const g = this.connection.grammar
     const col = g.wrap(w.column)
+    // `whereDate` compares the stored UTC instant against a LOCAL calendar day in
+    // the active timezone (store-UTC, query-local) — expressed as a UTC range so
+    // it's portable across dialects and DST-correct, unlike raw SQL date().
+    if (w.part === 'date')
+      return this.dateRangeSql(w, col, bindings)
     const ph = this.bind(w.value, bindings)
     const dialect = this.connection.dialect
     // On pg our date columns are TEXT (cross-dialect ISO strings), so cast before extract.
@@ -738,6 +744,42 @@ export class QueryBuilder {
       }
     }
     return `${expr()} ${w.operator} ${ph}`
+  }
+
+  /** `whereDate` as a timezone-aware UTC range over the raw ISO column. */
+  private dateRangeSql(w: WhereClause, col: string, bindings: unknown[]): string {
+    const tz = currentTimezone()
+    const dateStr = this.toDateString(w.value, tz)
+    const startIso = zonedStartOfDayUtc(dateStr, tz).toISOString()
+    const next = new Date(`${dateStr}T00:00:00Z`)
+    next.setUTCDate(next.getUTCDate() + 1)
+    const endIso = zonedStartOfDayUtc(next.toISOString().slice(0, 10), tz).toISOString()
+    const start = () => this.bind(startIso, bindings)
+    const end = () => this.bind(endIso, bindings)
+    switch (w.operator) {
+      case '!=':
+      case '<>':
+        return `(${col} < ${start()} OR ${col} >= ${end()})`
+      case '>': // strictly after that day
+        return `${col} >= ${end()}`
+      case '>=': // that day or later
+        return `${col} >= ${start()}`
+      case '<': // before that day
+        return `${col} < ${start()}`
+      case '<=': // that day or earlier
+        return `${col} < ${end()}`
+      default: // '=' — within that local day
+        return `${col} >= ${start()} AND ${col} < ${end()}`
+    }
+  }
+
+  /** A `YYYY-MM-DD` calendar date in `tz` from a Date/number/ISO-string value. */
+  private toDateString(value: unknown, tz: string): string {
+    if (value instanceof Date || typeof value === 'number') {
+      const p = dateParts(value as Date | number, tz)
+      return `${p.year}-${p.month}-${p.day}`
+    }
+    return String(value).slice(0, 10)
   }
 
   private jsonContainsSql(w: WhereClause, bindings: unknown[]): string {

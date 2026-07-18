@@ -13,7 +13,19 @@ export {
 export type { Token } from './container'
 export { Container, token } from './container'
 export { cors, type CorsOptions } from './cors'
-export { dateParts, formatDate, getAppTimezone, setAppTimezone } from './datetime'
+export {
+  currentTimezone,
+  dateParts,
+  formatDate,
+  getAppTimezone,
+  now,
+  runWithTimezone,
+  setAppTimezone,
+  setRequestTimezone,
+  timezoneOffset,
+  today,
+  zonedStartOfDayUtc,
+} from './datetime'
 export { defineEnv } from './env'
 export { type FakeResponse, Http, HttpResponse, PendingRequest } from './http/client'
 export {

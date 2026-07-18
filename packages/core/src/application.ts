@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { Elysia } from 'elysia'
 import { ConfigRepository, ConfigToken, setConfigRepository } from './config'
 import { Container } from './container'
-import { setAppTimezone } from './datetime'
+import { getAppTimezone, setAppTimezone, setRequestTimezone } from './datetime'
 import { errorPages } from './http/error-pages'
 import { methodOverride } from './http/method-override'
 import { openApiPlugin } from './http/openapi'
@@ -166,6 +166,8 @@ export class Application {
     app.registerSession()
     // After session so its 422 validation redirect-back wins before we render.
     app.registerErrorPages()
+    // After session so the per-request timezone can read a user's session pref.
+    app.registerTimezone()
     // Before routes so the OpenAPI plugin observes them all.
     await app.registerOpenApi()
 
@@ -332,6 +334,45 @@ export class Application {
   /** Render styled HTML error pages for browsers (JSON for API) — framework default. */
   private registerErrorPages(): void {
     this.elysia.use(errorPages())
+  }
+
+  /**
+   * Resolve a per-request timezone (a signed-in user's `session.timezone`, else a
+   * `timezone` cookie) and expose it as `ctx.timezone`. Falls back to the app
+   * default (`config('app.timezone')`). Lets `formatDate()`/`dateParts()` render
+   * in each user's zone without threading it through every call.
+   */
+  private registerTimezone(): void {
+    const isValidTz = (tz: unknown): tz is string => {
+      if (typeof tz !== 'string' || !tz)
+        return false
+      try {
+        // eslint-disable-next-line no-new
+        new Intl.DateTimeFormat('en-US', { timeZone: tz })
+        return true
+      }
+      catch {
+        return false
+      }
+    }
+    const readCookie = (header: string | null, name: string): string | undefined => {
+      for (const part of header?.split(';') ?? []) {
+        const [k, v] = part.trim().split('=')
+        if (k === name && v)
+          return decodeURIComponent(v)
+      }
+      return undefined
+    }
+    this.elysia.derive({ as: 'global' }, (ctx: { request: Request, session?: { get?(k: string): unknown } }) => {
+      const fromSession = ctx.session?.get?.('timezone')
+      const candidate = isValidTz(fromSession)
+        ? fromSession
+        : readCookie(ctx.request.headers.get('cookie'), 'timezone')
+      const timezone = isValidTz(candidate) ? candidate : getAppTimezone()
+      if (timezone !== getAppTimezone())
+        setRequestTimezone(timezone)
+      return { timezone }
+    })
   }
 
   /**
