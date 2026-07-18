@@ -1,14 +1,18 @@
+/** CLDR plural categories in canonical order (zero < one < two < few < many < other). */
+const CLDR_ORDER = ['zero', 'one', 'two', 'few', 'many', 'other'] as const
+
 /**
  * Pick the right segment from a pluralized line for `number`, mirroring Laravel's
  * MessageSelector. Segments are separated by `|` and may carry an explicit range:
  *
- *   'apple|apples'                              → 1 ? first : second
+ *   'apple|apples'                              → by the locale's plural rules
  *   '{0} none|[1,19] some|[20,*] many'          → exact `{n}` / inclusive `[a,b]`
  *
- * With no explicit ranges, English-style rules apply: `number === 1` → first
- * segment, otherwise the second (falling back to the only segment if just one).
+ * With no explicit ranges, the segments map to the locale's CLDR plural categories
+ * in canonical order (e.g. English `one|other`; Russian `one|few|many|other`), via
+ * `Intl.PluralRules` — so plural selection is correct beyond English.
  */
-export function selectPluralSegment(line: string, number: number): string {
+export function selectPluralSegment(line: string, number: number, locale = 'en'): string {
   const segments = line.split('|')
 
   for (const segment of segments) {
@@ -17,10 +21,22 @@ export function selectPluralSegment(line: string, number: number): string {
       return explicit.text
   }
 
-  // No explicit range matched — strip any conditions and apply standard rules.
+  // No explicit range matched — strip conditions and select by CLDR category.
   const plain = segments.map(stripCondition)
   if (plain.length === 1)
     return plain[0]!
+
+  try {
+    const rules = new Intl.PluralRules(locale)
+    const used = new Set(rules.resolvedOptions().pluralCategories)
+    const ordered = CLDR_ORDER.filter(category => used.has(category))
+    const index = ordered.indexOf(rules.select(number))
+    if (index >= 0 && index < plain.length)
+      return plain[index]!
+  }
+  catch {
+    // Unknown locale → fall through to the English-style default below.
+  }
   return number === 1 ? plain[0]! : plain[1]!
 }
 

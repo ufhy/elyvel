@@ -21,10 +21,17 @@ export class Translator {
   private locale: string
   private fallback: string
   private readonly locales = new Map<string, LinesTree>()
+  private onMissing?: (key: string, locale: string) => void
 
   constructor(options: TranslatorOptions = {}) {
     this.locale = options.locale ?? 'en'
     this.fallback = options.fallback ?? this.locale
+  }
+
+  /** Register a callback fired whenever a key can't be resolved (for reporting). */
+  handleMissing(fn: ((key: string, locale: string) => void) | undefined): this {
+    this.onMissing = fn
+    return this
   }
 
   setLocale(locale: string): this {
@@ -89,8 +96,10 @@ export class Translator {
     const line
       = resolve(this.locales.get(active), key)
         ?? resolve(this.locales.get(this.fallback), key)
-    if (typeof line !== 'string')
+    if (typeof line !== 'string') {
+      this.onMissing?.(key, active)
       return key
+    }
     return applyReplacements(line, replace)
   }
 
@@ -103,9 +112,11 @@ export class Translator {
     const line
       = resolve(this.locales.get(active), key)
         ?? resolve(this.locales.get(this.fallback), key)
-    if (typeof line !== 'string')
+    if (typeof line !== 'string') {
+      this.onMissing?.(key, active)
       return key
-    const segment = selectPluralSegment(line, number)
+    }
+    const segment = selectPluralSegment(line, number, active)
     return applyReplacements(segment, { count: number, ...replace })
   }
 }

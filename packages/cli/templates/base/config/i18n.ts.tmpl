@@ -3,8 +3,10 @@ import { defineI18nConfig } from '@elysia-ravel/i18n'
 /**
  * Localization. Translation files live in `lang/<locale>/<group>.ts` (and
  * `lang/<locale>.ts` for whole-sentence keys) and are auto-loaded at boot.
- * Each request's locale is detected from `?lang=` or the `Accept-Language`
- * header (restricted to `locales`); use `__('group.key', { name })` anywhere.
+ * Each request's locale is detected in order — `?lang=` → session → `locale`
+ * cookie → `Accept-Language` (restricted to `locales`). Use `__('group.key',
+ * { name })` anywhere, or the context-injected `ctx.__` / `ctx.locale`.
+ * Run `ravel lang:publish <locale>` to scaffold editable message files.
  */
 export default defineI18nConfig({
   locale: process.env.APP_LOCALE ?? 'en',
@@ -12,4 +14,7 @@ export default defineI18nConfig({
   path: 'lang',
   locales: ['en', 'id'],
   detect: true,
+  sessionKey: 'locale', // where a signed-in user's preferred locale lives in the session
+  cookie: 'locale', // persisted guest preference
+  logMissing: process.env.APP_ENV !== 'production', // warn on untranslated keys in dev
 })
