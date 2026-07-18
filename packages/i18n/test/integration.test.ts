@@ -42,29 +42,24 @@ describe('support trans() seam bridge', () => {
   })
 })
 
-describe('I18nServiceProvider (boot + request locale detection)', () => {
-  test('detects ?lang and Accept-Language per request', async () => {
+describe('I18nServiceProvider (boot)', () => {
+  test('serves the configured default locale (no auto-detection)', async () => {
     const app = await createApp({ basePath, providers: [I18nServiceProvider] })
-    const hi = (init?: RequestInit) =>
-      app.handle(new Request('http://localhost/hi', init)).then(r => r.json()) as Promise<{ msg: string }>
+    const msg = async (init?: RequestInit) =>
+      (await app.handle(new Request('http://localhost/hi', init)).then(r => r.json()) as { msg: string }).msg
 
-    expect((await hi()).msg).toBe('Hello Ada') // default en
-    expect((await hi({ headers: { 'accept-language': 'id' } } as RequestInit)).msg).toBe('Halo Ada')
-    const q = await app.handle(new Request('http://localhost/hi?lang=id')).then(r => r.json()) as { msg: string }
-    expect(q.msg).toBe('Halo Ada')
+    expect(await msg()).toBe('Hello Ada') // default en
+    // ?lang / Accept-Language no longer switch the locale — detection was removed.
+    expect(await msg({ headers: { 'accept-language': 'id' } } as RequestInit)).toBe('Hello Ada')
+    expect((await app.handle(new Request('http://localhost/hi?lang=id')).then(r => r.json()) as { msg: string }).msg)
+      .toBe('Hello Ada')
   })
 
-  test('detects a persisted `locale` cookie', async () => {
+  test('injects __ and locale into the request context (default locale)', async () => {
     const app = await createApp({ basePath, providers: [I18nServiceProvider] })
-    const res = await app.handle(new Request('http://localhost/hi', { headers: { cookie: 'locale=id' } }))
-    expect(((await res.json()) as { msg: string }).msg).toBe('Halo Ada')
-  })
-
-  test('injects __ and locale into the request context', async () => {
-    const app = await createApp({ basePath, providers: [I18nServiceProvider] })
-    const res = await app.handle(new Request('http://localhost/ctx?lang=id'))
+    const res = await app.handle(new Request('http://localhost/ctx'))
     const body = (await res.json()) as { locale: string, msg: string }
-    expect(body.locale).toBe('id')
-    expect(body.msg).toBe('Halo Ada')
+    expect(body.locale).toBe('en')
+    expect(body.msg).toBe('Hello Ada')
   })
 })

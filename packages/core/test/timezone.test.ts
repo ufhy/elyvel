@@ -72,26 +72,13 @@ describe('request timezone wiring (ctx.timezone)', () => {
     }
   }
 
-  test('resolves from a `timezone` cookie and exposes ctx.timezone', async () => {
+  test('ctx.timezone is the app default (no auto-detection)', async () => {
     const app = await createApp({ basePath, autoloadRoutes: false, providers: [RouteProvider as any] })
+    // A `timezone` cookie is NOT auto-detected anymore — always the app default.
     const res = await app.handle(new Request('http://localhost/tz', {
       headers: { cookie: 'timezone=Asia/Makassar' },
     }))
-    expect(((await res.json()) as { tz: string }).tz).toBe('Asia/Makassar')
-  })
-
-  test('falls back to the app default when no cookie/session', async () => {
-    const app = await createApp({ basePath, autoloadRoutes: false, providers: [RouteProvider as any] })
-    const res = await app.handle(new Request('http://localhost/tz'))
     // fixtures config has no app.timezone → defaults to UTC
-    expect(((await res.json()) as { tz: string }).tz).toBe('UTC')
-  })
-
-  test('an invalid cookie timezone is ignored (falls back)', async () => {
-    const app = await createApp({ basePath, autoloadRoutes: false, providers: [RouteProvider as any] })
-    const res = await app.handle(new Request('http://localhost/tz', {
-      headers: { cookie: 'timezone=Not/AZone' },
-    }))
     expect(((await res.json()) as { tz: string }).tz).toBe('UTC')
   })
 })

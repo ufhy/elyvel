@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { detectLocale } from '../src/provider'
 import { Translator } from '../src/translator'
 
 describe('CLDR pluralization', () => {
@@ -43,32 +42,5 @@ describe('missing-key reporting', () => {
     t.addLines('en', { hi: 'Hello' }, 'm')
     t.get('m.hi') // resolves → no report
     expect(missed).toEqual(['nope.here'])
-  })
-})
-
-describe('locale detection priority', () => {
-  const opts = { allowed: ['en', 'id', 'fr'], sessionKey: 'locale', cookieName: 'locale' }
-  const req = (url: string, headers: Record<string, string> = {}) => new Request(url, { headers })
-
-  test('query beats everything', () => {
-    const r = req('http://x/?lang=fr', { 'accept-language': 'id', 'cookie': 'locale=en' })
-    expect(detectLocale(r, { get: () => 'id' }, opts)).toBe('fr')
-  })
-
-  test('session beats cookie and header', () => {
-    const r = req('http://x/', { 'accept-language': 'en', 'cookie': 'locale=en' })
-    expect(detectLocale(r, { get: () => 'id' }, opts)).toBe('id')
-  })
-
-  test('cookie beats header', () => {
-    expect(detectLocale(req('http://x/', { 'accept-language': 'en', 'cookie': 'locale=id' }), undefined, opts)).toBe('id')
-  })
-
-  test('Accept-Language as last resort (with region fallback)', () => {
-    expect(detectLocale(req('http://x/', { 'accept-language': 'id-ID,en;q=0.8' }), undefined, opts)).toBe('id')
-  })
-
-  test('values outside the whitelist are ignored', () => {
-    expect(detectLocale(req('http://x/?lang=de'), undefined, opts)).toBeUndefined()
   })
 })

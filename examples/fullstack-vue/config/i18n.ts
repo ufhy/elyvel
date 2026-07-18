@@ -4,6 +4,4 @@ export default defineI18nConfig({
   locale: process.env.APP_LOCALE ?? 'en',
   fallback: 'en',
   path: 'lang',
-  locales: ['en', 'id'],
-  detect: true,
 })
