@@ -67,6 +67,12 @@ function castGet(cast: Cast, value: unknown): unknown {
       return typeof value === 'string' ? JSON.parse(value) : value
     case 'date':
     case 'datetime':
+      // An empty string (a blank optional date input, sent through as '' rather
+      // than omitted/null) is treated as absent — otherwise it becomes an
+      // Invalid Date whose `.toISOString()` throws deep inside a Resource
+      // transform, far from where the empty value actually came from.
+      if (value === '')
+        return null
       // A rich, timezone-aware date object (dayjs) — `.format()`, `.add()`, `.tz()`…
       return date(value as Date | string | number)
     case 'encrypted':
@@ -89,6 +95,11 @@ function castStore(cast: Cast, value: unknown, dialect: string): unknown {
       return typeof value === 'string' ? value : JSON.stringify(value)
     case 'date':
     case 'datetime':
+      // An empty string is a blank optional date input, not a value — store
+      // NULL, not the literal string '' (which would round-trip as an
+      // Invalid Date on the next read).
+      if (value === '')
+        return null
       // dayjs and Date both expose toISOString() → store as UTC ISO with `Z`.
       return typeof (value as { toISOString?: unknown }).toISOString === 'function'
         ? (value as Date).toISOString()

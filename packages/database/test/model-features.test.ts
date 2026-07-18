@@ -107,6 +107,17 @@ for (const d of dialects) {
       expect(post?.tags).toEqual(['a', 'b'])
     })
 
+    test('an empty string on a date/datetime cast is treated as null, not an Invalid Date', async () => {
+      // A blank optional date input (e.g. from a form) is commonly sent as ''
+      // rather than omitted — this must not crash `.toISOString()` down the
+      // line, and must not persist the literal string '' either.
+      const created = await Post.create({ title: 'A', views: 0, status: 'x', published_at: '' })
+      expect(created.published_at).toBeNull()
+
+      const reloaded = await Post.find(created.id)
+      expect(reloaded?.published_at).toBeNull()
+    })
+
     test('refresh + fresh reload from DB', async () => {
       const post = await Post.create({ title: 'A', views: 0, status: 'x' })
       await Post.query().where('id', post.id).update({ title: 'Changed' })
