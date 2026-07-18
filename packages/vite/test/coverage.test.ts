@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { viteTags } from '../src/tags'
 
 /** Covers the production-manifest branch of viteTags (only the dev/no-manifest path was tested). */
@@ -16,6 +16,18 @@ function manifest(content: unknown): string {
 }
 
 describe('viteTags — production manifest', () => {
+  // The manifest is only trusted when APP_ENV=production (see vite.test.ts
+  // for the "stale build shouldn't shadow the dev server" behavior itself).
+  const savedAppEnv = process.env.APP_ENV
+  beforeEach(() => {
+    process.env.APP_ENV = 'production'
+  })
+  afterEach(() => {
+    if (savedAppEnv === undefined)
+      delete process.env.APP_ENV
+    else process.env.APP_ENV = savedAppEnv
+  })
+
   test('emits hashed script + css tags from the manifest chunk', () => {
     const path = manifest({
       'resources/js/app.ts': { file: 'assets/app.abc123.js', css: ['assets/app.def456.css'] },

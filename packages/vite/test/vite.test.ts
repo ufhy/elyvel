@@ -1,5 +1,8 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { errorPageResolver } from '@elyvel/core'
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { spa } from '../src/spa'
 import { viteTags } from '../src/tags'
@@ -17,6 +20,42 @@ describe('viteTags', () => {
     const tags = viteTags({ entry: 'app.ts', manifest: 'nope.json', base: '/assets/' })
     expect(tags).toContain('http://localhost:5173/assets/@vite/client')
     expect(tags).toContain('http://localhost:5173/assets/app.ts')
+  })
+
+  describe('with a manifest present', () => {
+    let dir: string
+    let manifestPath: string
+    const savedAppEnv = process.env.APP_ENV
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'elyvel-vite-'))
+      manifestPath = join(dir, 'manifest.json')
+      writeFileSync(
+        manifestPath,
+        JSON.stringify({ 'resources/js/app.ts': { file: 'assets/app-abc123.js', css: ['assets/app-abc123.css'] } }),
+      )
+    })
+    afterEach(() => {
+      rmSync(dir, { recursive: true, force: true })
+      if (savedAppEnv === undefined)
+        delete process.env.APP_ENV
+      else process.env.APP_ENV = savedAppEnv
+    })
+
+    test('is IGNORED outside production — a stale build never shadows the dev server', () => {
+      process.env.APP_ENV = 'local'
+      const tags = viteTags({ entry: 'resources/js/app.ts', manifest: manifestPath })
+      expect(tags).toContain('http://localhost:5173/build/@vite/client')
+      expect(tags).not.toContain('assets/app-abc123.js')
+    })
+
+    test('is honored when APP_ENV=production', () => {
+      process.env.APP_ENV = 'production'
+      const tags = viteTags({ entry: 'resources/js/app.ts', manifest: manifestPath })
+      expect(tags).toContain('/build/assets/app-abc123.js')
+      expect(tags).toContain('/build/assets/app-abc123.css')
+      expect(tags).not.toContain('@vite/client')
+    })
   })
 })
 

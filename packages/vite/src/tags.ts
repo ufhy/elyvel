@@ -17,16 +17,23 @@ interface ManifestChunk {
 }
 
 /**
- * Produce the `<script>`/`<link>` tags for a Vite client entry. If a build
- * manifest exists, emit the hashed production assets; otherwise assume the Vite
+ * Produce the `<script>`/`<link>` tags for a Vite client entry. In production,
+ * emit the hashed assets from the build manifest; otherwise assume the Vite
  * dev server (HMR) and emit the dev client + entry. Framework-agnostic — used
  * by both the Inertia adapter and the standalone `spa()` helper.
+ *
+ * The manifest is only trusted in production (`APP_ENV`/`NODE_ENV`). A stale
+ * `public/build/` left over from an earlier `vite build` — e.g. after
+ * switching back to `elyvel serve` for local dev — would otherwise still be
+ * picked up just because the file exists, serving assets that no longer
+ * match the running source with no warning, just a confusing client-side error.
  */
 export function viteTags(options: ViteOptions): string {
   const base = options.base ?? '/build/'
   const manifestPath = options.manifest ?? 'public/build/.vite/manifest.json'
+  const isProduction = (process.env.APP_ENV ?? process.env.NODE_ENV) === 'production'
 
-  if (existsSync(manifestPath)) {
+  if (isProduction && existsSync(manifestPath)) {
     try {
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<
         string,
