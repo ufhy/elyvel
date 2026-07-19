@@ -9,7 +9,7 @@ interface MemoryUser {
 }
 
 /** An in-memory auth setup for tests — no database required. */
-export async function makeMemoryAuth() {
+export async function makeMemoryAuth(overrides: { maxAttempts?: number, decayMinutes?: number } = {}) {
   const hashed = await Hash.make('secret')
   const users = new Map<number, MemoryUser>([
     [1, { id: 1, name: 'Ada', email: 'ada@example.com', password: hashed }],
@@ -17,6 +17,7 @@ export async function makeMemoryAuth() {
   const tokens = new Map<string, number>() // hashedToken -> userId
 
   const auth = createAuth<MemoryUser>({
+    ...overrides,
     provider: {
       retrieveById: id => users.get(Number(id)) ?? null,
       retrieveByCredentials: ({ email }) =>

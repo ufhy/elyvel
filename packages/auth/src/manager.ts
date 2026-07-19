@@ -1,10 +1,15 @@
 import type { Authenticatable, Credentials, TokenStore, UserProvider } from './types'
+import { RateLimiter } from '@elyvel/core'
 import { createGuard } from './guard'
 import { generateToken, hashToken } from './token'
 
 export interface AuthConfig<U extends Authenticatable> {
   provider: UserProvider<U>
   tokens: TokenStore
+  /** Max failed attempts before a lockout (Laravel Fortify's `ThrottlesLogins`). Default 5. */
+  maxAttempts?: number
+  /** Lockout window in minutes once `maxAttempts` is hit. Default 1. */
+  decayMinutes?: number
 }
 
 export interface Attempt<U> {
@@ -13,23 +18,59 @@ export interface Attempt<U> {
   token: string
 }
 
+/** Thrown by `attempt()` when the credential has hit its failed-attempt lockout. */
+export class TooManyAttemptsError extends Error {
+  constructor(public readonly retryAfter: number) {
+    super(`Too many login attempts. Please try again in ${retryAfter} seconds.`)
+    this.name = 'TooManyAttemptsError'
+  }
+}
+
 /**
  * Orchestrates token authentication against a {@link UserProvider} and
  * {@link TokenStore}. Stateless beyond what the token store persists.
+ *
+ * This is a standalone, bring-your-own-storage token guard — a lighter-weight
+ * alternative for apps that want simple API-token auth without a session
+ * layer. It's independent of `betterAuthPlugin()` (this package's other,
+ * primary auth path, backed by the `better-auth` library with its own
+ * session/2FA/social-login handling) — pick one, they don't compose. If
+ * you're building a full-stack app with sessions/2FA, use
+ * `betterAuthPlugin()`; use `AuthManager` for a minimal token API surface
+ * (e.g. a machine-to-machine or mobile-client API) where that's more than
+ * you need.
  */
 export class AuthManager<U extends Authenticatable> {
   constructor(private readonly config: AuthConfig<U>) {}
 
-  /** Verify credentials and, on success, issue a fresh API token. */
+  /**
+   * Verify credentials and, on success, issue a fresh API token. Throws
+   * {@link TooManyAttemptsError} if this email has failed too many times
+   * recently — brute-force lockout keyed on the email being attempted (not
+   * available: the caller's IP, since `attempt()` only receives credentials;
+   * layer `{ middleware: 'throttle:N,1' }` on the login route itself for
+   * IP-based throttling too). Backed by `@elyvel/core`'s `RateLimiter` — the
+   * same facade HTTP throttling uses, so it's cross-process-safe wherever a
+   * shared store (`RedisRateLimiterStore`) is configured.
+   */
   async attempt(credentials: Credentials): Promise<Attempt<U> | null> {
+    const key = `auth-attempt:${credentials.email.toLowerCase()}`
+    const maxAttempts = this.config.maxAttempts ?? 5
+    const decaySeconds = (this.config.decayMinutes ?? 1) * 60
+
+    if (await RateLimiter.tooManyAttempts(key, maxAttempts)) {
+      throw new TooManyAttemptsError(await RateLimiter.availableIn(key))
+    }
+
     const user = await this.config.provider.retrieveByCredentials(credentials)
-    if (!user)
-      return null
+    const valid = user ? await this.config.provider.validateCredentials(user, credentials) : false
 
-    const valid = await this.config.provider.validateCredentials(user, credentials)
-    if (!valid)
+    if (!user || !valid) {
+      await RateLimiter.hit(key, decaySeconds)
       return null
+    }
 
+    await RateLimiter.clear(key) // a successful login resets the counter
     const token = generateToken()
     await this.config.tokens.store({ userId: user.id, hashedToken: hashToken(token) })
     return { user, token }
