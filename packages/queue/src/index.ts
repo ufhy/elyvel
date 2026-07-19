@@ -56,7 +56,12 @@ export {
   WithoutOverlapping,
 } from './middleware'
 export { QueueServiceProvider, QueueToken } from './provider'
-export { configureRestartSignal, type RestartSignal, restartSignal } from './restart'
+export {
+  configureRestartSignal,
+  RedisRestartSignal,
+  type RestartSignal,
+  restartSignal,
+} from './restart'
 export {
   configureModelSerializer,
   type ModelReference,
