@@ -14,6 +14,59 @@ export interface Migration {
 }
 
 const TABLE = '_elyvel_migrations'
+const LOCK_TABLE = '_elyvel_migrations_lock'
+const LOCK_ROW_ID = 1
+
+/**
+ * Thrown when another process (or another instance in a rolling deploy) is
+ * already migrating. Not silently swallowed — the caller should know a
+ * migration didn't run rather than assume "nothing to migrate" (which
+ * `migrate()` returning `[]` would otherwise look identical to).
+ */
+export class MigrationLockError extends Error {
+  constructor() {
+    super('[elyvel] Migrations are locked — another process is migrating right now. Try again shortly.')
+    this.name = 'MigrationLockError'
+  }
+}
+
+async function ensureLockTable(conn: Connection): Promise<void> {
+  await conn.statement(
+    `CREATE TABLE IF NOT EXISTS ${LOCK_TABLE} (id INTEGER PRIMARY KEY, locked_at VARCHAR(255) NOT NULL)`,
+  )
+}
+
+/**
+ * Acquire the cross-process migration lock via a plain `INSERT` into a
+ * single-row table — the row's PRIMARY KEY collision IS the mutex, so this
+ * works identically on SQLite/MySQL/Postgres with no driver-specific
+ * advisory-lock function. Without this, two processes/instances (e.g. each
+ * replica in a rolling deploy running `elyvel migrate` on boot) can both read
+ * the same "pending" list and apply — or interleave — the same migration.
+ */
+async function withMigrationLock<T>(conn: Connection, fn: () => Promise<T>): Promise<T> {
+  const g = conn.grammar
+  try {
+    // Both statements together: under real contention (two processes hitting
+    // this at once), SQLite/MySQL/Postgres can surface a transient busy/lock
+    // error from either one, not just a clean unique-constraint violation on
+    // the INSERT — treat any failure here as "couldn't acquire right now."
+    await ensureLockTable(conn)
+    await conn.statement(
+      `INSERT INTO ${LOCK_TABLE} (id, locked_at) VALUES (${g.placeholder(0)}, ${g.placeholder(1)})`,
+      [LOCK_ROW_ID, new Date().toISOString()],
+    )
+  }
+  catch {
+    throw new MigrationLockError()
+  }
+  try {
+    return await fn()
+  }
+  finally {
+    await conn.statement(`DELETE FROM ${LOCK_TABLE} WHERE id = ${g.placeholder(0)}`, [LOCK_ROW_ID])
+  }
+}
 
 async function ensureLedger(conn: Connection): Promise<void> {
   await conn.statement(
@@ -59,7 +112,8 @@ export async function loadMigrations(dir: string): Promise<LoadedMigration[]> {
   return loaded
 }
 
-export async function migrate(conn: Connection, dir: string): Promise<string[]> {
+/** The actual "apply pending migrations" work — always called with the lock already held. */
+async function runPending(conn: Connection, dir: string): Promise<string[]> {
   await ensureLedger(conn)
   const ran = await ranNames(conn)
   const batch = await nextBatch(conn)
@@ -77,6 +131,15 @@ export async function migrate(conn: Connection, dir: string): Promise<string[]> 
     applied.push(name)
   }
   return applied
+}
+
+/**
+ * Apply pending migrations. Throws {@link MigrationLockError} instead of
+ * running if another process holds the migration lock (e.g. a sibling
+ * instance in a rolling deploy already migrating) — see {@link withMigrationLock}.
+ */
+export async function migrate(conn: Connection, dir: string): Promise<string[]> {
+  return withMigrationLock(conn, () => runPending(conn, dir))
 }
 
 async function userTables(conn: Connection): Promise<string[]> {
@@ -100,26 +163,28 @@ async function userTables(conn: Connection): Promise<string[]> {
 
 /** Roll back the most recent batch (runs `down` in reverse, clears ledger rows). */
 export async function rollback(conn: Connection, dir: string): Promise<string[]> {
-  await ensureLedger(conn)
-  const rows = await conn.select<{ name: string, batch: number | string }>(
-    `SELECT name, batch FROM ${TABLE}`,
-  )
-  if (rows.length === 0)
-    return []
-  const maxBatch = Math.max(...rows.map(r => Number(r.batch)))
-  const inBatch = new Set(rows.filter(r => Number(r.batch) === maxBatch).map(r => r.name))
+  return withMigrationLock(conn, async () => {
+    await ensureLedger(conn)
+    const rows = await conn.select<{ name: string, batch: number | string }>(
+      `SELECT name, batch FROM ${TABLE}`,
+    )
+    if (rows.length === 0)
+      return []
+    const maxBatch = Math.max(...rows.map(r => Number(r.batch)))
+    const inBatch = new Set(rows.filter(r => Number(r.batch) === maxBatch).map(r => r.name))
 
-  const schema = new SchemaBuilder(conn)
-  const g = conn.grammar
-  const rolledBack: string[] = []
-  for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
-    if (!inBatch.has(name))
-      continue
-    await migration.down(schema)
-    await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
-    rolledBack.push(name)
-  }
-  return rolledBack
+    const schema = new SchemaBuilder(conn)
+    const g = conn.grammar
+    const rolledBack: string[] = []
+    for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
+      if (!inBatch.has(name))
+        continue
+      await migration.down(schema)
+      await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
+      rolledBack.push(name)
+    }
+    return rolledBack
+  })
 }
 
 /** Report each migration's applied/pending state. */

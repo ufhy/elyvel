@@ -1,6 +1,10 @@
 import type { Connection } from '../src/index'
+import { randomUUID } from 'node:crypto'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
-import { freshMigrate, migrate } from '../src/index'
+import { createConnection, freshMigrate, migrate, MigrationLockError } from '../src/index'
 import { dialects } from './dialects'
 
 const dir = new URL('./fixtures/migrations', import.meta.url).pathname
@@ -46,3 +50,54 @@ for (const d of dialects) {
     })
   })
 }
+
+// The migration lock is cross-connection (a real mutex row in the DB itself),
+// so — unlike the dialects above, which use isolated/ephemeral connections —
+// this needs two connections to the SAME on-disk database to prove anything.
+describe('migration lock (cross-connection)', () => {
+  async function sharedFileConnections(): Promise<[Connection, Connection, () => Promise<void>]> {
+    const file = join(mkdtempSync(join(tmpdir(), 'elyvel-lock-')), `${randomUUID()}.sqlite`)
+    const a = await createConnection({ driver: 'sqlite', database: file })
+    const b = await createConnection({ driver: 'sqlite', database: file })
+    return [a, b, async () => {
+      await a.close()
+      await b.close()
+    }]
+  }
+
+  test('a second connection is rejected while the first holds the lock', async () => {
+    const [connA, connB, cleanup] = await sharedFileConnections()
+    try {
+      // Simulate connA already migrating: acquire the lock row directly,
+      // exactly what withMigrationLock does internally.
+      await connA.statement(
+        'CREATE TABLE IF NOT EXISTS _elyvel_migrations_lock (id INTEGER PRIMARY KEY, locked_at VARCHAR(255) NOT NULL)',
+      )
+      await connA.statement(
+        'INSERT INTO _elyvel_migrations_lock (id, locked_at) VALUES (1, \'now\')',
+      )
+
+      await expect(migrate(connB, dir)).rejects.toThrow(MigrationLockError)
+
+      // Release it (as migrate()'s own `finally` would) — connB can proceed normally.
+      await connA.statement('DELETE FROM _elyvel_migrations_lock WHERE id = 1')
+      expect(await migrate(connB, dir)).toEqual(['0001_create_things'])
+    }
+    finally {
+      await cleanup()
+    }
+  })
+
+  test('the lock is released after migrate() completes, so a later call succeeds', async () => {
+    const [connA, connB, cleanup] = await sharedFileConnections()
+    try {
+      expect(await migrate(connA, dir)).toEqual(['0001_create_things'])
+      // connB sees the same on-disk ledger — nothing left pending, but critically
+      // this doesn't throw MigrationLockError: connA's lock was released.
+      expect(await migrate(connB, dir)).toEqual([])
+    }
+    finally {
+      await cleanup()
+    }
+  })
+})

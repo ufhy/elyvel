@@ -420,6 +420,11 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
       const db = new Database(config.database, { create: true })
       db.exec('PRAGMA journal_mode = WAL;')
       db.exec('PRAGMA foreign_keys = ON;')
+      // Without this, a second process/connection writing at the same
+      // moment (e.g. two migration lock attempts, or just ordinary
+      // concurrent writes) gets a raw SQLITE_BUSY immediately instead of
+      // briefly waiting for the first writer to finish its transaction.
+      db.exec('PRAGMA busy_timeout = 5000;')
       return {
         dialect: 'sqlite',
         grammar: grammarFor('sqlite'),

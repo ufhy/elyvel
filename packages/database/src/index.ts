@@ -46,7 +46,15 @@ export {
   openConnectionCount,
   tableColumns,
 } from './inspect'
-export { freshMigrate, loadMigrations, migrate, type Migration, rollback, status } from './migrator'
+export {
+  freshMigrate,
+  loadMigrations,
+  migrate,
+  type Migration,
+  MigrationLockError,
+  rollback,
+  status,
+} from './migrator'
 export {
   type Attributes,
   type Cast,
