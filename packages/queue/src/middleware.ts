@@ -1,4 +1,6 @@
 import type { Job } from './job'
+import type { RedisLike } from './store'
+import { randomUUID } from 'node:crypto'
 import { uniqueLock } from './unique'
 
 /**
@@ -82,6 +84,43 @@ export class MemoryRateLimiter implements RateLimiter {
     const kept = (this.hits.get(key) ?? []).filter(t => t > cutoff)
     kept.push(now)
     this.hits.set(key, kept)
+  }
+}
+
+/**
+ * Redis-backed sliding-window rate limiter — makes `RateLimited` actually
+ * limit across worker processes. `MemoryRateLimiter` only tracks hits within
+ * a single process, so N worker processes each enforce `maxAttempts`
+ * independently (N processes ⇒ an effective Nx limit) — same bug class as
+ * the rate limiter/broadcaster/scheduler-mutex/restart-signal/unique-job-lock
+ * gaps fixed elsewhere this session. Uses a Redis sorted set (score = hit
+ * timestamp) — same sliding-window shape as `MemoryRateLimiter`, including
+ * its same imprecision: `tooManyAttempts` reports the set's current
+ * cardinality without pruning (pruning happens in `hit()`, matching the
+ * in-memory implementation's behavior exactly).
+ */
+export class RedisRateLimiter implements RateLimiter {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly prefix = 'job-rate:',
+  ) {}
+
+  private key(key: string): string {
+    return this.prefix + key
+  }
+
+  async tooManyAttempts(key: string, maxAttempts: number): Promise<boolean> {
+    const count = Number(await this.client.send('ZCARD', [this.key(key)]))
+    return count >= maxAttempts
+  }
+
+  async hit(key: string, decaySeconds: number): Promise<void> {
+    const redisKey = this.key(key)
+    const now = Date.now()
+    const cutoff = now - decaySeconds * 1000
+    await this.client.send('ZREMRANGEBYSCORE', [redisKey, '-inf', String(cutoff)])
+    await this.client.send('ZADD', [redisKey, String(now), `${now}:${randomUUID()}`])
+    await this.client.send('EXPIRE', [redisKey, String(Math.max(1, Math.ceil(decaySeconds)))])
   }
 }
 

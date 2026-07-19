@@ -51,6 +51,7 @@ export {
   RateLimited,
   type RateLimiter,
   rateLimiter,
+  RedisRateLimiter,
   ReleaseJob,
   runThroughMiddleware,
   WithoutOverlapping,
