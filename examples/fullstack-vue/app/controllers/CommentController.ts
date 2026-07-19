@@ -1,8 +1,10 @@
 import type { User } from '@elyvel/auth'
 import type { MiddlewareContext } from '@elyvel/core'
+import { broadcast } from '@elyvel/broadcasting'
 import { Controller } from '@elyvel/core'
 import { event } from '@elyvel/events'
 import { trans } from '@elyvel/support'
+import { CommentBroadcast } from '../broadcasts/CommentBroadcast'
 import { CommentPosted } from '../events/CommentPosted'
 import { Comment } from '../models/Comment'
 import { Post } from '../models/Post'
@@ -31,6 +33,7 @@ export class CommentController extends Controller {
     })
 
     await event(new CommentPosted(comment, post))
+    await broadcast(new CommentBroadcast(comment, post))
     return ctx.status(201, { data: commentResource(comment) })
   }
 

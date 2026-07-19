@@ -1,9 +1,14 @@
 import type { CommentPosted } from '../events/CommentPosted'
+import { QueuedListener } from '@elyvel/events'
 import { notify } from '@elyvel/notifications'
 import { NewCommentNotification } from '../notifications/NewCommentNotification'
 
-/** Listens for `CommentPosted` and mails the post's author. */
-export class SendCommentNotification {
+/**
+ * Listens for `CommentPosted` and mails the post's author. Extends
+ * `QueuedListener` so it's pushed onto the queue (`config/queue.ts`) instead
+ * of blocking the comment's own request on an outbound mail send.
+ */
+export class SendCommentNotification extends QueuedListener<CommentPosted> {
   async handle(event: CommentPosted): Promise<void> {
     const { comment, post } = event
     // Don't notify authors about their own comments.

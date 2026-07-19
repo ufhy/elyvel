@@ -1,5 +1,5 @@
 import { AuthGuard, betterAuthPlugin, VerifiedGuard } from '@elyvel/auth'
-import { defineMiddlewareConfig } from '@elyvel/core'
+import { defineMiddlewareConfig, staticFiles } from '@elyvel/core'
 import { inertia } from '@elyvel/inertia'
 import { logViewer } from '@elyvel/log-viewer'
 
@@ -32,6 +32,9 @@ export default defineMiddlewareConfig({
     // Gated in AppServiceProvider via configureLogViewer — no environment
     // check here, the app owns who's allowed in (see its own doc comment).
     logViewer(),
+    // Serves uploaded post cover images (config/filesystems.ts's `local` disk,
+    // `url: '/storage'`) — see PostController's cover_image upload handling.
+    staticFiles({ prefix: '/storage', dir: 'storage/app' }),
   ],
   aliases: {
     auth: AuthGuard,

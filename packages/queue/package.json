@@ -14,5 +14,8 @@
   },
   "peerDependencies": {
     "@elyvel/core": "workspace:*"
+  },
+  "dependencies": {
+    "@elyvel/events": "workspace:*"
   }
 }

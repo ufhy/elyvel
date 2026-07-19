@@ -3,6 +3,7 @@ import type { MiddlewareContext } from '@elyvel/core'
 import { cache } from '@elyvel/cache'
 import { Controller, redirect, Resource } from '@elyvel/core'
 import { Inertia } from '@elyvel/inertia'
+import { storage } from '@elyvel/storage'
 import { trans } from '@elyvel/support'
 import { Post } from '../models/Post'
 import { StorePostRequest } from '../requests/StorePostRequest'
@@ -21,6 +22,19 @@ const PER_PAGE = 6
 /** `ctx.authorize` is derived at runtime (typed `unknown` on MiddlewareContext) — cast once here. */
 function authorize(ctx: MiddlewareContext, ability: string, ...args: unknown[]): void {
   (ctx.authorize as (a: string, ...x: unknown[]) => void)(ability, ...args)
+}
+
+/**
+ * `cover_image` isn't in either FormRequest's `rules()` output (validated()
+ * only returns ruled fields), so it's read straight off the raw multipart
+ * body — Elysia parses a `multipart/form-data` request into `ctx.body` with
+ * file fields as `File` instances, no schema needed.
+ */
+async function storeCoverImage(ctx: MiddlewareContext): Promise<string | undefined> {
+  const file = (ctx.body as Record<string, unknown>).cover_image
+  if (!(file instanceof File) || file.size === 0)
+    return undefined
+  return storage().putFile('covers', file)
 }
 
 export class PostController extends Controller {
@@ -44,9 +58,11 @@ export class PostController extends Controller {
   async store(ctx: MiddlewareContext) {
     authorize(ctx, 'create', Post)
     const validated = await StorePostRequest.validate(ctx)
+    const coverImage = await storeCoverImage(ctx)
     const user = ctx.user as User
     const post = await Post.create({
       ...validated,
+      ...(coverImage ? { cover_image: coverImage } : {}),
       user_id: user.id,
       author_name: user.name,
       author_email: user.email,
@@ -78,7 +94,11 @@ export class PostController extends Controller {
     const post = ctx.model as Post
     authorize(ctx, 'update', post)
     const validated = await UpdatePostRequest.validate(ctx)
-    await post.update(validated)
+    const coverImage = await storeCoverImage(ctx)
+    const previousCoverImage = post.cover_image
+    await post.update({ ...validated, ...(coverImage ? { cover_image: coverImage } : {}) })
+    if (coverImage && previousCoverImage)
+      await storage().delete(previousCoverImage)
     await cache().flush()
     return redirect(`/blog/${post.id}`)
   }

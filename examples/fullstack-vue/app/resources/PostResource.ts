@@ -1,6 +1,7 @@
 import type { Comment } from '../models/Comment'
 import type { Post } from '../models/Post'
 import { Resource } from '@elyvel/core'
+import { storage } from '@elyvel/storage'
 import { commentResource } from './CommentResource'
 
 /**
@@ -14,6 +15,7 @@ export function postResource(post: Post, viewerId?: string) {
     title: post.title,
     slug: post.slug,
     body: post.body,
+    cover_image_url: post.cover_image ? storage().url(post.cover_image) : null,
     author_name: post.author_name,
     published: post.published,
     published_at: post.published_at?.toISOString() ?? null,

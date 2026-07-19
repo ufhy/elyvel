@@ -7,7 +7,14 @@ import { Label } from '@/components/ui/label'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
 const props = defineProps<{
-  post: { id: number, title: string, slug: string, body: string, published_at: string | null }
+  post: {
+    id: number
+    title: string
+    slug: string
+    body: string
+    published_at: string | null
+    cover_image_url: string | null
+  }
 }>()
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -17,14 +24,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 ]
 
 // datetime-local inputs need "YYYY-MM-DDTHH:mm", not a full ISO string.
-const form = useForm({
+const form = useForm<{
+  title: string
+  slug: string
+  body: string
+  published_at: string
+  cover_image: File | null
+}>({
   title: props.post.title,
   slug: props.post.slug,
   body: props.post.body,
   published_at: props.post.published_at?.slice(0, 16) ?? '',
+  cover_image: null,
 })
 
+function onCoverImageChange(event: Event) {
+  form.cover_image = (event.target as HTMLInputElement).files?.[0] ?? null
+}
+
 function submit() {
+  // Inertia detects the File in the payload and switches to multipart for us
+  // (and spoofs PUT via a POST + _method field, since browsers can't multipart PUT).
   form.put(`/blog/${props.post.id}`)
 }
 </script>
@@ -61,6 +81,25 @@ function submit() {
           />
           <p v-if="form.errors.body" class="text-sm text-destructive">
             {{ form.errors.body }}
+          </p>
+        </div>
+        <div class="grid gap-2">
+          <Label for="cover_image">Cover image (optional)</Label>
+          <img
+            v-if="post.cover_image_url"
+            :src="post.cover_image_url"
+            alt=""
+            class="h-32 w-auto rounded-md border border-border object-cover"
+          >
+          <input
+            id="cover_image"
+            type="file"
+            accept="image/*"
+            class="text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+            @change="onCoverImageChange"
+          >
+          <p v-if="form.errors.cover_image" class="text-sm text-destructive">
+            {{ form.errors.cover_image }}
           </p>
         </div>
         <div class="grid gap-2">

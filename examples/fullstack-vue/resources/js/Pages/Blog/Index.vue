@@ -12,6 +12,7 @@ interface PostSummary {
   title: string
   author_name: string
   published_at: string | null
+  cover_image_url: string | null
   is_mine?: boolean
 }
 
@@ -49,20 +50,28 @@ function formatDate(iso: string | null): string {
         No posts yet.
       </p>
 
-      <Card v-for="post in props.posts.data" :key="post.id" class="transition hover:border-foreground/20">
-        <CardHeader>
-          <CardTitle>
-            <Link :href="`/blog/${post.id}`" class="hover:underline">
-              {{ post.title }}
-            </Link>
-            <Badge v-if="post.is_mine" variant="secondary" class="ml-2 align-middle">
-              yours
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent class="text-sm text-muted-foreground">
-          {{ post.author_name }} · {{ formatDate(post.published_at) }}
-        </CardContent>
+      <Card v-for="post in props.posts.data" :key="post.id" class="flex gap-4 transition hover:border-foreground/20">
+        <img
+          v-if="post.cover_image_url"
+          :src="post.cover_image_url"
+          alt=""
+          class="my-4 ml-4 h-20 w-20 shrink-0 rounded-md object-cover"
+        >
+        <div class="min-w-0 flex-1">
+          <CardHeader>
+            <CardTitle>
+              <Link :href="`/blog/${post.id}`" class="hover:underline">
+                {{ post.title }}
+              </Link>
+              <Badge v-if="post.is_mine" variant="secondary" class="ml-2 align-middle">
+                yours
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent class="text-sm text-muted-foreground">
+            {{ post.author_name }} · {{ formatDate(post.published_at) }}
+          </CardContent>
+        </div>
       </Card>
 
       <div v-if="props.posts.meta.lastPage > 1" class="mt-2 flex items-center justify-center gap-2">

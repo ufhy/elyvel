@@ -11,9 +11,20 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'New post', href: '/blog/create' },
 ]
 
-const form = useForm({ title: '', slug: '', body: '', published_at: '' })
+const form = useForm<{
+  title: string
+  slug: string
+  body: string
+  published_at: string
+  cover_image: File | null
+}>({ title: '', slug: '', body: '', published_at: '', cover_image: null })
+
+function onCoverImageChange(event: Event) {
+  form.cover_image = (event.target as HTMLInputElement).files?.[0] ?? null
+}
 
 function submit() {
+  // Inertia detects the File in the payload and switches to multipart for us.
   form.post('/blog')
 }
 </script>
@@ -50,6 +61,19 @@ function submit() {
           />
           <p v-if="form.errors.body" class="text-sm text-destructive">
             {{ form.errors.body }}
+          </p>
+        </div>
+        <div class="grid gap-2">
+          <Label for="cover_image">Cover image (optional)</Label>
+          <input
+            id="cover_image"
+            type="file"
+            accept="image/*"
+            class="text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+            @change="onCoverImageChange"
+          >
+          <p v-if="form.errors.cover_image" class="text-sm text-destructive">
+            {{ form.errors.cover_image }}
           </p>
         </div>
         <div class="grid gap-2">

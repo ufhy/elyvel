@@ -21,6 +21,7 @@ export class Post extends Model {
     'title',
     'slug',
     'body',
+    'cover_image',
     'published_at',
     'user_id',
     'author_name',
@@ -34,6 +35,7 @@ export class Post extends Model {
   declare title: string
   declare slug: string
   declare body: string
+  declare cover_image: string | null
   declare user_id: string
   declare author_name: string
   declare author_email: string

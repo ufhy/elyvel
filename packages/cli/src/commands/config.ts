@@ -16,7 +16,7 @@ export const PUBLISHABLE_CONFIGS = [
   'cache',
   'mail',
   'queue',
-  'storage',
+  'filesystems',
   'broadcasting',
   'telegram',
 ] as const

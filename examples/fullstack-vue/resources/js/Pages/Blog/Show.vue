@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BreadcrumbItem } from '@/types'
 import { Link, router, usePage } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
@@ -17,6 +17,7 @@ interface PostDetail {
   id: number
   title: string
   body: string
+  cover_image_url: string | null
   author_name: string
   published: boolean
   published_at: string | null
@@ -25,6 +26,27 @@ interface PostDetail {
 }
 
 const props = defineProps<{ post: PostDetail }>()
+
+/**
+ * Live comments: `CommentBroadcast` (see app/broadcasts) publishes to
+ * `posts.{id}` whenever anyone posts a comment. No client helper exists in
+ * the framework yet (no Echo equivalent), so this is a plain WebSocket —
+ * matching the wire protocol `BroadcastHub` speaks (`packages/broadcasting`).
+ */
+let socket: WebSocket | undefined
+onMounted(() => {
+  const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/`
+  socket = new WebSocket(url)
+  socket.addEventListener('open', () => {
+    socket?.send(JSON.stringify({ event: 'subscribe', channel: `posts.${props.post.id}` }))
+  })
+  socket.addEventListener('message', (raw) => {
+    const msg = JSON.parse(raw.data as string) as { channel?: string, event?: string }
+    if (msg.channel === `posts.${props.post.id}` && msg.event === 'CommentBroadcast')
+      router.reload({ only: ['post'] })
+  })
+})
+onUnmounted(() => socket?.close())
 
 const page = usePage()
 const user = () => (page.props as { user?: { name?: string } }).user
@@ -109,6 +131,12 @@ const breadcrumbs: BreadcrumbItem[] = [
           {{ post.author_name }}
           <span v-if="!post.published"> · scheduled, not published yet</span>
         </p>
+        <img
+          v-if="post.cover_image_url"
+          :src="post.cover_image_url"
+          alt=""
+          class="mt-4 max-h-96 w-full rounded-lg object-cover"
+        >
         <div class="mt-4 whitespace-pre-line text-sm leading-relaxed text-foreground">
           {{ post.body }}
         </div>

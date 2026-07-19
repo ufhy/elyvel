@@ -1,10 +1,13 @@
 import { AuthServiceProvider } from '@elyvel/auth'
+import { BroadcastServiceProvider } from '@elyvel/broadcasting'
 import { CacheServiceProvider } from '@elyvel/cache'
 import { defineAppConfig } from '@elyvel/core'
 import { EloquentServiceProvider } from '@elyvel/database'
 import { I18nServiceProvider } from '@elyvel/i18n'
 import { MailServiceProvider } from '@elyvel/mail'
 import { NotificationServiceProvider } from '@elyvel/notifications'
+import { QueueServiceProvider } from '@elyvel/queue'
+import { StorageServiceProvider } from '@elyvel/storage'
 import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 import { EventServiceProvider } from '../app/providers/EventServiceProvider'
 import { ScheduleServiceProvider } from '../app/providers/ScheduleServiceProvider'
@@ -24,6 +27,9 @@ export default defineAppConfig({
     I18nServiceProvider,
     MailServiceProvider,
     CacheServiceProvider,
+    StorageServiceProvider,
+    QueueServiceProvider,
+    BroadcastServiceProvider,
     NotificationServiceProvider,
     EventServiceProvider,
     ScheduleServiceProvider,
