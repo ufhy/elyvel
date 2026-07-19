@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { broadcastServeCommand } from './commands/broadcast'
 import { configPublish } from './commands/config'
 import {
   dbMonitorCommand,
@@ -68,6 +69,7 @@ Usage:
   elyvel schedule:work                         Run the scheduler in-process (dev; ticks each minute)
   elyvel schedule:test [name]                  Run scheduled tasks now regardless of cron
   elyvel schedule:list                         List scheduled tasks and their cron
+  elyvel broadcast:serve [--port=<n>]           Run the WebSocket/broadcast layer as its own process
 
   elyvel make:controller <Name>                Generate a controller plugin
   elyvel make:middleware <Name>                Generate a middleware plugin
@@ -228,6 +230,10 @@ async function main(): Promise<number> {
 
   if (command === 'schedule:list') {
     return scheduleListCommand()
+  }
+
+  if (command === 'broadcast:serve') {
+    return broadcastServeCommand(flags)
   }
 
   if (command.startsWith('make:')) {
