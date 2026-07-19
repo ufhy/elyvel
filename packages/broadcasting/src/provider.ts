@@ -2,19 +2,24 @@ import type { Token } from '@elyvel/core'
 import type { Broadcaster } from './broadcaster'
 import type { BroadcastConfig } from './config-schema'
 import { ServiceProvider, token } from '@elyvel/core'
+import { RedisClient } from 'bun'
 import { ArrayBroadcaster, LogBroadcaster } from './broadcaster'
 import { BroadcastHub } from './hub'
 import { setDefaultBroadcaster } from './manager'
+import { RedisBroadcaster } from './redis-broadcaster'
 
 export const BroadcasterToken: Token<Broadcaster> = token<Broadcaster>('broadcaster')
 
 /**
- * Boots broadcasting from `config/broadcasting.ts`. For the `websocket` driver
- * it creates a {@link BroadcastHub} and registers its WebSocket handler with the
- * app (so `listen()` upgrades handshakes) — no external service required.
+ * Boots broadcasting from `config/broadcasting.ts`. For the `websocket`
+ * driver it creates a {@link BroadcastHub} and registers its WebSocket
+ * handler with the app (so `listen()` upgrades handshakes) — no external
+ * service required. `redis` also creates a hub (still needed to serve THIS
+ * process's WebSocket clients) but wraps it in a {@link RedisBroadcaster} so
+ * broadcasts relay across every instance, not just this one.
  */
 export class BroadcastServiceProvider extends ServiceProvider {
-  override register(): void {
+  override async register(): Promise<void> {
     const config = this.app.config.get<BroadcastConfig>('broadcasting', {})
     const driver = config.driver ?? 'log'
 
@@ -23,6 +28,15 @@ export class BroadcastServiceProvider extends ServiceProvider {
       const hub = new BroadcastHub()
       this.app.webSocket(hub.websocket, server => hub.setServer(server))
       broadcaster = hub
+    }
+    else if (driver === 'redis') {
+      const hub = new BroadcastHub()
+      this.app.webSocket(hub.websocket, server => hub.setServer(server))
+      const publisher = config.url ? new RedisClient(config.url) : new RedisClient()
+      const subscriber = config.url ? new RedisClient(config.url) : new RedisClient()
+      const redis = new RedisBroadcaster(publisher, subscriber, hub, config.channel)
+      await redis.listen()
+      broadcaster = redis
     }
     else if (driver === 'array') {
       broadcaster = new ArrayBroadcaster()
