@@ -76,10 +76,16 @@ export {
 export {
   bringDown,
   bringUp,
+  configureMaintenanceStore,
   type DownPayload,
+  FileMaintenanceStore,
   isDownForMaintenance,
   maintenanceMode,
+  type MaintenanceStore,
+  maintenanceStore,
   readDownPayload,
+  RedisMaintenanceStore,
+  resetMaintenanceStore,
 } from './maintenance'
 export {
   defineMiddlewareConfig,

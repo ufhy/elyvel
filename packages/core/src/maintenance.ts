@@ -18,6 +18,87 @@ export interface DownPayload {
 
 const BYPASS_COOKIE = 'elyvel_maintenance'
 
+/**
+ * Where maintenance-mode state lives. Back it with a shared store (Redis) via
+ * {@link configureMaintenanceStore} for multi-instance deploys — without one,
+ * `elyvel down` only takes down the ONE instance whose local disk got the
+ * file written, so a load balancer keeps routing to the others and the app
+ * silently stays "up" for most users during the outage window.
+ */
+export interface MaintenanceStore {
+  write(payload: DownPayload): Promise<void>
+  read(): Promise<DownPayload | null>
+  clear(): Promise<void>
+}
+
+/** The original file-based store (one process/instance's local disk only). */
+export class FileMaintenanceStore implements MaintenanceStore {
+  constructor(private readonly file: string) {}
+
+  async write(payload: DownPayload): Promise<void> {
+    bringDown(this.file, payload)
+  }
+
+  async read(): Promise<DownPayload | null> {
+    return readDownPayload(this.file)
+  }
+
+  async clear(): Promise<void> {
+    bringUp(this.file)
+  }
+}
+
+/** Minimal Redis client (Bun's built-in `RedisClient` satisfies this via `send`). */
+export interface RedisLike {
+  send(command: string, args: string[]): Promise<unknown>
+}
+
+/**
+ * Redis-backed maintenance store — every instance sharing this Redis sees
+ * the same down/up state, so `elyvel down` actually takes down the whole
+ * app, not just the instance the CLI happened to run on.
+ */
+export class RedisMaintenanceStore implements MaintenanceStore {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly key = 'elyvel:maintenance',
+  ) {}
+
+  async write(payload: DownPayload): Promise<void> {
+    await this.client.send('SET', [this.key, JSON.stringify(payload)])
+  }
+
+  async read(): Promise<DownPayload | null> {
+    const raw = (await this.client.send('GET', [this.key])) as string | null
+    if (!raw)
+      return null
+    try {
+      return JSON.parse(raw) as DownPayload
+    }
+    catch {
+      return {}
+    }
+  }
+
+  async clear(): Promise<void> {
+    await this.client.send('DEL', [this.key])
+  }
+}
+
+let store: MaintenanceStore | null = null
+/** Wire the store backing maintenance mode (e.g. `RedisMaintenanceStore`). */
+export function configureMaintenanceStore(next: MaintenanceStore): void {
+  store = next
+}
+/** The configured store, or `null` if none was set (falls back to the local file). */
+export function maintenanceStore(): MaintenanceStore | null {
+  return store
+}
+/** Test-only: clears the configured store back to `null` (the file fallback). */
+export function resetMaintenanceStore(): void {
+  store = null
+}
+
 /** Put the app into maintenance mode by writing the `down` file. */
 export function bringDown(file: string, payload: DownPayload = {}): void {
   mkdirSync(dirname(file), { recursive: true })
@@ -57,14 +138,22 @@ function cookieHas(header: string | null, name: string, value: string): boolean 
 }
 
 /**
- * Global maintenance-mode guard. When the `down` file exists every request gets a
- * 503 (JSON or HTML per content negotiation) with `Retry-After`, unless it carries
- * the bypass secret. Visiting `/?secret=…` sets a cookie so that browser is let
- * through for the rest of the outage. Mounted before routes so it covers everything.
+ * Global maintenance-mode guard. When the down state is present every request
+ * gets a 503 (JSON or HTML per content negotiation) with `Retry-After`,
+ * unless it carries the bypass secret. Visiting `/?secret=…` sets a cookie so
+ * that browser is let through for the rest of the outage. Mounted before
+ * routes so it covers everything.
+ *
+ * Checks {@link maintenanceStore} fresh on every request (not just once at
+ * mount time) — so a `configureMaintenanceStore(...)` call made later during
+ * boot (a ServiceProvider's `register()`/`boot()`, which runs after this
+ * plugin is mounted) still takes effect. Falls back to `file` when no store
+ * has been configured — the original, single-instance-only behavior.
  */
 export function maintenanceMode(file: string) {
-  return new Elysia({ name: 'elyvel-maintenance' }).onRequest(({ request }) => {
-    const payload = readDownPayload(file)
+  const fallback = new FileMaintenanceStore(file)
+  return new Elysia({ name: 'elyvel-maintenance' }).onRequest(async ({ request }) => {
+    const payload = await (maintenanceStore() ?? fallback).read()
     if (!payload)
       return
 
