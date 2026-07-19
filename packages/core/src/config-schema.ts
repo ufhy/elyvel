@@ -98,6 +98,15 @@ export interface SessionConfig {
   sameSite?: 'lax' | 'strict' | 'none'
   /** Expire the cookie when the browser closes (drops max-age). Default false. */
   expireOnClose?: boolean
+  /**
+   * `[chance, outOf]` odds of running garbage collection on a given request
+   * (Laravel's `session.lottery`) — sweeps expired sessions from the
+   * `memory`/`file`/`database` stores, which otherwise only expire lazily on
+   * read and would accumulate forever for sessions nobody revisits. Default
+   * `[2, 100]` (2%). Irrelevant for `cookie` (nothing server-side to sweep)
+   * and `redis` (native TTL already expires keys).
+   */
+  lottery?: [number, number]
 }
 
 /** Identity helper that pins the type of `config/session.ts` for autocomplete. */

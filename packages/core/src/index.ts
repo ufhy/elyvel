@@ -123,6 +123,8 @@ export { ServiceProvider } from './service-provider'
 export {
   configureDatabaseSession,
   CsrfMiddleware,
+  FileSessionStore,
+  MemorySessionStore,
   RedisSessionStore,
   type ResolvedSessionConfig,
   Session,

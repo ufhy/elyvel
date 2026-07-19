@@ -2,7 +2,7 @@ import type { ResolvedSessionConfig } from '../src/session'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { registerMiddlewareRegistry, route } from '../src/middleware'
-import { CsrfMiddleware, sessionPlugin } from '../src/session'
+import { CsrfMiddleware, FileSessionStore, MemorySessionStore, sessionPlugin } from '../src/session'
 
 const cfg: ResolvedSessionConfig = {
   driver: 'cookie',
@@ -238,5 +238,58 @@ describe('CSRF', () => {
 
   test('GET is never blocked', async () => {
     expect((await app.handle(new Request('http://localhost/token'))).status).toBe(200)
+  })
+})
+
+describe('session garbage collection', () => {
+  test('MemorySessionStore.gc() sweeps expired entries', async () => {
+    const store = new MemorySessionStore()
+    await store.write('fresh', { a: 1 }, 3600) // 1h — not expired
+    await store.write('stale', { a: 2 }, -1) // already expired
+    await store.gc()
+    expect(await store.read('fresh')).toEqual({ a: 1 })
+    expect(await store.read('stale')).toEqual({}) // gone, not just "expired on read"
+  })
+
+  test('FileSessionStore.gc() sweeps expired entries from disk', async () => {
+    const { mkdtempSync } = require('node:fs') as typeof import('node:fs')
+    const { tmpdir } = require('node:os') as typeof import('node:os')
+    const dir = mkdtempSync(`${tmpdir()}/elyvel-sess-gc-`)
+    const store = new FileSessionStore(dir)
+    await store.write('fresh', { a: 1 }, 3600)
+    await store.write('stale', { a: 2 }, -1)
+    await store.gc()
+    expect(await store.read('fresh')).toEqual({ a: 1 })
+    expect(await store.read('stale')).toEqual({})
+  })
+
+  test('the lottery only runs gc() on the configured odds', async () => {
+    const { configureDatabaseSession } = require('../src/session') as typeof import('../src/session')
+    let gcCalls = 0
+    configureDatabaseSession({
+      read: async () => undefined,
+      write: async () => {},
+      destroy: async () => {},
+      gc: async () => { gcCalls++ },
+    })
+
+    const never = new Elysia().use(sessionPlugin({ ...cfg, driver: 'database', lottery: [0, 100] })).use(
+      route().get('/x', ({ session }: any) => {
+        session.put('a', 1)
+        return 'ok'
+      }),
+    )
+    for (let i = 0; i < 20; i++) await never.handle(new Request('http://localhost/x'))
+    expect(gcCalls).toBe(0) // odds [0,100] — never triggers
+
+    gcCalls = 0
+    const always = new Elysia().use(sessionPlugin({ ...cfg, driver: 'database', lottery: [100, 100] })).use(
+      route().get('/x', ({ session }: any) => {
+        session.put('a', 1)
+        return 'ok'
+      }),
+    )
+    for (let i = 0; i < 5; i++) await always.handle(new Request('http://localhost/x'))
+    expect(gcCalls).toBe(5) // odds [100,100] — always triggers
   })
 })

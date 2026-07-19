@@ -400,6 +400,7 @@ export class Application {
         httpOnly: cfg.httpOnly ?? true,
         sameSite: cfg.sameSite ?? 'lax',
         expireOnClose: cfg.expireOnClose ?? false,
+        lottery: cfg.lottery,
       } satisfies ResolvedSessionConfig),
     )
   }

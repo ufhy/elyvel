@@ -1,6 +1,6 @@
 import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { trans } from '@elyvel/support'
 import { RedisClient } from 'bun'
@@ -239,6 +239,8 @@ export interface ResolvedSessionConfig {
   sameSite: 'lax' | 'strict' | 'none'
   /** Drop `maxAge` so the cookie expires when the browser closes. */
   expireOnClose: boolean
+  /** `[chance, outOf]` odds of running GC on a request. Default `[2, 100]`. */
+  lottery?: [number, number]
 }
 
 /** Server-side session store, keyed by session id (for memory/file/database drivers). */
@@ -250,9 +252,18 @@ export interface SessionStore {
    * (possibly fixated) id can't still be replayed after rotation.
    */
   destroy(id: string): Promise<void>
+  /**
+   * Sweep expired sessions. A session that's created and never revisited
+   * (bots, abandoned carts) only expires lazily on `read()` otherwise — it
+   * would sit in memory/on disk for the process's entire lifetime. Called on
+   * a probabilistic "lottery" (see `sessionPlugin`'s `gcLottery`), matching
+   * Laravel's `session.lottery` — not on every request, since a full sweep
+   * touches every stored session.
+   */
+  gc(): Promise<void>
 }
 
-class MemorySessionStore implements SessionStore {
+export class MemorySessionStore implements SessionStore {
   private readonly map = new Map<string, { data: Record<string, unknown>, expiresAt: number }>()
   async read(id: string): Promise<Record<string, unknown>> {
     const entry = this.map.get(id)
@@ -272,9 +283,17 @@ class MemorySessionStore implements SessionStore {
   async destroy(id: string): Promise<void> {
     this.map.delete(id)
   }
+
+  async gc(): Promise<void> {
+    const now = Date.now()
+    for (const [id, entry] of this.map) {
+      if (now >= entry.expiresAt)
+        this.map.delete(id)
+    }
+  }
 }
 
-class FileSessionStore implements SessionStore {
+export class FileSessionStore implements SessionStore {
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true })
   }
@@ -312,6 +331,22 @@ class FileSessionStore implements SessionStore {
     if (existsSync(file))
       unlinkSync(file)
   }
+
+  async gc(): Promise<void> {
+    const now = Date.now()
+    for (const name of readdirSync(this.dir)) {
+      const file = join(this.dir, name)
+      try {
+        const entry = JSON.parse(readFileSync(file, 'utf8')) as { expiresAt: number }
+        if (now >= entry.expiresAt)
+          unlinkSync(file)
+      }
+      catch {
+        // Malformed/unreadable entry — leave it rather than risk deleting
+        // something a concurrent write is mid-way through replacing.
+      }
+    }
+  }
 }
 
 /** DB adapter for the `database` session driver (kept DB-agnostic, wired by the app). */
@@ -319,6 +354,14 @@ export interface SessionDbAdapter {
   read(id: string): Promise<string | undefined>
   write(id: string, payload: string, lastActivity: number): Promise<void>
   destroy(id: string): Promise<void>
+  /**
+   * Delete rows whose session has expired — a single `DELETE FROM sessions
+   * WHERE ... ` the app writes using its own expiry column. Optional (the
+   * framework can't compose this SQL itself without knowing the table
+   * schema) — without it, `gc()` is a no-op and expired rows only clear
+   * lazily on `read()`.
+   */
+  gc?(nowMs: number): Promise<void>
 }
 let sessionDbAdapter: SessionDbAdapter | null = null
 export function configureDatabaseSession(adapter: SessionDbAdapter): void {
@@ -356,6 +399,10 @@ class DatabaseSessionStore implements SessionStore {
   async destroy(id: string): Promise<void> {
     await this.adapter().destroy(id)
   }
+
+  async gc(): Promise<void> {
+    await this.adapter().gc?.(Date.now())
+  }
 }
 
 /** Redis-backed session store (Bun's built-in Redis client). */
@@ -391,6 +438,9 @@ export class RedisSessionStore implements SessionStore {
   async destroy(id: string): Promise<void> {
     await this.client.send('DEL', [this.prefix + id])
   }
+
+  /** No-op — Redis's native `EX` TTL already expires keys on its own. */
+  async gc(): Promise<void> {}
 }
 
 function makeStore(config: ResolvedSessionConfig): SessionStore | null {
@@ -489,6 +539,14 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
         await store.destroy(oldSid)
       session.markIdRegenerated()
       value = sid
+
+      // GC lottery (Laravel's session.lottery): sweep expired sessions on a
+      // small percentage of requests rather than every one — a full sweep
+      // touches every stored session, so it shouldn't run on the hot path,
+      // and it must never delay/fail the response itself.
+      const [chance, outOf] = config.lottery ?? [2, 100]
+      if (chance > 0 && Math.random() * outOf < chance)
+        store.gc().catch(() => {})
     }
     else {
       value = encrypt(session.toData(), config.secret) // cookie driver
