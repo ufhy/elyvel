@@ -124,7 +124,14 @@ describe('new rules batch', () => {
   })
 
   test('file rules (file/image/mimes/size)', async () => {
-    const png = new File(['x'.repeat(2048)], 'photo.png', { type: 'image/png' })
+    // Real PNG signature + IHDR (all `image` ever reads), padded to 2KB so the
+    // `max` (size) assertions below still have something meaningful to check.
+    const bytes = new Uint8Array(2048)
+    bytes.set([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], 0)
+    bytes.set([0x49, 0x48, 0x44, 0x52], 12)
+    new DataView(bytes.buffer).setUint32(16, 100)
+    new DataView(bytes.buffer).setUint32(20, 100)
+    const png = new File([bytes], 'photo.png', { type: 'image/png' })
     const v = Validator.make(
       { avatar: png },
       { avatar: 'file|image|mimes:png,jpg|max:1' }, // 2KB > 1KB → max fails

@@ -166,8 +166,20 @@ describe('validation rules — cross-field, size, comparison', () => {
   })
 })
 
+/** A minimal-but-real PNG: real signature + IHDR (only the header is ever read). */
+function pngBytes(width: number, height: number): Uint8Array {
+  const buf = new Uint8Array(24)
+  buf.set([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], 0)
+  buf.set([0x00, 0x00, 0x00, 0x0D], 8)
+  buf.set([0x49, 0x48, 0x44, 0x52], 12) // "IHDR"
+  const dv = new DataView(buf.buffer)
+  dv.setUint32(16, width)
+  dv.setUint32(20, height)
+  return buf
+}
+
 describe('validation rules — files', () => {
-  const png = new File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' })
+  const png = new File([pngBytes(100, 100)], 'a.png', { type: 'image/png' })
   const txt = new File([new Uint8Array(2048)], 'a.txt', { type: 'text/plain' })
 
   test('file / image / mimetypes / mimes', async () => {
@@ -183,6 +195,27 @@ describe('validation rules — files', () => {
   test('file size honors the file kind (KB)', async () => {
     expect(await passes({ f: txt }, 'file|max:1')).toBe(false) // 2KB > 1KB
     expect(await passes({ f: txt }, 'file|max:4')).toBe(true)
+  })
+
+  test('image sniffs real content — a spoofed Content-Type doesn\'t fool it', async () => {
+    // Declares image/png, but the actual bytes are plain text — this is the
+    // exact "image hijacking" shape (upload a non-image, lie about its type).
+    const spoofed = new File([new Uint8Array([1, 2, 3, 4, 5])], 'a.png', { type: 'image/png' })
+    expect(await passes({ f: spoofed }, 'image')).toBe(false)
+  })
+
+  test('dimensions: min/max/exact width & height, and ratio', async () => {
+    const wide = new File([pngBytes(1600, 900)], 'wide.png', { type: 'image/png' })
+    const small = new File([pngBytes(50, 50)], 'small.png', { type: 'image/png' })
+
+    expect(await passes({ f: wide }, 'dimensions:min_width=1000,min_height=500')).toBe(true)
+    expect(await passes({ f: small }, 'dimensions:min_width=1000,min_height=500')).toBe(false)
+    expect(await passes({ f: wide }, 'dimensions:max_width=1000')).toBe(false)
+    expect(await passes({ f: wide }, `dimensions:width=1600,height=900`)).toBe(true)
+    expect(await passes({ f: wide }, 'dimensions:width=1601')).toBe(false)
+    expect(await passes({ f: wide }, 'dimensions:ratio=16/9')).toBe(true)
+    expect(await passes({ f: small }, 'dimensions:ratio=16/9')).toBe(false) // 1:1, not 16:9
+    expect(await passes({ f: txt }, 'dimensions:min_width=1')).toBe(false) // not an image at all
   })
 })
 

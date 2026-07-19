@@ -73,6 +73,7 @@ export const DEFAULT_MESSAGES: Record<string, string | Record<SizeKind, string>>
   image: 'The :attribute field must be an image.',
   mimes: 'The :attribute field must be a file of type: :values.',
   mimetypes: 'The :attribute field must be a file of type: :values.',
+  dimensions: 'The :attribute has invalid image dimensions.',
   gt: 'The :attribute field must be greater than :value.',
   gte: 'The :attribute field must be greater than or equal to :value.',
   lt: 'The :attribute field must be less than :value.',

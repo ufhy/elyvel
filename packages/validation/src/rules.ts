@@ -1,5 +1,6 @@
 import type { SizeKind } from './messages'
 import { getDbResolver } from './db-rules'
+import { readImageDimensions, sniffImageMime } from './image-inspect'
 
 export type Data = Record<string, unknown>
 export type RuleFn = (
@@ -37,6 +38,51 @@ const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 
 function isFile(value: unknown): value is Blob {
   return typeof Blob !== 'undefined' && value instanceof Blob
+}
+
+interface DimensionConstraints {
+  width?: number
+  height?: number
+  minWidth?: number
+  maxWidth?: number
+  minHeight?: number
+  maxHeight?: number
+  ratio?: number
+}
+
+/** `3/2` or a plain decimal like `1.5` — both are valid `ratio=` values. */
+function parseRatio(value: string): number {
+  if (value.includes('/')) {
+    const [w, h] = value.split('/')
+    return Number(w) / Number(h)
+  }
+  return Number(value)
+}
+
+const DIMENSION_KEYS: Record<string, keyof DimensionConstraints> = {
+  width: 'width',
+  height: 'height',
+  min_width: 'minWidth',
+  max_width: 'maxWidth',
+  min_height: 'minHeight',
+  max_height: 'maxHeight',
+}
+
+/** Parses `dimensions:min_width=200,ratio=16/9`-style `key=value` args. */
+function parseDimensionArgs(args: string[]): DimensionConstraints {
+  const out: DimensionConstraints = {}
+  for (const arg of args) {
+    const idx = arg.indexOf('=')
+    if (idx === -1)
+      continue
+    const key = arg.slice(0, idx)
+    const value = arg.slice(idx + 1)
+    if (key === 'ratio')
+      out.ratio = parseRatio(value)
+    else if (DIMENSION_KEYS[key])
+      out[DIMENSION_KEYS[key]] = Number(value)
+  }
+  return out
 }
 
 function size(value: unknown, kind: SizeKind): number {
@@ -285,7 +331,17 @@ export const RULES: Record<string, Rule> = {
 
   // files
   file: { validate: v => isFile(v) },
-  image: { validate: v => isFile(v) && v.type.startsWith('image/') },
+  // Sniffs the real magic bytes rather than trusting the browser-supplied
+  // `Blob.type` — a spoofed Content-Type (e.g. an HTML/SVG upload declared as
+  // `image/png`) fails this the same as a genuinely non-image file.
+  image: {
+    validate: async (v) => {
+      if (!isFile(v))
+        return false
+      const bytes = new Uint8Array(await v.arrayBuffer())
+      return sniffImageMime(bytes) !== undefined
+    },
+  },
   mimetypes: { validate: (v, args) => isFile(v) && args.includes(v.type) },
   mimes: {
     validate: (v, args) => {
@@ -293,6 +349,39 @@ export const RULES: Record<string, Rule> = {
         return false
       const name = (v as File).name ?? ''
       return args.some(ext => v.type === MIME[ext] || name.toLowerCase().endsWith(`.${ext}`))
+    },
+  },
+  /**
+   * Image dimension/ratio constraints (Laravel's `dimensions` rule), e.g.
+   * `dimensions:min_width=200,min_height=200,ratio=16/9`. Reads the real
+   * width/height from the format header (see `image-inspect.ts`) — fails
+   * closed (invalid) if the file isn't a recognized image or its dimensions
+   * can't be determined.
+   */
+  dimensions: {
+    validate: async (v, args) => {
+      if (!isFile(v))
+        return false
+      const bytes = new Uint8Array(await v.arrayBuffer())
+      const dim = readImageDimensions(bytes)
+      if (!dim)
+        return false
+      const c = parseDimensionArgs(args)
+      if (c.width !== undefined && dim.width !== c.width)
+        return false
+      if (c.height !== undefined && dim.height !== c.height)
+        return false
+      if (c.minWidth !== undefined && dim.width < c.minWidth)
+        return false
+      if (c.maxWidth !== undefined && dim.width > c.maxWidth)
+        return false
+      if (c.minHeight !== undefined && dim.height < c.minHeight)
+        return false
+      if (c.maxHeight !== undefined && dim.height > c.maxHeight)
+        return false
+      if (c.ratio !== undefined && Math.abs(dim.width / dim.height - c.ratio) > 0.0001)
+        return false
+      return true
     },
   },
 

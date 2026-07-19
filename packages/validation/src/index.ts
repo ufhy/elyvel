@@ -1,5 +1,6 @@
 export { configureDbRules, type DbRuleResolver } from './db-rules'
 export { AuthorizationException, FormRequest, type RequestLike } from './form-request'
+export { type ImageDimensions, readImageDimensions, sniffImageMime } from './image-inspect'
 export { DEFAULT_MESSAGES, humanizeAttribute } from './messages'
 export { isEmpty, type Rule, RULES } from './rules'
 export { type ErrorBag, ValidationException } from './validation-exception'
