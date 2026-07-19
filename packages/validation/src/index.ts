@@ -1,4 +1,5 @@
 export { configureDbRules, type DbRuleResolver } from './db-rules'
+export { sniffFileMime } from './file-inspect'
 export { AuthorizationException, FormRequest, type RequestLike } from './form-request'
 export { type ImageDimensions, readImageDimensions, sniffImageMime } from './image-inspect'
 export { DEFAULT_MESSAGES, humanizeAttribute } from './messages'

@@ -204,6 +204,27 @@ describe('validation rules — files', () => {
     expect(await passes({ f: spoofed }, 'image')).toBe(false)
   })
 
+  test('mimes/mimetypes sniff real content too — a fake .png fails even with a matching name/type', async () => {
+    // Same spoof shape as the `image` test above, but through mimes/mimetypes
+    // specifically — an attacker uploading an HTML/script payload named
+    // "photo.png" with Content-Type: image/png must not pass `mimes:png`.
+    const spoofed = new File([new Uint8Array([1, 2, 3, 4, 5])], 'a.png', { type: 'image/png' })
+    expect(await passes({ f: spoofed }, 'mimes:png,jpg')).toBe(false)
+    expect(await passes({ f: spoofed }, 'mimetypes:image/png')).toBe(false)
+
+    // A real PDF passes `mimes:pdf` even if the declared type/name lied the other way.
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34]) // "%PDF-1.4"
+    const fakedAsPng = new File([pdfBytes], 'a.png', { type: 'image/png' })
+    expect(await passes({ f: fakedAsPng }, 'mimes:pdf')).toBe(true)
+    expect(await passes({ f: fakedAsPng }, 'mimes:png')).toBe(false)
+
+    // Plain text has no binary signature to sniff — falls back to the
+    // declared type/extension, same behavior as before this fix. (Bun
+    // normalizes a `text/plain` File's `.type` to include `;charset=utf-8`.)
+    expect(await passes({ f: txt }, `mimetypes:${txt.type}`)).toBe(true)
+    expect(await passes({ f: txt }, 'mimes:txt')).toBe(true)
+  })
+
   test('dimensions: min/max/exact width & height, and ratio', async () => {
     const wide = new File([pngBytes(1600, 900)], 'wide.png', { type: 'image/png' })
     const small = new File([pngBytes(50, 50)], 'small.png', { type: 'image/png' })

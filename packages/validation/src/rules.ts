@@ -1,5 +1,6 @@
 import type { SizeKind } from './messages'
 import { getDbResolver } from './db-rules'
+import { sniffFileMime } from './file-inspect'
 import { readImageDimensions, sniffImageMime } from './image-inspect'
 
 export type Data = Record<string, unknown>
@@ -38,6 +39,11 @@ const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 
 function isFile(value: unknown): value is Blob {
   return typeof Blob !== 'undefined' && value instanceof Blob
+}
+
+/** A MIME type `sniffFileMime` can actually verify from content (images + PDF). */
+function isSniffableMime(type: string): boolean {
+  return type.startsWith('image/') || type === 'application/pdf'
 }
 
 interface DimensionConstraints {
@@ -342,13 +348,34 @@ export const RULES: Record<string, Rule> = {
       return sniffImageMime(bytes) !== undefined
     },
   },
-  mimetypes: { validate: (v, args) => isFile(v) && args.includes(v.type) },
+  // Same content-sniffing rationale as `image` above. Per allowed type/
+  // extension: if it's one we can actually verify (image/* or PDF), the
+  // content must sniff as exactly that — declaring `image/png` (or naming
+  // the file `x.png`) is NOT enough on its own, closing the gap where
+  // unrecognizable garbage bytes could otherwise slide through under a
+  // sniffable label just because sniffing came back inconclusive. Only
+  // extensions with no checkable signature (txt/csv/json/svg/…) fall back to
+  // the declared type/filename, same as before this existed.
+  mimetypes: {
+    validate: async (v, args) => {
+      if (!isFile(v))
+        return false
+      const sniffed = sniffFileMime(new Uint8Array(await v.arrayBuffer()))
+      return args.some(type => (isSniffableMime(type) ? sniffed === type : v.type === type))
+    },
+  },
   mimes: {
-    validate: (v, args) => {
+    validate: async (v, args) => {
       if (!isFile(v))
         return false
       const name = (v as File).name ?? ''
-      return args.some(ext => v.type === MIME[ext] || name.toLowerCase().endsWith(`.${ext}`))
+      const sniffed = sniffFileMime(new Uint8Array(await v.arrayBuffer()))
+      return args.some((ext) => {
+        const type = MIME[ext]
+        if (type && isSniffableMime(type))
+          return sniffed === type
+        return v.type === type || name.toLowerCase().endsWith(`.${ext}`)
+      })
     },
   },
   /**
