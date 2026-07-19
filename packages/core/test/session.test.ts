@@ -72,6 +72,7 @@ describe('server-side session drivers (memory / file / database)', () => {
   configureDatabaseSession({
     read: async id => dbRows.get(id),
     write: async (id, payload) => void dbRows.set(id, payload),
+    destroy: async id => void dbRows.delete(id),
   })
 
   const drivers = ['memory', 'file', 'database'] as const
@@ -90,6 +91,51 @@ describe('server-side session drivers (memory / file / database)', () => {
         new Request('http://localhost/get', { headers: { cookie: jar(r1) } }),
       )
       expect(await r2.json()).toEqual({ who: driver })
+    })
+  }
+
+  // Anti session-fixation: regenerate()/invalidate() must rotate the actual
+  // server-side session id, not just the CSRF token — otherwise an attacker
+  // who fixates a session id on a victim before login keeps a valid,
+  // now-authenticated session under that same id after the victim logs in.
+  for (const driver of drivers) {
+    test(`${driver}: regenerate() issues a new session id and kills the old one`, async () => {
+      const app = new Elysia().use(sessionPlugin({ ...cfg, driver, files: dir })).use(
+        route()
+          .get('/anon', ({ session }: any) => {
+            session.put('stage', 'anonymous')
+            return 'ok'
+          })
+          .get('/login', ({ session }: any) => {
+            session.put('user', 'ada')
+            session.regenerate() // à la calling this right after authenticating
+            return 'ok'
+          })
+          .get('/whoami', ({ session }: any) => ({ user: session.get('user') ?? null })),
+      )
+
+      // The attacker "fixates" this cookie (captured before the victim logs in).
+      const anon = await app.handle(new Request('http://localhost/anon'))
+      const fixatedCookie = jar(anon)
+
+      // The victim (using the attacker's fixated cookie) logs in.
+      const login = await app.handle(
+        new Request('http://localhost/login', { headers: { cookie: fixatedCookie } }),
+      )
+      const newCookie = jar(login)
+      expect(newCookie).not.toBe(fixatedCookie) // the session id itself changed
+
+      // The OLD (attacker-known) cookie must no longer reach the authenticated session.
+      const replayed = await app.handle(
+        new Request('http://localhost/whoami', { headers: { cookie: fixatedCookie } }),
+      )
+      expect(await replayed.json()).toEqual({ user: null })
+
+      // The NEW cookie (only known after login) correctly sees the session.
+      const legit = await app.handle(
+        new Request('http://localhost/whoami', { headers: { cookie: newCookie } }),
+      )
+      expect(await legit.json()).toEqual({ user: 'ada' })
     })
   }
 })
@@ -139,14 +185,26 @@ describe('session convenience methods', () => {
     expect(s.missing('nope')).toBe(true)
   })
 
-  test('invalidate clears data but rotates token', () => {
+  test('invalidate clears data, rotates the token, and flags the id for regeneration', () => {
     const { Session } = require('../src/session') as typeof import('../src/session')
     const s = new Session({ a: 1 })
     s.ensureToken()
     const before = s.token()
+    expect(s.shouldRegenerateId()).toBe(false)
     s.invalidate()
     expect(s.get('a')).toBeUndefined()
     expect(s.token()).not.toBe(before)
+    expect(s.shouldRegenerateId()).toBe(true)
+  })
+
+  test('regenerate() flags the id for regeneration; markIdRegenerated() clears it', () => {
+    const { Session } = require('../src/session') as typeof import('../src/session')
+    const s = new Session({ a: 1 })
+    s.regenerate()
+    expect(s.shouldRegenerateId()).toBe(true)
+    expect(s.get<number>('a')).toBe(1) // data is kept, unlike invalidate()
+    s.markIdRegenerated()
+    expect(s.shouldRegenerateId()).toBe(false)
   })
 })
 

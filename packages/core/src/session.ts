@@ -22,9 +22,23 @@ interface FlashState {
  */
 export class Session {
   private data: Record<string, unknown>
+  private regenerateId = false
 
   constructor(data: Record<string, unknown> = {}) {
     this.data = { ...data }
+  }
+
+  /**
+   * Whether the server-side session id must be rotated on save — set by
+   * `regenerate()`/`invalidate()`. Checked by `sessionPlugin`'s `persist()`.
+   */
+  shouldRegenerateId(): boolean {
+    return this.regenerateId
+  }
+
+  /** Clears the regenerate-id flag once `persist()` has acted on it. */
+  markIdRegenerated(): void {
+    this.regenerateId = false
   }
 
   /** Ensure a CSRF token exists (called when the session starts). */
@@ -104,15 +118,22 @@ export class Session {
     return value
   }
 
-  /** Rotate the CSRF token, keeping session data (anti session-fixation). */
+  /**
+   * Rotate the CSRF token AND the server-side session id, keeping session
+   * data (anti session-fixation — call this right after a successful login).
+   * The id rotation only matters for store-backed drivers (memory/file/
+   * database/redis); the `cookie` driver has no separate id to fixate.
+   */
   regenerate(): void {
     this.regenerateToken()
+    this.regenerateId = true
   }
 
-  /** Clear all data and rotate the token. */
+  /** Clear all data, and rotate the token AND the server-side session id. */
   invalidate(): void {
     this.flush()
     this.regenerateToken()
+    this.regenerateId = true
   }
 
   /** Clear everything except the CSRF token. */
@@ -224,6 +245,11 @@ export interface ResolvedSessionConfig {
 export interface SessionStore {
   read(id: string): Promise<Record<string, unknown>>
   write(id: string, data: Record<string, unknown>, lifetimeSeconds: number): Promise<void>
+  /**
+   * Delete a session outright — used when regenerating the id, so the OLD
+   * (possibly fixated) id can't still be replayed after rotation.
+   */
+  destroy(id: string): Promise<void>
 }
 
 class MemorySessionStore implements SessionStore {
@@ -241,6 +267,10 @@ class MemorySessionStore implements SessionStore {
 
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     this.map.set(id, { data, expiresAt: Date.now() + lifetime * 1000 })
+  }
+
+  async destroy(id: string): Promise<void> {
+    this.map.delete(id)
   }
 }
 
@@ -276,12 +306,19 @@ class FileSessionStore implements SessionStore {
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
     writeFileSync(this.path(id), JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }))
   }
+
+  async destroy(id: string): Promise<void> {
+    const file = this.path(id)
+    if (existsSync(file))
+      unlinkSync(file)
+  }
 }
 
 /** DB adapter for the `database` session driver (kept DB-agnostic, wired by the app). */
 export interface SessionDbAdapter {
   read(id: string): Promise<string | undefined>
   write(id: string, payload: string, lastActivity: number): Promise<void>
+  destroy(id: string): Promise<void>
 }
 let sessionDbAdapter: SessionDbAdapter | null = null
 export function configureDatabaseSession(adapter: SessionDbAdapter): void {
@@ -315,6 +352,10 @@ class DatabaseSessionStore implements SessionStore {
     const payload = JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 })
     await this.adapter().write(id, payload, Math.floor(Date.now() / 1000))
   }
+
+  async destroy(id: string): Promise<void> {
+    await this.adapter().destroy(id)
+  }
 }
 
 /** Redis-backed session store (Bun's built-in Redis client). */
@@ -345,6 +386,10 @@ export class RedisSessionStore implements SessionStore {
       'EX',
       String(Math.max(1, Math.ceil(lifetime))),
     ])
+  }
+
+  async destroy(id: string): Promise<void> {
+    await this.client.send('DEL', [this.prefix + id])
   }
 }
 
@@ -434,8 +479,15 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
 
     let value: string
     if (store) {
-      const sid = (ctx.__sid as string) || randomBytes(16).toString('hex')
+      const oldSid = ctx.__sid as string | undefined
+      const rotate = !oldSid || session.shouldRegenerateId()
+      const sid = rotate ? randomBytes(16).toString('hex') : oldSid!
       await store.write(sid, session.toData(), config.lifetime)
+      // Kill the old id so a fixated/pre-login cookie can't still be replayed
+      // to read the now-authenticated session under the attacker's chosen id.
+      if (rotate && oldSid && oldSid !== sid)
+        await store.destroy(oldSid)
+      session.markIdRegenerated()
       value = sid
     }
     else {
