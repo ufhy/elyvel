@@ -54,6 +54,24 @@ for (const s of stores) {
       expect(await c.rememberForever('rf', () => 42)).toBe(42)
     })
 
+    test('remember coalesces concurrent misses — only one factory() call, not a thundering herd', async () => {
+      const c = s.make()
+      let calls = 0
+      const factory = async () => {
+        calls++
+        await new Promise(resolve => setTimeout(resolve, 20)) // simulate a slow DB/API call
+        return 'computed-concurrently'
+      }
+
+      // 10 "requests" racing the same cold key at once.
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () => c.remember('stampede', 60, factory)),
+      )
+
+      expect(calls).toBe(1) // the slow factory only ran once
+      expect(results).toEqual(Array.from<string>({ length: 10 }).fill('computed-concurrently'))
+    })
+
     test('pull retrieves then deletes', async () => {
       const c = s.make()
       await c.put('p', 'v')
@@ -98,6 +116,29 @@ describe('database cache store (via adapter)', () => {
     expect(await c.increment('hits', 3)).toBe(3)
     await c.forget('a')
     expect(await c.has('a')).toBe(false)
+  })
+
+  test('uses the adapter\'s atomic increment() when the adapter provides one', async () => {
+    const store = require('../src/store') as typeof import('../src/store')
+    const { DatabaseStore, configureDatabaseCache } = store
+    const counters = new Map<string, number>()
+    let atomicIncrementCalls = 0
+    configureDatabaseCache({
+      read: async () => undefined,
+      write: async () => {},
+      forget: async () => {},
+      flush: async () => {},
+      increment: async (key, by) => {
+        atomicIncrementCalls++
+        const next = (counters.get(key) ?? 0) + by
+        counters.set(key, next)
+        return next
+      },
+    })
+    const c = new Repository(new DatabaseStore())
+    expect(await c.increment('views', 5)).toBe(5)
+    expect(await c.increment('views', 5)).toBe(10)
+    expect(atomicIncrementCalls).toBe(2) // went through the adapter's atomic path, not read-then-write
   })
 })
 

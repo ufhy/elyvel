@@ -64,7 +64,19 @@ export class MemoryStore implements CacheStore {
   }
 }
 
-/** File store — each key is a JSON file under `dir` (keyed by an md5 of the key). */
+/**
+ * File store — each key is a JSON file under `dir` (keyed by an md5 of the
+ * key). `increment()`'s read-then-write is safe within one process (no
+ * `await` sits between the read and the write, so nothing else in this
+ * process's event loop can interleave) — but NOT safe if multiple separate
+ * OS processes point at the same directory (e.g. an NFS-mounted `dir` shared
+ * across instances): each process's own read-then-write can race the others'.
+ * That's an unusual setup (sharing a filesystem cache directory across
+ * instances is itself uncommon), and matches Laravel's own file cache driver,
+ * which has the identical limitation. For real cross-process atomic
+ * increments, use `RedisStore` or `DatabaseStore` with an adapter that
+ * implements `increment` via a native atomic `UPDATE`.
+ */
 export class FileStore implements CacheStore {
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true })
@@ -139,6 +151,15 @@ export interface CacheDbAdapter {
   write(key: string, value: string, expiresAt: number | null): Promise<void>
   forget(key: string): Promise<void>
   flush(): Promise<void>
+  /**
+   * Atomically add `by` to the numeric value stored at `key` (creating it
+   * at `by` if absent) and return the new value — e.g. a single
+   * `INSERT ... ON CONFLICT DO UPDATE SET value = value + ?` / `UPDATE ...
+   * SET value = value + ?` statement. Optional: without it, `DatabaseStore`
+   * falls back to a plain read-then-write, which races under concurrent
+   * increments from multiple processes sharing the same table.
+   */
+  increment?(key: string, by: number): Promise<number>
 }
 
 let dbAdapter: CacheDbAdapter | null = null
@@ -183,7 +204,11 @@ export class DatabaseStore implements CacheStore {
     await requireAdapter().flush()
   }
 
+  /** Uses the adapter's atomic `increment` when available; otherwise a non-atomic read-then-write. */
   async increment(key: string, by = 1): Promise<number> {
+    const adapter = requireAdapter()
+    if (adapter.increment)
+      return adapter.increment(key, by)
     const current = Number((await this.get<number>(key)) ?? 0)
     const next = current + by
     await this.put(key, next)

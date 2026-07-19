@@ -5,6 +5,19 @@ import type { CacheStore } from './store'
  * `seconds` omitted means "forever".
  */
 export class Repository {
+  // Coalesces concurrent `remember()`/`rememberForever()` misses for the SAME
+  // key within this process — without this, N concurrent requests racing a
+  // cold/expired key all see `get()` return undefined and all invoke
+  // `factory()` (a thundering herd against the origin DB/API on any popular
+  // key's expiry). Only the first caller actually runs `factory()`; the rest
+  // await its result. This dedupes WITHIN one process; it doesn't coordinate
+  // across instances sharing a `redis`/`database` store (that needs a
+  // distributed lock, which no cache driver here exposes yet) — but since
+  // every instance already dedupes its own concurrent callers, an N-instance
+  // fleet still goes from "however many concurrent requests landed" down to
+  // "at most N" factory() calls, not eliminated but substantially reduced.
+  private readonly inFlight = new Map<string, Promise<unknown>>()
+
   constructor(private readonly store: CacheStore) {}
 
   async get(key: string): Promise<unknown>
@@ -73,9 +86,11 @@ export class Repository {
     const existing = await this.store.get<T>(key)
     if (existing !== undefined)
       return existing
-    const value = await factory()
-    await this.put(key, value, seconds)
-    return value
+    return this.coalesce(key, async () => {
+      const value = await factory()
+      await this.put(key, value, seconds)
+      return value
+    })
   }
 
   /** Like {@link remember} but stored forever. */
@@ -83,8 +98,20 @@ export class Repository {
     const existing = await this.store.get<T>(key)
     if (existing !== undefined)
       return existing
-    const value = await factory()
-    await this.forever(key, value)
-    return value
+    return this.coalesce(key, async () => {
+      const value = await factory()
+      await this.forever(key, value)
+      return value
+    })
+  }
+
+  /** Run `compute` once per key, sharing the result with any concurrent caller. */
+  private coalesce<T>(key: string, compute: () => Promise<T>): Promise<T> {
+    const pending = this.inFlight.get(key) as Promise<T> | undefined
+    if (pending)
+      return pending
+    const promise = compute().finally(() => this.inFlight.delete(key))
+    this.inFlight.set(key, promise)
+    return promise
   }
 }
