@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { viteTags } from '@elyvel/vite'
 import { Elysia } from 'elysia'
-import { buildProps, InertiaLocation, InertiaResponse } from './response'
+import { buildProps, freshSharedScope, InertiaLocation, InertiaResponse } from './response'
 
 /** What an Inertia SSR bundle's default export returns for a page. */
 export interface SsrResult {
@@ -101,90 +101,95 @@ export function inertia(config: InertiaConfig = {}) {
 
   // Global so a single registration (config/middleware.ts `global`) transforms
   // Inertia responses across every route file — no per-file `.use` needed.
-  return new Elysia({ name: 'elyvel-inertia' }).onAfterHandle({ as: 'global' }, async (ctx: any) => {
-    const response = ctx.response
-    const request = ctx.request as Request
-    const isInertia = request.headers.get('x-inertia') === 'true'
+  return new Elysia({ name: 'elyvel-inertia' })
+    // Fresh shared-prop scope per request, established before any middleware/
+    // handler runs — so `Inertia.share('user', ctx.user)` called from within
+    // this request can't leak into or get clobbered by a concurrent one.
+    .onRequest(() => freshSharedScope())
+    .onAfterHandle({ as: 'global' }, async (ctx: any) => {
+      const response = ctx.response
+      const request = ctx.request as Request
+      const isInertia = request.headers.get('x-inertia') === 'true'
 
-    // Force-visit a URL: 409 for Inertia XHR (client does a hard visit), 302 otherwise.
-    if (response instanceof InertiaLocation) {
-      if (isInertia) {
+      // Force-visit a URL: 409 for Inertia XHR (client does a hard visit), 302 otherwise.
+      if (response instanceof InertiaLocation) {
+        if (isInertia) {
+          ctx.set.status = 409
+          ctx.set.headers['x-inertia-location'] = response.url
+        }
+        else {
+          ctx.set.status = 302
+          ctx.set.headers.location = response.url
+        }
+        return ''
+      }
+
+      if (!(response instanceof InertiaResponse))
+        return undefined
+
+      const version = resolveVersion()
+
+      // Asset version changed between navigations → tell the client to hard-reload.
+      if (
+        isInertia
+        && request.method === 'GET'
+        && (request.headers.get('x-inertia-version') ?? '') !== version
+      ) {
         ctx.set.status = 409
-        ctx.set.headers['x-inertia-location'] = response.url
+        ctx.set.headers['x-inertia-location'] = request.url
+        return ''
       }
-      else {
-        ctx.set.status = 302
-        ctx.set.headers.location = response.url
+
+      const url = new URL(request.url)
+      const built = await buildProps(response, request, ctx.session)
+      const page: Page = {
+        component: response.component,
+        props: built.props,
+        url: url.pathname + url.search,
+        version,
       }
-      return ''
-    }
+      if (built.deferredProps)
+        page.deferredProps = built.deferredProps
+      if (built.mergeProps)
+        page.mergeProps = built.mergeProps
+      if (built.deepMergeProps)
+        page.deepMergeProps = built.deepMergeProps
+      if (built.prependProps)
+        page.prependProps = built.prependProps
+      if (built.matchPropsOn)
+        page.matchPropsOn = built.matchPropsOn
+      if (built.onceProps)
+        page.onceProps = built.onceProps
+      if (built.rescuedProps)
+        page.rescuedProps = built.rescuedProps
+      if (response.encryptHistoryFlag)
+        page.encryptHistory = true
+      if (response.clearHistoryFlag)
+        page.clearHistory = true
+      if (response.preserveFragmentFlag)
+        page.preserveFragment = true
 
-    if (!(response instanceof InertiaResponse))
-      return undefined
-
-    const version = resolveVersion()
-
-    // Asset version changed between navigations → tell the client to hard-reload.
-    if (
-      isInertia
-      && request.method === 'GET'
-      && (request.headers.get('x-inertia-version') ?? '') !== version
-    ) {
-      ctx.set.status = 409
-      ctx.set.headers['x-inertia-location'] = request.url
-      return ''
-    }
-
-    const url = new URL(request.url)
-    const built = await buildProps(response, request, ctx.session)
-    const page: Page = {
-      component: response.component,
-      props: built.props,
-      url: url.pathname + url.search,
-      version,
-    }
-    if (built.deferredProps)
-      page.deferredProps = built.deferredProps
-    if (built.mergeProps)
-      page.mergeProps = built.mergeProps
-    if (built.deepMergeProps)
-      page.deepMergeProps = built.deepMergeProps
-    if (built.prependProps)
-      page.prependProps = built.prependProps
-    if (built.matchPropsOn)
-      page.matchPropsOn = built.matchPropsOn
-    if (built.onceProps)
-      page.onceProps = built.onceProps
-    if (built.rescuedProps)
-      page.rescuedProps = built.rescuedProps
-    if (response.encryptHistoryFlag)
-      page.encryptHistory = true
-    if (response.clearHistoryFlag)
-      page.clearHistory = true
-    if (response.preserveFragmentFlag)
-      page.preserveFragment = true
-
-    if (isInertia) {
-      ctx.set.headers['x-inertia'] = 'true'
-      ctx.set.headers.vary = 'X-Inertia'
-      return page // Elysia serializes to JSON
-    }
-
-    // First load: optionally server-render the page, then hydrate on the client.
-    let ssr: SsrResult | undefined
-    if (config.ssr) {
-      try {
-        const render
-          = config.ssr.render ?? (config.ssr.bundle ? await loadSsrRender(config.ssr.bundle) : null)
-        if (render)
-          ssr = await render(page)
+      if (isInertia) {
+        ctx.set.headers['x-inertia'] = 'true'
+        ctx.set.headers.vary = 'X-Inertia'
+        return page // Elysia serializes to JSON
       }
-      catch {
-        ssr = undefined // fall back to client-only rendering
-      }
-    }
 
-    ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
-    return renderHtml({ pageJson: JSON.stringify(page), page, rootId, head, ssr })
-  })
+      // First load: optionally server-render the page, then hydrate on the client.
+      let ssr: SsrResult | undefined
+      if (config.ssr) {
+        try {
+          const render
+            = config.ssr.render ?? (config.ssr.bundle ? await loadSsrRender(config.ssr.bundle) : null)
+          if (render)
+            ssr = await render(page)
+        }
+        catch {
+          ssr = undefined // fall back to client-only rendering
+        }
+      }
+
+      ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
+      return renderHtml({ pageJson: JSON.stringify(page), page, rootId, head, ssr })
+    })
 }

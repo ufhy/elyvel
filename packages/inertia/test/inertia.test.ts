@@ -115,6 +115,59 @@ describe('shared props', () => {
   })
 })
 
+describe('shared props — per-request isolation (anti cross-request leakage)', () => {
+  test('a share() call made during one request does not leak into a later, unrelated request', async () => {
+    const app = new Elysia().use(inertia()).get('/whoami', ({ query }: any) => {
+      if (query.share === 'yes')
+        Inertia.share('user', { id: Number(query.id) })
+      return Inertia.render('Home', {})
+    })
+
+    const shared = await app.handle(inertiaReq('/whoami?share=yes&id=1'))
+    const sharedPage = (await shared.json()) as { props: Record<string, unknown> }
+    expect(sharedPage.props.user).toEqual({ id: 1 })
+
+    // Before the fix, `shared` was one persistent global Map — the previous
+    // request's share would still be sitting there for this one.
+    const notShared = await app.handle(inertiaReq('/whoami?share=no'))
+    const notSharedPage = (await notShared.json()) as { props: Record<string, unknown> }
+    expect(notSharedPage.props.user).toBeUndefined()
+  })
+
+  test('two concurrent requests sharing different per-request values don\'t cross-contaminate', async () => {
+    const app = new Elysia().use(inertia()).get('/whoami', async ({ query }: any) => {
+      Inertia.share('user', { id: Number(query.id) })
+      // Force real overlap: request id=1 resolves its share long before id=2's
+      // handler even runs, so a shared (non-request-scoped) Map would have
+      // request 2 overwrite request 1's value before request 1 reads it back.
+      await new Promise(resolve => setTimeout(resolve, Number(query.id) === 1 ? 30 : 0))
+      return Inertia.render('Home', {})
+    })
+
+    const [resA, resB] = await Promise.all([
+      app.handle(inertiaReq('/whoami?id=1')),
+      app.handle(inertiaReq('/whoami?id=2')),
+    ])
+    const [pageA, pageB] = (await Promise.all([resA.json(), resB.json()])) as {
+      props: Record<string, unknown>
+    }[]
+    expect(pageA?.props.user).toEqual({ id: 1 })
+    expect(pageB?.props.user).toEqual({ id: 2 })
+  })
+
+  test('a global share() (registered outside a request) still applies as a baseline alongside per-request shares', async () => {
+    Inertia.share('appName', 'Elyvel') // called here, outside any request → global baseline
+    const app = new Elysia().use(inertia()).get('/whoami', () => {
+      Inertia.share('user', { id: 42 }) // called during the request → this request only
+      return Inertia.render('Home', {})
+    })
+    const res = await app.handle(inertiaReq('/whoami'))
+    const page = (await res.json()) as { props: Record<string, unknown> }
+    expect(page.props.appName).toBe('Elyvel')
+    expect(page.props.user).toEqual({ id: 42 })
+  })
+})
+
 describe('v2: deferred props', () => {
   const app = () =>
     new Elysia().use(inertia()).get('/posts', () =>

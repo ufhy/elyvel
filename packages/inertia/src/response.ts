@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+
 /** A resolved value or a (possibly async) producer of one. */
 type PropValue = unknown | (() => unknown | Promise<unknown>)
 type Callback = () => unknown | Promise<unknown>
@@ -100,7 +102,29 @@ export class InertiaLocation {
 }
 
 // ── shared props (merged into every page) ─────────────────────────────────────
+// `shared` holds props registered outside a request (e.g. a ServiceProvider's
+// `boot()`, which — unlike PHP-FPM — runs once at process start, not once per
+// request) — these apply as a baseline to every request forever. `requestShared`
+// is a fresh Map per request (the `inertia` plugin establishes it via
+// `freshSharedScope()` in `onRequest`, before any handler runs), so a
+// `Inertia.share('user', ctx.user)` call from within a request (middleware or
+// controller) — the idiomatic place to share per-request data like the
+// signed-in user — can't leak into or be clobbered by a concurrent request.
 const shared = new Map<string, PropValue>()
+const requestShared = new AsyncLocalStorage<Map<string, PropValue>>()
+
+function activeSharedStore(): Map<string, PropValue> {
+  return requestShared.getStore() ?? shared
+}
+
+/**
+ * Starts a fresh per-request shared-prop scope for the rest of the current
+ * async continuation. The `inertia()` plugin calls this once per request
+ * (`onRequest`, before routing) — apps don't need to call it themselves.
+ */
+export function freshSharedScope(): void {
+  requestShared.enterWith(new Map())
+}
 
 export const Inertia = {
   render(component: string, props: Record<string, unknown> = {}): InertiaResponse {
@@ -109,8 +133,14 @@ export const Inertia = {
   location(url: string): InertiaLocation {
     return new InertiaLocation(url)
   },
+  /**
+   * Share a prop merged into every subsequent page render. Called during a
+   * request (middleware/controller), it's scoped to THAT request only; called
+   * outside one (e.g. `AppServiceProvider.boot()`), it becomes a permanent
+   * baseline for every request.
+   */
   share(key: string, value: PropValue): void {
-    shared.set(key, value)
+    activeSharedStore().set(key, value)
   },
   /** A prop evaluated only when a partial reload requests it. */
   optional(callback: Callback): OptionalProp {
@@ -136,8 +166,9 @@ export const Inertia = {
   once(callback: Callback): OnceProp {
     return new OnceProp(callback)
   },
+  /** Clears the active scope's shares (request-scoped during a request, global otherwise). */
   flushShared(): void {
-    shared.clear()
+    activeSharedStore().clear()
   },
 }
 
@@ -177,7 +208,11 @@ export async function buildProps(
   session: { get(key: string): unknown } | undefined,
 ): Promise<BuiltProps> {
   const merged: Record<string, PropValue> = {}
-  for (const [key, value] of shared) merged[key] = value
+  for (const [key, value] of shared) merged[key] = value // global baseline (e.g. app name)
+  const scoped = requestShared.getStore()
+  if (scoped) {
+    for (const [key, value] of scoped) merged[key] = value // this request's own shares win
+  }
   merged.errors = (session?.get('errors') as Record<string, unknown>) ?? {}
   Object.assign(merged, response.props)
 

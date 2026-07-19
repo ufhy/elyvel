@@ -11,7 +11,7 @@ export interface ViewShared {
   flash(key: string, fallback?: unknown): unknown
   /** The CSRF token — embed with `csrfField(shared)` inside a form. */
   csrf: string
-  /** App-wide data registered with `View.share()` (e.g. app name, current user). */
+  /** App-wide data registered with `View.share()` (e.g. app name, current year). */
   globals: Record<string, unknown>
 }
 
@@ -19,10 +19,18 @@ export interface ViewShared {
 export type CoreShared = Omit<ViewShared, 'globals'>
 
 // ── globally shared view data (Laravel's View::share) ─────────────────────────
+// Unlike PHP-FPM (where a fresh process — and thus fresh globals — starts per
+// request), this Map lives for the whole lifetime of a long-running elyvel
+// process: it has no per-request isolation. Fine for values that are the same
+// for everyone (app name, current year, feature flags); NOT a safe place for
+// per-request/per-user data (the signed-in user, request-specific state) —
+// a value set here is visible to every concurrent request. Pass that kind of
+// data as `props` to `view(template, props)` instead, which is inherently
+// per-call and race-free.
 const globalData = new Map<string, unknown | (() => unknown)>()
 
 export const View = {
-  /** Share data into every view (a value or a lazy producer). */
+  /** Share data into every view (a value or a lazy producer) — see the module doc comment on `globalData` for what this is (and isn't) safe for. */
   share(key: string, value: unknown | (() => unknown)): void {
     globalData.set(key, value)
   },
