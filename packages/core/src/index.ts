@@ -26,6 +26,11 @@ export {
   zonedStartOfDayUtc,
 } from './datetime'
 export { defineEnv } from './env'
+export {
+  configureExceptionHandling,
+  type ExceptionHandlingConfig,
+  shouldReportError,
+} from './exception-handling'
 export { type FakeResponse, Http, HttpResponse, PendingRequest } from './http/client'
 export {
   configureErrorPage,

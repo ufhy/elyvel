@@ -10,6 +10,13 @@ export interface AppConfig {
   name?: string
   /** Environment, e.g. `local` | `production`. Drives logging defaults. */
   env?: string
+  /**
+   * Show a detailed debug page (stack trace, request info) for uncaught 500s,
+   * instead of the generic error page. Default `true` outside production; set
+   * `false` to opt out in a non-production environment. Always off in
+   * production regardless of this setting — not an escape hatch.
+   */
+  debug?: boolean
   /** App timezone for date *display* (e.g. `Asia/Makassar`). Storage stays UTC. Default `UTC`. */
   timezone?: string
   /** Secret key for encryption (e.g. `encrypted` model casts). */

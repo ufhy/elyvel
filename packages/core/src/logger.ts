@@ -126,22 +126,43 @@ const COLORS: Record<LeveledLevel, string> = {
 }
 const RESET = '\x1B[0m'
 
-/** Writes to the console: colorized lines (pretty) or one JSON object per line. */
+/**
+ * A human-readable rendering of an entry — one summary line, then a `key=value`
+ * line for short context fields, then `stack` (if present) as genuine indented
+ * multi-line text rather than an escaped `\n`-riddled JSON string. Used by
+ * {@link ConsoleTransport} (colorized) and any file transport with `pretty: true`
+ * (plain — a stack trace with ANSI codes in a text editor is its own kind of
+ * unreadable).
+ */
+function formatEntry(entry: LogEntry, colors: boolean): string {
+  const time = colors ? `\x1B[90m${entry.time}${RESET}` : entry.time
+  const level = colors ? `${COLORS[entry.level]}${entry.level.toUpperCase()}${RESET}` : entry.level.toUpperCase()
+  const scope = entry.name ? (colors ? ` \x1B[35m(${entry.name})${RESET}` : ` (${entry.name})`) : ''
+  const lines = [`${time} ${level}${scope} ${entry.message}`]
+
+  if (entry.context) {
+    const { stack, ...rest } = entry.context as { stack?: unknown } & Record<string, unknown>
+    const fields = Object.entries(rest)
+    if (fields.length > 0) {
+      lines.push(`  ${fields.map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`).join(' ')}`)
+    }
+    if (typeof stack === 'string') {
+      lines.push('  stack:')
+      for (const stackLine of stack.split('\n')) lines.push(`    ${stackLine}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+/** Writes to the console: human-readable lines (pretty) or one JSON object per line. */
 export class ConsoleTransport implements Transport {
   constructor(private readonly pretty = true) {}
 
   log(entry: LogEntry): void {
-    const line = this.pretty ? this.format(entry) : JSON.stringify(flatten(entry))
+    const line = this.pretty ? formatEntry(entry, true) : JSON.stringify(flatten(entry))
     if (entry.level === 'error' || entry.level === 'warn')
       console.error(line)
     else console.log(line)
-  }
-
-  private format(entry: LogEntry): string {
-    const scope = entry.name ? ` \x1B[35m(${entry.name})${RESET}` : ''
-    const extra
-      = entry.context && Object.keys(entry.context).length ? ` ${JSON.stringify(entry.context)}` : ''
-    return `\x1B[90m${entry.time}${RESET} ${COLORS[entry.level]}${entry.level.toUpperCase()}${RESET}${scope} ${entry.message}${extra}`
   }
 }
 
@@ -184,16 +205,29 @@ export interface FileTransportOptions {
   maxFiles?: number
   /** Gzip rotated files. Default false. */
   compress?: boolean
+  /**
+   * Human-readable lines (summary + `key=value` + a genuinely multi-line
+   * stack trace) instead of one dense JSON object per line. Default false —
+   * flip it on for a file a developer will actually open and read (local/dev);
+   * leave it off for a file a log aggregator (Datadog, CloudWatch, `jq`…) will
+   * parse (production).
+   */
+  pretty?: boolean
+}
+
+function renderLine(entry: LogEntry, pretty: boolean): string {
+  return pretty ? formatEntry(entry, false) : JSON.stringify(flatten(entry))
 }
 
 /**
- * Appends structured JSON lines to a file, rotating by size. Writes are
- * synchronous for durability (a crash loses at most the in-flight line).
+ * Appends log lines to a file, rotating by size. Writes are synchronous for
+ * durability (a crash loses at most the in-flight line).
  */
 export class FileTransport implements Transport {
   private readonly maxBytes: number
   private readonly maxFiles: number
   private readonly compress: boolean
+  private readonly pretty: boolean
 
   constructor(
     private readonly path: string,
@@ -202,11 +236,12 @@ export class FileTransport implements Transport {
     this.maxBytes = options.maxBytes ?? 5 * 1024 * 1024
     this.maxFiles = options.maxFiles ?? 5
     this.compress = options.compress ?? false
+    this.pretty = options.pretty ?? false
     mkdirSync(dirname(path), { recursive: true })
   }
 
   log(entry: LogEntry): void {
-    const line = `${JSON.stringify(flatten(entry))}\n`
+    const line = `${renderLine(entry, this.pretty)}\n`
     rotateBySize(this.path, Buffer.byteLength(line), this.maxBytes, this.maxFiles, this.compress)
     appendFileSync(this.path, line)
   }
@@ -228,6 +263,7 @@ export class BufferedFileTransport implements Transport {
   private readonly maxBytes: number
   private readonly maxFiles: number
   private readonly compress: boolean
+  private readonly pretty: boolean
   private readonly flushEvery: number
   private readonly intervalMs: number
   private buffer: string[] = []
@@ -240,6 +276,7 @@ export class BufferedFileTransport implements Transport {
     this.maxBytes = options.maxBytes ?? 5 * 1024 * 1024
     this.maxFiles = options.maxFiles ?? 5
     this.compress = options.compress ?? false
+    this.pretty = options.pretty ?? false
     this.flushEvery = options.flushEvery ?? 50
     this.intervalMs = options.intervalMs ?? 1000
     mkdirSync(dirname(path), { recursive: true })
@@ -255,7 +292,7 @@ export class BufferedFileTransport implements Transport {
   }
 
   log(entry: LogEntry): void {
-    this.buffer.push(`${JSON.stringify(flatten(entry))}\n`)
+    this.buffer.push(`${renderLine(entry, this.pretty)}\n`)
     if (this.buffer.length >= this.flushEvery)
       this.flush()
     else this.schedule()
@@ -290,6 +327,8 @@ export class BufferedFileTransport implements Transport {
 export interface DailyFileTransportOptions {
   /** Days of history to keep. Older files are pruned. Default 14. */
   maxDays?: number
+  /** Human-readable lines instead of JSON — see {@link FileTransportOptions.pretty}. */
+  pretty?: boolean
 }
 
 /**
@@ -300,6 +339,7 @@ export class DailyFileTransport implements Transport {
   private readonly dir: string
   private readonly base: string
   private readonly maxDays: number
+  private readonly pretty: boolean
   private lastDay = ''
 
   /** @param pathBase e.g. `storage/logs/app` → `storage/logs/app-2026-07-11.log` */
@@ -307,6 +347,7 @@ export class DailyFileTransport implements Transport {
     this.dir = dirname(pathBase)
     this.base = basename(pathBase)
     this.maxDays = options.maxDays ?? 14
+    this.pretty = options.pretty ?? false
     mkdirSync(this.dir, { recursive: true })
   }
 
@@ -316,7 +357,7 @@ export class DailyFileTransport implements Transport {
       this.lastDay = day
       this.prune()
     }
-    appendFileSync(join(this.dir, `${this.base}-${day}.log`), `${JSON.stringify(flatten(entry))}\n`)
+    appendFileSync(join(this.dir, `${this.base}-${day}.log`), `${renderLine(entry, this.pretty)}\n`)
   }
 
   private prune(): void {
@@ -435,7 +476,20 @@ export class Logger {
       message,
       context: Object.keys(safe).length ? safe : undefined,
     }
-    for (const transport of this.transports) transport.log(entry)
+    for (const transport of this.transports) {
+      try {
+        transport.log(entry)
+      }
+      catch (error) {
+        // A transport failing (disk full, permission denied, network down for a
+        // remote sink…) must never crash the request it's trying to observe —
+        // including when this write is itself happening inside an onError
+        // handler. Fall back to stderr so the entry (and the failure) still
+        // surface somewhere, à la Laravel's last-resort `emergency` channel.
+        console.error('[elyvel] log transport failed:', error)
+        console.error(JSON.stringify(entry))
+      }
+    }
   }
 }
 
@@ -504,6 +558,7 @@ export type LogChannelConfig
       maxFiles?: number
       buffered?: boolean
       compress?: boolean
+      pretty?: boolean
     }
-    | { driver: 'daily', level?: LogLevel, path: string, maxDays?: number }
+    | { driver: 'daily', level?: LogLevel, path: string, maxDays?: number, pretty?: boolean }
     | { driver: 'stack', level?: LogLevel, channels?: string[] }

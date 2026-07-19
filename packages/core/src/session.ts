@@ -401,7 +401,16 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
 
       const isValidation = error?.status === 422 && error.errors !== undefined
       if (session && isValidation && !expectsJson(request)) {
-        session.flash('errors', error.errors)
+        // Inertia's `form.errors.field` (and Laravel's own `HandleInertiaRequests`
+        // convention) expects one message per field, not the full Laravel-style
+        // array — flatten to the first message before flashing.
+        const flat = Object.fromEntries(
+          Object.entries(error.errors as Record<string, unknown>).map(([field, messages]) => [
+            field,
+            Array.isArray(messages) ? messages[0] : messages,
+          ]),
+        )
+        session.flash('errors', flat)
         const body = ctx.body
         if (body && typeof body === 'object')
           session.flash('_old_input', body as Record<string, unknown>)

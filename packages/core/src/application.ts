@@ -260,6 +260,10 @@ export class Application {
           new FileTransport(this.path(file), {
             maxBytes: this.config.get<number | undefined>('logging.maxBytes'),
             maxFiles: this.config.get<number | undefined>('logging.maxFiles'),
+            // Same signal as the console: human-readable outside production
+            // (a file a developer will actually open), JSON in production
+            // (a file a log aggregator will parse).
+            pretty,
           }),
         )
       }
@@ -279,11 +283,16 @@ export class Application {
       case 'file':
         return [
           cfg.buffered
-            ? new BufferedFileTransport(this.path(cfg.path), cfg)
-            : new FileTransport(this.path(cfg.path), cfg),
+            ? new BufferedFileTransport(this.path(cfg.path), { ...cfg, pretty: cfg.pretty ?? pretty })
+            : new FileTransport(this.path(cfg.path), { ...cfg, pretty: cfg.pretty ?? pretty }),
         ]
       case 'daily':
-        return [new DailyFileTransport(this.path(cfg.path), { maxDays: cfg.maxDays })]
+        return [
+          new DailyFileTransport(this.path(cfg.path), {
+            maxDays: cfg.maxDays,
+            pretty: cfg.pretty ?? pretty,
+          }),
+        ]
       default:
         return []
     }
@@ -333,7 +342,9 @@ export class Application {
 
   /** Render styled HTML error pages for browsers (JSON for API) — framework default. */
   private registerErrorPages(): void {
-    this.elysia.use(errorPages())
+    const isProduction = this.config.get<string>('app.env') === 'production'
+    const debug = !isProduction && (this.config.get<boolean>('app.debug') ?? true)
+    this.elysia.use(errorPages({ debug }))
   }
 
   /**

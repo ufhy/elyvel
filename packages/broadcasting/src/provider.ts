@@ -28,7 +28,7 @@ export class BroadcastServiceProvider extends ServiceProvider {
       broadcaster = new ArrayBroadcaster()
     }
     else {
-      broadcaster = new LogBroadcaster(line => this.app.logger.child('broadcast').info(line))
+      broadcaster = new LogBroadcaster(line => this.app.logger.child('broadcast').debug(line))
     }
 
     setDefaultBroadcaster(broadcaster)

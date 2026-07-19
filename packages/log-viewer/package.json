@@ -1,0 +1,22 @@
+{
+  "name": "@elyvel/log-viewer",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "A web UI for browsing storage/logs/*.log — install and gate it yourself, no environment magic",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@elyvel/core": "workspace:*",
+    "elysia": ">=1.4.0"
+  },
+  "devDependencies": {
+    "elysia": "^1.4.0"
+  }
+}

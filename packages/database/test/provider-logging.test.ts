@@ -79,3 +79,43 @@ describe('EloquentServiceProvider logging', () => {
     expect(requestHooks).toHaveLength(0)
   })
 })
+
+describe('EloquentServiceProvider — wires @elyvel/validation\'s unique/exists rules', () => {
+  test('unique fails against an existing row, passes once it\'s excluded by id', async () => {
+    const { app } = stubApp(dbConfig)
+    await new EloquentServiceProvider(app).register()
+    const conn = useConnection()
+    await new SchemaBuilder(conn).create('posts', (t) => {
+      t.id()
+      t.string('slug')
+    })
+    await conn.statement('INSERT INTO posts (id, slug) VALUES (1, ?)', ['taken'])
+
+    const { Validator } = await import('@elyvel/validation')
+    await expect(Validator.make({ slug: 'taken' }, { slug: 'unique:posts,slug' }).validate())
+      .rejects
+      .toThrow()
+
+    // Excluding the row's own id (the update case) lets it keep its own slug.
+    const data = await Validator.make({ slug: 'taken' }, { slug: 'unique:posts,slug,1' }).validate()
+    expect(data).toEqual({ slug: 'taken' })
+  })
+
+  test('exists passes only when a matching row is present', async () => {
+    const { app } = stubApp(dbConfig)
+    await new EloquentServiceProvider(app).register()
+    const conn = useConnection()
+    await new SchemaBuilder(conn).create('categories', (t) => {
+      t.id()
+      t.string('name')
+    })
+    await conn.statement('INSERT INTO categories (id, name) VALUES (1, ?)', ['news'])
+
+    const { Validator } = await import('@elyvel/validation')
+    await expect(Validator.make({ category: 'missing' }, { category: 'exists:categories,name' }).validate())
+      .rejects
+      .toThrow()
+    const data = await Validator.make({ category: 'news' }, { category: 'exists:categories,name' }).validate()
+    expect(data).toEqual({ category: 'news' })
+  })
+})

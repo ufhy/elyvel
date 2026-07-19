@@ -23,7 +23,12 @@ export interface RequestLike {
  * a handler — it returns the validated data or throws (403 / 422).
  */
 export abstract class FormRequest {
-  abstract rules(): Rules
+  /**
+   * The validation rules. Receives the same context passed to `validate()` —
+   * useful for route-model-bound updates, e.g. excluding the current row from
+   * a `unique` check: `` `unique:posts,slug,${(ctx.model as Post).id}` ``.
+   */
+  abstract rules(ctx: RequestLike): Rules
 
   authorize(_ctx: RequestLike): boolean | Promise<boolean> {
     return true
@@ -48,6 +53,6 @@ export abstract class FormRequest {
       messages: instance.messages(),
       attributes: instance.attributes(),
     }
-    return Validator.make(data, instance.rules(), options).validate()
+    return Validator.make(data, instance.rules(ctx), options).validate()
   }
 }

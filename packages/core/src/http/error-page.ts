@@ -4,6 +4,7 @@
  * match the scaffold's landing (dark, indigo accent, faint grid). The core
  * error handler renders this for browser navigations; API clients get JSON.
  */
+import { readFileSync } from 'node:fs'
 import { trans } from '@elyvel/support'
 
 interface ErrorMeta {
@@ -107,6 +108,191 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+/** One parsed `    at fn (file:line:col)` stack frame. */
+interface StackFrame {
+  raw: string
+  /** Frames inside node_modules/Bun/Node internals are dimmed, not the focus. */
+  isAppCode: boolean
+}
+
+function parseStack(stack: string): { header: string, frames: StackFrame[] } {
+  const lines = stack.split('\n')
+  const header = lines[0] ?? 'Error'
+  const frames = lines.slice(1)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(raw => ({
+      raw,
+      isAppCode: !raw.includes('node_modules') && !raw.includes('(native:') && !raw.includes('(unknown)'),
+    }))
+  return { header, frames }
+}
+
+/** Pulls `file:line:col` out of a stack frame like `at fn (/path/to/file.ts:19:38)`. */
+function frameLocation(raw: string): { file: string, line: number } | undefined {
+  const match = raw.match(/\(?([^\s()]+):(\d+):(\d+)\)?\s*$/)
+  if (!match)
+    return undefined
+  const [, file, line] = match
+  return { file: file!, line: Number(line) }
+}
+
+/** A few lines of source around `line` (1-indexed), the failing line marked — à la Laravel's debug page. */
+function codeSnippet(file: string, line: number, radius = 5): { startLine: number, lines: string[], failingIndex: number } | undefined {
+  try {
+    const source = readFileSync(file, 'utf8').split('\n')
+    const start = Math.max(0, line - 1 - radius)
+    const end = Math.min(source.length, line + radius)
+    return { startLine: start + 1, lines: source.slice(start, end), failingIndex: line - 1 - start }
+  }
+  catch {
+    return undefined
+  }
+}
+
+/** The same facts shown on the HTML debug page, shaped for a JSON debug response. */
+export interface DebugInfo {
+  exception: string
+  message: string
+  file?: string
+  line?: number
+  stack?: string
+}
+
+/**
+ * Extract debug facts from an uncaught error — exception class name, message,
+ * and the first app-code frame's file/line (the dependency that actually
+ * threw is often less useful than where the app called into it). Shared by
+ * {@link renderDebugPage} (HTML) and the JSON debug response.
+ */
+export function debugInfo(error: unknown): DebugInfo {
+  const message = error instanceof Error ? error.message : String(error)
+  const exception = error instanceof Error ? error.name : 'Error'
+  const stack = error instanceof Error ? error.stack : undefined
+  const { frames } = stack ? parseStack(stack) : { frames: [] as StackFrame[] }
+  const location = frameLocation(frames.find(f => f.isAppCode)?.raw ?? '')
+  return { exception, message, file: location?.file, line: location?.line, stack }
+}
+
+/**
+ * A debug page for an uncaught error — the message, a stack trace (app-code
+ * frames highlighted, framework/dependency frames dimmed), and the request
+ * that triggered it. Shown instead of {@link renderErrorPage} for 500s when
+ * `config('app.debug')` is on — NEVER in production (see `AppConfig.debug`).
+ */
+export function renderDebugPage(options: { method: string, url: string, error: unknown }): string {
+  const error = options.error
+  const message = error instanceof Error ? error.message : String(error)
+  const name = error instanceof Error ? error.name : 'Error'
+  const stack = error instanceof Error && error.stack ? error.stack : undefined
+  const { frames } = stack ? parseStack(stack) : { frames: [] as StackFrame[] }
+
+  const frameRows = frames.length > 0
+    ? frames.map(f => `<div class="frame${f.isAppCode ? ' app' : ''}">${escapeHtml(f.raw)}</div>`).join('')
+    : '<div class="frame">No stack trace available.</div>'
+
+  // The first app-code frame is the most actionable place to show source —
+  // the literal throw site is often deep in a dependency (dayjs, Elysia…).
+  const appFrame = frames.find(f => f.isAppCode)
+  const location = appFrame ? frameLocation(appFrame.raw) : undefined
+  const snippet = location ? codeSnippet(location.file, location.line) : undefined
+  const snippetHtml = snippet
+    ? `<div class="snippet-path">${escapeHtml(location!.file)}:${location!.line}</div>`
+    + `<div class="snippet">${
+      snippet.lines.map((codeLine, i) => {
+        const lineNo = snippet.startLine + i
+        const isFailing = i === snippet.failingIndex
+        return `<div class="code-line${isFailing ? ' failing' : ''}">`
+          + `<span class="line-no">${lineNo}</span>`
+          + `<span class="code">${escapeHtml(codeLine)}</span>`
+          + `</div>`
+      }).join('')
+    }</div>`
+    : ''
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>500 · ${escapeHtml(name)}</title>
+<style>
+  :root { color-scheme: dark light; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    min-height: 100vh; padding: 2rem; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #e5e7eb; background: #0a0a0f;
+  }
+  .eyebrow {
+    display: inline-block; margin-bottom: 1rem; padding: 0.3rem 0.8rem; border-radius: 9999px;
+    border: 1px solid rgba(248,113,113,0.3); background: rgba(248,113,113,0.08);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; color: #fca5a5;
+  }
+  h1 { font-size: 1.4rem; font-weight: 600; color: #fff; word-break: break-word; }
+  .message { margin-top: 0.5rem; font-size: 1rem; color: #d1d5db; word-break: break-word; }
+  .request {
+    margin-top: 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem;
+    color: #9ca3af; padding: 0.6rem 0.9rem; border-radius: 0.5rem; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08); display: inline-block;
+  }
+  .stack {
+    margin-top: 1.5rem; border-radius: 0.6rem; border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02); overflow-x: auto;
+  }
+  .frame {
+    padding: 0.45rem 0.9rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem; color: #6b7280; white-space: pre; border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .frame:last-child { border-bottom: none; }
+  .frame.app { color: #e5e7eb; background: rgba(99,102,241,0.08); }
+  .snippet-path {
+    margin-top: 1.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; color: #9ca3af;
+  }
+  .snippet {
+    margin-top: 0.4rem; border-radius: 0.6rem; border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02); overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+  }
+  .code-line { display: flex; white-space: pre; }
+  .code-line.failing { background: rgba(248,113,113,0.12); }
+  .line-no {
+    flex-shrink: 0; width: 3.2rem; padding: 0.15rem 0.75rem; text-align: right; color: #4b5563; user-select: none;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .code-line.failing .line-no { color: #fca5a5; font-weight: 600; }
+  .code { padding: 0.15rem 0.9rem; color: #d1d5db; }
+  .code-line.failing .code { color: #fecaca; }
+  .hint { margin-top: 1.25rem; font-size: 0.8rem; color: #6b7280; }
+  @media (prefers-color-scheme: light) {
+    body { color: #1f2937; background: #f8fafc; }
+    h1 { color: #0f172a; }
+    .message { color: #374151; }
+    .request { color: #4b5563; background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+    .stack { border-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.015); }
+    .frame { color: #9ca3af; border-color: rgba(0,0,0,0.05); }
+    .frame.app { color: #111827; background: rgba(79,70,229,0.06); }
+    .snippet-path { color: #6b7280; }
+    .snippet { border-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.015); }
+    .line-no { color: #9ca3af; border-color: rgba(0,0,0,0.06); }
+    .code { color: #1f2937; }
+    .code-line.failing { background: rgba(220,38,38,0.08); }
+    .code-line.failing .line-no { color: #b91c1c; }
+    .code-line.failing .code { color: #991b1b; }
+  }
+</style>
+</head>
+<body>
+  <div class="eyebrow">Error 500 · dev-only debug page</div>
+  <h1>${escapeHtml(name)}</h1>
+  <p class="message">${escapeHtml(message)}</p>
+  <div class="request">${escapeHtml(options.method)} ${escapeHtml(options.url)}</div>
+  ${snippetHtml}
+  <div class="stack">${frameRows}</div>
+  <p class="hint">Shown because <code>app.debug</code> is on (default outside production) — never shown in production.</p>
+</body>
+</html>`
 }
 
 /** A complete, styled HTML document for an HTTP error status. */

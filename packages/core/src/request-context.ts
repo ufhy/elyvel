@@ -1,6 +1,12 @@
 import type { Logger } from './logger'
 import { Elysia } from 'elysia'
+import { shouldReportError } from './exception-handling'
 import { createLogger } from './logger'
+
+/** Reads `ctx.user.id` if present — duck-typed so core stays decoupled from @elyvel/auth. */
+function userId(ctx: { user?: { id?: unknown } | null }): unknown {
+  return ctx.user?.id
+}
 
 interface RequestMeta {
   start: number
@@ -48,7 +54,8 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
         log: id ? logger.withBindings({ requestId: id }) : logger,
       }
     })
-    .onAfterResponse({ as: 'global' }, ({ request, set }) => {
+    .onAfterResponse({ as: 'global' }, (ctx: any) => {
+      const { request, set } = ctx
       const info = meta.get(request)
       meta.delete(request)
 
@@ -56,19 +63,24 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
         = info !== undefined ? Math.round((performance.now() - info.start) * 100) / 100 : undefined
       const { pathname } = new URL(request.url)
       const status = typeof set.status === 'number' ? set.status : 200
-      const context = { requestId: info?.id, status, ms }
+      const uid = userId(ctx)
+      const context = { requestId: info?.id, status, ms, ...(uid !== undefined ? { userId: uid } : {}) }
       const line = `${request.method} ${pathname}`
 
+      // A successful request is framework-level noise, not something the app
+      // developer wrote — it only shows up if they opt into `debug` level.
+      // `info` and up stays reserved for what the app itself chooses to log.
       if (status >= 500)
         http.error(line, context)
       else if (status >= 400)
         http.warn(line, context)
-      else http.info(line, context)
+      else http.debug(line, context)
     })
     // Log only — rendering (HTML page / JSON) is owned by the errorPages plugin,
     // and 422 validation redirect-back by the session plugin. Returning undefined
     // lets those downstream handlers run.
-    .onError({ as: 'global' }, ({ request, error, code }) => {
+    .onError({ as: 'global' }, (ctx: any) => {
+      const { request, error, code } = ctx
       const { pathname } = new URL(request.url)
       const requestId = meta.get(request)?.id
       const message = error instanceof Error ? error.message : String(error)
@@ -78,12 +90,19 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
           : code === 'NOT_FOUND' ? 404 : code === 'VALIDATION' ? 422 : 500
 
       if (status >= 500) {
-        http.error(`${request.method} ${pathname} threw`, {
-          requestId,
-          code,
-          error: message,
-          stack: error instanceof Error ? error.stack : undefined,
-        })
+        // dontReport/dontReportWhen/throttle/dontReportDuplicates can silence
+        // this — the client still gets the normal error response either way,
+        // this only controls whether it's worth a log entry.
+        if (shouldReportError(error)) {
+          const uid = userId(ctx)
+          http.error(`${request.method} ${pathname} threw`, {
+            requestId,
+            code,
+            error: message,
+            stack: error instanceof Error ? error.stack : undefined,
+            ...(uid !== undefined ? { userId: uid } : {}),
+          })
+        }
       }
       else {
         http.warn(`${request.method} ${pathname}`, { requestId, status })

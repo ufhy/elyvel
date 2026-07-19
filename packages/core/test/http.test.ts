@@ -24,6 +24,9 @@ describe('expectsJson', () => {
     expect(expectsJson(req({ accept: 'text/html,application/xhtml+xml' }))).toBe(false)
     expect(expectsJson(req({ 'x-inertia': 'true' }))).toBe(false)
   })
+  test('Inertia wins even though its own client also sends X-Requested-With: XMLHttpRequest', () => {
+    expect(expectsJson(req({ 'x-inertia': 'true', 'x-requested-with': 'XMLHttpRequest' }))).toBe(false)
+  })
   test('falls back to content-type, defaults to web', () => {
     expect(expectsJson(req({ 'content-type': 'application/json' }))).toBe(true)
     expect(expectsJson(req({}))).toBe(false)
@@ -216,9 +219,10 @@ function buildApp() {
     .post('/validate', () => {
       const e = new Error('invalid') as Error & { status: number, errors: Record<string, unknown> }
       e.status = 422
-      e.errors = { name: ['required'] }
+      e.errors = { name: ['required'], email: ['must be valid', 'is required'] }
       throw e
     })
+    .get('/flashed-errors', (ctx: any) => ctx.session?.get('errors') ?? null)
 }
 
 describe('redirect responses', () => {
@@ -251,6 +255,22 @@ describe('validation negotiation', () => {
     expect(res.headers.get('set-cookie')).toContain('elyvel_session=')
   })
 
+  test('flashed errors are flattened to one message per field (Inertia\'s form.errors.field convention), not Laravel\'s raw array bag', async () => {
+    const app = buildApp()
+    const res = await app.handle(
+      new Request('http://localhost/validate', {
+        method: 'POST',
+        headers: { accept: 'text/html', referer: '/form' },
+      }),
+    )
+    const cookie = res.headers.get('set-cookie')!.split(';')[0]!
+
+    const follow = await app.handle(
+      new Request('http://localhost/flashed-errors', { headers: { cookie } }),
+    )
+    expect(await follow.json()).toEqual({ name: 'required', email: 'must be valid' })
+  })
+
   test('API request → 422 JSON with the error bag', async () => {
     const res = await buildApp().handle(
       new Request('http://localhost/validate', {
@@ -260,6 +280,6 @@ describe('validation negotiation', () => {
     )
     expect(res.status).toBe(422)
     const body = (await res.json()) as { message: string, errors: Record<string, unknown> }
-    expect(body.errors).toEqual({ name: ['required'] })
+    expect(body.errors).toEqual({ name: ['required'], email: ['must be valid', 'is required'] })
   })
 })

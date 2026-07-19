@@ -4,12 +4,15 @@
  * lets one controller serve both the API-first and full-stack lanes.
  */
 export function expectsJson(request: Request): boolean {
+  // Inertia is a web (HTML/SPA) posture, handled separately — never plain JSON
+  // here. Checked BEFORE the X-Requested-With test below: Inertia's own client
+  // sends X-Requested-With: XMLHttpRequest on every request too, so checking
+  // that first would misclassify every Inertia request as "wants JSON".
+  if (request.headers.get('x-inertia'))
+    return false
   // Explicit AJAX clients.
   if ((request.headers.get('x-requested-with') ?? '').toLowerCase() === 'xmlhttprequest')
     return true
-  // Inertia is a web (HTML/SPA) posture, handled separately — never plain JSON here.
-  if (request.headers.get('x-inertia'))
-    return false
 
   const accept = request.headers.get('accept') ?? ''
   if (accept.includes('application/json'))

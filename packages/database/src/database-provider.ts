@@ -2,6 +2,7 @@ import type { Connection, ConnectionConfig } from './connection'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { ServiceProvider } from '@elyvel/core'
+import { configureDbRules } from '@elyvel/validation'
 import {
 
   createConnection,
@@ -9,6 +10,7 @@ import {
   startRequestScope,
 } from './connection'
 import { setEncryptionKey } from './crypto'
+import { table } from './query-builder'
 import { DatabaseToken } from './tokens'
 
 /**
@@ -36,6 +38,7 @@ export class EloquentServiceProvider extends ServiceProvider {
       setEncryptionKey(appKey)
 
     this.wireLogging(connection)
+    this.wireValidationRules()
 
     // Open a per-request scope so read/write `sticky` routing is isolated per request.
     if ((config as { sticky?: boolean }).sticky) {
@@ -79,6 +82,18 @@ export class EloquentServiceProvider extends ServiceProvider {
       })
       this.app.elysia.onRequest(() => connection.resetTotalQueryDuration())
     }
+  }
+
+  /** Wires `@elyvel/validation`'s `unique`/`exists` rules to this connection. */
+  private wireValidationRules(): void {
+    configureDbRules({
+      async count(tableName, column, value, ignoreId) {
+        const query = table(tableName).where(column, value)
+        if (ignoreId !== undefined && ignoreId !== null)
+          query.whereNot('id', ignoreId)
+        return query.count()
+      },
+    })
   }
 
   private resolvePaths(config: ConnectionConfig): ConnectionConfig {

@@ -1,6 +1,7 @@
 import { AuthGuard, betterAuthPlugin, VerifiedGuard } from '@elyvel/auth'
 import { defineMiddlewareConfig } from '@elyvel/core'
 import { inertia } from '@elyvel/inertia'
+import { logViewer } from '@elyvel/log-viewer'
 
 /**
  * HTTP middleware wiring — the app's central bootstrap (à la Laravel's
@@ -28,6 +29,9 @@ export default defineMiddlewareConfig({
       ssr: { bundle: 'public/build/ssr/ssr.js' },
       head: favicon + themeScript,
     }),
+    // Gated in AppServiceProvider via configureLogViewer — no environment
+    // check here, the app owns who's allowed in (see its own doc comment).
+    logViewer(),
   ],
   aliases: {
     auth: AuthGuard,

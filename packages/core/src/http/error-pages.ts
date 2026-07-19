@@ -1,6 +1,6 @@
-import type { RenderableView } from './error-page'
+import type { DebugInfo, RenderableView } from './error-page'
 import { Elysia } from 'elysia'
-import { defaultErrorMessage, errorPageResolver, renderErrorPage } from './error-page'
+import { debugInfo, defaultErrorMessage, errorPageResolver, renderDebugPage, renderErrorPage } from './error-page'
 import { expectsJson } from './negotiation'
 
 /** The parts of a session the error views read (from `@elyvel/session`). */
@@ -53,10 +53,16 @@ function safeMessage(status: number, raw: unknown): string | undefined {
   return raw
 }
 
-function jsonBody(status: number, message: string | undefined, errors: unknown): string {
+function jsonBody(status: number, message: string | undefined, errors: unknown, debug?: DebugInfo): string {
   const payload: Record<string, unknown> = { message: message ?? defaultErrorMessage(status), status }
   if (errors !== undefined)
     payload.errors = errors
+  if (debug) {
+    payload.exception = debug.exception
+    payload.file = debug.file
+    payload.line = debug.line
+    payload.stack = debug.stack
+  }
   return JSON.stringify(payload)
 }
 
@@ -74,10 +80,17 @@ function viewShared(session: SessionLike | undefined): Record<string, unknown> {
 
 /**
  * Render the web (HTML) response: consult the app's custom resolver first
- * (custom HTML string / `Response` / a `view(...)` result), then fall back to
- * the framework's default page.
+ * (custom HTML string / `Response` / a `view(...)` result); if it declines
+ * and this is an uncaught 500 with `debug` on, show the stack-trace debug
+ * page; otherwise fall back to the framework's generic default page.
  */
-async function webResponse(status: number, message: string | undefined, error: unknown, ctx: any): Promise<string | Response> {
+async function webResponse(
+  status: number,
+  message: string | undefined,
+  error: unknown,
+  ctx: any,
+  debug: boolean,
+): Promise<string | Response> {
   const resolver = errorPageResolver()
   if (resolver) {
     const custom = await resolver(status, { request: ctx.request, message, error, session: ctx.session })
@@ -99,10 +112,19 @@ async function webResponse(status: number, message: string | undefined, error: u
   }
   ctx.set.status = status
   ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
+  if (debug && status >= 500 && error instanceof Error) {
+    return renderDebugPage({ method: ctx.request.method, url: ctx.request.url, error })
+  }
   return renderErrorPage(status, { message })
 }
 
-export function errorPages() {
+export interface ErrorPagesOptions {
+  /** Show the stack-trace debug page for uncaught 500s. Never in production. */
+  debug?: boolean
+}
+
+export function errorPages(options: ErrorPagesOptions = {}) {
+  const debug = options.debug ?? false
   return (
     new Elysia({ name: 'elyvel-error-pages' })
       // Thrown errors + unmatched routes (request-context has logged; the session
@@ -113,9 +135,10 @@ export function errorPages() {
         if (expectsJson(ctx.request)) {
           ctx.set.status = status
           ctx.set.headers['content-type'] = 'application/json'
-          return jsonBody(status, message, (ctx.error as { errors?: unknown })?.errors)
+          const debugPayload = debug && status >= 500 && ctx.error instanceof Error ? debugInfo(ctx.error) : undefined
+          return jsonBody(status, message, (ctx.error as { errors?: unknown })?.errors, debugPayload)
         }
-        return webResponse(status, message, ctx.error, ctx)
+        return webResponse(status, message, ctx.error, ctx, debug)
       })
       // Error-status responses RETURNED by handlers/guards. Elysia wraps
       // `status(code, body)` as `{ code, response }`; unwrap and, for browser
@@ -130,7 +153,7 @@ export function errorPages() {
         const body = (res as StatusResponse).response
         const message
           = body && typeof body === 'object' && 'message' in body ? String(body.message) : undefined
-        return webResponse(status, safeMessage(status, message), undefined, ctx)
+        return webResponse(status, safeMessage(status, message), undefined, ctx, debug)
       })
   )
 }

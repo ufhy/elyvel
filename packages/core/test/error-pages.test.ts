@@ -63,6 +63,66 @@ describe('error pages', () => {
   })
 })
 
+describe('error pages — debug mode', () => {
+  function makeDebugApp() {
+    return new Elysia()
+      .use(errorPages({ debug: true }))
+      .get('/boom', () => {
+        throw new RangeError('Invalid Date')
+      })
+      .get('/missing-thing', ({ status }: any) => status(404, { message: 'Post not found' })) as any
+  }
+
+  test('an uncaught 500 shows the stack trace + request line, not the generic page', async () => {
+    const app = makeDebugApp()
+    const html = await get(app, '/boom', 'text/html')
+    expect(html.status).toBe(500)
+    expect(html.body).toContain('RangeError')
+    expect(html.body).toContain('Invalid Date')
+    expect(html.body).toContain('GET') // request method
+    expect(html.body).toContain('/boom')
+    expect(html.body).not.toContain('Something went wrong on our end') // not the generic page
+  })
+
+  test('shows a source snippet around the throwing line, from the real file', async () => {
+    const app = makeDebugApp()
+    const html = await get(app, '/boom', 'text/html')
+    expect(html.body).toContain('error-pages.test.ts')
+    expect(html.body).toContain('class="code-line failing"')
+    expect(html.body).toContain('throw new RangeError(\'Invalid Date\')')
+  })
+
+  test('API clients get exception/file/line/stack in the JSON body too', async () => {
+    const app = makeDebugApp()
+    const json = await get(app, '/boom', 'application/json')
+    expect(json.status).toBe(500)
+    const body = JSON.parse(json.body)
+    expect(body.exception).toBe('RangeError')
+    expect(body.file).toContain('error-pages.test.ts')
+    expect(typeof body.line).toBe('number')
+    expect(body.stack).toContain('RangeError: Invalid Date')
+  })
+
+  test('a returned (non-thrown) status, like 404, is unaffected by debug mode', async () => {
+    const app = makeDebugApp()
+    const html = await get(app, '/missing-thing', 'text/html')
+    expect(html.status).toBe(404)
+    expect(html.body).toContain('Post not found')
+    expect(html.body).not.toContain('dev-only debug page')
+  })
+
+  test('debug: false (the default) never shows the stack, even for the same thrown error', async () => {
+    const app = new Elysia()
+      .use(errorPages())
+      .get('/boom', () => {
+        throw new RangeError('Invalid Date')
+      }) as any
+    const html = await get(app, '/boom', 'text/html')
+    expect(html.body).not.toContain('Invalid Date')
+    expect(html.body).not.toContain('dev-only debug page')
+  })
+})
+
 describe('configureErrorPage (custom pages)', () => {
   afterEach(() => configureErrorPage(null))
 

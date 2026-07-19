@@ -25,6 +25,7 @@
         "@elyvel/events": "workspace:*",
         "@elyvel/i18n": "workspace:*",
         "@elyvel/inertia": "workspace:*",
+        "@elyvel/log-viewer": "workspace:*",
         "@elyvel/mail": "workspace:*",
         "@elyvel/notifications": "workspace:*",
         "@elyvel/scheduler": "workspace:*",
@@ -167,6 +168,7 @@
       "dependencies": {
         "@electric-sql/pglite": "^0.5.4",
         "@elyvel/support": "workspace:*",
+        "@elyvel/validation": "workspace:*",
       },
       "devDependencies": {
         "kysely": "^0.29.3",
@@ -198,6 +200,17 @@
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "@elyvel/vite": "workspace:*",
+        "elysia": ">=1.4.0",
+      },
+    },
+    "packages/log-viewer": {
+      "name": "@elyvel/log-viewer",
+      "version": "0.0.0",
+      "devDependencies": {
+        "elysia": "^1.4.0",
+      },
+      "peerDependencies": {
+        "@elyvel/core": "workspace:*",
         "elysia": ">=1.4.0",
       },
     },
@@ -357,6 +370,8 @@
     "@elyvel/i18n": ["@elyvel/i18n@workspace:packages/i18n"],
 
     "@elyvel/inertia": ["@elyvel/inertia@workspace:packages/inertia"],
+
+    "@elyvel/log-viewer": ["@elyvel/log-viewer@workspace:packages/log-viewer"],
 
     "@elyvel/mail": ["@elyvel/mail@workspace:packages/mail"],
 

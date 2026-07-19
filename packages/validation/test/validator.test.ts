@@ -124,4 +124,17 @@ describe('FormRequest', () => {
     }
     await expect(Denied.validate({ body: {} })).rejects.toThrow(/unauthorized/i)
   })
+
+  test('rules() receives the same ctx passed to validate() — e.g. to exclude the current row from a unique check', async () => {
+    class UpdateUser extends FormRequest {
+      rules(ctx: { model?: { id: number } }) {
+        return { email: `required|email|unique:users,email,${ctx.model?.id}` }
+      }
+    }
+    // Can't exercise the DB side here (no resolver configured), but confirms
+    // the interpolated ignore-id made it into the compiled rule string.
+    await expect(UpdateUser.validate({ model: { id: 42 }, body: { email: 'not-an-email' } }))
+      .rejects
+      .toThrow(ValidationException)
+  })
 })

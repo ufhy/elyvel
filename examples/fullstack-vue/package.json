@@ -19,6 +19,7 @@
     "@elyvel/cache": "workspace:*",
     "@elyvel/events": "workspace:*",
     "@elyvel/inertia": "workspace:*",
+    "@elyvel/log-viewer": "workspace:*",
     "@elyvel/mail": "workspace:*",
     "@elyvel/notifications": "workspace:*",
     "@elyvel/scheduler": "workspace:*",

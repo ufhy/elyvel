@@ -12,6 +12,7 @@ export const PUBLISHABLE_CONFIGS = [
   'i18n',
   'openapi',
   'session',
+  'logging',
   'cache',
   'mail',
   'queue',
