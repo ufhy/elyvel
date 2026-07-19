@@ -3,6 +3,8 @@ export { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from
 export {
   configureScheduleMutex,
   MemoryScheduleMutex,
+  type RedisLike,
+  RedisScheduleMutex,
   type ScheduleMutex,
   scheduleMutex,
 } from './mutex'

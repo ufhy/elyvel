@@ -26,6 +26,42 @@ export class MemoryScheduleMutex implements ScheduleMutex {
   }
 }
 
+/** Minimal Redis client (Bun's built-in `RedisClient` satisfies this via `send`). */
+export interface RedisLike {
+  send(command: string, args: string[]): Promise<unknown>
+}
+
+/**
+ * Redis-backed mutex — for `withoutOverlapping`/`onOneServer` to actually work
+ * across instances. `MemoryScheduleMutex` only locks within a single process,
+ * so `.onOneServer()` silently does nothing useful without a shared backend
+ * like this one: every instance still thinks it's the only server. Uses
+ * `SET key 1 EX ttl NX` (atomic acquire-if-absent), same pattern as
+ * `@elyvel/core`'s `RedisRateLimiterStore` and `@elyvel/broadcasting`'s
+ * `RedisBroadcaster` — Bun's built-in Redis client, no external dependency.
+ */
+export class RedisScheduleMutex implements ScheduleMutex {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly prefix = 'schedule-mutex:',
+  ) {}
+
+  async create(key: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.client.send('SET', [
+      this.prefix + key,
+      '1',
+      'EX',
+      String(Math.max(1, Math.ceil(ttlSeconds))),
+      'NX',
+    ])
+    return result === 'OK'
+  }
+
+  async forget(key: string): Promise<void> {
+    await this.client.send('DEL', [this.prefix + key])
+  }
+}
+
 let mutex: ScheduleMutex | null = null
 export function configureScheduleMutex(store: ScheduleMutex): void {
   mutex = store
