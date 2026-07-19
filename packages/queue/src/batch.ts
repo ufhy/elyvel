@@ -1,4 +1,5 @@
 import type { Job } from './job'
+import type { RedisLike } from './store'
 import { randomUUID } from 'node:crypto'
 import { dispatch } from './manager'
 
@@ -66,6 +67,82 @@ export class MemoryBatchStore implements BatchAdapter {
     const r = this.records.get(id)
     if (r)
       r.finishedAt = Date.now()
+  }
+}
+
+/**
+ * Redis-backed batch store — makes `Bus.batch()` progress/cancellation state
+ * visible across worker processes. `MemoryBatchStore` only lives within a
+ * single process, so a batch dispatched from one process and processed by
+ * workers in others would never see correct completion — same bug class as
+ * the other 7 fixes this session.
+ *
+ * Each field lives under its own key so the correctness-critical mutation —
+ * "atomically `pending--` (and `failed++` when not successful)" per
+ * `recordJobResult`'s own contract — uses Redis's native atomic `DECRBY`/
+ * `INCR` directly, rather than a read-modify-write race like
+ * `MemoryBatchStore`'s single in-process object would have if it were shared.
+ */
+export class RedisBatchStore implements BatchAdapter {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly prefix = 'batch:',
+  ) {}
+
+  private key(id: string, field: string): string {
+    return `${this.prefix}${id}:${field}`
+  }
+
+  async create(record: BatchRecord): Promise<void> {
+    const meta = {
+      name: record.name,
+      total: record.total,
+      allowFailures: record.allowFailures,
+      createdAt: record.createdAt,
+      onThen: record.onThen,
+      onCatch: record.onCatch,
+      onFinally: record.onFinally,
+    }
+    await this.client.send('SET', [this.key(record.id, 'meta'), JSON.stringify(meta)])
+    await this.client.send('SET', [this.key(record.id, 'pending'), String(record.pending)])
+    await this.client.send('SET', [this.key(record.id, 'failed'), String(record.failed)])
+  }
+
+  async find(id: string): Promise<BatchRecord | null> {
+    const metaRaw = (await this.client.send('GET', [this.key(id, 'meta')])) as string | null
+    if (!metaRaw)
+      return null
+    const meta = JSON.parse(metaRaw) as Omit<BatchRecord, 'id' | 'pending' | 'failed' | 'cancelledAt' | 'finishedAt'>
+    const pending = Number((await this.client.send('GET', [this.key(id, 'pending')])) ?? 0)
+    const failed = Number((await this.client.send('GET', [this.key(id, 'failed')])) ?? 0)
+    const cancelledAt = (await this.client.send('GET', [this.key(id, 'cancelledAt')])) as string | null
+    const finishedAt = (await this.client.send('GET', [this.key(id, 'finishedAt')])) as string | null
+    return {
+      id,
+      ...meta,
+      pending,
+      failed,
+      cancelledAt: cancelledAt ? Number(cancelledAt) : null,
+      finishedAt: finishedAt ? Number(finishedAt) : null,
+    }
+  }
+
+  async recordJobResult(id: string, success: boolean): Promise<BatchRecord | null> {
+    const exists = await this.client.send('GET', [this.key(id, 'meta')])
+    if (!exists)
+      return null
+    await this.client.send('DECRBY', [this.key(id, 'pending'), '1'])
+    if (!success)
+      await this.client.send('INCR', [this.key(id, 'failed')])
+    return this.find(id)
+  }
+
+  async cancel(id: string): Promise<void> {
+    await this.client.send('SET', [this.key(id, 'cancelledAt'), String(Date.now())])
+  }
+
+  async markFinished(id: string): Promise<void> {
+    await this.client.send('SET', [this.key(id, 'finishedAt'), String(Date.now())])
   }
 }
 

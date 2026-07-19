@@ -8,6 +8,7 @@ export {
   findBatch,
   MemoryBatchStore,
   PendingBatch,
+  RedisBatchStore,
 } from './batch'
 export { defineQueueConfig, type QueueConfig, type QueueConnectionConfig } from './config-schema'
 export { configureJobEncryption } from './encryption'
