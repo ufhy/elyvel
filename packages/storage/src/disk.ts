@@ -215,11 +215,19 @@ export class LocalDisk implements FilesystemDisk {
     return target
   }
 
+  /**
+   * Read-then-write: two concurrent `prepend()` calls on the same path can
+   * race and one write can clobber the other. Unlike `append()`, there's no
+   * OS-level atomic "insert at start" primitive to fall back on — if
+   * concurrent prepends to the same file are expected, serialize callers
+   * yourself (e.g. a lock keyed on `path`).
+   */
   async prepend(path: string, data: string): Promise<boolean> {
     const existing = (await this.exists(path)) ? await this.get(path) : ''
     return this.put(path, data + existing)
   }
 
+  /** Safe under concurrent callers: `appendFile` issues a single O_APPEND write, atomic at the OS level. */
   async append(path: string, data: string): Promise<boolean> {
     try {
       const full = this.full(path)
@@ -472,6 +480,13 @@ export class S3Disk implements FilesystemDisk {
     return target
   }
 
+  /**
+   * Read-then-write, same as `append()` below: S3 objects are immutable, so
+   * there's no server-side "insert at start/end" operation to build this on
+   * — every S3-backed SDK (Flysystem included) has this same limitation.
+   * Concurrent prepend/append calls on the same key can race and one write
+   * can clobber the other; serialize callers yourself if that's expected.
+   */
   async prepend(path: string, data: string): Promise<boolean> {
     const existing = (await this.exists(path)) ? await this.get(path) : ''
     return this.put(path, data + existing)
