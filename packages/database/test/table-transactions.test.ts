@@ -66,6 +66,63 @@ for (const d of dialects) {
       expect(conn.transactionLevel()).toBe(0)
     })
 
+    test('concurrent transactions on the same connection do not corrupt each other', async () => {
+      // Regression test: the connection is a single physical socket shared by
+      // every concurrent request, and beginTransaction/commit/rollBack used
+      // to be tracked via plain shared state — two overlapping transaction()
+      // calls could interleave their BEGIN/SAVEPOINT/COMMIT bookkeeping, so
+      // one request's rollback could silently discard another's "committed"
+      // work. transaction() now runs each call through the connection's
+      // runExclusive(), serializing overlapping transactions instead.
+      async function txA() {
+        return transaction(async () => {
+          await table('items').insert({ name: 'A' })
+          await new Promise(resolve => setTimeout(resolve, 20)) // yield mid-transaction
+          throw new Error('A fails deliberately')
+        })
+      }
+      async function txB() {
+        await new Promise(resolve => setTimeout(resolve, 5)) // starts after A begins
+        return transaction(async () => {
+          await table('items').insert({ name: 'B' })
+          await new Promise(resolve => setTimeout(resolve, 5))
+          return 'B committed'
+        })
+      }
+
+      const results = await Promise.allSettled([txA(), txB()])
+      expect(results[0].status).toBe('rejected')
+      expect(results[1]).toEqual({ status: 'fulfilled', value: 'B committed' })
+
+      const names = (await table('items').get()).map(r => r.name)
+      expect(names).toEqual(['B']) // A's rollback must not have touched B's committed row
+      expect(useConnection().transactionLevel()).toBe(0)
+    })
+
+    test('an ordinary query from another caller waits for an open transaction to close', async () => {
+      // Same root cause as above: an ordinary (non-transactional) query must
+      // never execute in the middle of someone else's open transaction just
+      // because they share one physical connection.
+      const order: string[] = []
+      async function holder() {
+        return transaction(async () => {
+          order.push('holder:begin')
+          await table('items').insert({ name: 'holder' })
+          await new Promise(resolve => setTimeout(resolve, 15))
+          order.push('holder:commit')
+        })
+      }
+      async function bystander() {
+        await new Promise(resolve => setTimeout(resolve, 5))
+        order.push('bystander:query-start')
+        await table('items').count()
+        order.push('bystander:query-end')
+      }
+
+      await Promise.all([holder(), bystander()])
+      expect(order.indexOf('bystander:query-end')).toBeGreaterThan(order.indexOf('holder:commit'))
+    })
+
     test('retry: succeeds on a later attempt for concurrency errors', async () => {
       let tries = 0
       const result = await transaction(async () => {

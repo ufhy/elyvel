@@ -82,6 +82,14 @@ export interface Connection {
    * `DB::afterCommit` / `dispatch()->afterCommit()`.)
    */
   afterCommit(callback: () => void | Promise<void>): void
+  /**
+   * Give `fn` exclusive access to this connection until it resolves — used by
+   * {@link transaction} so overlapping transactions from concurrent requests
+   * serialize instead of interleaving their BEGIN/SAVEPOINT/COMMIT on the one
+   * shared physical connection. A nested call (from within an already-running
+   * `fn`) reuses the existing access instead of re-acquiring it.
+   */
+  runExclusive<T>(fn: () => Promise<T>): Promise<T>
 }
 
 export interface SqliteConnectionConfig {
@@ -311,22 +319,85 @@ function withQueryLog(base: RawConnection): Connection {
   let level = 0
   const afterCommitCallbacks: Array<() => void | Promise<void>> = []
 
+  // This Connection is one physical socket shared by every concurrent request
+  // (deliberately, so BEGIN/…/COMMIT stay on the same connection — see the
+  // `max: 1` comment in buildConnection). Without more, that's a correctness
+  // bug: `level` is plain shared state, so two overlapping `transaction()`
+  // calls from unrelated requests interleave their BEGIN/SAVEPOINT/COMMIT
+  // bookkeeping and corrupt each other (verified live: one request's rollback
+  // silently discarded another request's already-"committed" insert in a
+  // concurrency test — its SAVEPOINT had landed inside the first request's
+  // transaction). `txContext` + `lockTail` below serialize the connection:
+  // whoever currently holds it via {@link runExclusive} gets exclusive access
+  // until their outermost call resolves; a genuinely nested call (from within
+  // that same `runExclusive` callback) is told apart from an unrelated
+  // concurrent one via an AsyncLocalStorage marker — `.run()`, not
+  // `enterWith()`, because `enterWith()` called after an internal `await`
+  // does not propagate back to the awaiting caller on Bun.
+  const txContext = new AsyncLocalStorage<true>()
+  let lockTail: Promise<void> = Promise.resolve()
+  let releaseLock: (() => void) | null = null
+
+  async function acquireLock(): Promise<void> {
+    const previous = lockTail
+    let release!: () => void
+    lockTail = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await previous
+    releaseLock = release
+  }
+
+  function isOwner(): boolean {
+    return txContext.getStore() === true
+  }
+
+  /**
+   * Ordinary (non-transactional) calls: run directly if we already hold the
+   * connection's exclusive access, otherwise wait for whoever does.
+   */
+  async function withAccess<T>(fn: () => Promise<T>): Promise<T> {
+    if (isOwner())
+      return fn()
+    await acquireLock()
+    try {
+      return await fn()
+    }
+    finally {
+      releaseLock?.()
+      releaseLock = null
+    }
+  }
+
+  async function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    if (isOwner())
+      return fn()
+    await acquireLock()
+    try {
+      return await txContext.run(true, fn)
+    }
+    finally {
+      releaseLock?.()
+      releaseLock = null
+    }
+  }
+
   return {
     dialect: base.dialect,
     grammar: base.grammar,
     select: (sql, bindings = []) => {
       const b = bindNamed(sql, bindings, base.grammar)
-      return record(b.sql, b.bindings, () => base.select(b.sql, b.bindings))
+      return withAccess(() => record(b.sql, b.bindings, () => base.select(b.sql, b.bindings)))
     },
     statement: (sql, bindings = []) => {
       const b = bindNamed(sql, bindings, base.grammar)
-      return stmt(b.sql, b.bindings)
+      return withAccess(() => stmt(b.sql, b.bindings))
     },
-    unprepared: sql => record(sql, [], () => base.unprepared(sql)),
+    unprepared: sql => withAccess(() => record(sql, [], () => base.unprepared(sql))),
     insertGetId: base.insertGetId
       ? (sql, bindings = []) => {
           const b = bindNamed(sql, bindings, base.grammar)
-          return record(b.sql, b.bindings, () => base.insertGetId!(b.sql, b.bindings))
+          return withAccess(() => record(b.sql, b.bindings, () => base.insertGetId!(b.sql, b.bindings)))
         }
       : undefined,
     close: () => base.close(),
@@ -362,6 +433,10 @@ function withQueryLog(base: RawConnection): Connection {
       totalDuration = 0
       for (const s of slow) s.fired = false
     },
+    // Only ever called from within a `runExclusive` callback (see
+    // `transaction()` below), so `level` is safe to read/mutate here without
+    // its own locking — whoever holds `runExclusive`'s access is the only
+    // party touching it until they release it.
     beginTransaction: async () => {
       if (level === 0)
         await stmt('BEGIN')
@@ -390,13 +465,18 @@ function withQueryLog(base: RawConnection): Connection {
     },
     transactionLevel: () => level,
     afterCommit: (callback) => {
-      if (level === 0) {
-        void callback()
-      }
-      else {
+      // isOwner(), not `level === 0`: level is only meaningful to whoever
+      // currently holds runExclusive's access — an unrelated concurrent
+      // caller must not have its callback deferred into someone else's
+      // transaction just because `level` happens to be > 0 right now.
+      if (isOwner()) {
         afterCommitCallbacks.push(callback)
       }
+      else {
+        void callback()
+      }
     },
+    runExclusive,
   }
 }
 
@@ -612,26 +692,42 @@ function causedByConcurrencyError(error: unknown): boolean {
  * Run `callback` inside a transaction on the default connection: COMMIT on
  * success, ROLLBACK on any thrown error. Nested calls use SAVEPOINTs. Set
  * `attempts > 1` to retry the whole transaction on deadlock/serialization errors.
+ *
+ * Wrapped in `runExclusive()` so an overlapping `transaction()` call from a
+ * concurrent request (unavoidable on this connection's single physical
+ * socket) waits its turn instead of interleaving BEGIN/SAVEPOINT/COMMIT with
+ * this one — see the comment above `txContext` in `withQueryLog`.
  */
 export async function transaction<T>(callback: () => Promise<T>, attempts = 1): Promise<T> {
   const connection = useConnection()
-  for (let attempt = 1; ; attempt++) {
-    await connection.beginTransaction()
-    try {
-      const result = await callback()
-      await connection.commit()
-      return result
+  return connection.runExclusive(async () => {
+    for (let attempt = 1; ; attempt++) {
+      await connection.beginTransaction()
+      try {
+        const result = await callback()
+        await connection.commit()
+        return result
+      }
+      catch (error) {
+        await connection.rollBack()
+        if (attempt < attempts && causedByConcurrencyError(error))
+          continue
+        throw error
+      }
     }
-    catch (error) {
-      await connection.rollBack()
-      if (attempt < attempts && causedByConcurrencyError(error))
-        continue
-      throw error
-    }
-  }
+  })
 }
 
-/** Manually begin a transaction (or nested SAVEPOINT) on the default connection. */
+/**
+ * Manually begin a transaction (or nested SAVEPOINT) on the default
+ * connection. Unlike {@link transaction}, this doesn't go through
+ * `runExclusive()` — there's no single callback to scope it to, so it can't
+ * serialize against a concurrent request's transaction the way `transaction()`
+ * does. Prefer `transaction(callback)` whenever more than one request might
+ * touch this connection; reach for this only when you specifically need
+ * begin/commit split across separate calls (e.g. framework-internal plumbing
+ * that already guarantees exclusive access some other way).
+ */
 export function beginTransaction(): Promise<void> {
   return useConnection().beginTransaction()
 }
