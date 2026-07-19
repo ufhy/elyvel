@@ -83,6 +83,7 @@ export {
 export {
   configureUniqueJobs,
   MemoryUniqueLock,
+  RedisUniqueLock,
   uniqueKeyFor,
   type UniqueLock,
   uniqueLock,

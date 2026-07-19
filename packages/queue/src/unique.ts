@@ -1,4 +1,5 @@
 import type { Job } from './job'
+import type { RedisLike } from './store'
 
 /**
  * A lock backing unique jobs (Laravel's `ShouldBeUnique`). `acquire` returns
@@ -24,6 +25,37 @@ export class MemoryUniqueLock implements UniqueLock {
 
   async release(key: string): Promise<void> {
     this.locks.delete(key)
+  }
+}
+
+/**
+ * Redis-backed unique-job lock — makes `ShouldBeUnique` actually unique
+ * across worker processes. `MemoryUniqueLock` only locks within a single
+ * process, so two dispatch calls landing on different worker processes
+ * would each think they're the only one and both push the "unique" job —
+ * same bug class as the rate limiter/broadcaster/scheduler-mutex/restart-
+ * signal gaps. Uses `SET key 1 EX ttl NX` (atomic acquire-if-absent), same
+ * Bun built-in `RedisClient` convention as the others.
+ */
+export class RedisUniqueLock implements UniqueLock {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly prefix = 'unique-job:',
+  ) {}
+
+  async acquire(key: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.client.send('SET', [
+      this.prefix + key,
+      '1',
+      'EX',
+      String(Math.max(1, Math.ceil(ttlSeconds))),
+      'NX',
+    ])
+    return result === 'OK'
+  }
+
+  async release(key: string): Promise<void> {
+    await this.client.send('DEL', [this.prefix + key])
   }
 }
 
