@@ -131,6 +131,7 @@ export {
   RateLimiter,
   rateLimiter,
   type RateLimiterStore,
+  RedisRateLimiterStore,
   ThrottleMiddleware,
 } from './throttle'
 export { named, registerRouteNames, routeNameEntries, urlFor } from './url'

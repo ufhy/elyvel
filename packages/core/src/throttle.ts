@@ -62,6 +62,56 @@ export class MemoryRateLimiterStore implements RateLimiterStore {
   }
 }
 
+/** Minimal Redis client (Bun's built-in `RedisClient` satisfies this via `send`). */
+export interface RedisLike {
+  send(command: string, args: string[]): Promise<unknown>
+}
+
+/**
+ * Redis-backed rate limiter store — for cross-process/multi-instance limits.
+ * `MemoryRateLimiterStore` only tracks hits within a single process, so
+ * behind a load balancer each instance enforces the limit independently
+ * (3 instances ⇒ an effective 3x limit). Wire it with
+ * {@link configureRateLimiterStore}. Uses Bun's built-in Redis client (no
+ * external dependency) — same pattern as `@elyvel/queue`'s `RedisQueueStore`
+ * and `@elyvel/cache`'s `RedisStore`.
+ */
+export class RedisRateLimiterStore implements RateLimiterStore {
+  constructor(
+    private readonly client: RedisLike,
+    private readonly prefix = 'throttle:',
+  ) {}
+
+  private k(key: string): string {
+    return this.prefix + key
+  }
+
+  async increment(key: string, decaySeconds: number, amount = 1): Promise<number> {
+    const count = Number(await this.client.send('INCRBY', [this.k(key), String(amount)]))
+    // Only arm the window on the key's first hit ever — re-arming on every
+    // hit would slide the window forward under sustained traffic instead of
+    // resetting on a fixed schedule. Once the TTL elapses Redis drops the key
+    // itself, so the next increment() naturally starts a fresh window.
+    if (count === amount)
+      await this.client.send('EXPIRE', [this.k(key), String(Math.max(1, Math.ceil(decaySeconds)))])
+    return count
+  }
+
+  async attempts(key: string): Promise<number> {
+    const raw = await this.client.send('GET', [this.k(key)])
+    return raw === null || raw === undefined ? 0 : Number(raw)
+  }
+
+  async reset(key: string): Promise<void> {
+    await this.client.send('DEL', [this.k(key)])
+  }
+
+  async availableIn(key: string): Promise<number> {
+    const ttl = Number(await this.client.send('TTL', [this.k(key)]))
+    return ttl > 0 ? ttl : 0
+  }
+}
+
 /** The default in-memory store — also the back-compat `rateLimiter` handle (`.clear()`). */
 export const rateLimiter = new MemoryRateLimiterStore()
 let store: RateLimiterStore = rateLimiter
