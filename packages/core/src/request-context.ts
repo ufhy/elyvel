@@ -79,7 +79,7 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
     // Log only — rendering (HTML page / JSON) is owned by the errorPages plugin,
     // and 422 validation redirect-back by the session plugin. Returning undefined
     // lets those downstream handlers run.
-    .onError({ as: 'global' }, (ctx: any) => {
+    .onError({ as: 'global' }, async (ctx: any) => {
       const { request, error, code } = ctx
       const { pathname } = new URL(request.url)
       const requestId = meta.get(request)?.id
@@ -93,7 +93,7 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
         // dontReport/dontReportWhen/throttle/dontReportDuplicates can silence
         // this — the client still gets the normal error response either way,
         // this only controls whether it's worth a log entry.
-        if (shouldReportError(error)) {
+        if (await shouldReportError(error)) {
           const uid = userId(ctx)
           http.error(`${request.method} ${pathname} threw`, {
             requestId,

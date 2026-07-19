@@ -1,3 +1,5 @@
+import { RateLimiter, rateLimiter } from './throttle'
+
 /**
  * Controls over which uncaught (500) errors actually get logged — Laravel's
  * `bootstrap/app.php` → `withExceptions($exceptions)` (`dontReport`,
@@ -27,28 +29,22 @@ export function configureExceptionHandling(cfg: ExceptionHandlingConfig): void {
 }
 
 const reportedInstances = new WeakSet<object>()
-const throttleBuckets = new Map<string, { count: number, windowStart: number }>()
-const THROTTLE_WINDOW_MS = 60_000
-/** Safety valve: dynamic (e.g. interpolated) messages could otherwise create unbounded buckets. */
-const MAX_THROTTLE_BUCKETS = 5000
+const THROTTLE_WINDOW_SECONDS = 60
 
 function throttleKey(error: unknown): string {
   const ctor = error instanceof Error ? error.constructor.name : typeof error
   const message = error instanceof Error ? error.message : String(error)
-  return `${ctor}:${message}`
+  return `exception-throttle:${ctor}:${message}`
 }
 
-function pruneStaleThrottleBuckets(now: number): void {
-  if (throttleBuckets.size < MAX_THROTTLE_BUCKETS)
-    return
-  for (const [key, bucket] of throttleBuckets) {
-    if (now - bucket.windowStart >= THROTTLE_WINDOW_MS)
-      throttleBuckets.delete(key)
-  }
-}
-
-/** Whether `error` should be logged, applying the configured dontReport/throttle/dedup rules. */
-export function shouldReportError(error: unknown): boolean {
+/**
+ * Whether `error` should be logged, applying the configured
+ * dontReport/throttle/dedup rules. The throttle counter is backed by
+ * `@elyvel/core`'s `RateLimiter` facade (the same one HTTP throttling uses),
+ * so it's cross-process-safe wherever an app has already configured
+ * `configureRateLimiterStore` with a shared store (e.g. `RedisRateLimiterStore`).
+ */
+export async function shouldReportError(error: unknown): Promise<boolean> {
   if (config.dontReportWhen?.(error))
     return false
   if (config.dontReport?.some(cls => error instanceof cls))
@@ -61,18 +57,9 @@ export function shouldReportError(error: unknown): boolean {
   if (config.throttle) {
     const perMinute = config.throttle(error)
     if (perMinute !== undefined) {
-      const now = Date.now()
-      pruneStaleThrottleBuckets(now)
-      const key = throttleKey(error)
-      const bucket = throttleBuckets.get(key)
-      if (!bucket || now - bucket.windowStart >= THROTTLE_WINDOW_MS) {
-        throttleBuckets.set(key, { count: 1, windowStart: now })
-      }
-      else {
-        bucket.count++
-        if (bucket.count > perMinute)
-          return false
-      }
+      const count = await RateLimiter.hit(throttleKey(error), THROTTLE_WINDOW_SECONDS)
+      if (count > perMinute)
+        return false
     }
   }
 
@@ -84,5 +71,5 @@ export function shouldReportError(error: unknown): boolean {
 /** Test-only: clear throttle state and the active config between test cases. */
 export function resetExceptionHandling(): void {
   config = {}
-  throttleBuckets.clear()
+  rateLimiter.clear()
 }

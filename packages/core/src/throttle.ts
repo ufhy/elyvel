@@ -24,6 +24,9 @@ interface Bucket {
   resetAt: number
 }
 
+/** Safety valve: keys derived from dynamic input (IPs, error messages…) could otherwise grow unbounded. */
+const MAX_BUCKETS = 5000
+
 /** In-memory fixed-window store (the zero-config default). */
 export class MemoryRateLimiterStore implements RateLimiterStore {
   private readonly buckets = new Map<string, Bucket>()
@@ -32,11 +35,20 @@ export class MemoryRateLimiterStore implements RateLimiterStore {
     const now = Date.now()
     const bucket = this.buckets.get(key)
     if (!bucket || now >= bucket.resetAt) {
+      if (!bucket && this.buckets.size >= MAX_BUCKETS)
+        this.pruneExpired(now)
       this.buckets.set(key, { count: amount, resetAt: now + decaySeconds * 1000 })
       return amount
     }
     bucket.count += amount
     return bucket.count
+  }
+
+  private pruneExpired(now: number): void {
+    for (const [key, bucket] of this.buckets) {
+      if (now >= bucket.resetAt)
+        this.buckets.delete(key)
+    }
   }
 
   attempts(key: string): number {
