@@ -2,7 +2,7 @@ import type { Replacements } from './translator'
 import { existsSync } from 'node:fs'
 import { ServiceProvider } from '@elyvel/core'
 import { setMessageTranslator } from '@elyvel/support'
-import { __, currentLocale, getTranslator, trans, transChoice } from './index'
+import { __, currentLocale, getTranslator, registerLocaleRequestScope, trans, transChoice } from './index'
 
 /** `config/i18n.ts` shape. */
 export interface I18nConfig {
@@ -51,6 +51,10 @@ export class I18nServiceProvider extends ServiceProvider {
   }
 
   override boot(): void {
+    // Assigns each request an ambient reference `setRequestLocale()` attaches
+    // its per-request locale to — must run before any hook that might call it.
+    registerLocaleRequestScope(this.app.elysia)
+
     // Expose the translation helpers on the request context. No automatic locale
     // detection — the app sets the request locale (e.g. from a user preference)
     // via `setRequestLocale`; until then `currentLocale()` is the configured default.

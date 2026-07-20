@@ -62,4 +62,25 @@ describe('I18nServiceProvider (boot)', () => {
     expect(body.locale).toBe('en')
     expect(body.msg).toBe('Hello Ada')
   })
+
+  test('setRequestLocale() called after an await in one hook is seen by a later hook/handler', async () => {
+    const app = await createApp({ basePath, providers: [I18nServiceProvider] })
+    const msg = async (locale: string) =>
+      (await app.handle(new Request(`http://localhost/async-locale?locale=${locale}`))
+        .then(r => r.json()) as { msg: string }).msg
+
+    expect(await msg('id')).toBe('Halo Ada')
+    expect(await msg('en')).toBe('Hello Ada')
+  })
+
+  test('concurrent requests setting different locales this way do not leak into each other', async () => {
+    const app = await createApp({ basePath, providers: [I18nServiceProvider] })
+    const msg = async (locale: string) =>
+      (await app.handle(new Request(`http://localhost/async-locale?locale=${locale}`))
+        .then(r => r.json()) as { msg: string }).msg
+
+    const [id, en] = await Promise.all([msg('id'), msg('en')])
+    expect(id).toBe('Halo Ada')
+    expect(en).toBe('Hello Ada')
+  })
 })
