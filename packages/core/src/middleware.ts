@@ -54,6 +54,14 @@ export function defineMiddlewareConfig(config: MiddlewareConfig): MiddlewareConf
 }
 
 // ── module-level registries, populated once at boot ─────────────────────────
+// One Application per process, by design (same assumption `config.ts`'s
+// repository and `application.ts`'s `currentApp` make) — like Laravel Octane's
+// worker model, not classic shared-nothing PHP-FPM. Booting a second
+// Application in the same process (e.g. multi-tenant hosting) would
+// `.clear()` and repopulate these out from under any request still being
+// served by the first. Laravel Octane has this identical caveat for
+// singleton bindings that hold state; its answer is the same as ours: don't
+// do it, or explicitly flush/reset state per-request if you do.
 const aliases = new Map<string, MiddlewareClass>()
 const groups = new Map<string, GroupItem[]>()
 

@@ -1,4 +1,10 @@
-/** name → path template (e.g. `users.show` → `/users/:id`). */
+/**
+ * name → path template (e.g. `users.show` → `/users/:id`). One Application
+ * per process, by design — same assumption as `middleware.ts`'s alias/group
+ * registries (see the comment there). Booting a second Application in the
+ * same process would clobber this and could make `urlFor()` resolve to the
+ * wrong app's URL shape.
+ */
 const routeNames = new Map<string, string>()
 
 /** Register a named route template. */
