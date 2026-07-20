@@ -42,7 +42,9 @@ export class PostController extends Controller {
   async index(ctx: MiddlewareContext) {
     const page = Math.max(1, Number(ctx.query.page ?? '1') || 1)
     const user = ctx.user as User | null
-    const paginator = await cache().remember(`blog:posts:${page}`, 60, () =>
+    // Tagged so create/update/destroy can invalidate just this listing cache
+    // without flushing the whole cache (which might hold unrelated entries).
+    const paginator = await cache().tags(['posts']).remember(`blog:posts:${page}`, 60, () =>
       Post.query().where('published', true).orderBy('published_at', 'desc').paginate(PER_PAGE, page))
     const posts = Resource.paginated(paginator, p => postResource(p, user?.id))
     return Inertia.render('Blog/Index', { posts, user })
@@ -67,7 +69,7 @@ export class PostController extends Controller {
       author_name: user.name,
       author_email: user.email,
     })
-    await cache().flush()
+    await cache().tags(['posts']).flush()
     return redirect(`/blog/${post.id}`)
   }
 
@@ -99,7 +101,7 @@ export class PostController extends Controller {
     await post.update({ ...validated, ...(coverImage ? { cover_image: coverImage } : {}) })
     if (coverImage && previousCoverImage)
       await storage().delete(previousCoverImage)
-    await cache().flush()
+    await cache().tags(['posts']).flush()
     return redirect(`/blog/${post.id}`)
   }
 
@@ -108,7 +110,7 @@ export class PostController extends Controller {
     const post = ctx.model as Post
     authorize(ctx, 'delete', post)
     await post.delete()
-    await cache().flush()
+    await cache().tags(['posts']).flush()
     return redirect('/blog')
   }
 }
