@@ -46,6 +46,21 @@ for (const d of dialects) {
       expect(await table(conn, 'sales').where('region', 'us').count()).toBe(2)
     })
 
+    test('count() over groupBy/having/distinct counts result rows, not the first group', async () => {
+      // 4 sales rows across 2 regions (us, eu). A grouped/distinct count must
+      // be 2 (the number of groups / distinct values), not 2/4/first-group-size.
+      expect(await table(conn, 'sales').groupBy('region').count()).toBe(2)
+      expect(await table(conn, 'sales').select('region').distinct().count()).toBe(2)
+      expect(
+        await table(conn, 'sales').groupBy('region').having('region', '=', 'us').count(),
+      ).toBe(1)
+      // paginate() feeds off count() — its total/lastPage must be right too.
+      // (select the group column so the data query is valid under strict MySQL.)
+      const page = await table(conn, 'sales').select('region').groupBy('region').paginate(1, 1)
+      expect(page.total).toBe(2)
+      expect(page.lastPage).toBe(2)
+    })
+
     test('whereBetween', async () => {
       expect(await table(conn, 'sales').whereBetween('amount', [100, 250]).count()).toBe(2)
     })

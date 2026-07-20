@@ -999,6 +999,39 @@ export class QueryBuilder {
   private async aggregate(fn: string, column = '*'): Promise<number> {
     const g = this.connection.grammar
     const bindings: unknown[] = []
+
+    // A COUNT over a GROUP BY / HAVING / DISTINCT query must count the RESULT
+    // rows, not run the aggregate per-group — a bare `COUNT(*) ... GROUP BY x`
+    // returns one row per group and we'd read only the first group's count
+    // (and DISTINCT would be ignored entirely). Wrap the inner select as a
+    // subquery and count that, à la Laravel's getCountForPagination. ORDER BY /
+    // LIMIT / OFFSET are deliberately omitted — they don't affect a count.
+    const grouped = this.groups.length > 0 || this.rawGroups.length > 0 || this.havings.length > 0
+    if (fn === 'COUNT' && (grouped || this.distinctFlag)) {
+      // Project the GROUP BY columns (not `*`) when grouped — `SELECT *` with a
+      // GROUP BY is rejected by MySQL's only_full_group_by. For a plain
+      // distinct count, project the user's selected columns. `bindings` must be
+      // appended in the same left-to-right order the SQL references them, so
+      // build columns first, then from/joins/wheres/groups.
+      let innerColumns: string
+      if (grouped) {
+        const cols = [...this.groups.map(c => g.wrap(c)), ...this.rawGroups]
+        innerColumns = cols.length ? cols.join(', ') : '*'
+      }
+      else {
+        innerColumns = this.compileColumns(bindings)
+      }
+      const inner
+        = `SELECT ${this.distinctFlag ? 'DISTINCT ' : ''}${innerColumns} FROM ${
+          this.compileFrom(bindings)
+        }${this.compileJoins(bindings)
+        }${this.compileWheres(bindings)
+        }${this.compileGroupsHavings(bindings)}`
+      const sql = `SELECT COUNT(*) AS aggregate FROM (${inner}) AS aggregate_subquery`
+      const rows = await this.connection.select<{ aggregate: number | string }>(sql, bindings)
+      return Number(rows[0]?.aggregate ?? 0)
+    }
+
     const col = column === '*' ? '*' : g.wrap(column)
     const sql
       = `SELECT ${fn}(${col}) AS aggregate FROM ${this.compileFrom(bindings)}${
