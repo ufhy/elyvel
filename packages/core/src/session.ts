@@ -1,5 +1,5 @@
 import type { MiddlewareContext } from './middleware'
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { trans } from '@elyvel/support'
@@ -592,8 +592,19 @@ export class CsrfMiddleware extends Middleware {
     const session = ctx.session as Session | undefined
     if (!session)
       return // sessions not enabled → nothing to verify
-    if (requestToken(ctx) !== session.token()) {
+    if (!csrfTokensMatch(requestToken(ctx), session.token())) {
       return ctx.status(419, { message: trans('errors.csrf', {}, 'CSRF token mismatch.') })
     }
   }
+}
+
+/** Constant-time CSRF token comparison — avoids the timing side-channel of `!==` (à la Laravel's `hash_equals`). */
+function csrfTokensMatch(request: string | undefined, session: string): boolean {
+  if (typeof request !== 'string' || request.length === 0)
+    return false
+  const a = Buffer.from(request)
+  const b = Buffer.from(session)
+  // timingSafeEqual requires equal-length buffers; unequal length is a definite
+  // mismatch, and short-circuiting on it leaks nothing beyond the length.
+  return a.length === b.length && timingSafeEqual(a, b)
 }
