@@ -55,11 +55,11 @@ export class RedirectResponse {
     return this.with('_old_input', input)
   }
 
-  /** Resolve the destination URL (`back` → Referer, else the target). */
+  /** Resolve the destination URL (`back` → same-origin Referer, else the target). */
   location(request: Request): string {
     if (this.target !== 'back')
       return this.target
-    return request.headers.get('referer') ?? '/'
+    return sameOriginReferer(request) ?? '/'
   }
 
   /** Apply the pending flashes to the session (no-op without one). */
@@ -67,6 +67,26 @@ export class RedirectResponse {
     if (!session)
       return
     for (const flash of this.flashes) session.flash(flash.key, flash.value)
+  }
+}
+
+/**
+ * The `Referer` only if it's same-origin as the request, else undefined — so a
+ * `back()` can't be turned into an open redirect by a cross-site page setting
+ * an off-origin Referer. Callers fall back to a safe local path (`/`).
+ */
+export function sameOriginReferer(request: Request): string | undefined {
+  const referer = request.headers.get('referer')
+  if (!referer)
+    return undefined
+  try {
+    // Resolve relative to the request URL — a relative Referer ("/form") is
+    // same-origin by construction; an absolute cross-origin one ("http://evil/")
+    // keeps its own origin and is rejected.
+    return new URL(referer, request.url).origin === new URL(request.url).origin ? referer : undefined
+  }
+  catch {
+    return undefined
   }
 }
 

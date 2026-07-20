@@ -943,7 +943,7 @@ export class Model {
   /** A new, unsaved copy of this model without its key/timestamps (à la Laravel `replicate`). */
   replicate(except: string[] = []): this {
     const self = this.self()
-    const skip = new Set([self.primaryKey, 'created_at', 'updated_at', ...except])
+    const skip = new Set([self.primaryKey, self.createdAtColumn, self.updatedAtColumn, ...except])
     const attributes: Attributes = {}
     for (const [key, value] of Object.entries(this.attributes)) {
       if (!skip.has(key))
@@ -955,9 +955,9 @@ export class Model {
     return clone
   }
 
-  /** Bump `updated_at` to now and persist. */
+  /** Bump the `updated_at` column (or its configured override) to now and persist. */
   async touch(): Promise<this> {
-    this.setAttribute('updated_at', new Date().toISOString())
+    this.setAttribute(this.self().updatedAtColumn, new Date().toISOString())
     return this.save()
   }
 

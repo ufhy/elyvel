@@ -386,6 +386,10 @@ export class Application {
         '[elyvel] Session cookie driver needs a secret — set `app.key` or `session.secret`.',
       )
     }
+    // Default the session cookie to Secure in production (HTTPS-only), so the
+    // cookie + its encrypted payload can't leak over plain HTTP; opt in for
+    // dev over http by leaving it unset there. Explicit config always wins.
+    const isProduction = this.config.get<string>('app.env') === 'production'
     this.elysia.use(
       sessionPlugin({
         driver,
@@ -396,7 +400,7 @@ export class Application {
         redisUrl: cfg.redisUrl,
         path: cfg.path ?? '/',
         domain: cfg.domain,
-        secure: cfg.secure ?? false,
+        secure: cfg.secure ?? isProduction,
         httpOnly: cfg.httpOnly ?? true,
         sameSite: cfg.sameSite ?? 'lax',
         expireOnClose: cfg.expireOnClose ?? false,

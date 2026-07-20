@@ -6,6 +6,7 @@ import { trans } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
+import { sameOriginReferer } from './http/redirect'
 import { Middleware } from './middleware'
 
 const TOKEN_KEY = '_token'
@@ -512,7 +513,7 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
         await persist(ctx)
         const set = ctx.set as any
         set.status = 303
-        set.headers.location = request.headers.get('referer') ?? '/'
+        set.headers.location = sameOriginReferer(request) ?? '/'
         return ''
       }
       await persist(ctx) // save any session changes even on other errors

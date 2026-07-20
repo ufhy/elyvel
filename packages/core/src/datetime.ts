@@ -112,7 +112,13 @@ export function zonedStartOfDayUtc(dateStr: string, timezone: string = currentTi
   const [y, m, d] = dateStr.split('-').map(Number)
   // First guess: treat the wall-clock midnight as if it were UTC…
   const guess = Date.UTC(y!, m! - 1, d!, 0, 0, 0)
-  // …then correct by the zone's offset at that instant.
-  const offsetMin = timezoneOffset(timezone, new Date(guess))
-  return new Date(guess - offsetMin * 60000)
+  // …then correct by the zone's offset. Evaluate the offset a second time at
+  // the corrected instant: on a DST-transition day the offset at the guessed
+  // UTC-midnight can differ from the offset at true local midnight, which
+  // would leave the result an hour off. If the second pass disagrees, it's the
+  // one anchored at (approximately) real local midnight, so trust it.
+  const o1 = timezoneOffset(timezone, new Date(guess))
+  const first = guess - o1 * 60000
+  const o2 = timezoneOffset(timezone, new Date(first))
+  return o2 === o1 ? new Date(first) : new Date(guess - o2 * 60000)
 }

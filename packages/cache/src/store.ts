@@ -242,6 +242,14 @@ export class RedisStore implements CacheStore {
   }
 
   async put(key: string, value: unknown, seconds?: number): Promise<void> {
+    // A zero/negative TTL means "already expired" — the memory/file stores make
+    // the value immediately unreadable, so match that here rather than flooring
+    // to a 1-second EX (which would keep it alive for a second). Redis has no
+    // "expired on write", so just don't store it (and clear any prior value).
+    if (seconds !== undefined && seconds <= 0) {
+      await this.forget(key)
+      return
+    }
     const args = [this.k(key), JSON.stringify(value)]
     if (seconds !== undefined)
       args.push('EX', String(Math.max(1, Math.ceil(seconds))))

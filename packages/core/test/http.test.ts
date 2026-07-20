@@ -240,6 +240,17 @@ describe('redirect responses', () => {
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toBe('/form')
   })
+
+  test('back() ignores a cross-origin Referer (open-redirect guard)', async () => {
+    const res = await buildApp().handle(
+      new Request('http://localhost/save-back', {
+        method: 'POST',
+        headers: { referer: 'https://evil.example.com/phish' },
+      }),
+    )
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toBe('/') // not the attacker origin
+  })
 })
 
 describe('validation negotiation', () => {
