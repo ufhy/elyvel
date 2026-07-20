@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 
 export interface StaticFilesOptions {
@@ -25,12 +26,12 @@ export function staticFiles(options: StaticFilesOptions) {
       // Stay inside the served directory (block ../ traversal).
       if (target !== root && !target.startsWith(`${root}/`)) {
         set.status = 403
-        return 'Forbidden'
+        return trans('core::errors.forbidden', {}, 'Forbidden')
       }
       const bunFile = Bun.file(target)
       if (!(await bunFile.exists())) {
         set.status = 404
-        return 'Not Found'
+        return trans('core::errors.file_not_found', {}, 'Not Found')
       }
       return bunFile
     },

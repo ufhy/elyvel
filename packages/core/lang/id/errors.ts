@@ -22,4 +22,8 @@ export default {
   csrf: 'Token CSRF tidak cocok.',
   not_found: ':resource tidak ditemukan',
   unauthorized: 'Tidak diizinkan',
+
+  // Body teks polos dari static-file server (bukan JSON).
+  forbidden: 'Terlarang',
+  file_not_found: 'Tidak ditemukan',
 }

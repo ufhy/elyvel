@@ -68,4 +68,13 @@ export default {
     password: 'kata sandi',
     name: 'nama',
   },
+
+  // Pesan ValidationException (dikirim ke client sebagai `message` di respons 422).
+  exception: {
+    invalid: 'Data yang dikirim tidak valid.',
+    and_one_more: 'dan 1 error lagi',
+    and_more: 'dan :count error lagi',
+    // Default AuthorizationException message ketika FormRequest.authorize() menolak.
+    unauthorized: 'Tindakan ini tidak diizinkan.',
+  },
 }

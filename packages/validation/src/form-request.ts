@@ -1,11 +1,12 @@
 import type { Data, Rules, ValidatorOptions } from './validator'
+import { trans } from '@elyvel/support'
 import { Validator } from './validator'
 
 /** Thrown when a FormRequest's `authorize()` returns false. */
 export class AuthorizationException extends Error {
   readonly status = 403
   readonly isAuthorizationException = true
-  constructor(message = 'This action is unauthorized.') {
+  constructor(message = trans('validation::exception.unauthorized', {}, 'This action is unauthorized.')) {
     super(message)
     this.name = 'AuthorizationException'
   }

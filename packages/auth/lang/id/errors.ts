@@ -7,4 +7,6 @@ export default {
   unauthenticated: 'Tidak terautentikasi',
   unverified: 'Alamat email Anda belum terverifikasi.',
   unauthorized: 'Tindakan ini tidak diizinkan.',
+  // Default Gate.deny()/denyAsNotFound() message when a policy doesn't pass its own.
+  not_found: 'Tidak ditemukan.',
 }

@@ -89,6 +89,8 @@ export const ERROR_LANG_DEFAULTS: Record<string, ErrorMeta | string> = {
   csrf: 'CSRF token mismatch.',
   not_found: ':resource not found',
   unauthorized: 'Unauthorized',
+  forbidden: 'Forbidden',
+  file_not_found: 'Not Found',
 }
 
 /** Translated title/message for a status, falling back to the built-in English. */

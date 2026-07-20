@@ -1,4 +1,5 @@
 import type { Authenticatable } from './types'
+import { trans } from '@elyvel/support'
 
 /**
  * The outcome of an authorization check (Laravel's `Access\Response`). Carries
@@ -15,7 +16,7 @@ export class Response {
     return new Response(true, message, 200)
   }
 
-  static deny(message = 'This action is unauthorized.', status = 403): Response {
+  static deny(message = trans('auth::errors.unauthorized', {}, 'This action is unauthorized.'), status = 403): Response {
     return new Response(false, message, status)
   }
 
@@ -23,7 +24,7 @@ export class Response {
     return new Response(false, message, status)
   }
 
-  static denyAsNotFound(message = 'Not Found.'): Response {
+  static denyAsNotFound(message = trans('auth::errors.not_found', {}, 'Not Found.')): Response {
     return new Response(false, message, 404)
   }
 
@@ -53,7 +54,7 @@ export class Response {
 
 export class AuthorizationError extends Error {
   readonly status: number
-  constructor(message = 'This action is unauthorized.', status = 403) {
+  constructor(message = trans('auth::errors.unauthorized', {}, 'This action is unauthorized.'), status = 403) {
     super(message)
     this.name = 'AuthorizationError'
     this.status = status
