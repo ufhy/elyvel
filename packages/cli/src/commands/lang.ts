@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { ERROR_LANG_DEFAULTS } from '@elyvel/core'
 import { DEFAULT_MESSAGES } from '@elyvel/validation'
@@ -26,6 +26,7 @@ function writeGroup(dir: string, name: string, data: unknown, force: boolean): b
     console.log(`  • skipped ${rel} (exists — use --force)`)
     return false
   }
+  mkdirSync(dir, { recursive: true })
   const banner = `// Published by \`elyvel lang:publish\`. Edit freely — restyle the wording or\n`
     + `// translate the values; keys are matched by the framework.\n\n`
   writeFileSync(file, `${banner}export default ${toTsLiteral(data)}\n`, 'utf8')
@@ -34,21 +35,51 @@ function writeGroup(dir: string, name: string, data: unknown, force: boolean): b
 }
 
 /**
+ * `elyvel lang:publish --package=<name> [--force]` — copy an installed
+ * `@elyvel/*` package's own bundled `lang/` directory (its namespaced
+ * defaults — see `I18nServiceProvider`'s auto-discovery) into
+ * `lang/vendor/<name>/`, Laravel's `vendor:publish` for translations. Lets
+ * you edit every line the package ships, not just override specific keys.
+ */
+function publishPackageLang(pkgName: string, force: boolean): number {
+  const src = join(process.cwd(), 'node_modules', '@elyvel', pkgName, 'lang')
+  if (!existsSync(src)) {
+    console.error(`✗ No lang/ directory found for @elyvel/${pkgName} (node_modules/@elyvel/${pkgName}/lang).`)
+    return 1
+  }
+  const dest = join(process.cwd(), 'lang', 'vendor', pkgName)
+  if (existsSync(dest) && !force) {
+    console.log(`  • skipped ${relative(process.cwd(), dest)}/ (exists — use --force)`)
+    return 0
+  }
+  mkdirSync(join(process.cwd(), 'lang', 'vendor'), { recursive: true })
+  cpSync(src, dest, { recursive: true, force: true })
+  console.log(`✓ Published @elyvel/${pkgName}'s lang/ to ${relative(process.cwd(), dest)}/`)
+  return 0
+}
+
+/**
  * `elyvel lang:publish [locale] [--force]` — dump the framework's built-in message
- * defaults (validation + errors) to `lang/<locale>/` so they can be restyled or
- * translated. Existing files are left alone unless `--force`.
+ * defaults (validation + errors) so they can be restyled or translated. Existing
+ * files are left alone unless `--force`. `--package=<name>` instead copies an
+ * installed package's own bundled `lang/` directory (see {@link publishPackageLang}).
  */
 export function langPublish(
   locale = 'en',
   flags: Record<string, string | boolean> = {},
 ): number {
+  if (typeof flags.package === 'string')
+    return publishPackageLang(flags.package, flags.force === true)
+
   const force = flags.force === true
   const dir = join(process.cwd(), 'lang', locale)
-  mkdirSync(dir, { recursive: true })
 
   console.log(`Publishing default messages to lang/${locale}/`)
-  writeGroup(dir, 'validation', DEFAULT_MESSAGES, force)
+  // validation::* is namespaced (auto-loaded from @elyvel/validation's own
+  // lang/ — see I18nServiceProvider) — the override location is
+  // lang/vendor/validation/<locale>.ts, not lang/<locale>/validation.ts.
+  writeGroup(join(process.cwd(), 'lang', 'vendor', 'validation'), locale, DEFAULT_MESSAGES, force)
   writeGroup(dir, 'errors', ERROR_LANG_DEFAULTS, force)
-  console.log(`\nDone. Edit lang/${locale}/*.ts to change the wording; add the locale to config/i18n.ts \`locales\`.`)
+  console.log(`\nDone. Edit the published files to change the wording; add the locale to config/i18n.ts \`locales\`.`)
   return 0
 }

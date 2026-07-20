@@ -74,4 +74,38 @@ describe('Translator.load', () => {
     // whole-sentence key from lang/en.ts (no group)
     expect(t.get('Full sentence key', { thing: 'x' })).toBe('A whole sentence, x')
   })
+
+  test('lang/vendor/<namespace>/<locale>/<file>.ts overrides that namespace (not the plain tree)', async () => {
+    const dir = new URL('./fixtures/lang', import.meta.url).pathname
+    const t = new Translator({ locale: 'en', fallback: 'en' })
+    await t.loadNamespace('auth', new URL('./fixtures/auth-lang', import.meta.url).pathname)
+    await t.load(dir) // app's lang/, including lang/vendor/auth/en/messages.ts
+    expect(t.get('auth::messages.failed')).toBe('These credentials do not match our records (overridden).')
+    // untouched key from the package's own default still resolves
+    expect(t.get('auth::messages.throttled')).toBe('Too many login attempts.')
+    // the override must NOT leak into the app's plain (unnamespaced) tree
+    expect(t.has('messages.failed')).toBe(false)
+  })
+})
+
+describe('Translator namespaces (package::key)', () => {
+  test('addLines with a namespace is isolated from the plain tree', () => {
+    const t = new Translator({ locale: 'en', fallback: 'en' })
+    t.addLines('en', { failed: 'Package default' }, 'messages', 'auth')
+    expect(t.get('auth::messages.failed')).toBe('Package default')
+    expect(t.has('messages.failed')).toBe(false) // no namespace prefix → not found
+  })
+
+  test('two packages get separate namespace buckets', () => {
+    const t = new Translator({ locale: 'en', fallback: 'en' })
+    t.addLines('en', { failed: 'Auth default' }, 'messages', 'auth')
+    t.addLines('en', { failed: 'Mail default' }, 'messages', 'mail')
+    expect(t.get('auth::messages.failed')).toBe('Auth default')
+    expect(t.get('mail::messages.failed')).toBe('Mail default')
+  })
+
+  test('unknown namespace key falls through to the missing-key behavior (returns the key)', () => {
+    const t = new Translator({ locale: 'en', fallback: 'en' })
+    expect(t.get('nope::messages.missing')).toBe('nope::messages.missing')
+  })
 })

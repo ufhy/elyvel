@@ -105,7 +105,7 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
           return {
             beforeHandle({ user, status, request }: any) {
               if (!user)
-                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: trans('errors.unauthenticated', {}, 'Unauthenticated') })
+                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
             },
           }
         },
@@ -118,9 +118,9 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
           return {
             beforeHandle({ user, status, request }: any) {
               if (!user)
-                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: trans('errors.unauthenticated', {}, 'Unauthenticated') })
+                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
               if (!user.emailVerified)
-                return !expectsJson(request) ? redirectTo(verifyPath) : status(403, { message: trans('errors.unverified', {}, 'Your email address is not verified.') })
+                return !expectsJson(request) ? redirectTo(verifyPath) : status(403, { message: trans('auth::errors.unverified', {}, 'Your email address is not verified.') })
             },
           }
         },
@@ -138,7 +138,7 @@ export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPlugi
                   .forUser(ctx.user)
                   .allows(ability, ...args)
               ) {
-                return ctx.status(403, { message: trans('errors.unauthorized', {}, 'This action is unauthorized.') })
+                return ctx.status(403, { message: trans('auth::errors.unauthorized', {}, 'This action is unauthorized.') })
               }
             },
           }

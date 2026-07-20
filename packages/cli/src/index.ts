@@ -45,6 +45,7 @@ Usage:
   elyvel key:generate [--show] [--force]       Set APP_KEY in .env (--show prints; --force overwrites in prod)
   elyvel serve [--entry <path>] [--no-watch]   Start the dev server
   elyvel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
+  elyvel lang:publish --package=<name> [--force]  Copy an installed package's lang/ to lang/vendor/<name>
 
   elyvel migrate                               Run pending migrations
   elyvel migrate:fresh                         Drop all tables and re-migrate

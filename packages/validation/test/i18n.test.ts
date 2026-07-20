@@ -6,9 +6,9 @@ import { formatMessage } from '../src/messages'
 // serves Indonesian messages. formatMessage should route through it, with the
 // English default surviving for any key the translator doesn't know.
 const id: Record<string, string> = {
-  'validation.required': 'Kolom :attribute wajib diisi.',
-  'validation.min.string': 'Kolom :attribute minimal :min karakter.',
-  'validation.attributes.email': 'surel',
+  'validation::required': 'Kolom :attribute wajib diisi.',
+  'validation::min.string': 'Kolom :attribute minimal :min karakter.',
+  'validation::attributes.email': 'surel',
 }
 
 afterEach(() => setMessageTranslator(null))
@@ -20,13 +20,13 @@ describe('validation message translation (via support seam)', () => {
       .toBe('Kolom name wajib diisi.')
   })
 
-  test('translates size-variant keys (validation.<rule>.<sizeKind>)', () => {
+  test('translates size-variant keys (validation::<rule>.<sizeKind>)', () => {
     setMessageTranslator((key, replace, fallback) => id[key] ?? fallback)
     expect(formatMessage({ rule: 'min', attribute: 'password', args: ['8'], sizeKind: 'string' }))
       .toBe('Kolom password minimal 8 karakter.')
   })
 
-  test('localizes the attribute display name (validation.attributes.*)', () => {
+  test('localizes the attribute display name (validation::attributes.*)', () => {
     setMessageTranslator((key, replace, fallback) => id[key] ?? fallback)
     expect(formatMessage({ rule: 'required', attribute: 'email', args: [], sizeKind: 'string' }))
       .toBe('Kolom surel wajib diisi.')

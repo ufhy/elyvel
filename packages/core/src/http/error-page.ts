@@ -75,17 +75,16 @@ const DEFAULTS: Record<number, ErrorMeta> = {
 
 /**
  * Canonical English defaults for the `errors` translation group — the status
- * pages plus the short JSON messages emitted by the guards. `elyvel lang:publish`
+ * pages plus the short JSON messages core itself emits. `elyvel lang:publish`
  * dumps this to `lang/<locale>/errors.ts` so it can be restyled/translated.
+ * Auth-specific messages (unauthenticated/unverified/unauthorized) live in
+ * `@elyvel/auth`'s own `lang/` namespace instead — core doesn't own them.
  */
 export const ERROR_LANG_DEFAULTS: Record<string, ErrorMeta | string> = {
   ...DEFAULTS,
   throttle: 'Too Many Requests',
   csrf: 'CSRF token mismatch.',
   not_found: ':resource not found',
-  unauthenticated: 'Unauthenticated',
-  unverified: 'Your email address is not verified.',
-  unauthorized: 'This action is unauthorized.',
 }
 
 /** Translated title/message for a status, falling back to the built-in English. */

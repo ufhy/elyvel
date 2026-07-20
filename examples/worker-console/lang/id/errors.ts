@@ -18,7 +18,4 @@ export default {
   throttle: 'Terlalu Banyak Permintaan',
   csrf: 'Token CSRF tidak cocok.',
   not_found: ':resource tidak ditemukan',
-  unauthenticated: 'Tidak terautentikasi',
-  unverified: 'Alamat email Anda belum terverifikasi.',
-  unauthorized: 'Tindakan ini tidak diizinkan.',
 }

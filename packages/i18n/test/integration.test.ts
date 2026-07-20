@@ -4,6 +4,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import { __, getLocale, getTranslator, I18nServiceProvider, runWithLocale } from '../src/index'
 
 const basePath = new URL('./appfix', import.meta.url).pathname
+const namespaceBasePath = new URL('./appfix-namespaces', import.meta.url).pathname
 
 describe('per-request locale (AsyncLocalStorage)', () => {
   const t = getTranslator()
@@ -32,13 +33,17 @@ describe('support trans() seam bridge', () => {
   afterAll(() => setMessageTranslator(null))
 
   test('framework messages translate once a translator is registered', () => {
+    // A generic example key, deliberately NOT `validation.*` (that's the real
+    // @elyvel/validation package's own namespaced `validation::*` keys now —
+    // see the "auto-loads installed packages'" describe block below) — this
+    // test is only about the generic support-seam mechanism itself.
     const t = getTranslator()
-    t.addLines('en', { required: 'The :attribute field is required.' }, 'validation')
+    t.addLines('en', { required: 'The :attribute field is required.' }, 'demo')
     setMessageTranslator((key, replace) =>
       t.has(key) ? t.get(key, replace) : undefined)
     // known key → translated; unknown key → English fallback survives
-    expect(supportTrans('validation.required', { attribute: 'email' }, 'x')).toBe('The email field is required.')
-    expect(supportTrans('validation.nope', {}, 'fallback text')).toBe('fallback text')
+    expect(supportTrans('demo.required', { attribute: 'email' }, 'x')).toBe('The email field is required.')
+    expect(supportTrans('demo.nope', {}, 'fallback text')).toBe('fallback text')
   })
 })
 
@@ -82,5 +87,16 @@ describe('I18nServiceProvider (boot)', () => {
     const [id, en] = await Promise.all([msg('id'), msg('en')])
     expect(id).toBe('Halo Ada')
     expect(en).toBe('Hello Ada')
+  })
+})
+
+describe('I18nServiceProvider auto-loads installed packages\' own lang/ (namespaced)', () => {
+  test('a package under node_modules/@elyvel/* with its own lang/ becomes `pkg::key`, overridable via lang/vendor/<pkg>/...', async () => {
+    await createApp({ basePath: namespaceBasePath, providers: [I18nServiceProvider], autoloadRoutes: false })
+    const t = getTranslator()
+    // app's lang/vendor/fakepkg/en/messages.ts overrides this specific key
+    expect(t.get('fakepkg::messages.hello')).toBe('Overridden by the app')
+    // everything else still comes from the package's own bundled default
+    expect(t.get('fakepkg::messages.untouched')).toBe('Still the package default')
   })
 })

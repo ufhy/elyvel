@@ -1,5 +1,6 @@
-import type { Replacements } from './translator'
-import { existsSync } from 'node:fs'
+import type { Replacements, Translator } from './translator'
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { ServiceProvider } from '@elyvel/core'
 import { setMessageTranslator } from '@elyvel/support'
 import { __, currentLocale, getTranslator, registerLocaleRequestScope, trans, transChoice } from './index'
@@ -31,6 +32,12 @@ export class I18nServiceProvider extends ServiceProvider {
     translator.setLocale(cfg.locale ?? 'en')
     translator.setFallback(cfg.fallback ?? cfg.locale ?? 'en')
 
+    // Package-bundled translations FIRST (namespaced `package::key`) — so the
+    // app's own lang/ dir, loaded next, can override specific lines via
+    // `lang/vendor/<namespace>/...` (see Translator.load's `vendor/` handling)
+    // without needing to redefine everything the package ships.
+    await this.loadPackageNamespaces(translator)
+
     const dir = this.app.path(cfg.path ?? 'lang')
     if (existsSync(dir))
       await translator.load(dir)
@@ -48,6 +55,26 @@ export class I18nServiceProvider extends ServiceProvider {
       translator.has(key, currentLocale()) || translator.has(key, translator.getFallback())
         ? translator.get(key, replace, currentLocale())
         : undefined)
+  }
+
+  /**
+   * Loads every installed `@elyvel/*` package's own `lang/` directory (if it
+   * ships one) into its own namespace — `node_modules/@elyvel/<name>/lang`
+   * becomes `trans('<name>::...')`. Mirrors `elyvel package:discover`'s
+   * `node_modules` scan, but for translations instead of providers: no
+   * package.json metadata, just a well-known directory convention.
+   */
+  private async loadPackageNamespaces(translator: Translator): Promise<void> {
+    const scopeDir = this.app.path('node_modules', '@elyvel')
+    if (!existsSync(scopeDir))
+      return
+    for (const entry of readdirSync(scopeDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink())
+        continue
+      const langDir = join(scopeDir, entry.name, 'lang')
+      if (existsSync(langDir))
+        await translator.loadNamespace(entry.name, langDir)
+    }
   }
 
   override boot(): void {

@@ -1,7 +1,10 @@
 /**
- * Pesan validasi Bahasa Indonesia. Kunci = nama rule; aturan berukuran (min/max/
- * between/size) punya varian per tipe. `:attribute`, `:min`, `:max`, dll. diganti
- * otomatis. Nama field bisa dilokalkan lewat `attributes` di bawah.
+ * Pesan validasi Bahasa Indonesia — dimuat otomatis di bawah namespace
+ * `validation::` (lihat `I18nServiceProvider`'s auto-discovery). Kunci = nama
+ * rule; aturan berukuran (min/max/between/size) punya varian per tipe.
+ * `:attribute`, `:min`, `:max`, dll. diganti otomatis. Nama field bisa
+ * dilokalkan lewat `attributes` di bawah. App bisa override key tertentu
+ * lewat `lang/vendor/validation/id/validation.ts`.
  */
 export default {
   required: 'Kolom :attribute wajib diisi.',

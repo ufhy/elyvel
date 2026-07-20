@@ -28,7 +28,7 @@ export function createGuard<U extends Authenticatable>(manager: AuthManager<U>) 
         return {
           beforeHandle({ user, status }) {
             if (enabled && !user) {
-              return status(401, { message: trans('errors.unauthenticated', {}, 'Unauthenticated') })
+              return status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
             }
           },
         }

@@ -16,11 +16,21 @@ export type LinesTree = Record<string, unknown>
  * Resolves translation keys to strings, with `:placeholder` replacement and
  * pluralization. Lines are stored per-locale as nested trees and looked up by
  * dot-path (`messages.welcome`). Mirrors Laravel's `Translator`.
+ *
+ * Namespaced keys (`package::file.key`, Laravel's package-translation syntax)
+ * resolve against a SEPARATE tree per namespace — see {@link addLines}'s
+ * `namespace` param and {@link loadNamespace} — so a package's own bundled
+ * defaults never collide with the app's plain (unnamespaced) keys. An app
+ * overriding a namespaced line loads its override into the SAME namespace
+ * bucket (via `lang/vendor/<namespace>/...`, see `load`'s `vendor/` handling),
+ * so the existing deep-merge naturally lets the app override just the keys it
+ * cares about — the rest still resolve from the package's own defaults.
  */
 export class Translator {
   private locale: string
   private fallback: string
   private readonly locales = new Map<string, LinesTree>()
+  private readonly namespaces = new Map<string, Map<string, LinesTree>>()
   private onMissing?: (key: string, locale: string) => void
 
   constructor(options: TranslatorOptions = {}) {
@@ -52,18 +62,28 @@ export class Translator {
     return this.fallback
   }
 
-  /** Merge a tree of lines into a locale (optionally under a `group` prefix). */
-  addLines(locale: string, lines: LinesTree, group?: string): this {
-    const existing = this.locales.get(locale) ?? {}
+  /**
+   * Merge a tree of lines into a locale (optionally under a `group` prefix).
+   * `namespace` routes into a package's own bucket (`package::key` lookups)
+   * instead of the app's plain tree — used for package-bundled translations
+   * and their `lang/vendor/<namespace>/...` overrides.
+   */
+  addLines(locale: string, lines: LinesTree, group?: string, namespace?: string): this {
+    const store = namespace ? (this.namespaces.get(namespace) ?? new Map<string, LinesTree>()) : this.locales
+    const existing = store.get(locale) ?? {}
     const merged = group ? { ...existing, [group]: { ...(existing[group] as object), ...lines } } : deepMerge(existing, lines)
-    this.locales.set(locale, merged)
+    store.set(locale, merged)
+    if (namespace)
+      this.namespaces.set(namespace, store)
     return this
   }
 
   /**
    * Load lines from a `lang/` directory:
-   *   lang/en/messages.ts   → keys under `messages.*`
-   *   lang/en.ts            → top-level keys (whole-sentence translations)
+   *   lang/en/messages.ts             → keys under `messages.*`
+   *   lang/en.ts                      → top-level keys (whole-sentence translations)
+   *   lang/vendor/<namespace>/en/messages.ts → OVERRIDES that namespace's `messages.*`
+   *                                      (Laravel's `lang/vendor/{package}/{locale}/{file}`)
    * Each file default-exports a plain (optionally nested) object.
    */
   async load(dir: string): Promise<this> {
@@ -75,6 +95,13 @@ export class Translator {
       if (!mod.default)
         continue
       const parts = rel.replace(/\.(ts|js)$/, '').split('/')
+      if (parts[0] === 'vendor' && parts.length > 2) {
+        const namespace = parts[1]!
+        const locale = parts[2]!
+        const group = parts.slice(3).join('.')
+        this.addLines(locale, mod.default, group || undefined, namespace)
+        continue
+      }
       const locale = parts[0]!
       const group = parts.slice(1).join('.') // '' for lang/<locale>.ts
       this.addLines(locale, mod.default, group || undefined)
@@ -82,9 +109,30 @@ export class Translator {
     return this
   }
 
+  /**
+   * Load a package's own bundled translations under `namespace` — same
+   * `lang/<locale>/<file>.ts` shape as {@link load}, just scoped to that
+   * namespace's bucket instead of the app's plain tree.
+   */
+  async loadNamespace(namespace: string, dir: string): Promise<this> {
+    const glob = new Bun.Glob('**/*.{ts,js}')
+    for await (const rel of glob.scan({ cwd: dir, onlyFiles: true })) {
+      if (rel.endsWith('.d.ts'))
+        continue
+      const mod = (await import(`${dir}/${rel}`)) as { default?: LinesTree }
+      if (!mod.default)
+        continue
+      const parts = rel.replace(/\.(ts|js)$/, '').split('/')
+      const locale = parts[0]!
+      const group = parts.slice(1).join('.')
+      this.addLines(locale, mod.default, group || undefined, namespace)
+    }
+    return this
+  }
+
   /** Whether `key` resolves in `locale` (or the active locale). */
   has(key: string, locale?: string): boolean {
-    return resolve(this.locales.get(locale ?? this.locale), key) !== undefined
+    return this.lookup(key, locale ?? this.locale) !== undefined
   }
 
   /**
@@ -93,9 +141,7 @@ export class Translator {
    */
   get(key: string, replace: Replacements = {}, locale?: string): string {
     const active = locale ?? this.locale
-    const line
-      = resolve(this.locales.get(active), key)
-        ?? resolve(this.locales.get(this.fallback), key)
+    const line = this.lookup(key, active) ?? this.lookup(key, this.fallback)
     if (typeof line !== 'string') {
       this.onMissing?.(key, active)
       return key
@@ -109,15 +155,23 @@ export class Translator {
    */
   choice(key: string, number: number, replace: Replacements = {}, locale?: string): string {
     const active = locale ?? this.locale
-    const line
-      = resolve(this.locales.get(active), key)
-        ?? resolve(this.locales.get(this.fallback), key)
+    const line = this.lookup(key, active) ?? this.lookup(key, this.fallback)
     if (typeof line !== 'string') {
       this.onMissing?.(key, active)
       return key
     }
     const segment = selectPluralSegment(line, number, active)
     return applyReplacements(segment, { count: number, ...replace })
+  }
+
+  /** Resolves `key` against the right tree — namespaced (`pkg::rest`) or the app's plain tree. */
+  private lookup(key: string, locale: string): unknown {
+    const sep = key.indexOf('::')
+    if (sep === -1)
+      return resolve(this.locales.get(locale), key)
+    const namespace = key.slice(0, sep)
+    const rest = key.slice(sep + 2)
+    return resolve(this.namespaces.get(namespace)?.get(locale), rest)
   }
 }
 

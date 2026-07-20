@@ -88,22 +88,22 @@ export class Password implements RuleObject {
     const name = humanizeAttribute(ctx.attribute)
 
     if (str.length < this.minLength) {
-      fail(trans('validation.password.min', { attribute: name, min: String(this.minLength) }, `The ${name} field must be at least ${this.minLength} characters.`))
+      fail(trans('validation::password.min', { attribute: name, min: String(this.minLength) }, `The ${name} field must be at least ${this.minLength} characters.`))
     }
     if (this.requireLetters && !/[a-z]/i.test(str)) {
-      fail(trans('validation.password.letters', { attribute: name }, `The ${name} field must contain at least one letter.`))
+      fail(trans('validation::password.letters', { attribute: name }, `The ${name} field must contain at least one letter.`))
     }
     if (this.requireMixedCase && !(/[a-z]/.test(str) && /[A-Z]/.test(str))) {
-      fail(trans('validation.password.mixed_case', { attribute: name }, `The ${name} field must contain at least one uppercase and one lowercase letter.`))
+      fail(trans('validation::password.mixed_case', { attribute: name }, `The ${name} field must contain at least one uppercase and one lowercase letter.`))
     }
     if (this.requireNumbers && !/\d/.test(str)) {
-      fail(trans('validation.password.numbers', { attribute: name }, `The ${name} field must contain at least one number.`))
+      fail(trans('validation::password.numbers', { attribute: name }, `The ${name} field must contain at least one number.`))
     }
     if (this.requireSymbols && !/[^a-z0-9]/i.test(str)) {
-      fail(trans('validation.password.symbols', { attribute: name }, `The ${name} field must contain at least one symbol.`))
+      fail(trans('validation::password.symbols', { attribute: name }, `The ${name} field must contain at least one symbol.`))
     }
     if (this.requireUncompromised && (await breachCount(str)) > this.uncompromisedThreshold) {
-      fail(trans('validation.password.uncompromised', { attribute: name }, `The given ${name} has appeared in a data leak. Please choose a different ${name}.`))
+      fail(trans('validation::password.uncompromised', { attribute: name }, `The given ${name} has appeared in a data leak. Please choose a different ${name}.`))
     }
   }
 }

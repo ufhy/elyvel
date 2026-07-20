@@ -128,18 +128,20 @@ export function formatMessage(input: MessageInput): string {
   const { rule, attribute, args, sizeKind, custom = {}, attributes = {} } = input
 
   // Resolution order: caller-supplied custom message → translation
-  // (`validation.<rule>`, or `validation.<rule>.<sizeKind>` for size rules) →
-  // built-in English default. `trans` returns the English fallback untranslated
-  // when i18n is absent, so nothing regresses.
+  // (`validation::<rule>`, or `validation::<rule>.<sizeKind>` for size rules —
+  // the `validation::` namespace is this package's own `lang/` directory,
+  // auto-loaded by I18nServiceProvider, overridable via
+  // `lang/vendor/validation/...`) → built-in English default. `trans` returns
+  // the English fallback untranslated when i18n is absent, so nothing regresses.
   const defaultTemplate = pickTemplate(rule, sizeKind) ?? FALLBACK
   const key = typeof DEFAULT_MESSAGES[rule] === 'object'
-    ? `validation.${rule}.${sizeKind}`
-    : `validation.${rule}`
+    ? `validation::${rule}.${sizeKind}`
+    : `validation::${rule}`
   const template
     = custom[`${attribute}.${rule}`] ?? custom[rule] ?? trans(key, {}, defaultTemplate)
 
   const displayName = attributes[attribute]
-    ?? trans(`validation.attributes.${attribute}`, {}, humanizeAttribute(attribute))
+    ?? trans(`validation::attributes.${attribute}`, {}, humanizeAttribute(attribute))
 
   return template
     .replaceAll(':attribute', displayName)

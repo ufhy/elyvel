@@ -18,7 +18,8 @@ export default {
   throttle: 'Terlalu Banyak Permintaan',
   csrf: 'Token CSRF tidak cocok.',
   not_found: ':resource tidak ditemukan',
-  unauthenticated: 'Tidak terautentikasi',
-  unverified: 'Alamat email Anda belum terverifikasi.',
-  unauthorized: 'Tindakan ini tidak diizinkan.',
+
+  // Pesan auth (unauthenticated/unverified/unauthorized) sekarang dimuat
+  // otomatis dari @elyvel/auth sendiri di bawah namespace `auth::` — lihat
+  // packages/auth/lang/id/errors.ts. Override lewat lang/vendor/auth/id/errors.ts.
 }
