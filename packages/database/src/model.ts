@@ -45,6 +45,11 @@ export interface CustomCast {
 
 export type Cast = CastType | CustomCast
 
+/** Truthy set for the `boolean` cast — shared by the read and write paths so they never disagree. */
+function toBool(value: unknown): boolean {
+  return value === true || value === 1 || value === '1' || value === 't'
+}
+
 /** Cast a raw (DB or user-set) value to its JS representation for reads. */
 function castGet(cast: Cast, value: unknown): unknown {
   if (typeof cast === 'object')
@@ -59,7 +64,7 @@ function castGet(cast: Cast, value: unknown): unknown {
       return Number(value)
     case 'boolean':
     case 'bool':
-      return value === true || value === 1 || value === '1' || value === 't'
+      return toBool(value)
     case 'string':
       return String(value)
     case 'json':
@@ -89,7 +94,9 @@ function castStore(cast: Cast, value: unknown, dialect: string): unknown {
   switch (cast) {
     case 'boolean':
     case 'bool':
-      return dialect === 'pg' ? Boolean(value) : value ? 1 : 0
+      // Use the SAME predicate as the read path — Boolean('0')/'0'?1:0 would
+      // otherwise store the string '0' as TRUE while castGet reads it as false.
+      return dialect === 'pg' ? toBool(value) : toBool(value) ? 1 : 0
     case 'json':
     case 'array':
       return typeof value === 'string' ? value : JSON.stringify(value)

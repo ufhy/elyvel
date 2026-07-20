@@ -45,6 +45,13 @@ for (const d of dialects) {
       expect(row?.count).toBe(0)
     })
 
+    test('the string "0" stores and reads back as false (write/read agree)', async () => {
+      // A form field / hidden input sending the string '0' must not become true.
+      await Setting.create({ active: '0' as unknown as boolean, meta: {}, count: 0 })
+      const row = await Setting.find(1)
+      expect(row?.active).toBe(false)
+    })
+
     test('toJSON emits casted values', async () => {
       await Setting.create({ active: true, meta: { a: 1 }, count: 3 })
       const json = (await Setting.find(1))?.toJSON() as Record<string, unknown>
