@@ -149,4 +149,37 @@ describe('FormRequest', () => {
       .rejects
       .toThrow(ValidationException)
   })
+
+  test('prepareForValidation normalizes input before rules run', async () => {
+    class StorePost extends FormRequest {
+      override prepareForValidation(data: Record<string, unknown>) {
+        data.slug = String(data.title ?? '').toLowerCase().replace(/\s+/g, '-')
+        return data
+      }
+
+      rules() {
+        return { title: 'required', slug: 'required' }
+      }
+    }
+    const data = await StorePost.validate({ body: { title: 'Hello World' } })
+    expect(data.slug).toBe('hello-world') // derived pre-validation, passed the required rule
+  })
+
+  test('passedValidation runs after a successful validation', async () => {
+    const seen: unknown[] = []
+    class StoreThing extends FormRequest {
+      rules() {
+        return { name: 'required' }
+      }
+
+      override passedValidation(validated: Record<string, unknown>) {
+        seen.push(validated.name)
+      }
+    }
+    await StoreThing.validate({ body: { name: 'ok' } })
+    expect(seen).toEqual(['ok'])
+    // does NOT run when validation fails
+    await expect(StoreThing.validate({ body: {} })).rejects.toThrow(ValidationException)
+    expect(seen).toEqual(['ok'])
+  })
 })

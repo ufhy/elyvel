@@ -42,17 +42,35 @@ export abstract class FormRequest {
     return {}
   }
 
+  /**
+   * Normalize/augment the input BEFORE validation (Laravel's
+   * `prepareForValidation`). Mutate and/or return the data to validate; the
+   * returned object (or the mutated one) is what the rules run against.
+   */
+  prepareForValidation(data: Data, _ctx: RequestLike): Data {
+    return data
+  }
+
+  /**
+   * Run AFTER validation succeeds (Laravel's `passedValidation`) — e.g. to
+   * derive extra fields onto the validated data before it's returned.
+   */
+  passedValidation(_validated: Data, _ctx: RequestLike): void | Promise<void> {}
+
   /** Authorize, then validate `ctx.body`. Returns validated data or throws. */
   static async validate<T extends FormRequest>(this: new () => T, ctx: RequestLike): Promise<Data> {
     const instance = new this()
     if (!(await instance.authorize(ctx)))
       throw new AuthorizationException()
 
-    const data: Data = ctx.body && typeof ctx.body === 'object' ? (ctx.body as Data) : {}
+    const raw: Data = ctx.body && typeof ctx.body === 'object' ? (ctx.body as Data) : {}
+    const data = instance.prepareForValidation({ ...raw }, ctx)
     const options: ValidatorOptions = {
       messages: instance.messages(),
       attributes: instance.attributes(),
     }
-    return Validator.make(data, instance.rules(ctx), options).validate()
+    const validated = await Validator.make(data, instance.rules(ctx), options).validate()
+    await instance.passedValidation(validated, ctx)
+    return validated
   }
 }
