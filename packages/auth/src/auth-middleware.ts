@@ -1,6 +1,7 @@
 import type { MiddlewareContext } from '@elyvel/core'
 import type { User } from './better-auth'
 import { config, expectsJson, Middleware } from '@elyvel/core'
+import { trans } from '@elyvel/support'
 
 /**
  * Where to send a guest hitting a protected PAGE (browser). Overridable via
@@ -29,7 +30,7 @@ export class AuthGuard extends Middleware {
     const user = ctx.user as User | null
     if (!user) {
       return expectsJson(ctx.request)
-        ? ctx.status(401, { message: 'Unauthenticated' })
+        ? ctx.status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
         : redirect(loginPath())
     }
   }
@@ -45,12 +46,12 @@ export class VerifiedGuard extends Middleware {
     const user = ctx.user as User | null
     if (!user) {
       return expectsJson(ctx.request)
-        ? ctx.status(401, { message: 'Unauthenticated' })
+        ? ctx.status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
         : redirect(loginPath())
     }
     if (!user.emailVerified) {
       return expectsJson(ctx.request)
-        ? ctx.status(403, { message: 'Your email address is not verified.' })
+        ? ctx.status(403, { message: trans('auth::errors.unverified', {}, 'Your email address is not verified.') })
         : redirect(verifyPath())
     }
   }
