@@ -1,5 +1,10 @@
 import { AuthGuard, betterAuthPlugin, VerifiedGuard } from '@elyvel/auth'
-import { defineMiddlewareConfig, staticFiles } from '@elyvel/core'
+import {
+  ConvertEmptyStringsToNullMiddleware,
+  defineMiddlewareConfig,
+  staticFiles,
+  TrimStringsMiddleware,
+} from '@elyvel/core'
 import { inertia } from '@elyvel/inertia'
 import { logViewer } from '@elyvel/log-viewer'
 
@@ -8,8 +13,10 @@ import { logViewer } from '@elyvel/log-viewer'
  * `bootstrap/app.php`). Registered ONCE here, so route files stay clean: no
  * per-file `.use(...)`.
  *
- * - `global`: applied to every request. `betterAuthPlugin` mounts `/api/auth/*`
- *   and derives `user` app-wide; `inertia` transforms every Inertia response.
+ * - `global`: applied to every request. Trims strings and converts blank ones
+ *   to `null` first (à la Laravel's `TrimStrings`/`ConvertEmptyStringsToNull`),
+ *   then `betterAuthPlugin` mounts `/api/auth/*` and derives `user` app-wide,
+ *   then `inertia` transforms every Inertia response.
  * - `aliases`: per-route guards, used as `{ middleware: 'auth' }` — like
  *   Laravel's route middleware. `auth` requires a user; `verified` also requires
  *   a verified email. Both read the globally-derived `user`.
@@ -23,6 +30,8 @@ const favicon = `<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://ww
 
 export default defineMiddlewareConfig({
   global: [
+    TrimStringsMiddleware,
+    ConvertEmptyStringsToNullMiddleware,
     betterAuthPlugin(),
     inertia({
       vite: { entry: 'resources/js/app.ts' },

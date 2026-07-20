@@ -142,6 +142,10 @@ export {
   RedisRateLimiterStore,
   ThrottleMiddleware,
 } from './throttle'
+export {
+  ConvertEmptyStringsToNullMiddleware,
+  TrimStringsMiddleware,
+} from './transform-strings'
 export { named, registerRouteNames, routeNameEntries, urlFor } from './url'
 // Re-export Elysia's schema builder so apps have one import for env/validation.
 export { t } from 'elysia'
