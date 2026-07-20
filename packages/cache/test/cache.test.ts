@@ -95,6 +95,42 @@ for (const s of stores) {
       await new Promise(r => setTimeout(r, 40))
       expect(await c.get('t')).toBeUndefined()
     })
+
+    test('tags: store, read, and flush a group without touching others', async () => {
+      const c = s.make()
+      await c.tags(['people', 'authors']).put('john', { name: 'John' })
+      await c.tags('places').put('paris', { name: 'Paris' })
+      await c.put('untagged', 'plain')
+
+      expect(await c.tags(['people', 'authors']).get<{ name: string }>('john')).toEqual({ name: 'John' })
+      // Tag order doesn't matter.
+      expect(await c.tags(['authors', 'people']).get<{ name: string }>('john')).toEqual({ name: 'John' })
+      // A tagged entry isn't visible through the untagged repository (namespaced key).
+      expect(await c.get('john')).toBeUndefined()
+
+      // Flushing one tag orphans entries carrying it...
+      await c.tags('people').flush()
+      expect(await c.tags(['people', 'authors']).get('john')).toBeUndefined()
+      // ...but leaves other tags and untagged entries intact.
+      expect(await c.tags('places').get<{ name: string }>('paris')).toEqual({ name: 'Paris' })
+      expect(await c.get('untagged')).toBe('plain')
+    })
+
+    test('tags: remember + forget + add are tag-scoped', async () => {
+      const c = s.make()
+      let calls = 0
+      const compute = () => {
+        calls++
+        return 'v'
+      }
+      expect(await c.tags('t').rememberForever('k', compute)).toBe('v')
+      expect(await c.tags('t').rememberForever('k', compute)).toBe('v')
+      expect(calls).toBe(1) // cached on the second call
+
+      expect(await c.tags('t').add('k', 'other')).toBe(false) // already present
+      await c.tags('t').forget('k')
+      expect(await c.tags('t').get('k')).toBeUndefined()
+    })
   })
 }
 

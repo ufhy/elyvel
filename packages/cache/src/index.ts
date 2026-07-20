@@ -12,3 +12,4 @@ export {
   type RedisLike,
   RedisStore,
 } from './store'
+export { TaggedCache } from './tagged-cache'

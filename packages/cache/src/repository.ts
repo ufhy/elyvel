@@ -1,4 +1,5 @@
 import type { CacheStore } from './store'
+import { TaggedCache } from './tagged-cache'
 
 /**
  * The cache repository — Laravel's `Cache` API over a {@link CacheStore}.
@@ -19,6 +20,15 @@ export class Repository {
   private readonly inFlight = new Map<string, Promise<unknown>>()
 
   constructor(private readonly store: CacheStore) {}
+
+  /**
+   * A tag-scoped cache view (Laravel's `Cache::tags(...)`): entries stored
+   * through it can be flushed as a group with `.flush()`, without touching the
+   * rest of the cache. Backed by tag versions, so it works on every store.
+   */
+  tags(names: string | string[]): TaggedCache {
+    return new TaggedCache(this.store, Array.isArray(names) ? names : [names])
+  }
 
   async get(key: string): Promise<unknown>
   async get<T>(key: string, fallback: T): Promise<T>
