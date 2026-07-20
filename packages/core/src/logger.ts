@@ -100,7 +100,18 @@ function redact(value: unknown, cfg: RedactConfig): unknown {
   }
   if (Array.isArray(value))
     return value.map(v => redact(v, cfg))
-  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+  if (
+    value !== null
+    && typeof value === 'object'
+    // These carry their data outside enumerable own properties — walking
+    // Object.entries() on them returns nothing and would silently replace
+    // them with `{}`, losing the value entirely. Pass them through as-is.
+    && !(value instanceof Date || value instanceof RegExp || value instanceof Map || value instanceof Set || value instanceof Error || ArrayBuffer.isView(value))
+  ) {
+    // Not just plain `{}` object literals — any class instance (e.g. an ORM
+    // model carrying a `password`/`token` field) is walked the same way, so
+    // logging a model instance directly still redacts its sensitive fields
+    // instead of dumping them unredacted via its enumerable own properties.
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value)) {
       out[k] = cfg.keys.has(k.toLowerCase()) ? REDACTED : redact(v, cfg)
@@ -306,9 +317,24 @@ export class BufferedFileTransport implements Transport {
     if (this.buffer.length === 0)
       return
     const payload = this.buffer.join('')
-    this.buffer = []
-    rotateBySize(this.path, Buffer.byteLength(payload), this.maxBytes, this.maxFiles, this.compress)
-    appendFileSync(this.path, payload)
+    try {
+      rotateBySize(this.path, Buffer.byteLength(payload), this.maxBytes, this.maxFiles, this.compress)
+      appendFileSync(this.path, payload)
+      this.buffer = []
+    }
+    catch (error) {
+      // Don't clear the buffer on failure — a transient write error (ENOSPC, a
+      // permission blip, rotation's renameSync throwing) used to silently drop
+      // up to `flushEvery` lines with no trace anywhere. Keep them so the next
+      // flush() retries, but cap growth so a persistently broken disk doesn't
+      // leak memory forever.
+      console.error('[elyvel] buffered file transport flush failed, will retry:', error)
+      if (this.buffer.length > this.flushEvery * 10) {
+        console.error(`[elyvel] dropping ${this.buffer.length} buffered log lines after repeated flush failures`)
+        console.error(payload)
+        this.buffer = []
+      }
+    }
   }
 
   private schedule(): void {

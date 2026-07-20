@@ -73,6 +73,39 @@ describe('redaction', () => {
     log.info('x', { note: 'just a plain sentence' })
     expect((cap.entries[0]!.context as Record<string, any>).note).toBe('just a plain sentence')
   })
+
+  test('descends into class instances, not just plain object literals', () => {
+    // e.g. an ORM model instance passed straight into log context — its own
+    // enumerable fields (constructor-assigned, exactly where `password`/
+    // `token` would live) must still be redacted, not dumped unredacted.
+    class UserModel {
+      email = 'a@b.com'
+      password = 'hunter2'
+    }
+    const cap = new Capture()
+    const log = new Logger({ level: 'info', transports: [cap] })
+    log.info('signup', { user: new UserModel() })
+
+    const ctx = cap.entries[0]!.context as Record<string, any>
+    expect(ctx.user.email).toBe('a@b.com')
+    expect(ctx.user.password).toBe('[REDACTED]')
+  })
+
+  test('does not mangle Date/RegExp/Map/Set/Error values', () => {
+    const cap = new Capture()
+    const log = new Logger({ level: 'info', transports: [cap] })
+    const date = new Date('2026-01-01T00:00:00.000Z')
+    const error = new Error('boom')
+    const pattern = /abc/
+    log.info('x', { date, pattern, map: new Map([['a', 1]]), set: new Set([1, 2]), error })
+
+    const ctx = cap.entries[0]!.context as Record<string, any>
+    expect(ctx.date).toBe(date) // not flattened to `{}`
+    expect(ctx.pattern).toBe(pattern)
+    expect(ctx.map.get('a')).toBe(1)
+    expect(ctx.set.has(2)).toBe(true)
+    expect(ctx.error).toBe(error)
+  })
 })
 
 describe('bindings', () => {

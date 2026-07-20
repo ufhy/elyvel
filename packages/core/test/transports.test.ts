@@ -1,5 +1,5 @@
 import type { LogEntry, Transport } from '../src/logger'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { gunzipSync } from 'node:zlib'
@@ -90,6 +90,36 @@ describe('transports', () => {
     const lines = readFileSync(path, 'utf8').trim().split('\n')
     rmSync(path)
     expect(lines).toHaveLength(2)
+  })
+
+  test('a failed flush keeps the buffer instead of losing it, and retries succeed', () => {
+    const path = join(tmpdir(), `elyvel-buf-fail-${process.pid}-${Date.now()}.log`)
+    // Put a directory where the log file should be, so appendFileSync throws
+    // (EISDIR) — simulates a transient write failure (disk full, permission blip).
+    mkdirSync(path)
+    const originalError = console.error
+    const errors: unknown[][] = []
+    console.error = (...args: unknown[]) => errors.push(args)
+    try {
+      const t = new BufferedFileTransport(path, { flushEvery: 100 })
+      t.log(entry('a'))
+      t.log(entry('b'))
+      t.flush() // fails — but must not throw, and must not drop the buffer
+      expect(errors.length).toBeGreaterThan(0)
+
+      // Now clear the obstruction and retry — the original 2 lines must still
+      // be there (plus a 3rd logged in the meantime), not lost.
+      rmdirSync(path)
+      t.log(entry('c'))
+      t.flush()
+
+      const lines = readFileSync(path, 'utf8').trim().split('\n')
+      expect(lines).toHaveLength(3)
+    }
+    finally {
+      console.error = originalError
+      rmSync(path, { recursive: true, force: true })
+    }
   })
 
   test('FileTransport gzips rotated files when compress is on', () => {
