@@ -5,6 +5,8 @@ import { RedisBroadcaster } from '../src/redis-broadcaster'
 /** Logic-only fake pub/sub — no real Redis server, mirrors other packages' Redis fakes. */
 class FakePubSub {
   private readonly listeners = new Map<string, ((message: string, channel: string) => void)[]>()
+  onclose?: ((error: unknown) => void) | null
+  onconnect?: (() => void) | null
 
   async send(command: string, args: string[]): Promise<unknown> {
     if (command !== 'PUBLISH')
@@ -19,6 +21,20 @@ class FakePubSub {
     const list = this.listeners.get(channel) ?? []
     list.push(listener)
     this.listeners.set(channel, list)
+  }
+
+  /**
+   * Test helper: simulate Bun's RedisClient firing these hooks on a real
+   * connection drop/restore. A real reconnect gets a fresh socket with no
+   * memory of prior SUBSCRIBE commands, so clear the listeners the same way.
+   */
+  simulateClose(error: unknown): void {
+    this.listeners.clear()
+    this.onclose?.(error)
+  }
+
+  simulateReconnect(): void {
+    this.onconnect?.()
   }
 }
 
@@ -72,5 +88,41 @@ describe('RedisBroadcaster (logic-only fake)', () => {
     expect(seenA).toHaveLength(1)
     expect(seenB).toHaveLength(1)
     expect(seenA[0]).toEqual(seenB[0])
+  })
+})
+
+describe('RedisBroadcaster connection observability', () => {
+  test('reports a dropped connection via onConnectionEvent', async () => {
+    const pubsub = new FakePubSub()
+    const hub = new BroadcastHub()
+    const events: { event: string, detail?: unknown }[] = []
+
+    const redis = new RedisBroadcaster(pubsub, pubsub, hub, 'wire', (event, detail) => {
+      events.push({ event, detail })
+    })
+    await redis.listen()
+
+    pubsub.simulateClose(new Error('ECONNRESET'))
+    expect(events).toEqual([{ event: 'disconnected', detail: new Error('ECONNRESET') }])
+  })
+
+  test('re-subscribes to the wire channel on reconnect, so relaying actually resumes', async () => {
+    const pubsub = new FakePubSub()
+    const hub = new BroadcastHub()
+    const seen: unknown[] = []
+    hub.broadcast = (channels, event, payload) => seen.push({ channels, event, payload })
+
+    const redis = new RedisBroadcaster(pubsub, pubsub, hub)
+    await redis.listen()
+
+    // Simulate a real disconnect/reconnect cycle — a fresh connection
+    // doesn't remember the old SUBSCRIBE, so without re-issuing it here,
+    // publishing afterwards would silently go nowhere.
+    pubsub.simulateClose(new Error('blip'))
+    pubsub.simulateReconnect()
+    await new Promise(resolve => setTimeout(resolve, 10)) // let the async re-subscribe settle
+
+    await redis.broadcast(['orders'], 'created', { id: 1 })
+    expect(seen).toEqual([{ channels: ['orders'], event: 'created', payload: { id: 1 } }])
   })
 })

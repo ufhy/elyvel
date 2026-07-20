@@ -36,7 +36,13 @@ export class BroadcastServiceProvider extends ServiceProvider {
       setActiveHub(hub)
       const publisher = config.url ? new RedisClient(config.url) : new RedisClient()
       const subscriber = config.url ? new RedisClient(config.url) : new RedisClient()
-      const redis = new RedisBroadcaster(publisher, subscriber, hub, config.channel)
+      const log = this.app.logger.child('broadcast')
+      const redis = new RedisBroadcaster(publisher, subscriber, hub, config.channel, (event, detail) => {
+        if (event === 'disconnected')
+          log.error('Redis pub/sub connection dropped — broadcasts will stop relaying until it reconnects', { error: detail })
+        else
+          log.info('Redis pub/sub connected')
+      })
       await redis.listen()
       broadcaster = redis
     }

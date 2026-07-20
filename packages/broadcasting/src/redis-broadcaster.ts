@@ -11,10 +11,14 @@ export interface RedisPublisher {
  * Once a Redis client issues `.subscribe()` it enters subscribe mode and can
  * no longer run ordinary commands (Bun's `RedisClient` enforces this, same as
  * classic Redis clients), so publish and subscribe can never share one
- * connection.
+ * connection. `onclose`/`onconnect` are optional — Bun's real `RedisClient`
+ * exposes both (settable hooks, not an event emitter); a minimal test fake
+ * can omit them.
  */
 export interface RedisSubscriber {
   subscribe(channel: string, listener: (message: string, channel: string) => void): Promise<unknown>
+  onclose?: ((error: any) => void) | null
+  onconnect?: (() => void) | null
 }
 
 interface RelayEnvelope {
@@ -22,6 +26,9 @@ interface RelayEnvelope {
   event: string
   payload: Record<string, unknown>
 }
+
+/** Reported to {@link RedisBroadcaster}'s `onConnectionEvent` (if given) so an app can log/alert on it. */
+export type RedisConnectionEvent = 'connected' | 'disconnected'
 
 /**
  * Cross-process broadcasting over Redis pub/sub — fixes `BroadcastHub`'s
@@ -44,10 +51,33 @@ export class RedisBroadcaster implements Broadcaster {
     private readonly subscriber: RedisSubscriber,
     private readonly hub: BroadcastHub,
     private readonly wireChannel = 'elyvel-broadcast',
+    /**
+     * Without this, a dropped Redis connection (network blip, Redis
+     * restart) silently stopped relaying broadcasts to this instance's
+     * WebSocket clients with no trace anywhere — the exact "mail/
+     * notifications silently dropped" class of bug already fixed
+     * elsewhere in this framework, just not here yet.
+     */
+    private readonly onConnectionEvent?: (event: RedisConnectionEvent, detail?: unknown) => void,
   ) {}
 
   /** Starts relaying incoming envelopes into the local hub. Call once at boot. */
   async listen(): Promise<void> {
+    this.subscriber.onclose = (error) => {
+      this.onConnectionEvent?.('disconnected', error)
+    }
+    this.subscriber.onconnect = () => {
+      this.onConnectionEvent?.('connected')
+      // Bun's RedisClient auto-reconnects the socket, but a fresh
+      // connection doesn't know about SUBSCRIBE commands issued on the
+      // old one — re-issue it every (re)connect so relaying actually
+      // resumes rather than silently staying dark after a blip.
+      void this.subscribeToWireChannel()
+    }
+    await this.subscribeToWireChannel()
+  }
+
+  private async subscribeToWireChannel(): Promise<void> {
     await this.subscriber.subscribe(this.wireChannel, (message) => {
       const envelope = JSON.parse(message) as RelayEnvelope
       this.hub.broadcast(envelope.channels, envelope.event, envelope.payload)
