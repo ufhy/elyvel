@@ -1,0 +1,33 @@
+{
+  "name": "worker-console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "elyvel serve",
+    "start": "bun server.ts",
+    "migrate": "elyvel migrate",
+    "migrate:fresh": "elyvel migrate:fresh",
+    "key:generate": "elyvel key:generate",
+    "lint": "eslint .",
+    "format": "eslint . --fix"
+  },
+  "dependencies": {
+    "@elyvel/core": "workspace:*",
+    "@elyvel/database": "workspace:*",
+    "@elyvel/i18n": "workspace:*",
+    "@elyvel/mail": "workspace:*",
+    "@elyvel/notifications": "workspace:*",
+    "@elyvel/queue": "workspace:*",
+    "@elyvel/scheduler": "workspace:*",
+    "@elyvel/view": "workspace:*",
+    "elysia": "^1.4.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.1.0",
+    "@elyvel/cli": "workspace:*",
+    "@faker-js/faker": "^10.5.0",
+    "@types/bun": "^1.3.14",
+    "eslint": "^10.0.0"
+  }
+}
