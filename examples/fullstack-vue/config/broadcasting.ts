@@ -6,7 +6,7 @@ import { app } from '@elyvel/core'
 /**
  * Broadcasting driver. `websocket` (this app's default) uses Bun's native
  * WebSocket pub/sub, so new blog comments show up live for anyone else
- * viewing the same post — see `resources/js/pages/Blog/Show.vue`.
+ * viewing the same post — see `resources/js/Pages/Blog/Show.vue`.
  *
  * `authenticate` resolves the connecting client's Better Auth session from the
  * raw upgrade request's cookies (the same `getSession` betterAuthPlugin uses

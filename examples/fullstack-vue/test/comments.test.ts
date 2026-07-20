@@ -75,4 +75,22 @@ describe('Comments (route-model-binding + CommentPolicy)', () => {
     const res = await client.delete(`/blog/${post.id}/comments/999999`)
     res.assertStatus(404)
   })
+
+  test('a comment cannot be deleted via a URL naming the WRONG parent post, even by its own author', async () => {
+    const postA = await Post.create({ title: 'A', slug: 'a', body: 'x', user_id: AUTHOR.id, author_name: AUTHOR.name, author_email: AUTHOR.email })
+    const postB = await Post.create({ title: 'B', slug: 'b', body: 'x', user_id: AUTHOR.id, author_name: AUTHOR.name, author_email: AUTHOR.email })
+    const comment = await Comment.create({ post_id: postA.id, user_id: COMMENTER.id, author_name: COMMENTER.name, body: 'mine on A' })
+
+    await client.actingAs(COMMENTER)
+    await client.get('/blog')
+    // The comment belongs to postA, but the URL names postB.
+    const res = await client.delete(`/blog/${postB.id}/comments/${comment.id}`)
+    res.assertStatus(404)
+    expect(await Comment.find(comment.id)).not.toBeUndefined() // still there
+
+    // Sanity check: the SAME comment, deleted via its real post, works.
+    const ok = await client.delete(`/blog/${postA.id}/comments/${comment.id}`)
+    ok.assertStatus(204)
+    expect(await Comment.find(comment.id)).toBeUndefined()
+  })
 })

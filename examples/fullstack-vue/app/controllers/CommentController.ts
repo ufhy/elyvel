@@ -10,11 +10,7 @@ import { Comment } from '../models/Comment'
 import { Post } from '../models/Post'
 import { StoreCommentRequest } from '../requests/StoreCommentRequest'
 import { commentResource } from '../resources/CommentResource'
-
-/** `ctx.authorize` is derived at runtime (typed `unknown` on MiddlewareContext) — cast once here, matching PostController. */
-function authorize(ctx: MiddlewareContext, ability: string, ...args: unknown[]): void {
-  (ctx.authorize as (a: string, ...x: unknown[]) => void)(ability, ...args)
-}
+import { authorize } from '../support/authorize'
 
 /**
  * Comments on a post — JSON-only (`apiResource`, no `create`/`edit` form),
@@ -47,6 +43,13 @@ export class CommentController extends Controller {
   /** DELETE /blog/:post/comments/:id — only the comment's own author (CommentPolicy). */
   async destroy(ctx: MiddlewareContext) {
     const comment = ctx.model as Comment
+    // route-model-binding resolves the comment by :id alone — it doesn't know
+    // about :post, so a comment belonging to a DIFFERENT post than the one
+    // named in the URL must be rejected here (404, not just denied), or
+    // /blog/{wrongPost}/comments/{myComment} would still delete it.
+    if (String(comment.post_id) !== ctx.params.post) {
+      return ctx.status(404, { message: trans('errors.not_found', { resource: 'comment' }, 'Comment not found') })
+    }
     authorize(ctx, 'delete', comment)
     await comment.delete()
     return ctx.status(204)

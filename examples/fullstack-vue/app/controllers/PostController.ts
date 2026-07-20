@@ -9,6 +9,7 @@ import { Post } from '../models/Post'
 import { StorePostRequest } from '../requests/StorePostRequest'
 import { UpdatePostRequest } from '../requests/UpdatePostRequest'
 import { postResource } from '../resources/PostResource'
+import { authorize } from '../support/authorize'
 
 const PER_PAGE = 6
 
@@ -19,10 +20,6 @@ const PER_PAGE = 6
  * handler here runs, so `ctx.model` is always a loaded Post (or the request
  * already 404'd).
  */
-/** `ctx.authorize` is derived at runtime (typed `unknown` on MiddlewareContext) — cast once here. */
-function authorize(ctx: MiddlewareContext, ability: string, ...args: unknown[]): void {
-  (ctx.authorize as (a: string, ...x: unknown[]) => void)(ability, ...args)
-}
 
 /**
  * `cover_image` isn't in either FormRequest's `rules()` output (validated()
