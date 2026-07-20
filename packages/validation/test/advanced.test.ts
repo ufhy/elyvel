@@ -113,8 +113,8 @@ describe('new rules batch', () => {
       ).fails(),
     ).toBe(true)
     expect(await Validator.make({ d: '2020-13-01' }, { d: 'date_format:Y-m-d' }).fails()).toBe(
-      false,
-    ) // matches Y-m-d shape (format check, not calendar)
+      true,
+    ) // month 13 is not a real calendar date — rejected (Laravel parity)
     expect(await Validator.make({ n: '1.239' }, { n: 'decimal:2' }).fails()).toBe(true)
     expect(await Validator.make({ n: 9 }, { n: 'multiple_of:3' }).passes()).toBe(true)
     expect(await Validator.make({ s: 'AbC' }, { s: 'uppercase' }).fails()).toBe(true)

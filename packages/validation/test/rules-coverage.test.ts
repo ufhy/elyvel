@@ -19,7 +19,7 @@ const CASES: [string, unknown[], unknown[]][] = [
   ['string', ['hi', ''], [1, true, {}]],
   ['integer', [5, '5', -3], [1.5, 'x']],
   ['numeric', [1.5, '2.5', 0], ['x', 'abc']],
-  ['boolean', [true, false, 1, 0, '1', '0', 'yes', 'no'], ['maybe', 2, 'x']],
+  ['boolean', [true, false, 1, 0, '1', '0'], ['maybe', 2, 'x', 'yes', 'no', 'on', 'true']],
   // formats
   ['email', ['a@b.co', 'x.y@z.io'], ['nope', 'a@b', '@b.co']],
   ['url', ['https://a.co', 'http://x.io/p?q=1'], ['not a url', 'http://']],
@@ -50,7 +50,7 @@ const CASES: [string, unknown[], unknown[]][] = [
   ['multiple_of:3', [9, '12'], [10, 7]],
   // dates
   ['date', ['2026-01-15', '2026-01-15T10:00:00Z'], ['not-a-date', 'xyz']],
-  ['date_format:Y-m-d', ['2026-07-16'], ['2026/07/16', '16-07-2026']],
+  ['date_format:Y-m-d', ['2026-07-16', '2024-02-29'], ['2026/07/16', '16-07-2026', '2020-13-45', '2021-02-29']],
 ]
 
 describe('validation rules — table coverage', () => {

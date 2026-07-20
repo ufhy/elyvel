@@ -27,8 +27,12 @@ export function isEmpty(value: unknown): boolean {
   )
 }
 
+// `accepted`/`declined` take the broad web-form set ("yes"/"on"/…), matching
+// Laravel. The `boolean` rule is stricter — see BOOLEAN below.
 const TRUTHY = new Set([true, 1, '1', 'yes', 'on', 'true'])
 const FALSY = new Set([false, 0, '0', 'no', 'off', 'false'])
+// Laravel's `boolean` rule accepts only these — NOT 'yes'/'on'/'true' etc.
+const BOOLEAN = new Set([true, false, 1, 0, '1', '0'])
 const EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/i
@@ -150,21 +154,51 @@ const MIME: Record<string, string> = {
   json: 'application/json',
 }
 
-/** Build a regex from a PHP-style date format (subset: Y m d H i s). */
-function dateFormatRegex(format: string): RegExp {
-  const map: Record<string, string> = {
-    Y: '\\d{4}',
-    m: '\\d{2}',
-    d: '\\d{2}',
-    H: '\\d{2}',
-    i: '\\d{2}',
-    s: '\\d{2}',
+const DATE_TOKEN_WIDTH: Record<string, number> = { Y: 4, m: 2, d: 2, H: 2, i: 2, s: 2 }
+
+/**
+ * Whether `value` matches the PHP-style `format` (subset: Y m d H i s) AND is a
+ * real calendar date — not just the right shape. So `2020-13-45` / `2021-02-29`
+ * are rejected (month/day out of range), matching Laravel's `createFromFormat`
+ * validity check rather than a bare digit-count regex.
+ */
+function matchesDateFormat(value: string, format: string): boolean {
+  const fields: Record<string, number> = {}
+  let vi = 0
+  for (let fi = 0; fi < format.length; fi++) {
+    const token = format[fi] as string
+    const width = DATE_TOKEN_WIDTH[token]
+    if (width !== undefined) {
+      const slice = value.slice(vi, vi + width)
+      if (slice.length !== width || !/^\d+$/.test(slice))
+        return false
+      fields[token] = Number(slice)
+      vi += width
+    }
+    else {
+      if (value[vi] !== token)
+        return false
+      vi += 1
+    }
   }
-  let out = ''
-  for (const ch of format) {
-    out += map[ch] ?? ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (vi !== value.length)
+    return false // trailing characters beyond the format
+  if (fields.m !== undefined && (fields.m < 1 || fields.m > 12))
+    return false
+  if (fields.H !== undefined && fields.H > 23)
+    return false
+  if (fields.i !== undefined && fields.i > 59)
+    return false
+  if (fields.s !== undefined && fields.s > 59)
+    return false
+  if (fields.d !== undefined) {
+    const year = fields.Y ?? 2000 // leap-year default when no year in the format
+    const month = fields.m ?? 1
+    const daysInMonth = new Date(year, month, 0).getDate()
+    if (fields.d < 1 || fields.d > daysInMonth)
+      return false
   }
-  return new RegExp(`^${out}$`)
+  return true
 }
 
 export const RULES: Record<string, Rule> = {
@@ -233,7 +267,7 @@ export const RULES: Record<string, Rule> = {
   string: { validate: v => typeof v === 'string' },
   integer: { validate: v => isNumeric(v) && Number.isInteger(Number(v)) },
   numeric: { validate: v => isNumeric(v) },
-  boolean: { validate: v => TRUTHY.has(v as never) || FALSY.has(v as never) },
+  boolean: { validate: v => BOOLEAN.has(v as never) },
   array: {
     validate: (v, args) => {
       if (args.length === 0)
@@ -345,7 +379,7 @@ export const RULES: Record<string, Rule> = {
 
   // dates
   date: { validate: v => !Number.isNaN(Date.parse(String(v))) },
-  date_format: { validate: (v, args) => dateFormatRegex(args[0] ?? '').test(String(v)) },
+  date_format: { validate: (v, args) => matchesDateFormat(String(v), args[0] ?? '') },
   before: { validate: (v, args, data) => Date.parse(String(v)) < dateArg(args[0], data) },
   before_or_equal: { validate: (v, args, data) => Date.parse(String(v)) <= dateArg(args[0], data) },
   after: { validate: (v, args, data) => Date.parse(String(v)) > dateArg(args[0], data) },
