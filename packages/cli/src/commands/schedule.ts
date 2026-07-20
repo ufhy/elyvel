@@ -5,6 +5,10 @@ import { ScheduleToken } from '@elyvel/scheduler'
  * `elyvel schedule:run` — run every task that is due right now. Point a single
  * system cron entry at this every minute:
  *   cd /path/to/app && elyvel schedule:run >> /dev/null 2>&1
+ * Failures are also logged through the app's own logger (ScheduleServiceProvider
+ * wires this by default) — so redirecting stdout/stderr to /dev/null here is
+ * safe and won't leave failures with no record anywhere, including for
+ * runInBackground() tasks that never surface an error to this command at all.
  */
 export async function scheduleRunCommand(): Promise<number> {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })

@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, test } from 'bun:test'
 import { cronMatches, parseCron, parseCronField } from '../src/cron'
-import { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from '../src/event'
+import {
+  configureScheduleFailureLogger,
+  configureScheduleMailer,
+  ScheduledEvent,
+  setSchedulerEnvironment,
+} from '../src/event'
 import { configureScheduleMutex, MemoryScheduleMutex } from '../src/mutex'
 import { Schedule } from '../src/schedule'
 
@@ -209,6 +214,51 @@ describe('between / unlessBetween / environments / background', () => {
     expect(done).toBe(false) // not awaited
     await new Promise(r => setTimeout(r, 40))
     expect(done).toBe(true)
+  })
+
+  test('a runInBackground() failure with no onFailure hook is still logged via configureScheduleFailureLogger', async () => {
+    const logged: { name: string, error: unknown }[] = []
+    configureScheduleFailureLogger((event, error) => void logged.push({ name: event.name, error }))
+    try {
+      const s = new Schedule()
+      s.call(async () => {
+        await new Promise(r => setTimeout(r, 5))
+        throw new Error('background boom')
+      })
+        .named('my-bg-task')
+        .everyMinute()
+        .runInBackground()
+      const results = await s.run(monday0800)
+      // schedule.ts's fire-and-forget path reports `ran: true` immediately —
+      // the failure surfaces asynchronously via the logger, not in `results`.
+      expect(results[0]?.ran).toBe(true)
+      await new Promise(r => setTimeout(r, 20))
+      expect(logged).toHaveLength(1)
+      expect(logged[0]?.name).toBe('my-bg-task')
+      expect((logged[0]?.error as Error).message).toBe('background boom')
+    }
+    finally {
+      configureScheduleFailureLogger(null)
+    }
+  })
+
+  test('a foreground failure is also logged via configureScheduleFailureLogger, in addition to onFailure hooks', async () => {
+    const logged: string[] = []
+    const hookTrace: string[] = []
+    configureScheduleFailureLogger(event => void logged.push(event.name))
+    try {
+      const ev = new ScheduledEvent(() => {
+        throw new Error('fg boom')
+      })
+        .named('my-fg-task')
+        .onFailure(() => void hookTrace.push('onFailure'))
+      await expect(ev.run()).rejects.toThrow('fg boom')
+      expect(logged).toEqual(['my-fg-task'])
+      expect(hookTrace).toEqual(['onFailure'])
+    }
+    finally {
+      configureScheduleFailureLogger(null)
+    }
   })
 })
 

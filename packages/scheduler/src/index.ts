@@ -1,5 +1,10 @@
 export { cronMatches, parseCron, parseCronField, partsInZone } from './cron'
-export { configureScheduleMailer, ScheduledEvent, setSchedulerEnvironment } from './event'
+export {
+  configureScheduleFailureLogger,
+  configureScheduleMailer,
+  ScheduledEvent,
+  setSchedulerEnvironment,
+} from './event'
 export {
   configureScheduleMutex,
   MemoryScheduleMutex,

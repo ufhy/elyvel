@@ -1,6 +1,6 @@
 import type { Token } from '@elyvel/core'
 import { ServiceProvider, token } from '@elyvel/core'
-import { setSchedulerEnvironment } from './event'
+import { configureScheduleFailureLogger, setSchedulerEnvironment } from './event'
 import { Schedule, setDefaultSchedule } from './schedule'
 
 export const ScheduleToken: Token<Schedule> = token<Schedule>('schedule')
@@ -21,5 +21,18 @@ export class ScheduleServiceProvider extends ServiceProvider {
     this.schedule(schedule)
     setDefaultSchedule(schedule)
     this.app.container.instance(ScheduleToken, schedule)
+
+    // Every task failure is logged through the app's real logger by default —
+    // without this, a task with no .onFailure() hook (the common case) had
+    // no durable record of failing anywhere, `runInBackground()` tasks most
+    // of all (see configureScheduleFailureLogger's doc comment).
+    const log = this.app.logger.child('scheduler')
+    configureScheduleFailureLogger((event, error) => {
+      log.error(`scheduled task failed: ${event.name}`, {
+        expression: event.expression,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    })
   }
 }

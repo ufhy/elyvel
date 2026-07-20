@@ -20,6 +20,19 @@ export function configureScheduleMailer(mailer: ScheduleMailer): void {
   scheduleMailer = mailer
 }
 
+/**
+ * Logs a task failure (wired to the app's real logger by `ScheduleServiceProvider`
+ * — without this, a failing task's only trace was `console.error`, and the
+ * documented cron setup (`schedule:run >> /dev/null 2>&1`) throws even that
+ * away, so a `runInBackground()` task with no `.onFailure()` hook could fail
+ * every run for weeks with zero record anywhere).
+ */
+type ScheduleFailureLogger = (event: ScheduledEvent, error: unknown) => void
+let scheduleFailureLogger: ScheduleFailureLogger | null = null
+export function configureScheduleFailureLogger(logger: ScheduleFailureLogger | null): void {
+  scheduleFailureLogger = logger
+}
+
 /** Minutes since midnight for `HH:MM`. */
 function toMinutes(time: string): number {
   const [h, m] = time.split(':')
@@ -482,6 +495,7 @@ export class ScheduledEvent {
       return true
     }
     catch (error) {
+      scheduleFailureLogger?.(this, error)
       for (const hook of this.failureHooks) await hook(error)
       throw error
     }
