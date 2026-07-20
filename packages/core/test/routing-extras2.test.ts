@@ -42,6 +42,15 @@ describe('cors', () => {
     expect(res.status).toBe(204)
     expect(res.headers.get('access-control-allow-methods')).toContain('GET')
   })
+
+  test('throws at construction when credentials is combined with a wildcard origin', () => {
+    expect(() => cors({ credentials: true })).toThrow(/requires an explicit `origin`/)
+    expect(() => cors({ credentials: true, origin: '*' })).toThrow(/requires an explicit `origin`/)
+  })
+
+  test('credentials with an explicit origin is fine', () => {
+    expect(() => cors({ credentials: true, origin: 'https://app.test' })).not.toThrow()
+  })
 })
 
 describe('fallback route', () => {

@@ -23,6 +23,17 @@ export function cors(options: CorsOptions = {}): Elysia {
   const methods = (options.methods ?? ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE']).join(', ')
   const allowHeaders = (options.allowedHeaders ?? ['Content-Type', 'Authorization']).join(', ')
 
+  // `Access-Control-Allow-Origin: *` + `Access-Control-Allow-Credentials: true`
+  // is invalid per the Fetch spec — browsers reject the response client-side
+  // for any credentialed request, so this silently breaks cookies/auth
+  // headers in production with nothing here ever warning about it. Fail loud
+  // at boot instead: set an explicit `origin` when using `credentials: true`.
+  if (options.credentials && origin === '*') {
+    throw new Error(
+      '[elyvel] cors({ credentials: true }) requires an explicit `origin` — "*" is invalid with credentials per the Fetch spec and browsers will reject credentialed requests.',
+    )
+  }
+
   const apply = (set: any) => {
     set.headers['access-control-allow-origin'] = origin
     set.headers['access-control-allow-methods'] = methods
