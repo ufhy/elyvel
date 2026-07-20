@@ -101,10 +101,27 @@ function size(value: unknown, kind: SizeKind): number {
   return String(value).length
 }
 
+/**
+ * `field,val1,val2,…` conditional rules match when the other field equals ANY
+ * listed value (Laravel semantics) — the buggy original only tested the first.
+ */
+function otherFieldMatches(args: string[], data: Data): boolean {
+  const other = String(data[args[0] as string])
+  return args.slice(1).includes(other)
+}
+
+// Standard decimal / scientific notation only. Excludes what `Number()` would
+// otherwise silently accept: hex (`0x10`), binary/octal (`0b..`/`0o..`),
+// `Infinity`, `NaN` — none of which PHP's `is_numeric` treats as numeric.
+const NUMERIC = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
+
 function isNumeric(value: unknown): boolean {
   if (typeof value === 'number')
-    return !Number.isNaN(value)
-  return typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))
+    return Number.isFinite(value)
+  if (typeof value !== 'string')
+    return false
+  const s = value.trim()
+  return s !== '' && NUMERIC.test(s) && Number.isFinite(Number(s))
 }
 
 function compareTo(arg: string | undefined, data: Data): number {
@@ -161,11 +178,11 @@ export const RULES: Record<string, Rule> = {
   // conditional presence
   required_if: {
     implicit: true,
-    validate: (v, args, data) => (String(data[args[0] as string]) === args[1] ? !isEmpty(v) : true),
+    validate: (v, args, data) => (otherFieldMatches(args, data) ? !isEmpty(v) : true),
   },
   required_unless: {
     implicit: true,
-    validate: (v, args, data) => (String(data[args[0] as string]) !== args[1] ? !isEmpty(v) : true),
+    validate: (v, args, data) => (otherFieldMatches(args, data) ? true : !isEmpty(v)),
   },
   required_with: {
     implicit: true,
@@ -186,17 +203,16 @@ export const RULES: Record<string, Rule> = {
   prohibited: { implicit: true, validate: v => isEmpty(v) },
   prohibited_if: {
     implicit: true,
-    validate: (v, args, data) => (String(data[args[0] as string]) === args[1] ? isEmpty(v) : true),
+    validate: (v, args, data) => (otherFieldMatches(args, data) ? isEmpty(v) : true),
   },
   prohibited_unless: {
     implicit: true,
-    validate: (v, args, data) => (String(data[args[0] as string]) !== args[1] ? isEmpty(v) : true),
+    validate: (v, args, data) => (otherFieldMatches(args, data) ? true : isEmpty(v)),
   },
   missing: { implicit: true, validate: (_v, _a, data, attr) => !(attr in data) },
   missing_if: {
     implicit: true,
-    validate: (_v, args, data, attr) =>
-      String(data[args[0] as string]) === args[1] ? !(attr in data) : true,
+    validate: (_v, args, data, attr) => (otherFieldMatches(args, data) ? !(attr in data) : true),
   },
   missing_with: {
     implicit: true,
@@ -205,14 +221,12 @@ export const RULES: Record<string, Rule> = {
   accepted: { implicit: true, validate: v => TRUTHY.has(v as never) },
   accepted_if: {
     implicit: true,
-    validate: (v, args, data) =>
-      String(data[args[0] as string]) === args[1] ? TRUTHY.has(v as never) : true,
+    validate: (v, args, data) => (otherFieldMatches(args, data) ? TRUTHY.has(v as never) : true),
   },
   declined: { implicit: true, validate: v => FALSY.has(v as never) },
   declined_if: {
     implicit: true,
-    validate: (v, args, data) =>
-      String(data[args[0] as string]) === args[1] ? FALSY.has(v as never) : true,
+    validate: (v, args, data) => (otherFieldMatches(args, data) ? FALSY.has(v as never) : true),
   },
 
   // types
@@ -263,9 +277,12 @@ export const RULES: Record<string, Rule> = {
       }
     },
   },
-  alpha: { validate: v => /^[A-Z]+$/i.test(String(v)) },
-  alpha_num: { validate: v => /^[A-Z0-9]+$/i.test(String(v)) },
-  alpha_dash: { validate: v => /^[\w-]+$/.test(String(v)) },
+  // Unicode letters by default, matching Laravel (which rejects 'José' from
+  // `alpha` only with the opt-in `alpha:ascii`). Use the `ascii` rule for the
+  // ASCII-only variant.
+  alpha: { validate: v => /^[\p{L}\p{M}]+$/u.test(String(v)) },
+  alpha_num: { validate: v => /^[\p{L}\p{M}\p{N}]+$/u.test(String(v)) },
+  alpha_dash: { validate: v => /^[\p{L}\p{M}\p{N}_-]+$/u.test(String(v)) },
   // eslint-disable-next-line no-control-regex -- the ascii rule validates the full ASCII range \x00-\x7F
   ascii: { validate: v => /^[\x00-\x7F]*$/.test(String(v)) },
   uppercase: { validate: v => String(v) === String(v).toUpperCase() },

@@ -83,6 +83,30 @@ describe('validation rules — presence & conditionals', () => {
     expect(await Validator.make({ role: 'user', code: '' }, { code: 'required_unless:role,admin' }).passes()).toBe(false)
   })
 
+  test('required_if / required_unless match ANY listed value (not just the first)', async () => {
+    // role=superadmin must still make `code` required with `required_if:role,admin,superadmin`.
+    expect(await Validator.make({ role: 'superadmin', code: '' }, { code: 'required_if:role,admin,superadmin' }).passes()).toBe(false)
+    expect(await Validator.make({ role: 'admin', code: '' }, { code: 'required_if:role,admin,superadmin' }).passes()).toBe(false)
+    expect(await Validator.make({ role: 'guest', code: '' }, { code: 'required_if:role,admin,superadmin' }).passes()).toBe(true)
+    // required_unless: required unless role is one of the listed values.
+    expect(await Validator.make({ role: 'guest', code: '' }, { code: 'required_unless:role,admin,superadmin' }).passes()).toBe(false)
+    expect(await Validator.make({ role: 'superadmin', code: '' }, { code: 'required_unless:role,admin,superadmin' }).passes()).toBe(true)
+  })
+
+  test('numeric / integer reject hex, binary, and Infinity (Number() would accept them)', async () => {
+    expect(await passes({ f: '0x10' }, 'integer')).toBe(false)
+    expect(await passes({ f: '0b101' }, 'numeric')).toBe(false)
+    expect(await passes({ f: 'Infinity' }, 'numeric')).toBe(false)
+    expect(await passes({ f: '1.5e3' }, 'numeric')).toBe(true) // scientific notation stays valid
+  })
+
+  test('alpha accepts Unicode letters by default (Laravel parity)', async () => {
+    expect(await passes({ f: 'José' }, 'alpha')).toBe(true)
+    expect(await passes({ f: 'Über' }, 'alpha')).toBe(true)
+    expect(await passes({ f: 'a1' }, 'alpha')).toBe(false)
+    expect(await passes({ f: 'café99' }, 'alpha_num')).toBe(true)
+  })
+
   test('required_with / required_with_all / required_without / required_without_all', async () => {
     expect(await Validator.make({ a: 'x', b: '' }, { b: 'required_with:a' }).passes()).toBe(false)
     expect(await Validator.make({ a: 'x', c: 'y', b: '' }, { b: 'required_with_all:a,c' }).passes()).toBe(false)
