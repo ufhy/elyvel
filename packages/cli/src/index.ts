@@ -11,6 +11,7 @@ import {
   rollbackCommand,
   seedCommand,
   statusCommand,
+  unlockCommand,
 } from './commands/db'
 import { keyGenerate } from './commands/key'
 import { langPublish } from './commands/lang'
@@ -48,6 +49,7 @@ Usage:
   elyvel migrate:fresh                         Drop all tables and re-migrate
   elyvel migrate:rollback                      Roll back the last migration batch
   elyvel migrate:status                        Show applied/pending migrations
+  elyvel migrate:unlock                        Force-clear a stuck migration lock (crashed process)
   elyvel db:seed                               Run database/seeders/DatabaseSeeder
   elyvel model:prune [Name]                    Prune stale records (all prunable models, or one)
 
@@ -158,6 +160,10 @@ async function main(): Promise<number> {
 
   if (command === 'migrate:status') {
     return statusCommand()
+  }
+
+  if (command === 'migrate:unlock') {
+    return unlockCommand()
   }
 
   if (command === 'db:seed') {

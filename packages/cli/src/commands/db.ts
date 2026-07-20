@@ -6,6 +6,7 @@ import {
 
   countRows,
   DatabaseToken,
+  forceUnlock,
   freshMigrate,
   listTables,
 
@@ -54,6 +55,19 @@ export async function rollbackCommand(): Promise<number> {
   else {
     for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
   }
+  return 0
+}
+
+/**
+ * `elyvel migrate:unlock` — force-clear the migration lock. A live migration
+ * (in this process or another) also gets stolen by this — only run it when
+ * you're sure nothing is actually migrating right now (e.g. after confirming
+ * a deploy died mid-migration well before the 10-minute auto-steal TTL).
+ */
+export async function unlockCommand(): Promise<number> {
+  const { conn } = await boot()
+  const existed = await forceUnlock(conn)
+  console.log(existed ? 'Migration lock cleared.' : 'No migration lock was held.')
   return 0
 }
 

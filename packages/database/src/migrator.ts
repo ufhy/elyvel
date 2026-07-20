@@ -30,10 +30,39 @@ export class MigrationLockError extends Error {
   }
 }
 
+/**
+ * A held lock older than this is assumed abandoned by a crashed process (the
+ * `finally` that normally deletes the row never got to run) and is safe to
+ * steal — no real migration run takes anywhere near this long. Without a TTL,
+ * a process killed mid-migration (OOM, `kill -9`, a cancelled CI job) leaves
+ * the row forever, permanently blocking every future `migrate`/`rollback`
+ * from any process until someone manually deletes it.
+ */
+const LOCK_STALE_MS = 10 * 60 * 1000
+
 async function ensureLockTable(conn: Connection): Promise<void> {
   await conn.statement(
     `CREATE TABLE IF NOT EXISTS ${LOCK_TABLE} (id INTEGER PRIMARY KEY, locked_at VARCHAR(255) NOT NULL)`,
   )
+}
+
+async function currentLock(conn: Connection): Promise<{ lockedAt: number } | null> {
+  const g = conn.grammar
+  const rows = await conn.select<{ locked_at: string }>(
+    `SELECT locked_at FROM ${LOCK_TABLE} WHERE id = ${g.placeholder(0)}`,
+    [LOCK_ROW_ID],
+  )
+  const row = rows[0]
+  return row ? { lockedAt: new Date(row.locked_at).getTime() } : null
+}
+
+/** `elyvel migrate:unlock` — force-clear a stuck lock without waiting out the TTL. */
+export async function forceUnlock(conn: Connection): Promise<boolean> {
+  await ensureLockTable(conn)
+  const g = conn.grammar
+  const existed = (await currentLock(conn)) !== null
+  await conn.statement(`DELETE FROM ${LOCK_TABLE} WHERE id = ${g.placeholder(0)}`, [LOCK_ROW_ID])
+  return existed
 }
 
 /**
@@ -47,11 +76,18 @@ async function ensureLockTable(conn: Connection): Promise<void> {
 async function withMigrationLock<T>(conn: Connection, fn: () => Promise<T>): Promise<T> {
   const g = conn.grammar
   try {
+    await ensureLockTable(conn)
+    // A stale lock (older than LOCK_STALE_MS) means whoever held it crashed
+    // before releasing it — steal it rather than blocking every future
+    // migration run forever. A live holder racing this steal just re-inserts
+    // and wins or loses the same INSERT-collision race as before.
+    const existing = await currentLock(conn)
+    if (existing && Date.now() - existing.lockedAt > LOCK_STALE_MS)
+      await conn.statement(`DELETE FROM ${LOCK_TABLE} WHERE id = ${g.placeholder(0)}`, [LOCK_ROW_ID])
     // Both statements together: under real contention (two processes hitting
     // this at once), SQLite/MySQL/Postgres can surface a transient busy/lock
     // error from either one, not just a clean unique-constraint violation on
     // the INSERT — treat any failure here as "couldn't acquire right now."
-    await ensureLockTable(conn)
     await conn.statement(
       `INSERT INTO ${LOCK_TABLE} (id, locked_at) VALUES (${g.placeholder(0)}, ${g.placeholder(1)})`,
       [LOCK_ROW_ID, new Date().toISOString()],

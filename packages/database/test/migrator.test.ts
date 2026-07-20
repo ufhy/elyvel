@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
-import { createConnection, freshMigrate, migrate, MigrationLockError } from '../src/index'
+import { createConnection, forceUnlock, freshMigrate, migrate, MigrationLockError } from '../src/index'
 import { dialects } from './dialects'
 
 const dir = new URL('./fixtures/migrations', import.meta.url).pathname
@@ -95,6 +95,47 @@ describe('migration lock (cross-connection)', () => {
       // connB sees the same on-disk ledger — nothing left pending, but critically
       // this doesn't throw MigrationLockError: connA's lock was released.
       expect(await migrate(connB, dir)).toEqual([])
+    }
+    finally {
+      await cleanup()
+    }
+  })
+
+  test('a stale lock (crashed process) is stolen instead of blocking forever', async () => {
+    const [connA, connB, cleanup] = await sharedFileConnections()
+    try {
+      await connA.statement(
+        'CREATE TABLE IF NOT EXISTS _elyvel_migrations_lock (id INTEGER PRIMARY KEY, locked_at VARCHAR(255) NOT NULL)',
+      )
+      // Simulate a process that crashed 20 minutes into holding the lock —
+      // well past the 10-minute steal TTL.
+      const staleTimestamp = new Date(Date.now() - 20 * 60 * 1000).toISOString()
+      await connA.statement(
+        `INSERT INTO _elyvel_migrations_lock (id, locked_at) VALUES (1, '${staleTimestamp}')`,
+      )
+
+      // A fresh migrate() call steals the stale lock rather than throwing.
+      expect(await migrate(connB, dir)).toEqual(['0001_create_things'])
+    }
+    finally {
+      await cleanup()
+    }
+  })
+
+  test('forceUnlock clears a held lock and reports whether one was held', async () => {
+    const [connA, connB, cleanup] = await sharedFileConnections()
+    try {
+      await connA.statement(
+        'CREATE TABLE IF NOT EXISTS _elyvel_migrations_lock (id INTEGER PRIMARY KEY, locked_at VARCHAR(255) NOT NULL)',
+      )
+      await connA.statement(
+        'INSERT INTO _elyvel_migrations_lock (id, locked_at) VALUES (1, \'now\')',
+      )
+      await expect(migrate(connB, dir)).rejects.toThrow(MigrationLockError)
+
+      expect(await forceUnlock(connB)).toBe(true)
+      expect(await migrate(connB, dir)).toEqual(['0001_create_things'])
+      expect(await forceUnlock(connB)).toBe(false) // nothing held now
     }
     finally {
       await cleanup()

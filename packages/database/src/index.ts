@@ -47,6 +47,7 @@ export {
   tableColumns,
 } from './inspect'
 export {
+  forceUnlock,
   freshMigrate,
   loadMigrations,
   migrate,
