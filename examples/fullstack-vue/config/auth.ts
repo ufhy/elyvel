@@ -32,6 +32,7 @@ export default defineAuthConfig({
 
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: false,
     sendResetPassword: ({ user, url }) =>
       Mail.to(user.email)
         .subject('Reset your password')
