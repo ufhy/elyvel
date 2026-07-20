@@ -2,6 +2,7 @@ import type { MailConfig, MailTransportConfig } from './config-schema'
 import type { Mailable } from './mailable'
 import type { Address } from './message'
 import type { Transport } from './transports'
+import { failedMail } from './failed'
 import { Message } from './message'
 import { ArrayTransport, LogTransport, SmtpTransport } from './transports'
 
@@ -39,11 +40,28 @@ export class MailManager {
     }
   }
 
-  /** Deliver a message, applying the global default From when none is set. */
+  /**
+   * Deliver a message, applying the global default From when none is set.
+   * A send that throws is recorded via {@link configureFailedMail} (if wired)
+   * before rethrowing — without this, a failed send left no trace anywhere.
+   */
   async deliver(message: Message, transportName?: string): Promise<void> {
     if (!message.fromAddress && this.config.from)
       message.from(this.config.from)
-    await this.transport(transportName).send(message)
+    const name = transportName ?? this.defaultName
+    try {
+      await this.transport(transportName).send(message)
+    }
+    catch (error) {
+      const summary = JSON.stringify({
+        to: message.toAddresses,
+        cc: message.ccAddresses,
+        bcc: message.bccAddresses,
+        subject: message.subjectLine,
+      })
+      await failedMail()?.log(name, summary, error)
+      throw error
+    }
   }
 
   /** Start composing a message on this manager. */

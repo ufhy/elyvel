@@ -9,6 +9,14 @@ export {
   TelegramChannel,
 } from './channels'
 export {
+  configureFailedNotifications,
+  type FailedNotificationAdapter,
+  type FailedNotificationRecord,
+  FailedNotificationRepository,
+  failedNotifications,
+  MemoryFailedNotificationStore,
+} from './failed'
+export {
   NotificationManager,
   notifications,
   notify,

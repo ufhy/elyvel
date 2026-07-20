@@ -1,6 +1,7 @@
-import type { ArrayTransport } from '../src/transports'
+import type { ArrayTransport, Transport } from '../src/transports'
 import { describe, expect, test } from 'bun:test'
 import { SMTPServer } from 'smtp-server'
+import { configureFailedMail, MemoryFailedMailStore } from '../src/failed'
 import { Mailable } from '../src/mailable'
 import { Mail, MailManager, setDefaultMailer } from '../src/manager'
 import { Message } from '../src/message'
@@ -38,6 +39,36 @@ describe('array transport + fluent Mail', () => {
       email: 'no-reply@app.test',
       name: 'App',
     })
+  })
+})
+
+describe('failed mail is recorded before rethrowing', () => {
+  test('deliver() logs to the configured failed-mail store and still rejects', async () => {
+    const manager = new MailManager({
+      default: 'broken',
+      mailers: { broken: { transport: 'array' } },
+    })
+    // Inject a transport that always throws — simulates a real SMTP/API failure.
+    const throwing: Transport = {
+      send: async () => {
+        throw new Error('connection refused')
+      },
+    }
+    ;(manager as unknown as { resolved: Map<string, Transport> }).resolved.set('broken', throwing)
+    setDefaultMailer(manager)
+
+    const store = new MemoryFailedMailStore()
+    configureFailedMail(store)
+
+    await expect(Mail.to('a@b.com').subject('Hi').text('body').send())
+      .rejects
+      .toThrow('connection refused')
+
+    const records = await store.all()
+    expect(records).toHaveLength(1)
+    expect(records[0]?.mailer).toBe('broken')
+    expect(records[0]?.exception).toContain('connection refused')
+    expect(JSON.parse(records[0]?.message ?? '{}').to).toEqual(['a@b.com'])
   })
 })
 

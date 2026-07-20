@@ -1,4 +1,5 @@
 import type { ArrayTransport } from '@elyvel/mail'
+import type { Channel } from '../src/channels'
 import type { Notifiable, StoredNotification } from '../src/index'
 import { MailManager, Message, setDefaultMailer } from '@elyvel/mail'
 import { setDefaultTelegram, TelegramClient } from '@elyvel/telegram'
@@ -7,7 +8,8 @@ import { DatabaseChannel, MailChannel, TelegramChannel } from '../src/channels'
 import {
   ArrayChannel,
   configureDatabaseNotifications,
-
+  configureFailedNotifications,
+  MemoryFailedNotificationStore,
   Notification,
   NotificationManager,
 
@@ -121,5 +123,63 @@ describe('multi-channel dispatch', () => {
       .channel('mail', new MailChannel())
     await manager.send(user, new OnlyArray())
     expect(array.sent).toHaveLength(1)
+  })
+})
+
+describe('one channel failing does not drop the others', () => {
+  class MultiChannel extends Notification {
+    via() {
+      return ['broken', 'array']
+    }
+
+    override toArray() {
+      return { ok: true }
+    }
+  }
+
+  test('the working channel still fires, and the failure is recorded + rethrown', async () => {
+    const store = new MemoryFailedNotificationStore()
+    configureFailedNotifications(store)
+
+    const array = new ArrayChannel()
+    const broken: Channel = {
+      send: async () => {
+        throw new Error('webhook unreachable')
+      },
+    }
+    const manager = new NotificationManager()
+      .channel('broken', broken)
+      .channel('array', array)
+
+    await expect(manager.send(user, new MultiChannel())).rejects.toThrow('webhook unreachable')
+
+    // The channel after the failing one still ran — it used to be silently skipped.
+    expect(array.sent).toHaveLength(1)
+
+    const records = await store.all()
+    expect(records).toHaveLength(1)
+    expect(records[0]?.channel).toBe('broken')
+    expect(records[0]?.exception).toContain('webhook unreachable')
+    expect(records[0]?.notifiableId).toBe('7')
+  })
+
+  test('sendMany: one notifiable failing does not stop the others', async () => {
+    const store = new MemoryFailedNotificationStore()
+    configureFailedNotifications(store)
+
+    const array = new ArrayChannel()
+    const broken: Channel = {
+      send: async (notifiable) => {
+        if (notifiable.id === 'bad')
+          throw new Error('nope')
+      },
+    }
+    const manager = new NotificationManager().channel('broken', broken).channel('array', array)
+
+    const notifiables: Notifiable[] = [{ id: 'bad' }, { id: 'good' }]
+    await expect(manager.sendMany(notifiables, new MultiChannel())).rejects.toThrow()
+
+    // Both notifiables were attempted on the 'array' channel despite the first's failure.
+    expect(array.sent).toHaveLength(2)
   })
 })
