@@ -261,10 +261,39 @@ export const RateLimiter = {
 }
 
 // ── throttle middleware ─────────────────────────────────────────────────────
+// Whether to trust `X-Forwarded-For`/`X-Real-IP` for the client IP. OFF by
+// default: those headers are attacker-controlled unless a trusted proxy sets
+// them, so trusting them blindly lets an attacker send a fresh value per
+// request and defeat a per-IP login/throttle limit entirely. Turn ON only when
+// the app genuinely sits behind a proxy/load balancer that sets them.
+let trustProxyHeaders = false
+
+/**
+ * Trust `X-Forwarded-For`/`X-Real-IP` for the throttle client IP (Laravel's
+ * `TrustProxies`). Enable when the app runs behind a proxy/load balancer that
+ * sets these; leave off (default) for a directly-exposed server, where they'd
+ * otherwise be spoofable to bypass per-IP rate limits.
+ */
+export function trustProxies(trust = true): void {
+  trustProxyHeaders = trust
+}
+
 function clientIp(ctx: MiddlewareContext): string {
   const req = ctx.request
-  const fwd = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return fwd || req.headers.get('x-real-ip') || 'global'
+  if (trustProxyHeaders) {
+    const fwd = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    if (fwd)
+      return fwd
+    const real = req.headers.get('x-real-ip')
+    if (real)
+      return real
+  }
+  // The real socket peer — not the spoofable forwarding headers. Bun's server
+  // exposes it on the context; falls back to a shared bucket if unavailable
+  // (e.g. in-process `app.handle()` with no server).
+  interface PeerServer { requestIP?(r: Request): { address?: string } | null }
+  const server = (ctx as { server?: PeerServer }).server
+  return server?.requestIP?.(req)?.address ?? 'global'
 }
 
 function routeScope(ctx: MiddlewareContext): string {

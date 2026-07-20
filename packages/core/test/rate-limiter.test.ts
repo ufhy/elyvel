@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { registerMiddlewareRegistry, route } from '../src/middleware'
-import { Limit, RateLimiter, rateLimiter, ThrottleMiddleware } from '../src/throttle'
+import { Limit, RateLimiter, rateLimiter, ThrottleMiddleware, trustProxies } from '../src/throttle'
 
 beforeEach(() => rateLimiter.clear())
 
@@ -60,6 +60,38 @@ describe('Limit builder', () => {
     expect(limit.key).toBe('user:1')
     expect(limit.responseCallback).toBeDefined()
     expect(limit.afterCallback).toBeDefined()
+  })
+})
+
+// ── trusted-proxy handling for the client IP ───────────────────────────────
+describe('X-Forwarded-For trust (throttle client IP)', () => {
+  afterEach(() => trustProxies(false)) // reset module-level state
+
+  const build = () => {
+    registerMiddlewareRegistry({ aliases: { throttle: ThrottleMiddleware } })
+    return new Elysia().use(route().get('/login', () => 'ok', { middleware: 'throttle:2,1' }))
+  }
+  const hit = (app: ReturnType<typeof build>, xff: string) =>
+    app.handle(new Request('http://localhost/login', { headers: { 'x-forwarded-for': xff } }))
+
+  test('by default X-Forwarded-For is IGNORED — a rotating header cannot bypass the per-IP limit', async () => {
+    const app = build()
+    // Attacker sends a fresh spoofed IP each request; all should share one
+    // bucket (no server peer in app.handle → the constant fallback), so the
+    // 3rd request is still blocked.
+    expect((await hit(app, '1.1.1.1')).status).toBe(200)
+    expect((await hit(app, '2.2.2.2')).status).toBe(200)
+    expect((await hit(app, '3.3.3.3')).status).toBe(429)
+  })
+
+  test('with trustProxies() enabled, distinct X-Forwarded-For values get distinct buckets', async () => {
+    trustProxies(true)
+    const app = build()
+    // A genuine proxy deployment: each real client IP is its own bucket.
+    expect((await hit(app, '1.1.1.1')).status).toBe(200)
+    expect((await hit(app, '1.1.1.1')).status).toBe(200)
+    expect((await hit(app, '1.1.1.1')).status).toBe(429) // this client exhausted
+    expect((await hit(app, '9.9.9.9')).status).toBe(200) // a different client is independent
   })
 })
 

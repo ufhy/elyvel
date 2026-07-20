@@ -141,6 +141,7 @@ export {
   type RateLimiterStore,
   RedisRateLimiterStore,
   ThrottleMiddleware,
+  trustProxies,
 } from './throttle'
 export {
   ConvertEmptyStringsToNullMiddleware,
