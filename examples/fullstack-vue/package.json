@@ -12,7 +12,8 @@
     "migrate:fresh": "elyvel migrate:fresh",
     "key:generate": "elyvel key:generate",
     "lint": "eslint .",
-    "format": "eslint . --fix"
+    "format": "eslint . --fix",
+    "postinstall": "elyvel package:discover"
   },
   "dependencies": {
     "@elyvel/auth": "workspace:*",

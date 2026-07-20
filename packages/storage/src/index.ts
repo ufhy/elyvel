@@ -1,3 +1,5 @@
+import { StorageServiceProvider } from './provider'
+
 export {
   defineStorageConfig,
   type DiskConfig,
@@ -20,3 +22,6 @@ export {
 } from './disk'
 export { fakeStorage, FilesystemManager, setDefaultStorage, storage } from './manager'
 export { StorageServiceProvider, StorageToken } from './provider'
+
+/** Read by `elyvel package:discover` — see packages/core's discovery loader. */
+export const elyvelProviders = [StorageServiceProvider]
