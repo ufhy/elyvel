@@ -5,7 +5,7 @@ import { ServiceProvider, token } from '@elyvel/core'
 import { RedisClient } from 'bun'
 import { ArrayBroadcaster, LogBroadcaster } from './broadcaster'
 import { BroadcastHub } from './hub'
-import { setDefaultBroadcaster } from './manager'
+import { setActiveHub, setDefaultBroadcaster } from './manager'
 import { RedisBroadcaster } from './redis-broadcaster'
 
 export const BroadcasterToken: Token<Broadcaster> = token<Broadcaster>('broadcaster')
@@ -26,12 +26,14 @@ export class BroadcastServiceProvider extends ServiceProvider {
     let broadcaster: Broadcaster
     if (driver === 'websocket') {
       const hub = new BroadcastHub()
-      this.app.webSocket(hub.websocket, server => hub.setServer(server))
+      this.app.webSocket(hub.websocket, server => hub.setServer(server), config.authenticate)
+      setActiveHub(hub)
       broadcaster = hub
     }
     else if (driver === 'redis') {
       const hub = new BroadcastHub()
-      this.app.webSocket(hub.websocket, server => hub.setServer(server))
+      this.app.webSocket(hub.websocket, server => hub.setServer(server), config.authenticate)
+      setActiveHub(hub)
       const publisher = config.url ? new RedisClient(config.url) : new RedisClient()
       const subscriber = config.url ? new RedisClient(config.url) : new RedisClient()
       const redis = new RedisBroadcaster(publisher, subscriber, hub, config.channel)

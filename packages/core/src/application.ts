@@ -454,9 +454,22 @@ export class Application {
     const server = Bun.serve({
       port: resolved,
       websocket: ws?.handler,
-      fetch: (request, srv) => {
-        if (ws && srv.upgrade(request))
-          return undefined
+      fetch: async (request, srv) => {
+        if (ws) {
+          // No `authenticate` configured means every upgrade is anonymous —
+          // fine for public-only channels, but the caller (e.g. broadcasting)
+          // is responsible for warning that private/presence channels need it.
+          if (ws.authenticate) {
+            const identity = await ws.authenticate(request)
+            if (identity === null || identity === false)
+              return new Response('Unauthorized', { status: 401 })
+            if ((srv as any).upgrade(request, { data: { identity } }))
+              return undefined
+          }
+          else if (srv.upgrade(request)) {
+            return undefined
+          }
+        }
         return this.handle(request)
       },
     })
@@ -467,13 +480,26 @@ export class Application {
     return this
   }
 
-  private wsHandler: { handler: any, onServer?(server: any): void } | null = null
+  private wsHandler: {
+    handler: any
+    onServer?(server: any): void
+    authenticate?(request: Request): unknown | null | false | Promise<unknown | null | false>
+  } | null = null
+
   /**
    * Register a Bun WebSocket handler; `listen()` upgrades WS handshakes to it and
    * calls `onServer` with the running server (used by broadcasting for pub/sub).
+   * `authenticate`, if given, runs before every upgrade — return the connecting
+   * client's identity to allow it (stored on `ws.data.identity`), or
+   * `null`/`false` to reject with 401. Without it, every connection is
+   * anonymous (`ws.data.identity` is `undefined`).
    */
-  webSocket(handler: any, onServer?: (server: any) => void): void {
-    this.wsHandler = { handler, onServer }
+  webSocket(
+    handler: any,
+    onServer?: (server: any) => void,
+    authenticate?: (request: Request) => unknown | null | false | Promise<unknown | null | false>,
+  ): void {
+    this.wsHandler = { handler, onServer, authenticate }
   }
 
   /**
