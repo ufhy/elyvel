@@ -43,6 +43,20 @@ import { ThrottleMiddleware } from './throttle'
 
 type ChannelConfig = LogChannelConfig
 
+/**
+ * Loads `bootstrap/providers.generated.ts` — written by `elyvel package:discover`
+ * — if present. Missing file (discovery never run, or nothing discoverable
+ * installed) is NOT an error: this returns an empty array so app boot never
+ * depends on that file existing.
+ */
+async function loadDiscoveredProviders(basePath: string): Promise<ServiceProviderClass[]> {
+  const manifestPath = join(basePath, 'bootstrap', 'providers.generated.ts')
+  if (!existsSync(manifestPath))
+    return []
+  const manifest = (await import(manifestPath)) as { discoveredProviders?: ServiceProviderClass[] }
+  return manifest.discoveredProviders ?? []
+}
+
 let processLoggingInstalled = false
 
 function installProcessLogging(logger: Logger): void {
@@ -171,8 +185,13 @@ export class Application {
     // Before routes so the OpenAPI plugin observes them all.
     await app.registerOpenApi()
 
+    const discovered = await loadDiscoveredProviders(app.basePath)
     const configured = app.config.get<ServiceProviderClass[]>('app.providers', [])
-    const providerClasses = [...configured, ...(options.providers ?? [])]
+    // Discovered (package) providers first, then the app's own explicit list —
+    // matches Laravel's ordering (package providers boot before the app's).
+    // Deduped by class reference so a provider both auto-discovered AND
+    // listed explicitly in config/app.ts only registers/boots once.
+    const providerClasses = [...new Set([...discovered, ...configured, ...(options.providers ?? [])])]
 
     for (const Provider of providerClasses) {
       app.providers.push(new Provider(app))

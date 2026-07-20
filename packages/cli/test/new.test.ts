@@ -55,8 +55,9 @@ describe('elyvel new', () => {
     const pkg = JSON.parse(read('kit-app', 'package.json'))
     expect(pkg.dependencies['better-auth']).toBeDefined()
     expect(pkg.dependencies['@elyvel/auth']).toBeDefined()
-    // MailServiceProvider auto-registered
-    expect(read('kit-app', 'config/app.ts')).toContain('MailServiceProvider')
+    // Auth/MailServiceProvider are no longer text-patched into config/app.ts —
+    // `elyvel package:discover` (run via postinstall) picks them up instead.
+    expect(pkg.scripts.postinstall).toBe('elyvel package:discover')
   })
 
   test('--kit=none scaffolds the base skeleton without a frontend kit', async () => {

@@ -27,6 +27,12 @@ export default antfu(
       '**/*.md',
     ],
   },
+  // Global ignores must be their own ignores-only config object — nesting
+  // `ignores` inside a config object that also sets `rules` (like the two
+  // below) scopes it to that object only, not every config in this array.
+  {
+    ignores: ['**/bootstrap/providers.generated.ts'],
+  },
   {
     // Match what Biome enforced + keep the patterns this codebase uses on purpose.
     rules: {

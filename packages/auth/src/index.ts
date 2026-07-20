@@ -1,3 +1,5 @@
+import { AuthServiceProvider } from './provider'
+
 export { AuthGuard, VerifiedGuard } from './auth-middleware'
 export {
   type BetterAuthLike,
@@ -43,3 +45,6 @@ export type {
   TokenStore,
   UserProvider,
 } from './types'
+
+/** Read by `elyvel package:discover` — see packages/core's discovery loader. */
+export const elyvelProviders = [AuthServiceProvider]

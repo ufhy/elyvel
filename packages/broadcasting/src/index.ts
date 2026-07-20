@@ -1,3 +1,5 @@
+import { BroadcastServiceProvider } from './provider'
+
 export { broadcast, Broadcastable } from './broadcastable'
 export { ArrayBroadcaster, type Broadcaster, LogBroadcaster } from './broadcaster'
 export { BroadcastChannel } from './channel'
@@ -11,3 +13,6 @@ export {
   type RedisPublisher,
   type RedisSubscriber,
 } from './redis-broadcaster'
+
+/** Read by `elyvel package:discover` — see packages/core's discovery loader. */
+export const elyvelProviders = [BroadcastServiceProvider]

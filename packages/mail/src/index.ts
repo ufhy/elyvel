@@ -1,3 +1,5 @@
+import { MailServiceProvider } from './provider'
+
 export { defineMailConfig, type MailConfig, type MailTransportConfig } from './config-schema'
 export {
   configureFailedMail,
@@ -18,3 +20,6 @@ export {
   SmtpTransport,
   type Transport,
 } from './transports'
+
+/** Read by `elyvel package:discover` — see packages/core's discovery loader. */
+export const elyvelProviders = [MailServiceProvider]

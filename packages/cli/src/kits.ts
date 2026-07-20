@@ -119,43 +119,6 @@ async function mergePackageJson(cwd: string, kit: Kit): Promise<void> {
 }
 
 /**
- * Register the kit's service providers in config/app.ts — Mail (reset / verify
- * email) and Auth (builds the Better Auth instance). Idempotent.
- */
-async function registerProviders(cwd: string): Promise<boolean> {
-  const path = join(cwd, 'config', 'app.ts')
-  if (!existsSync(path))
-    return false
-  let src = await readFile(path, 'utf8')
-  const importAnchor = 'import { EloquentServiceProvider } from \'@elyvel/database\''
-  const providerAnchor = 'EloquentServiceProvider,'
-  if (!src.includes(importAnchor) || !src.includes(providerAnchor))
-    return false
-
-  if (!src.includes('MailServiceProvider')) {
-    src = src.replace(
-      importAnchor,
-      `${importAnchor}\nimport { MailServiceProvider } from '@elyvel/mail'`,
-    )
-    src = src.replace(providerAnchor, `${providerAnchor} MailServiceProvider,`)
-  }
-
-  if (!src.includes('AuthServiceProvider')) {
-    src = src.replace(
-      importAnchor,
-      `import { AuthServiceProvider } from '@elyvel/auth'\n${importAnchor}`,
-    )
-    const mailAnchor = 'MailServiceProvider,'
-    src = src.includes(mailAnchor)
-      ? src.replace(mailAnchor, `${mailAnchor} AuthServiceProvider,`)
-      : src.replace(providerAnchor, `${providerAnchor} AuthServiceProvider,`)
-  }
-
-  await Bun.write(path, src)
-  return true
-}
-
-/**
  * Scaffold a starter kit into an app directory (Better Auth backend + a Vue
  * frontend — Inertia for `vue`, a Vite SPA for `spa`). Composed by `elyvel new`.
  * `quiet` suppresses the trailing "Next steps" (new prints them once).
@@ -197,14 +160,9 @@ export async function scaffoldKit(
   }
 
   await mergePackageJson(cwd, kit)
-  const providerOk = await registerProviders(cwd)
 
   console.log(`\n✓ Installed ${kit.label} kit (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
-  if (!providerOk) {
-    console.log('  ! Could not auto-register providers — add them to config/app.ts providers:')
-    console.log('      import { AuthServiceProvider } from \'@elyvel/auth\'')
-    console.log('      import { MailServiceProvider } from \'@elyvel/mail\'')
-  }
+  console.log('  Auth/Mail providers are auto-registered by `elyvel package:discover` (runs on `bun install`).')
   if (!quiet) {
     console.log('\nNext steps:')
     for (const line of kit.nextSteps) console.log(`  ${line}`)

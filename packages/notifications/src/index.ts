@@ -1,3 +1,5 @@
+import { NotificationServiceProvider } from './provider'
+
 export {
   ArrayChannel,
   type Channel,
@@ -24,3 +26,6 @@ export {
 } from './manager'
 export { type Notifiable, notifiableKey, Notification, routeFor } from './notification'
 export { NotificationServiceProvider, NotificationToken } from './provider'
+
+/** Read by `elyvel package:discover` — see packages/core's discovery loader. */
+export const elyvelProviders = [NotificationServiceProvider]

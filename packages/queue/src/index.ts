@@ -1,3 +1,5 @@
+import { QueueServiceProvider } from './provider'
+
 export {
   Batch,
   type BatchAdapter,
@@ -91,3 +93,6 @@ export {
   uniqueLock,
 } from './unique'
 export { Worker, type WorkerOptions } from './worker'
+
+/** Read by `elyvel package:discover` — see packages/core's discovery loader. */
+export const elyvelProviders = [QueueServiceProvider]

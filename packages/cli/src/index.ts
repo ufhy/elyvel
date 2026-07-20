@@ -18,6 +18,7 @@ import { langPublish } from './commands/lang'
 import { down, up } from './commands/maintenance'
 import { make } from './commands/make'
 import { newApp } from './commands/new'
+import { packageDiscoverCommand } from './commands/package-discover'
 import {
   queueFailedCommand,
   queueFlushCommand,
@@ -88,6 +89,7 @@ Usage:
   elyvel make:provider <Name>                  Generate a service provider
 
   elyvel config:publish [name...] [--force]    Publish default config files to config/
+  elyvel package:discover                      Auto-register installed packages' providers (bootstrap/providers.generated.ts)
 `
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
@@ -144,6 +146,10 @@ async function main(): Promise<number> {
 
   if (command === 'config:publish') {
     return configPublish(rest, flags)
+  }
+
+  if (command === 'package:discover') {
+    return packageDiscoverCommand()
   }
 
   if (command === 'migrate') {

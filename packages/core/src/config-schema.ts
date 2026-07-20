@@ -25,6 +25,13 @@ export interface AppConfig {
   port?: number
   /** Service providers to register at boot, in order. */
   providers?: ServiceProviderClass[]
+  /**
+   * Package names to exclude from `elyvel package:discover` (Laravel's
+   * `dont-discover`) — e.g. `['@elyvel/telegram']` to register that package's
+   * provider yourself instead of picking up the auto-discovered one. Only
+   * read by the CLI at discovery time, not at boot.
+   */
+  dontDiscover?: string[]
 }
 
 /** Shape of `config/logging.ts`. Author it with {@link defineLoggingConfig}. */
