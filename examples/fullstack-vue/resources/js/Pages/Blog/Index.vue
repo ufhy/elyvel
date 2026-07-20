@@ -10,6 +10,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 interface PostSummary {
   id: number
   title: string
+  excerpt: string
   author_name: string
   published_at: string | null
   cover_image_url: string | null
@@ -69,6 +70,9 @@ function formatDate(iso: string | null): string {
             </CardTitle>
           </CardHeader>
           <CardContent class="text-sm text-muted-foreground">
+            <p class="mb-1 text-foreground/80">
+              {{ post.excerpt }}
+            </p>
             {{ post.author_name }} · {{ formatDate(post.published_at) }}
           </CardContent>
         </div>

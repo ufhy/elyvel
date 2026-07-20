@@ -11,9 +11,16 @@ import { Post } from '../models/Post'
 import { StoreCommentRequest } from '../requests/StoreCommentRequest'
 import { commentResource } from '../resources/CommentResource'
 
+/** `ctx.authorize` is derived at runtime (typed `unknown` on MiddlewareContext) — cast once here, matching PostController. */
+function authorize(ctx: MiddlewareContext, ability: string, ...args: unknown[]): void {
+  (ctx.authorize as (a: string, ...x: unknown[]) => void)(ability, ...args)
+}
+
 /**
  * Comments on a post — JSON-only (`apiResource`, no `create`/`edit` form),
  * nested under `/blog/:post/comments`. Requires auth (see routes/blog.ts).
+ * `destroy` is route-model-bound (`bind: Comment`), so `ctx.model` is always a
+ * loaded Comment there — same pattern PostController uses for its own binding.
  */
 export class CommentController extends Controller {
   /** POST /blog/:post/comments */
@@ -37,16 +44,10 @@ export class CommentController extends Controller {
     return ctx.status(201, { data: commentResource(comment) })
   }
 
-  /** DELETE /blog/:post/comments/:id — only the comment's own author. */
+  /** DELETE /blog/:post/comments/:id — only the comment's own author (CommentPolicy). */
   async destroy(ctx: MiddlewareContext) {
-    const comment = await Comment.find(ctx.params.id)
-    if (!comment) {
-      return ctx.status(404, { message: trans('errors.not_found', { resource: 'comment' }, 'Comment not found') })
-    }
-    const user = ctx.user as User
-    if (comment.user_id !== user.id) {
-      return ctx.status(403, { message: trans('errors.unauthorized', {}, 'This action is unauthorized.') })
-    }
+    const comment = ctx.model as Comment
+    authorize(ctx, 'delete', comment)
     await comment.delete()
     return ctx.status(204)
   }
