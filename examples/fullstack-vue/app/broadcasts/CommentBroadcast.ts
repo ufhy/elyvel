@@ -5,9 +5,10 @@ import { commentResource } from '../resources/CommentResource'
 
 /**
  * Broadcast to everyone viewing a post when a new comment lands — see
- * `resources/js/pages/Blog/Show.vue`'s WebSocket subscription. Channel is a
- * plain naming convention (`posts.{id}`); the framework has no private-channel
- * authorization yet, so don't put anything here a non-author shouldn't see.
+ * `resources/js/pages/Blog/Show.vue`'s WebSocket subscription. The
+ * `private-` prefix routes subscription attempts through the `channel()` rule
+ * registered in `AppServiceProvider` (published → anyone; unpublished →
+ * author only), so an unpublished post's comments can't leak to a guessed id.
  */
 export class CommentBroadcast extends Broadcastable {
   constructor(private readonly comment: Comment, private readonly post: Post) {
@@ -15,7 +16,7 @@ export class CommentBroadcast extends Broadcastable {
   }
 
   override broadcastOn(): string[] {
-    return [`posts.${this.post.id}`]
+    return [`private-posts.${this.post.id}`]
   }
 
   override broadcastWith(): Record<string, unknown> {

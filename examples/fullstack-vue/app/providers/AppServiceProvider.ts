@@ -1,5 +1,6 @@
 import type { User } from '@elyvel/auth'
 import { gate } from '@elyvel/auth'
+import { channel } from '@elyvel/broadcasting'
 import { ServiceProvider } from '@elyvel/core'
 import { configureLogViewer } from '@elyvel/log-viewer'
 import { configureFailedJobs } from '@elyvel/queue'
@@ -21,6 +22,17 @@ export class AppServiceProvider extends ServiceProvider {
     this.app.logger.child('app').info('application booted', { appName })
 
     gate().policy(Post, new PostPolicy())
+
+    // A published post's comment stream is public (guests watch too); an
+    // unpublished one is author-only — same rule PostController.show()
+    // already enforces over HTTP, now applied to the WebSocket channel too so
+    // a guessed post id can't leak an unpublished post's live comments.
+    channel('private-posts.{postId}', async (identity, { postId }) => {
+      const post = await Post.find(postId)
+      if (!post)
+        return false
+      return post.published || (identity as User | null)?.id === post.user_id
+    })
 
     configureLogViewer({
       authorize: ctx => LOG_VIEWER_ADMINS.includes((ctx.user as User | null)?.email ?? ''),

@@ -29,20 +29,27 @@ const props = defineProps<{ post: PostDetail }>()
 
 /**
  * Live comments: `CommentBroadcast` (see app/broadcasts) publishes to
- * `posts.{id}` whenever anyone posts a comment. No client helper exists in
- * the framework yet (no Echo equivalent), so this is a plain WebSocket —
- * matching the wire protocol `BroadcastHub` speaks (`packages/broadcasting`).
+ * `private-posts.{id}` whenever anyone posts a comment. The `private-` prefix
+ * is checked server-side against a `channel()` rule (published → anyone,
+ * unpublished → author only — see `AppServiceProvider`); the browser's own
+ * session cookie rides along on the WebSocket upgrade automatically, no extra
+ * client auth needed. No client helper exists in the framework yet (no Echo
+ * equivalent), so this is a plain WebSocket — matching the wire protocol
+ * `BroadcastHub` speaks (`packages/broadcasting`).
  */
+const channelName = `private-posts.${props.post.id}`
 let socket: WebSocket | undefined
 onMounted(() => {
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/`
   socket = new WebSocket(url)
   socket.addEventListener('open', () => {
-    socket?.send(JSON.stringify({ event: 'subscribe', channel: `posts.${props.post.id}` }))
+    socket?.send(JSON.stringify({ event: 'subscribe', channel: channelName }))
   })
   socket.addEventListener('message', (raw) => {
     const msg = JSON.parse(raw.data as string) as { channel?: string, event?: string }
-    if (msg.channel === `posts.${props.post.id}` && msg.event === 'CommentBroadcast')
+    if (msg.channel === channelName && msg.event === 'subscription_error')
+      console.error('Could not subscribe to live comments — you may not have access to this post.')
+    else if (msg.channel === channelName && msg.event === 'CommentBroadcast')
       router.reload({ only: ['post'] })
   })
 })
