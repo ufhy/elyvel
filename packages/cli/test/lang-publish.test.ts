@@ -26,21 +26,22 @@ describe('elyvel lang:publish', () => {
     expect(content).toContain('required:')
   })
 
-  test('publishes core error defaults to lang/<locale>/errors.ts (unnamespaced — core is mandatory, not opt-in)', () => {
+  test('publishes core error defaults to lang/vendor/core/<locale>/errors.ts (namespaced — core:: too)', () => {
     expect(langPublish('en')).toBe(0)
-    const content = readFileSync(join(dir, 'lang', 'en', 'errors.ts'), 'utf8')
+    const content = readFileSync(join(dir, 'lang', 'vendor', 'core', 'en', 'errors.ts'), 'utf8')
     expect(content).toContain('not_found:')
-    // auth-specific keys no longer live here
+    // auth-specific keys live in @elyvel/auth's own namespace, not core's
     expect(content).not.toContain('unauthenticated')
   })
 
   test('existing files are left alone unless --force', () => {
+    const errorsFile = join(dir, 'lang', 'vendor', 'core', 'en', 'errors.ts')
     langPublish('en')
-    writeFileSync(join(dir, 'lang', 'en', 'errors.ts'), 'export default { custom: true }\n')
+    writeFileSync(errorsFile, 'export default { custom: true }\n')
     langPublish('en')
-    expect(readFileSync(join(dir, 'lang', 'en', 'errors.ts'), 'utf8')).toContain('custom: true')
+    expect(readFileSync(errorsFile, 'utf8')).toContain('custom: true')
     langPublish('en', { force: true })
-    expect(readFileSync(join(dir, 'lang', 'en', 'errors.ts'), 'utf8')).not.toContain('custom: true')
+    expect(readFileSync(errorsFile, 'utf8')).not.toContain('custom: true')
   })
 
   test('--package=<name> copies an installed package\'s lang/ tree to lang/vendor/<name>/', () => {

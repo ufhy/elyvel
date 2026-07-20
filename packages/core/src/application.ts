@@ -8,6 +8,7 @@ import type { ServiceProvider, ServiceProviderClass } from './service-provider'
 import type { ResolvedSessionConfig } from './session'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { ConfigRepository, ConfigToken, setConfigRepository } from './config'
 import { Container } from './container'
@@ -489,7 +490,7 @@ export class Application {
             // from an explicit reject, so a channel authorizer can still
             // differentiate "anonymous" from "actively denied" downstream.
             if (identity === false)
-              return new Response('Unauthorized', { status: 401 })
+              return new Response(trans('core::errors.unauthorized', {}, 'Unauthorized'), { status: 401 })
             if ((srv as any).upgrade(request, { data: { identity } }))
               return undefined
           }

@@ -175,10 +175,18 @@ export class Translator {
   }
 }
 
-/** Resolve a dot-path within a nested tree; undefined if any segment is missing. */
+/**
+ * Resolve `key` against a tree: an exact top-level match first (Laravel's
+ * "translation string as key" convention — `__('I love programming.')` — a
+ * whole sentence used as its own key, which usually contains `.` and would
+ * otherwise be misread as dot-notation nesting), then dot-path traversal
+ * (`messages.welcome`) as a fallback.
+ */
 function resolve(tree: LinesTree | undefined, key: string): unknown {
   if (!tree)
     return undefined
+  if (Object.hasOwn(tree, key))
+    return tree[key]
   return key.split('.').reduce<unknown>(
     (node, part) => (node != null && typeof node === 'object'
       ? (node as Record<string, unknown>)[part]

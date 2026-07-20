@@ -176,7 +176,7 @@ export function maintenanceMode(file: string) {
       return
 
     const status = payload.status ?? 503
-    const message = payload.message ?? trans('errors.503.message', {}, 'Service Unavailable')
+    const message = payload.message ?? trans('core::errors.503.message', {}, 'Service Unavailable')
     const headers: Record<string, string> = {}
     if (payload.retryAfter)
       headers['retry-after'] = String(payload.retryAfter)

@@ -1,5 +1,6 @@
 import type { Server, WebSocketHandler } from 'bun'
 import type { Broadcaster } from './broadcaster'
+import { trans } from '@elyvel/support'
 
 /** Data Bun stores per-connection (set at `server.upgrade(request, { data })`). */
 export interface WsData {
@@ -119,7 +120,7 @@ export class BroadcastHub implements Broadcaster {
           ws.send(JSON.stringify({
             channel: msg.channel,
             event: 'subscription_error',
-            payload: { message: 'Unauthorized' },
+            payload: { message: trans('broadcasting::errors.unauthorized', {}, 'Unauthorized') },
           }))
         }
       }

@@ -18,6 +18,20 @@ describe('Translator.get', () => {
     expect(make().get('messages.welcome', { name: 'Ada' })).toBe('Welcome, Ada')
   })
 
+  test('Laravel-style "translation string as key" — a whole sentence containing "." resolves as an exact match, not dot-path nesting', () => {
+    const t = new Translator({ locale: 'id', fallback: 'id' })
+    t.addLines('id', { 'I love programming.': 'Saya suka pemrograman.' })
+    expect(t.get('I love programming.')).toBe('Saya suka pemrograman.')
+    // a missing whole-sentence key still falls back to itself, like any missing key
+    expect(t.get('I love cooking.')).toBe('I love cooking.')
+  })
+
+  test('exact match takes priority over dot-path when both could apply', () => {
+    const t = new Translator({ locale: 'en', fallback: 'en' })
+    t.addLines('en', { 'a.b': 'exact', 'a': { b: 'nested' } })
+    expect(t.get('a.b')).toBe('exact')
+  })
+
   test(':Name mirrors the placeholder casing', () => {
     expect(make().get('messages.greeting', { name: 'ada' })).toBe('Hello Ada')
   })

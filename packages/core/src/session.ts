@@ -594,7 +594,7 @@ export class CsrfMiddleware extends Middleware {
     if (!session)
       return // sessions not enabled → nothing to verify
     if (!csrfTokensMatch(requestToken(ctx), session.token())) {
-      return ctx.status(419, { message: trans('errors.csrf', {}, 'CSRF token mismatch.') })
+      return ctx.status(419, { message: trans('core::errors.csrf', {}, 'CSRF token mismatch.') })
     }
   }
 }

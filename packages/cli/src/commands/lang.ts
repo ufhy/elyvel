@@ -72,14 +72,15 @@ export function langPublish(
     return publishPackageLang(flags.package, flags.force === true)
 
   const force = flags.force === true
-  const dir = join(process.cwd(), 'lang', locale)
 
-  console.log(`Publishing default messages to lang/${locale}/`)
-  // validation::* is namespaced (auto-loaded from @elyvel/validation's own
-  // lang/ — see I18nServiceProvider) — the override location is
-  // lang/vendor/validation/<locale>.ts, not lang/<locale>/validation.ts.
+  console.log(`Publishing default messages to lang/vendor/`)
+  // Both validation::* and core::errors.* are namespaced (auto-loaded from
+  // their own packages' lang/ — see I18nServiceProvider) — override location
+  // is lang/vendor/<namespace>/..., not a plain lang/<locale>/ file. Every
+  // trans() call in the framework's own source is namespaced this way now;
+  // there's no more app-level "default" translation group.
   writeGroup(join(process.cwd(), 'lang', 'vendor', 'validation'), locale, DEFAULT_MESSAGES, force)
-  writeGroup(dir, 'errors', ERROR_LANG_DEFAULTS, force)
+  writeGroup(join(process.cwd(), 'lang', 'vendor', 'core', locale), 'errors', ERROR_LANG_DEFAULTS, force)
   console.log(`\nDone. Edit the published files to change the wording; add the locale to config/i18n.ts \`locales\`.`)
   return 0
 }

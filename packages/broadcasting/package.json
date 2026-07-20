@@ -14,6 +14,7 @@
   },
   "peerDependencies": {
     "@elyvel/core": "workspace:*",
-    "@elyvel/notifications": "workspace:*"
+    "@elyvel/notifications": "workspace:*",
+    "@elyvel/support": "workspace:*"
   }
 }

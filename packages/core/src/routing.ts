@@ -188,7 +188,7 @@ function buildResource(
       if (model === null || model === undefined) {
         return options.onMissing
           ? options.onMissing(ctx)
-          : ctx.status(404, { message: trans('errors.not_found', { resource: label }, `${label} not found`) })
+          : ctx.status(404, { message: trans('core::errors.not_found', { resource: label }, `${label} not found`) })
       }
       ctx.model = model
       return handler(ctx)
