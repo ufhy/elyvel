@@ -59,6 +59,19 @@ describe('elyvel new', () => {
     expect(read('kit-app', 'config/app.ts')).toContain('MailServiceProvider')
   })
 
+  test('--kit=none scaffolds the base skeleton without a frontend kit', async () => {
+    expect(await newApp('bare-app', { kit: 'none' })).toBe(0)
+    for (const f of ['config/app.ts', 'routes/web.ts', 'app/providers/AppServiceProvider.ts']) {
+      expect(existsSync(join(dir, 'bare-app', f))).toBe(true)
+    }
+    for (const f of ['config/auth.ts', 'resources/js/Pages/Welcome.vue', 'vite.config.ts']) {
+      expect(existsSync(join(dir, 'bare-app', f))).toBe(false)
+    }
+    const pkg = JSON.parse(read('bare-app', 'package.json'))
+    expect(pkg.dependencies['better-auth']).toBeUndefined()
+    expect(pkg.dependencies?.vue).toBeUndefined()
+  })
+
   test('creates .env with a generated APP_KEY (ready to run)', async () => {
     await newApp('keyed')
     expect(existsSync(join(dir, 'keyed', '.env'))).toBe(true)

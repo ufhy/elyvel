@@ -40,7 +40,7 @@ export async function newApp(
   flags: Record<string, string | boolean> = {},
 ): Promise<number> {
   if (!rawName) {
-    console.error('Missing name. Usage: elyvel new <name> [--kit=vue|spa]')
+    console.error('Missing name. Usage: elyvel new <name> [--kit=vue|spa|none]')
     return 1
   }
 
@@ -92,7 +92,9 @@ export async function newApp(
 
   // Full-stack by default: apply the selected starter kit (Better Auth + a Vue
   // frontend). Everything comes from the installer — no manual package/file edits.
-  await scaffoldKit(kit, target, true)
+  // `--kit=none` skips this: base template only, no frontend/auth kit installed.
+  if (kit !== 'none')
+    await scaffoldKit(kit, target, true)
 
   console.log('\nNext steps:')
   console.log(`  cd ${rawName}`)

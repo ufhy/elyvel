@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates')
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
 
-/** Starter kits selectable via `elyvel new <name> --kit=<name>`. */
-export type KitName = 'vue' | 'spa'
+/** Starter kits selectable via `elyvel new <name> --kit=<name>`. `none` skips kit installation — base template only, no frontend. */
+export type KitName = 'vue' | 'spa' | 'none'
 
 interface Kit {
   /** Sub-directory under templates/. */
@@ -50,7 +50,7 @@ const SHARED_DEV_DEPS: Record<string, string> = {
   'vite': '^8.0.0',
 }
 
-const KITS: Record<KitName, Kit> = {
+const KITS: Record<Exclude<KitName, 'none'>, Kit> = {
   vue: {
     dir: 'auth',
     label: 'Vue + Inertia',
@@ -87,15 +87,17 @@ const KITS: Record<KitName, Kit> = {
   },
 }
 
+const NONE_NEXT_STEPS = ['bun install', 'bun run migrate', 'bun run dev']
+
 export function isKitName(value: string): value is KitName {
-  return value in KITS
+  return value === 'none' || value in KITS
 }
 
-export const kitNames = Object.keys(KITS) as KitName[]
+export const kitNames = [...(Object.keys(KITS) as KitName[]), 'none'] as KitName[]
 
-/** The "Next steps" lines for a kit (printed once by `elyvel new`). */
+/** The "Next steps" lines for a kit (printed once by `elyvel new`). `none` has no frontend to build. */
 export function kitNextSteps(kitName: KitName): string[] {
-  return KITS[kitName].nextSteps
+  return kitName === 'none' ? NONE_NEXT_STEPS : KITS[kitName].nextSteps
 }
 
 function outputPath(rel: string): string {
@@ -159,7 +161,7 @@ async function registerProviders(cwd: string): Promise<boolean> {
  * `quiet` suppresses the trailing "Next steps" (new prints them once).
  */
 export async function scaffoldKit(
-  kitName: KitName,
+  kitName: Exclude<KitName, 'none'>,
   cwd: string = process.cwd(),
   quiet = false,
 ): Promise<number> {
