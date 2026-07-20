@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { configureDbRules } from '../src/db-rules'
+import { configureDbRules, DbRuleTimeoutError } from '../src/db-rules'
 import { FormRequest } from '../src/form-request'
 import { ValidationException } from '../src/validation-exception'
 import { validate, Validator } from '../src/validator'
@@ -72,6 +72,18 @@ describe('Validator — unique via DB resolver', () => {
       { email: 'required|email|unique:users,email' },
     ).errors()
     expect(bag.email?.[0]).toBe('The email has already been taken.')
+  })
+
+  test('a hung resolver query rejects with DbRuleTimeoutError instead of hanging forever', async () => {
+    // Simulates a stuck connection pool / network partition: the resolver's
+    // promise never settles. Without a timeout, this `await` — and the whole
+    // request behind it — would hang indefinitely.
+    configureDbRules({ count: () => new Promise<number>(() => {}) }, { timeoutMs: 20 })
+    await expect(
+      Validator.make({ email: 'x@y.io' }, { email: 'unique:users,email' }).passes(),
+    ).rejects.toThrow(DbRuleTimeoutError)
+    // Restore a fast resolver + default timeout for the rest of the suite.
+    configureDbRules({ count: async () => 0 }, { timeoutMs: 5000 })
   })
 })
 

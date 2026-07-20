@@ -1,5 +1,5 @@
 import type { SizeKind } from './messages'
-import { getDbResolver } from './db-rules'
+import { countWithTimeout } from './db-rules'
 import { sniffFileMime } from './file-inspect'
 import { readImageDimensions, sniffImageMime } from './image-inspect'
 
@@ -416,13 +416,13 @@ export const RULES: Record<string, Rule> = {
   unique: {
     validate: async (v, args) => {
       const [table, column = 'id', ignoreId] = args
-      return (await getDbResolver().count(table as string, column, v, ignoreId)) === 0
+      return (await countWithTimeout(table as string, column, v, ignoreId)) === 0
     },
   },
   exists: {
     validate: async (v, args) => {
       const [table, column = 'id'] = args
-      return (await getDbResolver().count(table as string, column, v)) > 0
+      return (await countWithTimeout(table as string, column, v)) > 0
     },
   },
 }
