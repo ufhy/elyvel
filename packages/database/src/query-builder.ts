@@ -88,26 +88,78 @@ interface UnionClause {
   all: boolean
 }
 
+// Comparison operators are interpolated raw into SQL (they can't be bound as a
+// parameter), so — like Laravel's builder — they're validated against an
+// allowlist. Without this, `where(col, request.input('op'), v)` with
+// `op = "= 1 OR 1=1 --"` injects arbitrary SQL. Values are always parameterized;
+// this guards only the operator position.
+const VALID_OPERATORS = new Set([
+  '=',
+  '<',
+  '>',
+  '<=',
+  '>=',
+  '<>',
+  '!=',
+  '<=>',
+  'like',
+  'like binary',
+  'not like',
+  'ilike',
+  'not ilike',
+  '&',
+  '|',
+  '^',
+  '<<',
+  '>>',
+  '&~',
+  'rlike',
+  'not rlike',
+  'regexp',
+  'not regexp',
+  '~',
+  '~*',
+  '!~',
+  '!~*',
+  'similar to',
+  'not similar to',
+])
+
+/** Validate a comparison operator against the allowlist (Laravel parity); throws on anything else. */
+function assertOperator(operator: string): string {
+  if (!VALID_OPERATORS.has(operator.toLowerCase().trim()))
+    throw new Error(`[elyvel] Invalid SQL operator "${operator}".`)
+  return operator
+}
+
+/** Validate an ORDER BY direction — only `asc`/`desc`; the raw value is otherwise interpolated into SQL. */
+function assertDirection(direction: string): 'ASC' | 'DESC' {
+  const d = direction.toLowerCase().trim()
+  if (d !== 'asc' && d !== 'desc')
+    throw new Error(`[elyvel] Invalid ORDER BY direction "${direction}" (expected "asc" or "desc").`)
+  return d.toUpperCase() as 'ASC' | 'DESC'
+}
+
 /** Builder passed to a join closure: `join('t', (j) => j.on(a,'=',b).orOn(...))`. */
 export class JoinClauseBuilder {
   readonly conditions: JoinCond[] = []
   on(first: string, operator: string, second: string): this {
-    this.conditions.push({ boolean: 'AND', first, operator, second, isValue: false })
+    this.conditions.push({ boolean: 'AND', first, operator: assertOperator(operator), second, isValue: false })
     return this
   }
 
   orOn(first: string, operator: string, second: string): this {
-    this.conditions.push({ boolean: 'OR', first, operator, second, isValue: false })
+    this.conditions.push({ boolean: 'OR', first, operator: assertOperator(operator), second, isValue: false })
     return this
   }
 
   where(column: string, operator: string, value: unknown): this {
-    this.conditions.push({ boolean: 'AND', first: column, operator, value, isValue: true })
+    this.conditions.push({ boolean: 'AND', first: column, operator: assertOperator(operator), value, isValue: true })
     return this
   }
 
   orWhere(column: string, operator: string, value: unknown): this {
-    this.conditions.push({ boolean: 'OR', first: column, operator, value, isValue: true })
+    this.conditions.push({ boolean: 'OR', first: column, operator: assertOperator(operator), value, isValue: true })
     return this
   }
 }
@@ -245,7 +297,7 @@ export class QueryBuilder {
     this.wheres.push({
       boolean: 'AND',
       column: first,
-      operator,
+      operator: assertOperator(operator),
       value: null,
       kind: 'column',
       secondColumn: second,
@@ -257,7 +309,7 @@ export class QueryBuilder {
     this.wheres.push({
       boolean: 'OR',
       column: first,
-      operator,
+      operator: assertOperator(operator),
       value: null,
       kind: 'column',
       secondColumn: second,
@@ -444,7 +496,7 @@ export class QueryBuilder {
     value?: unknown,
   ): this {
     const [operator, val]
-      = value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
+      = value === undefined ? ['=', operatorOrValue] : [assertOperator(String(operatorOrValue)), value]
     this.wheres.push({ boolean, column, operator, value: val, kind: 'datePart', part })
     return this
   }
@@ -574,7 +626,7 @@ export class QueryBuilder {
   }
 
   having(column: string, operator: string, value: unknown): this {
-    this.havings.push({ column, operator, value, boolean: 'AND' })
+    this.havings.push({ column, operator: assertOperator(operator), value, boolean: 'AND' })
     return this
   }
 
@@ -589,7 +641,7 @@ export class QueryBuilder {
   }
 
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
-    this.orders.push({ column, direction: direction.toUpperCase() as 'ASC' | 'DESC' })
+    this.orders.push({ column, direction: assertDirection(direction) })
     return this
   }
 
@@ -611,7 +663,8 @@ export class QueryBuilder {
   }
 
   inRandomOrder(): this {
-    this.rawOrders.push('RANDOM()')
+    // MySQL spells it RAND(); SQLite/Postgres use RANDOM().
+    this.rawOrders.push(this.connection.dialect === 'mysql' ? 'RAND()' : 'RANDOM()')
     return this
   }
 
@@ -671,7 +724,7 @@ export class QueryBuilder {
 
   private addWhere(boolean: Bool, column: string, operatorOrValue: unknown, value?: unknown): this {
     const [operator, val]
-      = value === undefined ? ['=', operatorOrValue] : [String(operatorOrValue), value]
+      = value === undefined ? ['=', operatorOrValue] : [assertOperator(String(operatorOrValue)), value]
     if (val instanceof QueryBuilder) {
       this.wheres.push({ boolean, column, operator, value: null, kind: 'sub', sub: val })
     }
