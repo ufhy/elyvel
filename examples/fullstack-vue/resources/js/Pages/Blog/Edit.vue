@@ -64,8 +64,8 @@ function submit() {
           </p>
         </div>
         <div class="grid gap-2">
-          <Label for="slug">Slug</Label>
-          <Input id="slug" v-model="form.slug" required />
+          <Label for="slug">Slug <span class="text-muted-foreground font-normal">(clear it to re-generate from the title)</span></Label>
+          <Input id="slug" v-model="form.slug" />
           <p v-if="form.errors.slug" class="text-sm text-destructive">
             {{ form.errors.slug }}
           </p>

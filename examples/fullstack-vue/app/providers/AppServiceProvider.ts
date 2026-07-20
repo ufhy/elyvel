@@ -4,7 +4,10 @@ import { channel } from '@elyvel/broadcasting'
 import { ServiceProvider } from '@elyvel/core'
 import { configureLogViewer } from '@elyvel/log-viewer'
 import { configureFailedJobs } from '@elyvel/queue'
+import { Comment } from '../models/Comment'
 import { Post } from '../models/Post'
+import { PostObserver } from '../observers/PostObserver'
+import { CommentPolicy } from '../policies/CommentPolicy'
 import { PostPolicy } from '../policies/PostPolicy'
 import { DatabaseFailedJobStore } from '../support/DatabaseFailedJobStore'
 
@@ -22,6 +25,8 @@ export class AppServiceProvider extends ServiceProvider {
     this.app.logger.child('app').info('application booted', { appName })
 
     gate().policy(Post, new PostPolicy())
+    gate().policy(Comment, new CommentPolicy())
+    Post.observe(new PostObserver())
 
     // A published post's comment stream is public (guests watch too); an
     // unpublished one is author-only — same rule PostController.show()

@@ -81,4 +81,39 @@ describe('Blog', () => {
     expect(created?.author_name).toBe(AUTHOR.name)
     stopActingAs()
   })
+
+  test('PostObserver auto-generates a slug from the title when left blank', async () => {
+    await client.actingAs(AUTHOR)
+    await client.get('/blog')
+
+    const res = await client.post('/blog', { json: { title: 'Hello World!', body: 'x' } })
+    res.assertStatus(303)
+    const created = await Post.query().where('title', 'Hello World!').first()
+    expect(created?.slug).toBe('hello-world')
+    stopActingAs()
+  })
+
+  test('StorePostRequest.prepareForValidation cleans up a messy user-typed slug via Str.slug', async () => {
+    await client.actingAs(AUTHOR)
+    await client.get('/blog')
+
+    const res = await client.post('/blog', { json: { title: 'X', slug: 'My Cool Post!', body: 'x' } })
+    res.assertStatus(303) // would have 422'd against the raw string (spaces/! fail the kebab-case regex)
+    const created = await Post.query().where('title', 'X').first()
+    expect(created?.slug).toBe('my-cool-post')
+    stopActingAs()
+  })
+
+  test('PostObserver de-duplicates a colliding auto-generated slug', async () => {
+    await client.actingAs(AUTHOR)
+    await client.get('/blog')
+
+    await client.post('/blog', { json: { title: 'Same Title', body: 'first' } })
+    const res = await client.post('/blog', { json: { title: 'Same Title', body: 'second' } })
+    res.assertStatus(303)
+
+    const second = await Post.query().where('body', 'second').first()
+    expect(second?.slug).toBe('same-title-2')
+    stopActingAs()
+  })
 })
