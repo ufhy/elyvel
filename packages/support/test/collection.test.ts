@@ -56,4 +56,57 @@ describe('Collection', () => {
   test('is iterable', () => {
     expect([...new Collection([1, 2, 3])]).toEqual([1, 2, 3])
   })
+
+  test('reject / flatMap / flatten', () => {
+    const c = new Collection([1, 2, 3, 4])
+    expect(c.reject(n => n % 2 === 0).all()).toEqual([1, 3])
+    expect(c.flatMap(n => [n, n * 10]).all()).toEqual([1, 10, 2, 20, 3, 30, 4, 40])
+    expect(new Collection([1, [2, [3]]]).flatten().all()).toEqual([1, 2, 3])
+    expect(new Collection([1, [2, [3]]]).flatten(1).all()).toEqual([1, 2, [3]])
+  })
+
+  test('unique by identity and by selector', () => {
+    expect(new Collection([1, 1, 2, 3, 3]).unique().all()).toEqual([1, 2, 3])
+    expect(new Collection(people).unique('role').pluck('name').all()).toEqual(['Ada', 'Alan'])
+  })
+
+  test('reverse / sortByDesc / take / skip / slice', () => {
+    const c = new Collection([1, 2, 3, 4, 5])
+    expect(c.reverse().all()).toEqual([5, 4, 3, 2, 1])
+    expect(new Collection(people).sortByDesc('age').first()?.name).toBe('Grace')
+    expect(c.take(2).all()).toEqual([1, 2])
+    expect(c.take(-2).all()).toEqual([4, 5])
+    expect(c.skip(3).all()).toEqual([4, 5])
+    expect(c.slice(1, 2).all()).toEqual([2, 3])
+  })
+
+  test('concat / merge / diff / intersect', () => {
+    const c = new Collection([1, 2, 3])
+    expect(c.concat([4, 5]).all()).toEqual([1, 2, 3, 4, 5])
+    expect(c.merge(new Collection([4])).all()).toEqual([1, 2, 3, 4])
+    expect(c.diff([2]).all()).toEqual([1, 3])
+    expect(c.intersect([2, 3, 9]).all()).toEqual([2, 3])
+  })
+
+  test('implode / countBy / mapWithKeys', () => {
+    expect(new Collection(people).implode(', ', 'name')).toBe('Ada, Alan, Grace')
+    expect(new Collection([1, 2, 3]).implode('-')).toBe('1-2-3')
+    expect(new Collection(people).countBy('role')).toEqual({ admin: 2, user: 1 })
+    expect(new Collection(people).mapWithKeys(p => [p.name, p.age])).toEqual({ Ada: 36, Alan: 41, Grace: 45 })
+  })
+
+  test('pipe / whenEmpty / whenNotEmpty', () => {
+    expect(new Collection([1, 2, 3]).pipe(c => c.sum())).toBe(6)
+    let flag = ''
+    new Collection<number>([]).whenEmpty(() => (flag = 'empty'))
+    expect(flag).toBe('empty')
+    new Collection([1]).whenNotEmpty(() => (flag = 'not-empty'))
+    expect(flag).toBe('not-empty')
+  })
+
+  test('sole returns the single match or throws', () => {
+    expect(new Collection(people).sole(p => p.name === 'Ada').age).toBe(36)
+    expect(() => new Collection(people).sole(p => p.role === 'admin')).toThrow(/2 items matched/)
+    expect(() => new Collection(people).sole(p => p.name === 'Nobody')).toThrow(/no matching/)
+  })
 })

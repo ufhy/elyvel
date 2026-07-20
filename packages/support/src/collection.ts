@@ -48,6 +48,145 @@ export class Collection<T> implements Iterable<T> {
     return new Collection(this.items.filter(fn))
   }
 
+  /** The inverse of {@link filter} — keep items where `fn` is falsy. */
+  reject(fn: (item: T, index: number) => boolean): Collection<T> {
+    return new Collection(this.items.filter((item, i) => !fn(item, i)))
+  }
+
+  /** Map then flatten one level. */
+  flatMap<U>(fn: (item: T, index: number) => U | U[]): Collection<U> {
+    return new Collection(this.items.flatMap((item, i) => fn(item, i)))
+  }
+
+  /** Flatten nested arrays within the items to `depth` levels. */
+  flatten(depth = Number.POSITIVE_INFINITY): Collection<unknown> {
+    const out: unknown[] = []
+    const walk = (arr: unknown[], d: number): void => {
+      for (const v of arr) {
+        if (Array.isArray(v) && d > 0)
+          walk(v, d - 1)
+        else out.push(v)
+      }
+    }
+    walk(this.items, depth)
+    return new Collection(out)
+  }
+
+  /** Distinct items — by identity, or by a key/selector's value (first wins). */
+  unique(by?: keyof T | ((item: T) => unknown)): Collection<T> {
+    const select = by === undefined ? (i: T) => i : typeof by === 'function' ? by : (i: T) => i[by]
+    const seen = new Set<unknown>()
+    const out: T[] = []
+    for (const item of this.items) {
+      const k = select(item)
+      if (!seen.has(k)) {
+        seen.add(k)
+        out.push(item)
+      }
+    }
+    return new Collection(out)
+  }
+
+  reverse(): Collection<T> {
+    return new Collection([...this.items].reverse())
+  }
+
+  /** Like {@link sortBy} but descending. */
+  sortByDesc(by: keyof T | ((item: T) => number | string)): Collection<T> {
+    return this.sortBy(by).reverse()
+  }
+
+  /** First `n` items (or the last `|n|` when `n` is negative). */
+  take(n: number): Collection<T> {
+    return new Collection(n < 0 ? this.items.slice(n) : this.items.slice(0, n))
+  }
+
+  /** Drop the first `n` items. */
+  skip(n: number): Collection<T> {
+    return new Collection(this.items.slice(n))
+  }
+
+  slice(start: number, length?: number): Collection<T> {
+    return new Collection(this.items.slice(start, length === undefined ? undefined : start + length))
+  }
+
+  /** Append more items (array or Collection), returning a new Collection. */
+  concat(items: T[] | Collection<T>): Collection<T> {
+    return new Collection(this.items.concat(items instanceof Collection ? items.all() : items))
+  }
+
+  /** Alias of {@link concat} (Laravel's `merge` for a list collection). */
+  merge(items: T[] | Collection<T>): Collection<T> {
+    return this.concat(items)
+  }
+
+  /** Items in this collection not present in `items`. */
+  diff(items: T[] | Collection<T>): Collection<T> {
+    const other = new Set(items instanceof Collection ? items.all() : items)
+    return this.filter(item => !other.has(item))
+  }
+
+  /** Items present in both this collection and `items`. */
+  intersect(items: T[] | Collection<T>): Collection<T> {
+    const other = new Set(items instanceof Collection ? items.all() : items)
+    return this.filter(item => other.has(item))
+  }
+
+  /** Join item values (optionally a column's) with `glue`. */
+  implode(glue: string, key?: keyof T): string {
+    return (key === undefined ? this.items : this.items.map(i => i[key])).join(glue)
+  }
+
+  /** Count occurrences keyed by a selector (or the item itself). */
+  countBy(by?: keyof T | ((item: T) => unknown)): Record<string, number> {
+    const select = by === undefined ? (i: T) => i : typeof by === 'function' ? by : (i: T) => i[by]
+    const out: Record<string, number> = {}
+    for (const item of this.items) {
+      const k = String(select(item))
+      out[k] = (out[k] ?? 0) + 1
+    }
+    return out
+  }
+
+  /** Pass the whole collection through `fn` and return its result (Laravel's `pipe`). */
+  pipe<U>(fn: (collection: this) => U): U {
+    return fn(this)
+  }
+
+  /** Run `fn` only when the collection is empty; returns `this` either way. */
+  whenEmpty(fn: (collection: this) => void): this {
+    if (this.isEmpty())
+      fn(this)
+    return this
+  }
+
+  /** Run `fn` only when the collection is non-empty; returns `this` either way. */
+  whenNotEmpty(fn: (collection: this) => void): this {
+    if (this.isNotEmpty())
+      fn(this)
+    return this
+  }
+
+  /** The single matching item; throws unless exactly one matches (Laravel's `sole`). */
+  sole(predicate?: (item: T) => boolean): T {
+    const matches = predicate ? this.items.filter(predicate) : this.items
+    if (matches.length === 0)
+      throw new Error('[elyvel] Collection.sole(): no matching items.')
+    if (matches.length > 1)
+      throw new Error(`[elyvel] Collection.sole(): ${matches.length} items matched, expected exactly 1.`)
+    return matches[0]!
+  }
+
+  /** Map each item to a `[key, value]` pair, collected into a record. */
+  mapWithKeys<V>(fn: (item: T, index: number) => [string | number, V]): Record<string, V> {
+    const out: Record<string, V> = {}
+    this.items.forEach((item, i) => {
+      const [k, v] = fn(item, i)
+      out[String(k)] = v
+    })
+    return out
+  }
+
   reduce<U>(fn: (carry: U, item: T) => U, initial: U): U {
     return this.items.reduce(fn, initial)
   }
