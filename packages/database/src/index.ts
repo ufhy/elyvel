@@ -64,6 +64,7 @@ export {
   type CustomCast,
   Model,
   type ModelEvent,
+  type ModelObserver,
 } from './model'
 export {
   type CursorRowPaginator,

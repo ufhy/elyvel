@@ -139,6 +139,30 @@ export type ModelEvent
 type EventListener = (model: Model) => void | Promise<void>
 const MODEL_EVENTS = new WeakMap<Function, Map<ModelEvent, EventListener[]>>()
 
+/** All model lifecycle events, in the order they're documented (used by `observe`). */
+const MODEL_EVENT_NAMES: ModelEvent[] = [
+  'saving',
+  'saved',
+  'creating',
+  'created',
+  'updating',
+  'updated',
+  'deleting',
+  'deleted',
+  'trashed',
+  'forceDeleting',
+  'forceDeleted',
+  'restoring',
+  'restored',
+  'retrieved',
+  'replicating',
+  'pruning',
+]
+
+/** An observer: any object/class whose method names match model events (Laravel's observer classes). */
+export type ModelObserver<M extends Model = Model> = Partial<Record<ModelEvent, (model: M) => void | Promise<void>>>
+type ModelObserverClass<M extends Model = Model> = new () => ModelObserver<M>
+
 /**
  * Optional bridge so model lifecycle events also flow through an app-wide event
  * dispatcher (à la Laravel's `eloquent.<event>: <Model>`). Wire it once at boot,
@@ -292,6 +316,25 @@ export class Model {
     map.set(event, list)
   }
 
+  /**
+   * Register an observer — an object (or class) whose method names match model
+   * events, each wired via {@link on} (Laravel's `Model::observe()`):
+   *
+   *   class UserObserver { created(user) {…} deleted(user) {…} }
+   *   User.observe(UserObserver)
+   */
+  static observe<M extends Model>(
+    this: ModelClass<M>,
+    observer: ModelObserver<M> | ModelObserverClass<M>,
+  ): void {
+    const instance = typeof observer === 'function' ? new observer() : observer
+    for (const event of MODEL_EVENT_NAMES) {
+      const handler = (instance as Record<string, unknown>)[event]
+      if (typeof handler === 'function')
+        (this as unknown as typeof Model).on(event, model => (handler as EventListener).call(instance, model))
+    }
+  }
+
   /** Enable soft deletes (requires a `deleted_at` column). */
   static softDeletes = false
   static deletedAtColumn = 'deleted_at'
@@ -365,6 +408,22 @@ export class Model {
 
   static find<M extends Model>(this: ModelClass<M>, id: unknown): Promise<M | undefined> {
     return this.query().where(this.primaryKey, id).first()
+  }
+
+  /** The column route-model-binding resolves against by default (Laravel's `getRouteKeyName`). Override for slug binding. */
+  static routeKeyName = 'id'
+
+  /**
+   * Resolve a route parameter to a model (Laravel's `resolveRouteBinding`).
+   * Binds by `field` when given (e.g. `/posts/{post:slug}`), else by
+   * {@link routeKeyName}. Override to add scopes (e.g. only published rows).
+   */
+  static resolveRouteBinding<M extends Model>(
+    this: ModelClass<M>,
+    value: unknown,
+    field?: string,
+  ): Promise<M | undefined> {
+    return this.query().where(field ?? this.routeKeyName, value).first()
   }
 
   /** Find several rows by primary key. */

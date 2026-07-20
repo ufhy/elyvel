@@ -97,4 +97,27 @@ describe('resource route model binding', () => {
     const res = await app.handle(new Request('http://localhost/users/2', { method: 'DELETE' }))
     expect(await res.json()).toEqual({ deletedId: 2 })
   })
+
+  test('prefers a model\'s resolveRouteBinding, passing the configured bindField', async () => {
+    const bySlug = new Map([['ada', { id: 1, name: 'Ada' }]])
+    const seen: { value: unknown, field?: string }[] = []
+    const SluggedModel = {
+      find: () => null, // should NOT be used when resolveRouteBinding exists
+      resolveRouteBinding: (value: unknown, field?: string) => {
+        seen.push({ value, field })
+        return bySlug.get(String(value)) ?? null
+      },
+    }
+    class SlugController extends Controller {
+      async show(ctx: MiddlewareContext) {
+        return ctx.model
+      }
+    }
+    const slugApp = new Elysia().use(
+      resource('/articles', SlugController, { bind: SluggedModel, bindField: 'slug', only: ['show'] }),
+    )
+    const res = await slugApp.handle(new Request('http://localhost/articles/ada'))
+    expect(await res.json()).toEqual({ id: 1, name: 'Ada' })
+    expect(seen).toEqual([{ value: 'ada', field: 'slug' }])
+  })
 })

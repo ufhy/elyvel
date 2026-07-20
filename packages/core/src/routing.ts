@@ -23,9 +23,15 @@ const ALL_ACTIONS: ResourceAction[] = ['index', 'create', 'store', 'show', 'edit
 /** `create`/`edit` render forms (e.g. an Inertia page) — not meaningful for a JSON API. */
 const API_ACTIONS: ResourceAction[] = ALL_ACTIONS.filter(a => a !== 'create' && a !== 'edit')
 
-/** Resolves the route id into a model instance (e.g. an Eloquent model class). */
+/**
+ * Resolves the route id into a model instance (e.g. an Eloquent model class).
+ * `find(id)` binds by primary key; a model may also expose `resolveRouteBinding`
+ * to own its lookup (bind by a custom field, apply scopes — Laravel's
+ * `resolveRouteBinding`), which the binder prefers when present.
+ */
 export interface ModelBinder {
   find(id: unknown): unknown | Promise<unknown>
+  resolveRouteBinding?(value: unknown, field?: string): unknown | Promise<unknown>
 }
 export type Binder = ModelBinder | ((id: string) => unknown | Promise<unknown>)
 
@@ -56,6 +62,12 @@ export interface ResourceOptions {
    * `find(id)` (like an Eloquent model) or a resolver function.
    */
   bind?: Binder
+  /**
+   * Bind by this column instead of the primary key (Laravel's `/posts/{post:slug}`).
+   * Needs the bound model to expose `resolveRouteBinding(value, field)` (Eloquent
+   * models do); ignored by a plain resolver function or a `find`-only binder.
+   */
+  bindField?: string
   /**
    * Register named routes (`<name>.index`, `.show`, …) for {@link urlFor}. Templates
    * are relative to `path`, so include any parent prefix in `path` for full URLs.
@@ -156,9 +168,13 @@ function buildResource(
   const resolveModel = async (ctx: MiddlewareContext): Promise<unknown> => {
     const id = ctx.params[param]
     const binder = options.bind as Binder
-    // A model class (or object) exposes `.find`; anything else is a resolver fn.
-    return typeof (binder as ModelBinder).find === 'function'
-      ? (binder as ModelBinder).find(id)
+    // Prefer the model's own resolveRouteBinding (custom field / scopes); else
+    // `find(id)` by primary key; else treat it as a plain resolver function.
+    const modelBinder = binder as ModelBinder
+    if (typeof modelBinder.resolveRouteBinding === 'function')
+      return modelBinder.resolveRouteBinding(id, options.bindField)
+    return typeof modelBinder.find === 'function'
+      ? modelBinder.find(id)
       : (binder as (id: string) => unknown)(String(id))
   }
 
