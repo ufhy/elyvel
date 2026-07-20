@@ -11,6 +11,8 @@ export interface FailedJobRow {
 export interface DashboardProps {
   pending: number
   failed: FailedJobRow[]
+  jobsProcessed: number
+  visits: number
 }
 
 export default function dashboard(props: DashboardProps, shared: ViewShared) {
@@ -40,6 +42,16 @@ export default function dashboard(props: DashboardProps, shared: ViewShared) {
       <div class="card">
         <div>Pending jobs</div>
         <div class="stat">${props.pending}</div>
+      </div>
+
+      <div class="card">
+        <div>Jobs processed (database cache counter, written by queue:work)</div>
+        <div class="stat">${props.jobsProcessed}</div>
+      </div>
+
+      <div class="card">
+        <div>Your visits to this page (database session counter)</div>
+        <div class="stat">${props.visits}</div>
       </div>
 
       <div class="card">

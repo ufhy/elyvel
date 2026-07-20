@@ -1,9 +1,12 @@
-import { ServiceProvider } from '@elyvel/core'
+import { configureDatabaseCache } from '@elyvel/cache'
+import { configureDatabaseSession, ServiceProvider } from '@elyvel/core'
 import { configureDatabaseQueue, configureFailedJobs, dispatch, registerJob } from '@elyvel/queue'
 import { schedule } from '@elyvel/scheduler'
 import { GenerateReportJob } from '../jobs/GenerateReportJob'
 import { SendWelcomeNotificationJob } from '../jobs/SendWelcomeNotificationJob'
+import { eloquentCacheAdapter } from '../support/cache-db'
 import { eloquentFailedJobAdapter, eloquentQueueAdapter } from '../support/queue-db'
+import { eloquentSessionAdapter } from '../support/session-db'
 
 /**
  * The application's own service provider — bind app-wide services into the
@@ -20,6 +23,8 @@ export class AppServiceProvider extends ServiceProvider {
     registerJob(SendWelcomeNotificationJob, GenerateReportJob)
     configureDatabaseQueue(eloquentQueueAdapter)
     configureFailedJobs(eloquentFailedJobAdapter)
+    configureDatabaseCache(eloquentCacheAdapter)
+    configureDatabaseSession(eloquentSessionAdapter)
 
     // Runs under `elyvel schedule:work` (or `schedule:run` from system cron).
     schedule()

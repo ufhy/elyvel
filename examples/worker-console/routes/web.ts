@@ -1,4 +1,5 @@
 import type { MiddlewareContext, Session } from '@elyvel/core'
+import { cache } from '@elyvel/cache'
 import { group, redirect, route } from '@elyvel/core'
 import { table } from '@elyvel/database'
 import { dispatch } from '@elyvel/queue'
@@ -7,7 +8,7 @@ import { GenerateReportJob } from '../app/jobs/GenerateReportJob'
 import { SendWelcomeNotificationJob } from '../app/jobs/SendWelcomeNotificationJob'
 import dashboard from '../app/views/dashboard'
 
-async function showDashboard() {
+async function showDashboard(ctx: MiddlewareContext) {
   const pending = await table('jobs').count()
   const failedRows = await table('failed_jobs').orderBy('failed_at', 'desc').get()
   const failed = failedRows.map(r => ({
@@ -16,7 +17,12 @@ async function showDashboard() {
     exception: r.exception as string,
     failedAt: r.failed_at as number,
   }))
-  return view(dashboard, { pending, failed })
+  const jobsProcessed = await cache().get<number>('jobs:processed', 0)
+  // Persisted through the database session driver — a per-session counter
+  // that survives across requests only because the session row is read back
+  // from the sessions table, not an in-memory/cookie store.
+  const visits = (ctx.session as Session).increment('visits')
+  return view(dashboard, { pending, failed, jobsProcessed, visits })
 }
 
 async function dispatchWelcome(ctx: MiddlewareContext) {

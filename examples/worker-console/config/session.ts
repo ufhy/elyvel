@@ -1,11 +1,12 @@
 import { defineSessionConfig } from '@elyvel/core'
 
 /**
- * Session config. The `cookie` driver stores the (encrypted) session in a
- * cookie — no table needed. Secret defaults to `app.key`.
+ * `database` (not `cookie`) — dogfoods AppServiceProvider's
+ * configureDatabaseSession() wiring (sessions table) against a real
+ * connection, same as the cache/queue database drivers in this app.
  */
 export default defineSessionConfig({
-  driver: 'cookie',
+  driver: 'database',
   cookie: 'elyvel_session',
   lifetime: 60 * 120, // 2 hours
 })

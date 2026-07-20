@@ -102,6 +102,7 @@
       "name": "worker-console",
       "version": "0.0.0",
       "dependencies": {
+        "@elyvel/cache": "workspace:*",
         "@elyvel/core": "workspace:*",
         "@elyvel/database": "workspace:*",
         "@elyvel/i18n": "workspace:*",

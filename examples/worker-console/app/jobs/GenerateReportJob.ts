@@ -1,3 +1,4 @@
+import { cache } from '@elyvel/cache'
 import { notify } from '@elyvel/notifications'
 import { Job } from '@elyvel/queue'
 import { JobCompletedNotification } from '../notifications/JobCompletedNotification'
@@ -22,6 +23,7 @@ export class GenerateReportJob extends Job {
       throw new Error(`transient failure generating report "${this.reportName}"`)
 
     await notify(DEMO_RECIPIENT, new JobCompletedNotification('GenerateReportJob', `Report "${this.reportName}" generated.`))
+    await cache().increment('jobs:processed')
   }
 
   override async failed(error: unknown): Promise<void> {

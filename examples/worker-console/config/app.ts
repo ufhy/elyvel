@@ -1,3 +1,4 @@
+import { CacheServiceProvider } from '@elyvel/cache'
 import { defineAppConfig } from '@elyvel/core'
 import { EloquentServiceProvider } from '@elyvel/database'
 import { I18nServiceProvider } from '@elyvel/i18n'
@@ -20,6 +21,7 @@ export default defineAppConfig({
   providers: [
     EloquentServiceProvider,
     I18nServiceProvider,
+    CacheServiceProvider,
     MailServiceProvider,
     NotificationServiceProvider,
     QueueServiceProvider,

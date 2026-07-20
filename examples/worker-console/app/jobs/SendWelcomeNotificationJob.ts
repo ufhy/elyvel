@@ -1,3 +1,4 @@
+import { cache } from '@elyvel/cache'
 import { notify } from '@elyvel/notifications'
 import { Job } from '@elyvel/queue'
 import { JobCompletedNotification } from '../notifications/JobCompletedNotification'
@@ -12,6 +13,10 @@ export class SendWelcomeNotificationJob extends Job {
 
   async handle(): Promise<void> {
     await notify(DEMO_RECIPIENT, new JobCompletedNotification('SendWelcomeNotificationJob', `Welcome email queued for ${this.name}.`))
+    // Written from the queue:work process, read back on the dashboard route
+    // (a different process) — proves the database cache store is shared, not
+    // per-process.
+    await cache().increment('jobs:processed')
   }
 }
 
