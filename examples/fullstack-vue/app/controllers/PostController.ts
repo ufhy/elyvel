@@ -50,7 +50,7 @@ export class PostController extends Controller {
   /** GET /blog/create — any signed-in user may author a post. */
   async create(ctx: MiddlewareContext) {
     authorize(ctx, 'create', Post)
-    return Inertia.render('Blog/Create')
+    return Inertia.render('Blog/Create', { user: ctx.user as User })
   }
 
   /** POST /blog */
@@ -85,7 +85,7 @@ export class PostController extends Controller {
   async edit(ctx: MiddlewareContext) {
     const post = ctx.model as Post
     authorize(ctx, 'update', post)
-    return Inertia.render('Blog/Edit', { post: postResource(post) })
+    return Inertia.render('Blog/Edit', { post: postResource(post), user: ctx.user as User })
   }
 
   /** PUT|PATCH /blog/:id */
