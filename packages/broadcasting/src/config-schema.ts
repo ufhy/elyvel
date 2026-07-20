@@ -11,14 +11,16 @@ export interface BroadcastConfig {
   channel?: string
   /**
    * Authenticate an incoming WebSocket upgrade (`websocket`/`redis` drivers
-   * only) — return the connecting client's identity (anything JSON-safe,
-   * e.g. a user id) to allow the connection, or `null`/`false` to reject it
-   * with 401. The returned identity is what `channel()` authorizers receive.
-   * Without this, every connection is anonymous, so register it before
-   * using `private-`/`presence-` channels — a subscribe attempt there is
-   * denied by default when there's no identity to check.
+   * only) — return the connecting client's identity (anything JSON-safe, e.g.
+   * a user id) to allow the connection with that identity, `null`/`undefined`
+   * to allow it anonymously (a guest — still a normal connection, just with
+   * no identity), or `false` to reject it outright with 401. The returned
+   * identity is what `channel()` authorizers receive. Without this, every
+   * connection is anonymous, so register it before using `private-`/
+   * `presence-` channels — a subscribe attempt there is denied by default
+   * when there's no identity to check.
    */
-  authenticate?(request: Request): unknown | null | false | Promise<unknown | null | false>
+  authenticate?(request: Request): unknown | false | Promise<unknown | false>
 }
 
 /** Typed identity helper for `config/broadcasting.ts`. */

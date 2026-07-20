@@ -465,7 +465,11 @@ export class Application {
           // is responsible for warning that private/presence channels need it.
           if (ws.authenticate) {
             const identity = await ws.authenticate(request)
-            if (identity === null || identity === false)
+            // Only `false` rejects. `null`/`undefined` means "no identity, but
+            // still allow the connection" (an anonymous viewer) — distinct
+            // from an explicit reject, so a channel authorizer can still
+            // differentiate "anonymous" from "actively denied" downstream.
+            if (identity === false)
               return new Response('Unauthorized', { status: 401 })
             if ((srv as any).upgrade(request, { data: { identity } }))
               return undefined
@@ -487,21 +491,23 @@ export class Application {
   private wsHandler: {
     handler: any
     onServer?(server: any): void
-    authenticate?(request: Request): unknown | null | false | Promise<unknown | null | false>
+    authenticate?(request: Request): unknown | false | Promise<unknown | false>
   } | null = null
 
   /**
    * Register a Bun WebSocket handler; `listen()` upgrades WS handshakes to it and
    * calls `onServer` with the running server (used by broadcasting for pub/sub).
    * `authenticate`, if given, runs before every upgrade — return the connecting
-   * client's identity to allow it (stored on `ws.data.identity`), or
-   * `null`/`false` to reject with 401. Without it, every connection is
-   * anonymous (`ws.data.identity` is `undefined`).
+   * client's identity to allow it (stored on `ws.data.identity`), `null`/`undefined`
+   * to allow it anonymously (still stored, so downstream code can tell "no
+   * identity" apart from an actively rejected one), or `false` to reject with
+   * 401. Without `authenticate` at all, every connection is anonymous
+   * (`ws.data.identity` is `undefined`) and none are ever rejected.
    */
   webSocket(
     handler: any,
     onServer?: (server: any) => void,
-    authenticate?: (request: Request) => unknown | null | false | Promise<unknown | null | false>,
+    authenticate?: (request: Request) => unknown | false | Promise<unknown | false>,
   ): void {
     this.wsHandler = { handler, onServer, authenticate }
   }
