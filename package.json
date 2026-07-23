@@ -6,7 +6,8 @@
   "workspaces": [
     "packages/*",
     "examples/*",
-    "playground/*"
+    "playground/*",
+    "docs"
   ],
   "engines": {
     "bun": ">=1.1.0"

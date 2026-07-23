@@ -25,6 +25,8 @@ export default antfu(
       '**/resources/js/components/ui/**',
       // READMEs carry illustrative (non-compiling) code fences — don't lint docs.
       '**/*.md',
+      // VitePress build output + generated cache.
+      '**/.vitepress/cache',
     ],
   },
   // Global ignores must be their own ignores-only config object — nesting

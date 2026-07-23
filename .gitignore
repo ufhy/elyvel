@@ -20,3 +20,6 @@ examples/*/storage/
 # editor workspace settings (local)
 .vscode/
 # local scratch/experiments — folder itself is tracked (see playground/.gitignore), contents are not
+# VitePress
+docs/.vitepress/cache
+docs/.vitepress/dist
