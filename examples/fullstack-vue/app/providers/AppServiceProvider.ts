@@ -4,6 +4,7 @@ import { channel } from '@elyvel/broadcasting'
 import { ServiceProvider } from '@elyvel/core'
 import { configureLogViewer } from '@elyvel/log-viewer'
 import { configureFailedJobs } from '@elyvel/queue'
+import { Password } from '@elyvel/validation'
 import { Comment } from '../models/Comment'
 import { Post } from '../models/Post'
 import { PostObserver } from '../observers/PostObserver'
@@ -27,6 +28,17 @@ export class AppServiceProvider extends ServiceProvider {
     gate().policy(Post, new PostPolicy())
     gate().policy(Comment, new CommentPolicy())
     Post.observe(new PostObserver())
+
+    // App-wide password policy (Laravel's `Password::defaults()`). One place —
+    // it governs registration, password reset, and change-password alike, and
+    // Better Auth's own `minPasswordLength` is synced from it. Lenient locally,
+    // stricter in production.
+    const isProduction = this.app.config.get<string>('app.env') === 'production'
+    Password.defaults(() =>
+      isProduction
+        ? Password.min(10).mixedCase().numbers()
+        : Password.min(8),
+    )
 
     // A published post's comment stream is public (guests watch too); an
     // unpublished one is author-only — same rule PostController.show()

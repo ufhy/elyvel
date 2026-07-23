@@ -10,6 +10,22 @@ import { twoFactor } from 'better-auth/plugins'
  * the frontend; the instance is built by `AuthServiceProvider` (config/app.ts).
  */
 export default defineAuthConfig({
+  // Which auth endpoints are exposed (à la Laravel Fortify's `features`). A
+  // disabled feature's route becomes a real 404 — not an existing-but-refused
+  // endpoint. Registration stays open here; set `registration: false` for
+  // invite-only (create users server-side via `auth.api.signUpEmail`) or to
+  // serve your own registration route at a custom URL without a dangling
+  // default endpoint. Omitted features keep Better Auth's defaults.
+  features: {
+    registration: true,
+    passwordReset: true,
+    emailVerification: true,
+  },
+
+  // Better Auth throttles auth routes in production (sign-up/sign-in ~3 / 10s).
+  // Uncomment to enforce in every environment, or tune per-path.
+  // rateLimit: { enabled: true },
+
   // Features are plugins — add/remove freely (e.g. passkey(), organization()).
   // `twoFactor` adds TOTP + backup codes; drop it to turn two-factor off.
   plugins: [twoFactor()],

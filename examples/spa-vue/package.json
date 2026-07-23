@@ -30,6 +30,7 @@
     "vue-router": "^4.5.0",
     "@elyvel/core": "workspace:*",
     "@elyvel/database": "workspace:*",
+    "@elyvel/validation": "workspace:*",
     "elysia": "^1.4.0"
   },
   "devDependencies": {

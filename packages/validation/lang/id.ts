@@ -62,6 +62,16 @@ export default {
     file: 'Kolom :attribute harus :size kilobita.',
   },
 
+  // Aturan kompleksitas Password (Password.min().mixedCase().numbers()...).
+  password: {
+    min: 'Kolom :attribute minimal :min karakter.',
+    letters: 'Kolom :attribute harus mengandung minimal satu huruf.',
+    mixed_case: 'Kolom :attribute harus mengandung minimal satu huruf besar dan satu huruf kecil.',
+    numbers: 'Kolom :attribute harus mengandung minimal satu angka.',
+    symbols: 'Kolom :attribute harus mengandung minimal satu simbol.',
+    uncompromised: 'Kolom :attribute pernah muncul dalam kebocoran data. Silakan pilih yang lain.',
+  },
+
   // Nama field yang ramah pengguna (opsional).
   attributes: {
     email: 'email',

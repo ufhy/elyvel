@@ -81,6 +81,20 @@ export class Password implements RuleObject {
     return Password.defaultsFactory ? Password.defaultsFactory() : Password.min(8)
   }
 
+  /** Whether an app-wide default rule set has been registered via {@link Password.defaults}. */
+  static isConfigured(): boolean {
+    return Password.defaultsFactory !== undefined
+  }
+
+  /**
+   * The minimum length this rule enforces. Lets callers that must mirror the
+   * policy read it — e.g. syncing Better Auth's `minPasswordLength` to the
+   * app-wide `Password.defaults()` so both engines agree on the floor.
+   */
+  get length(): number {
+    return this.minLength
+  }
+
   async validate(value: unknown, fail: FailFn, ctx: CustomRuleContext): Promise<void> {
     if (isEmpty(value))
       return // presence is `required`'s job, not this rule's

@@ -18,7 +18,7 @@ const auth = betterAuth({
   secret: 'test-secret-please-change-please',
   baseURL: 'http://localhost',
 })
-const app: any = new Elysia().use(betterAuthPlugin(auth))
+const app: any = new Elysia().use(betterAuthPlugin({ instance: auth }))
 
 beforeEach(async () => {
   const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })

@@ -2,6 +2,14 @@ import { AuthServiceProvider } from './provider'
 
 export { AuthGuard, VerifiedGuard } from './auth-middleware'
 export {
+  AuthActions,
+  type AuthRequestClass,
+  RegisterRequest,
+  ResetPasswordRequest,
+  UpdatePasswordRequest,
+  UpdateProfileRequest,
+} from './auth-requests'
+export {
   type BetterAuthLike,
   betterAuthPlugin,
   type BetterAuthPluginOptions,
@@ -10,6 +18,7 @@ export {
 } from './better-auth'
 export { migrateBetterAuth } from './better-auth-schema'
 export {
+  type AuthFeatures,
   defineAuth,
   defineAuthConfig,
   type DefineAuthOptions,

@@ -1,6 +1,7 @@
 import { app, expectsJson, route } from '@elyvel/core'
 import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
+import { normalizeAuthError } from './error-normalizer'
 import { gate } from './gate'
 import { AuthToken } from './provider'
 import { currentTestActor } from './testing'
@@ -27,6 +28,12 @@ export interface BetterAuthLike {
 }
 
 export interface BetterAuthPluginOptions {
+  /**
+   * An explicit Better Auth instance. Defaults to the one bound by
+   * `AuthServiceProvider`, resolved lazily at request time via `app(AuthToken)`
+   * — so routes need not import it. Pass one to override (used by tests).
+   */
+  instance?: BetterAuthLike
   /** Where Better Auth's routes are mounted. Default `/api/auth`. */
   basePath?: string
   /**
@@ -44,33 +51,35 @@ export interface BetterAuthPluginOptions {
  *
  *   route().use(betterAuthPlugin()).get('/me', ({ user }) => user, { auth: true })
  *
- * The instance defaults to the one bound by `AuthServiceProvider`, resolved
- * lazily at request time via `app(AuthToken)` — so routes need not import it.
- * Pass an explicit instance to override.
+ * Registration validation lives on the instance (a Better Auth `before` hook,
+ * see define-auth.ts), so this plugin only proxies `/api/auth/*`, normalizes
+ * error envelopes, derives `user`, and provides the guard macros. Error
+ * responses (from any auth route) are reshaped into the framework's translated
+ * `{ message, errors }` envelope by {@link normalizeAuthError}.
  */
-export function betterAuthPlugin(auth?: BetterAuthLike, options: BetterAuthPluginOptions = {}) {
+export function betterAuthPlugin(options: BetterAuthPluginOptions = {}) {
   const base = (options.basePath ?? '/api/auth').replace(/\/$/, '')
   const loginPath = options.loginPath ?? '/login'
   const verifyPath = options.verifyPath ?? '/verify-email'
   const redirectTo = (to: string) => new Response(null, { status: 302, headers: { location: to } })
   // Resolved per request: the binding isn't ready until AuthServiceProvider has
   // booted, which happens after route modules load.
-  const resolve = (): BetterAuthLike => auth ?? app(AuthToken)
+  const resolve = (): BetterAuthLike => options.instance ?? app(AuthToken)
+  // Rebuild the request from Elysia's parsed body — other global plugins may
+  // have already consumed the stream, and Better Auth reads request.json().
+  const rebuild = (request: Request, body: unknown): Request => {
+    const hasBody = body != null && request.method !== 'GET' && request.method !== 'HEAD'
+    return hasBody
+      ? new Request(request.url, {
+          method: request.method,
+          headers: request.headers,
+          body: typeof body === 'string' ? body : JSON.stringify(body),
+        })
+      : request
+  }
   return (
     new Elysia({ name: 'elyvel-better-auth' })
-      // Rebuild the request from Elysia's parsed body — other global plugins may
-      // have already consumed the stream, and Better Auth reads request.json().
-      .all(`${base}/*`, ({ request, body }: any) => {
-        const hasBody = body != null && request.method !== 'GET' && request.method !== 'HEAD'
-        const req = hasBody
-          ? new Request(request.url, {
-              method: request.method,
-              headers: request.headers,
-              body: typeof body === 'string' ? body : JSON.stringify(body),
-            })
-          : request
-        return resolve().handler(req)
-      })
+      .all(`${base}/*`, async ({ request, body }: any) => normalizeAuthError(await resolve().handler(rebuild(request, body))))
       // Derive the authenticated `user` + `authSession`, plus authorization
       // helpers bound to that user (Laravel's `$user->can()` / `Gate::authorize`).
       // NB: not named `session` — that would clobber the framework's cookie-session.

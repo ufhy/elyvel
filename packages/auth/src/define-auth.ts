@@ -1,5 +1,7 @@
 import type { BetterAuthOptions } from 'better-auth'
+import { Password } from '@elyvel/validation'
 import { betterAuth } from 'better-auth'
+import { composeBefore } from './auth-hooks'
 import { eloquentAdapter } from './eloquent-adapter'
 
 /**
@@ -8,11 +10,47 @@ import { eloquentAdapter } from './eloquent-adapter'
  * framework only fills in glue defaults (Eloquent adapter, APP_KEY secret, base
  * URL, cookie prefix, Eloquent-plural table names); everything you pass wins.
  */
+/**
+ * Which auth endpoints the app exposes (Laravel Fortify's `features` array).
+ * Setting one to `false` removes its route entirely — a real 404 (via Better
+ * Auth's `disabledPaths`), so a disabled feature is indistinguishable from a
+ * non-existent one, not an existing-but-forbidden endpoint. HTTP-only: the
+ * programmatic `auth.api.*` still works, so a closed `registration` still lets
+ * you create users server-side (invite-only) or from your own custom route.
+ * Omitted features keep Better Auth's own default (mostly on; delete-user off).
+ */
+export interface AuthFeatures {
+  /** `POST /sign-up/email`. Off = invite-only / bring-your-own registration route. */
+  registration?: boolean
+  /** `POST /request-password-reset` + `/reset-password`. */
+  passwordReset?: boolean
+  /** `GET /verify-email` + `POST /send-verification-email`. */
+  emailVerification?: boolean
+  /** `POST /change-password`. */
+  updatePassword?: boolean
+  /** `POST /update-user`. */
+  updateProfile?: boolean
+  /** `POST /delete-user` + callback. */
+  deleteUser?: boolean
+}
+
+/** Feature → the base-relative endpoint paths it gates (matched exactly by `disabledPaths`). */
+const FEATURE_PATHS: Record<keyof AuthFeatures, string[]> = {
+  registration: ['/sign-up/email'],
+  passwordReset: ['/request-password-reset', '/reset-password'],
+  emailVerification: ['/verify-email', '/send-verification-email'],
+  updatePassword: ['/change-password'],
+  updateProfile: ['/update-user'],
+  deleteUser: ['/delete-user', '/delete-user/callback'],
+}
+
 export type DefineAuthOptions = Partial<BetterAuthOptions> & {
   /** Where to redirect a guest hitting a protected page (browser). Default `/login`. */
   loginPath?: string
   /** Where to redirect an unverified user (browser). Default `/verify-email`. */
   verifyPath?: string
+  /** Which auth endpoints to expose — see {@link AuthFeatures}. */
+  features?: AuthFeatures
 }
 
 function slug(value: string): string {
@@ -44,7 +82,16 @@ export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof b
   const cookiePrefix = appName ? slug(appName) : 'app'
   // loginPath/verifyPath are framework redirect targets (read by the auth guards
   // via `config('auth.*')`), NOT Better Auth options — keep them out of the instance.
-  const { loginPath: _loginPath, verifyPath: _verifyPath, ...ba } = options
+  // `features` maps to Better Auth's `disabledPaths` below.
+  const { loginPath: _loginPath, verifyPath: _verifyPath, features, ...ba } = options
+
+  // Turn `features: { x: false }` into disabled endpoint paths (a real 404),
+  // merged with any explicit `disabledPaths` the app already set.
+  const disabledPaths = new Set(ba.disabledPaths ?? [])
+  for (const [key, enabled] of Object.entries(features ?? {})) {
+    if (enabled === false)
+      FEATURE_PATHS[key as keyof AuthFeatures]?.forEach(path => disabledPaths.add(path))
+  }
 
   return betterAuth({
     user: { modelName: 'users' },
@@ -58,9 +105,20 @@ export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof b
     baseURL: process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
     ...ba,
     // Deep-merge the nested defaults so a partial override keeps the glue.
-    emailAndPassword: { enabled: true, ...ba.emailAndPassword },
+    // `minPasswordLength` mirrors the app-wide `Password.defaults()` policy
+    // (Laravel's `Password::defaults()`) so Better Auth's own floor agrees with
+    // what the framework validator enforces — one source of truth. An explicit
+    // `minPasswordLength` in config/auth.ts still wins (spread after).
+    emailAndPassword: { enabled: true, minPasswordLength: Password.default().length, ...ba.emailAndPassword },
     emailVerification: { sendOnSignUp: true, ...ba.emailVerification },
     advanced: { cookiePrefix, ...ba.advanced },
+    // Validate registration through the bound FormRequest (see auth-hooks.ts) —
+    // runs for the HTTP route and programmatic `auth.api.signUpEmail()` alike.
+    // Composed with any `before` hook the app declared, ours first.
+    hooks: { ...ba.hooks, before: composeBefore(ba.hooks?.before) },
+    // Disabled feature endpoints → real 404 (see AuthFeatures). After `...ba`
+    // so the computed set (which already folded in ba.disabledPaths) wins.
+    disabledPaths: [...disabledPaths],
   } as BetterAuthOptions)
 }
 
