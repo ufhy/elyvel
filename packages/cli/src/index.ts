@@ -94,7 +94,7 @@ Usage:
 `
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
-function parseArgs(argv: string[]) {
+export function parseArgs(argv: string[]) {
   const positionals: string[] = []
   const flags: Record<string, string | boolean> = {}
 
@@ -258,4 +258,11 @@ async function main(): Promise<number> {
   return 1
 }
 
-process.exit(await main())
+// Re-export the scaffold API so wrappers (e.g. the `create-elyvel` launcher for
+// `bun create elyvel`) reuse the exact same logic and bundled templates.
+export { newApp } from './commands/new'
+
+// Only run the CLI when executed as the entry point — importing this module
+// (for the exports above) must not run `main()` / exit the process.
+if (import.meta.main)
+  process.exit(await main())

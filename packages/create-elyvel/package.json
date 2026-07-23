@@ -1,0 +1,15 @@
+{
+  "name": "create-elyvel",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Scaffold a new elyvel app — `bun create elyvel <name>`",
+  "bin": {
+    "create-elyvel": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elyvel/cli": "workspace:*"
+  }
+}

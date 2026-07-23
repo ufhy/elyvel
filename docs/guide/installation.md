@@ -14,11 +14,11 @@ That's it — no separate runtime, package manager, or build toolchain to instal
 
 ## Creating an application
 
-Scaffold a new application with the `elyvel` CLI. The default is a full-stack
-Vue kit:
+Scaffold a new application with `bun create`. The default is a full-stack Vue
+kit:
 
 ```bash
-bunx @elyvel/cli new my-app
+bun create elyvel my-app
 ```
 
 Choose a different starter with `--kit` (use the `=` form — `--kit=none`, not
@@ -31,11 +31,11 @@ Choose a different starter with `--kit` (use the `=` form — `--kit=none`, not
 | `none` | Backend only — the base template, no frontend or auth. |
 
 ```bash
-bunx @elyvel/cli new my-app --kit=none
+bun create elyvel my-app --kit=none
 ```
 
-`elyvel new` also writes a `.env` with a freshly generated **`APP_KEY`**, so the
-app is ready to run immediately.
+`bun create elyvel` also writes a `.env` with a freshly generated **`APP_KEY`**,
+so the app is ready to run immediately.
 
 ## Running the app
 
@@ -52,13 +52,24 @@ for frontend HMR. To run the server directly (e.g. in production), use
 
 ::: tip APP_KEY
 `APP_KEY` signs session cookies and powers `encrypted` model casts — the app
-won't boot without it. `elyvel new` sets it for you; rotate it any time with
-`bun run key:generate`.
+won't boot without it. `bun create elyvel` sets it for you; rotate it any time
+with `bun run key:generate`.
 :::
+
+## The `elyvel` CLI
+
+Inside a project the `elyvel` CLI is available (it ships as a dev dependency).
+Run tasks through the `package.json` scripts or invoke it directly:
+
+```bash
+bunx elyvel make:model Post   # generate a model
+bunx elyvel route:list        # inspect registered routes
+bunx elyvel migrate           # run migrations
+```
 
 ## Next steps
 
 - [Directory Structure](/guide/directory-structure) — where everything lives.
 - [Configuration](/guide/configuration) — config files, `.env`, and the
   `config()` helper.
-- [Authentication](/security/authentication) — if you scaffolded the `auth` kit.
+- [Authentication](/security/authentication) — included in the default `vue` kit.

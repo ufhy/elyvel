@@ -197,6 +197,16 @@
         "@elysiajs/openapi",
       ],
     },
+    "packages/create-elyvel": {
+      "name": "create-elyvel",
+      "version": "0.0.0",
+      "bin": {
+        "create-elyvel": "./src/index.ts",
+      },
+      "dependencies": {
+        "@elyvel/cli": "workspace:*",
+      },
+    },
     "packages/database": {
       "name": "@elyvel/database",
       "version": "0.0.0",
@@ -932,6 +942,8 @@
     "copy-anything": ["copy-anything@4.0.5", "", { "dependencies": { "is-what": "^5.2.0" } }, "sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA=="],
 
     "core-js-compat": ["core-js-compat@3.49.0", "", { "dependencies": { "browserslist": "^4.28.1" } }, "sha512-VQXt1jr9cBz03b331DFDCCP90b3fanciLkgiOoy8SBHy06gNf+vQ1A3WFLqG7I8TipYIKeYK9wxd0tUrvHcOZA=="],
+
+    "create-elyvel": ["create-elyvel@workspace:packages/create-elyvel"],
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "^3.1.0", "shebang-command": "^2.0.0", "which": "^2.0.1" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
 
