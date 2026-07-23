@@ -14,54 +14,47 @@ That's it — no separate runtime, package manager, or build toolchain to instal
 
 ## Creating an application
 
-Scaffold a new application with the `elyvel` CLI:
+Scaffold a new application with the `elyvel` CLI. The default is a full-stack
+Vue kit:
 
 ```bash
-bunx elyvel new my-app
+bunx @elyvel/cli new my-app
 ```
 
-Pick a starter kit with `--kit` (you'll be prompted if you omit it):
+Choose a different starter with `--kit` (use the `=` form — `--kit=none`, not
+`--kit none`):
 
 | Kit | What you get |
 | --- | --- |
-| `base` | A backend-only app — config, providers, and a health route. The default. |
-| `auth` | `base` plus Better Auth wiring, auth pages, and the auth migrations. |
-| `spa` | A Vue single-page-app frontend wired through Vite. |
-| `none` | The bare minimum — no starter pages. |
+| `vue` | **Default.** Full-stack: Better Auth, a Vue + Inertia frontend, auth pages, and the auth migrations. |
+| `spa` | Better Auth plus a Vue SPA (Vite + Vue Router, no Inertia). |
+| `none` | Backend only — the base template, no frontend or auth. |
 
 ```bash
-bunx elyvel new my-app --kit auth
+bunx @elyvel/cli new my-app --kit=none
 ```
 
-## Installing & keying the app
+`elyvel new` also writes a `.env` with a freshly generated **`APP_KEY`**, so the
+app is ready to run immediately.
+
+## Running the app
 
 ```bash
 cd my-app
 bun install
-bun run key:generate   # writes APP_KEY into .env
+bun run migrate   # vue / spa kits — creates the Better Auth tables
+bun run dev       # elyvel serve
 ```
 
-`APP_KEY` is the secret used to sign session cookies and power `encrypted` model
-casts. The app **refuses to boot without it**, so generate it before your first
-run. (`bun run key:generate` runs `elyvel key:generate`.)
+Your app boots on `http://localhost:3000`. The `vue`/`spa` kits also start Vite
+for frontend HMR. To run the server directly (e.g. in production), use
+`bun run start`, which executes `server.ts`.
 
-## Running the dev server
-
-```bash
-bun run dev    # elyvel serve
-```
-
-Your app boots on `http://localhost:3000`. For the `spa`/`auth` kits this also
-starts Vite for frontend HMR. A newly scaffolded app exposes a health route you
-can hit right away:
-
-```bash
-curl http://localhost:3000/api/health
-# { "status": "ok", "app": "my-app" }
-```
-
-To run the compiled server directly (e.g. in production), use `bun run start`,
-which executes `server.ts`.
+::: tip APP_KEY
+`APP_KEY` signs session cookies and powers `encrypted` model casts — the app
+won't boot without it. `elyvel new` sets it for you; rotate it any time with
+`bun run key:generate`.
+:::
 
 ## Next steps
 

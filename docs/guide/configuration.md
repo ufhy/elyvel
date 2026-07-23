@@ -76,6 +76,9 @@ adopt a package.
 | `auth.ts` | Authentication — see [Authentication](/security/authentication) |
 | `middleware.ts` | Global middleware, aliases, and groups |
 
+`auth.ts` and `middleware.ts` ship with the `vue`/`spa` starter kits (which wire
+up Better Auth); a backend-only app adds them by hand when it needs them.
+
 ## Service providers
 
 The `providers` array in `config/app.ts` lists the providers to boot. Each

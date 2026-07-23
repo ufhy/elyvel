@@ -1,8 +1,8 @@
 # Directory Structure
 
 A scaffolded elyvel app follows a Laravel-like layout, so things are where you'd
-expect them. Here is the `base` kit; the `auth` and `spa` kits add `database/`
-and `resources/` on top.
+expect them. Below is a backend-only (`--kit none`) app; the `vue` and `spa`
+kits add `database/` and `resources/` on top.
 
 ```
 my-app/
@@ -72,12 +72,12 @@ await app.listen()
 Environment variables — `APP_NAME`, `APP_ENV`, `APP_KEY`, `PORT`,
 `DB_CONNECTION`, and any credentials. See [Configuration](/guide/configuration).
 
-## The `database` directory <Badge type="tip" text="auth / spa kits" />
+## The `database` directory <Badge type="tip" text="vue / spa kits" />
 
 Migrations live in `database/migrations/`. Run them with `bun run migrate`
 (`elyvel migrate`) or reset with `bun run migrate:fresh`.
 
-## The `resources` directory <Badge type="tip" text="auth / spa kits" />
+## The `resources` directory <Badge type="tip" text="vue / spa kits" />
 
 Frontend assets — `resources/js` (Vue components/pages) and `resources/css` —
 compiled by Vite.

@@ -29,6 +29,12 @@ export default defineConfig({
         ],
       },
       {
+        text: 'The Basics',
+        items: [
+          { text: 'Routing', link: '/basics/routing' },
+        ],
+      },
+      {
         text: 'Security',
         items: [
           { text: 'Authentication', link: '/security/authentication' },
