@@ -246,6 +246,105 @@ export default defineAuthConfig({
 Any body key that isn't a declared field (e.g. `password_confirmation`) is simply
 ignored by the sign-up API — it never causes a "field not allowed" error.
 
+## Email verification
+
+Provide a mailer callback in `config/auth.ts`; Better Auth sends the
+verification link (on sign-up by default):
+
+```ts
+export default defineAuthConfig({
+  emailAndPassword: { requireEmailVerification: true },
+  emailVerification: {
+    sendVerificationEmail: ({ user, url }) =>
+      Mail.to(user.email).subject('Verify your email').html(`<a href="${url}">Verify</a>`).send(),
+  },
+})
+```
+
+With `requireEmailVerification: true`, an unverified user can't sign in and the
+`verified` guard sends them to `verifyPath`. Resend the link from the client:
+
+```ts
+authApi.sendVerification(email, callbackURL) // POST /api/auth/send-verification-email
+```
+
+## Password reset
+
+Provide the reset mailer, then drive the two-step flow from the client:
+
+```ts
+export default defineAuthConfig({
+  emailAndPassword: {
+    sendResetPassword: ({ user, url }) =>
+      Mail.to(user.email).subject('Reset your password').html(`<a href="${url}">Reset</a>`).send(),
+  },
+})
+```
+
+```ts
+authApi.requestPasswordReset(email, redirectTo) // emails a reset link
+authApi.resetPassword(newPassword, token)        // sets the new password
+```
+
+`resetPassword` runs through `ResetPasswordRequest`, so the app-wide
+`Password.defaults()` policy applies here too.
+
+## Two-factor authentication
+
+Enable the `twoFactor()` plugin in `config/auth.ts`:
+
+```ts
+import { twoFactor } from 'better-auth/plugins'
+
+export default defineAuthConfig({ plugins: [twoFactor()] })
+```
+
+`authHasPlugin('two-factor')` lets you feature-gate the UI. Enrollment and
+challenge run through the client:
+
+```ts
+authApi.enableTwoFactor(password)   // → { totpURI, backupCodes } — show the QR
+authApi.verifyTotp(code)            // confirm enrollment / clear a sign-in challenge
+authApi.verifyBackupCode(code)      // use a backup code instead
+authApi.disableTwoFactor(password)
+authApi.generateBackupCodes(password)
+```
+
+When 2FA is enabled, a sign-in returns a two-factor challenge; complete it with
+`verifyTotp` (or `verifyBackupCode`) before the session is established.
+
+## Social sign-in
+
+Providers are opt-in — a button appears only when its credentials are present
+(typically wired from env):
+
+```ts
+export default defineAuthConfig({
+  socialProviders: {
+    github: { clientId: process.env.GITHUB_CLIENT_ID!, clientSecret: process.env.GITHUB_CLIENT_SECRET! },
+  },
+})
+```
+
+`enabledSocialProviders(auth)` returns the active providers so you can render the
+right buttons. Kicking off the flow returns the OAuth URL to redirect to:
+
+```ts
+const { data } = await authApi.signInSocial('github', '/dashboard') // → { url }
+```
+
+## Sessions & signing out
+
+The signed-in user comes from the session cookie; `ctx.user` is derived from it
+on every request. Sign out and manage sessions from the client:
+
+```ts
+authApi.signOut() // POST /api/auth/sign-out
+```
+
+Session management endpoints (`list-sessions`, `revoke-session`,
+`revoke-sessions`, `revoke-other-sessions`) are gated by `features.sessions`.
+
 ## Rate limiting
 
 Better Auth rate-limits the auth routes (sign-up/sign-in default to ~3 requests

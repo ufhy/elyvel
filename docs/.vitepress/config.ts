@@ -16,14 +16,16 @@ export default defineConfig({
     // Shown in the nav bar before the site title.
     logo: '/logo.svg',
     nav: [
-      { text: 'Guide', link: '/guide/getting-started' },
+      { text: 'Guide', link: '/guide/installation' },
       { text: 'Authentication', link: '/security/authentication' },
     ],
     sidebar: [
       {
         text: 'Getting Started',
         items: [
-          { text: 'Introduction', link: '/guide/getting-started' },
+          { text: 'Installation', link: '/guide/installation' },
+          { text: 'Directory Structure', link: '/guide/directory-structure' },
+          { text: 'Configuration', link: '/guide/configuration' },
         ],
       },
       {
