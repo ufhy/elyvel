@@ -10,7 +10,7 @@ import { defineAuth } from '../src/define-auth'
 const auth = defineAuth({
   secret: 'test-secret-please-change-please',
   baseURL: 'http://localhost',
-  features: { registration: false },
+  features: { registration: false, signIn: false },
 })
 const app: any = new Elysia().use(betterAuthPlugin({ instance: auth }))
 
@@ -41,9 +41,7 @@ test('programmatic auth.api.signUpEmail still works when the route is closed', a
   expect(await table('users').where('email', 'admin-made@x.test').first()).toBeDefined()
 })
 
-test('other routes stay open when only registration is disabled', async () => {
-  // A closed feature is surgical: sign-in still reaches its handler (401/4xx,
-  // not 404) for a non-existent user.
+test('signIn:false also closes POST /sign-in/email (404)', async () => {
   const res = await app.handle(
     new Request('http://localhost/api/auth/sign-in/email', {
       method: 'POST',
@@ -51,5 +49,13 @@ test('other routes stay open when only registration is disabled', async () => {
       body: JSON.stringify({ email: 'nobody@x.test', password: 'password123' }),
     }),
   )
+  expect(res.status).toBe(404)
+})
+
+test('get-session stays reachable — never gated by the features map', async () => {
+  const res = await app.handle(
+    new Request('http://localhost/api/auth/get-session', { headers: { accept: 'application/json' } }),
+  )
+  // No session cookie → 200 with null body (or similar), but crucially NOT 404.
   expect(res.status).not.toBe(404)
 })

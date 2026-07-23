@@ -1,3 +1,4 @@
+import { ConfigRepository, setConfigRepository } from '@elyvel/core'
 import { createConnection, SchemaBuilder, setConnection, table } from '@elyvel/database'
 import { betterAuth } from 'better-auth'
 import { beforeEach, describe, expect, test } from 'bun:test'
@@ -200,6 +201,20 @@ describe('Better Auth over the Eloquent adapter', () => {
     // Auth's raw "Invalid email or password" / coded payload.
     expect(body.message).toBe('These credentials do not match our records.')
     expect(body.code).toBeUndefined()
+  })
+
+  test('auth macro redirect target comes from config(auth.loginPath) — single source', async () => {
+    // The macro must read the same config the AuthGuard/VerifiedGuard middleware
+    // do, not a plugin-local option — so there is one place to set it.
+    setConfigRepository(new ConfigRepository({ auth: { loginPath: '/masuk' } }))
+    try {
+      const res = await app.handle(new Request('http://localhost/me', { headers: { accept: 'text/html' } }))
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe('/masuk')
+    }
+    finally {
+      setConfigRepository(null)
+    }
   })
 
   test('actingAs authenticates requests without a session cookie', async () => {

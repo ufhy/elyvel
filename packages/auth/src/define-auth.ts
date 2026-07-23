@@ -22,25 +22,48 @@ import { eloquentAdapter } from './eloquent-adapter'
 export interface AuthFeatures {
   /** `POST /sign-up/email`. Off = invite-only / bring-your-own registration route. */
   registration?: boolean
+  /** `POST /sign-in/email` (email + password login). */
+  signIn?: boolean
+  /** `POST /sign-in/social` (OAuth provider login). */
+  socialSignIn?: boolean
+  /** `POST /sign-out`. */
+  signOut?: boolean
+  /** Session management: `/list-sessions`, `/revoke-session(s)`, `/revoke-other-sessions`. */
+  sessions?: boolean
   /** `POST /request-password-reset` + `/reset-password`. */
   passwordReset?: boolean
   /** `GET /verify-email` + `POST /send-verification-email`. */
   emailVerification?: boolean
   /** `POST /change-password`. */
   updatePassword?: boolean
+  /** `POST /change-email`. */
+  changeEmail?: boolean
   /** `POST /update-user`. */
   updateProfile?: boolean
+  /** Linked accounts: `/list-accounts`, `/link-social`, `/unlink-account`, `/account-info`. */
+  accounts?: boolean
   /** `POST /delete-user` + callback. */
   deleteUser?: boolean
 }
 
-/** Feature → the base-relative endpoint paths it gates (matched exactly by `disabledPaths`). */
+/**
+ * Feature → the base-relative endpoint paths it gates (matched exactly by
+ * `disabledPaths`). `/get-session` is deliberately NOT gateable here — the
+ * plugin's session derive and typical client session checks depend on it; close
+ * it with an explicit `disabledPaths` if you truly must.
+ */
 const FEATURE_PATHS: Record<keyof AuthFeatures, string[]> = {
   registration: ['/sign-up/email'],
+  signIn: ['/sign-in/email'],
+  socialSignIn: ['/sign-in/social'],
+  signOut: ['/sign-out'],
+  sessions: ['/list-sessions', '/revoke-session', '/revoke-sessions', '/revoke-other-sessions'],
   passwordReset: ['/request-password-reset', '/reset-password'],
   emailVerification: ['/verify-email', '/send-verification-email'],
   updatePassword: ['/change-password'],
+  changeEmail: ['/change-email'],
   updateProfile: ['/update-user'],
+  accounts: ['/list-accounts', '/link-social', '/unlink-account', '/account-info'],
   deleteUser: ['/delete-user', '/delete-user/callback'],
 }
 

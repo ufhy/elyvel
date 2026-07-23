@@ -1,4 +1,4 @@
-import { app, expectsJson, route } from '@elyvel/core'
+import { app, config, expectsJson, route } from '@elyvel/core'
 import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { normalizeAuthError } from './error-normalizer'
@@ -36,13 +36,6 @@ export interface BetterAuthPluginOptions {
   instance?: BetterAuthLike
   /** Where Better Auth's routes are mounted. Default `/api/auth`. */
   basePath?: string
-  /**
-   * Where to send a guest who hits a protected PAGE (a browser/Inertia
-   * navigation). API/JSON requests still get a 401. Default `/login`.
-   */
-  loginPath?: string
-  /** Where to send an authenticated-but-unverified user on a page. Default `/verify-email`. */
-  verifyPath?: string
 }
 
 /**
@@ -59,9 +52,22 @@ export interface BetterAuthPluginOptions {
  */
 export function betterAuthPlugin(options: BetterAuthPluginOptions = {}) {
   const base = (options.basePath ?? '/api/auth').replace(/\/$/, '')
-  const loginPath = options.loginPath ?? '/login'
-  const verifyPath = options.verifyPath ?? '/verify-email'
   const redirectTo = (to: string) => new Response(null, { status: 302, headers: { location: to } })
+  // Single source for redirect targets: `config('auth.*')` in config/auth.ts —
+  // the same values `AuthGuard`/`VerifiedGuard` read, so the macro and the
+  // middleware guards never disagree. Read per request (config is ready by then).
+  // Falls back to the default if config isn't booted (e.g. the plugin mounted
+  // bare in a unit test), so the macro never 500s on a missing repository.
+  const readPath = (key: string, fallback: string): string => {
+    try {
+      return config<string>(key, fallback)
+    }
+    catch {
+      return fallback
+    }
+  }
+  const loginPath = (): string => readPath('auth.loginPath', '/login')
+  const verifyPath = (): string => readPath('auth.verifyPath', '/verify-email')
   // Resolved per request: the binding isn't ready until AuthServiceProvider has
   // booted, which happens after route modules load.
   const resolve = (): BetterAuthLike => options.instance ?? app(AuthToken)
@@ -114,7 +120,7 @@ export function betterAuthPlugin(options: BetterAuthPluginOptions = {}) {
           return {
             beforeHandle({ user, status, request }: any) {
               if (!user)
-                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
+                return !expectsJson(request) ? redirectTo(loginPath()) : status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
             },
           }
         },
@@ -127,9 +133,9 @@ export function betterAuthPlugin(options: BetterAuthPluginOptions = {}) {
           return {
             beforeHandle({ user, status, request }: any) {
               if (!user)
-                return !expectsJson(request) ? redirectTo(loginPath) : status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
+                return !expectsJson(request) ? redirectTo(loginPath()) : status(401, { message: trans('auth::errors.unauthenticated', {}, 'Unauthenticated') })
               if (!user.emailVerified)
-                return !expectsJson(request) ? redirectTo(verifyPath) : status(403, { message: trans('auth::errors.unverified', {}, 'Your email address is not verified.') })
+                return !expectsJson(request) ? redirectTo(verifyPath()) : status(403, { message: trans('auth::errors.unverified', {}, 'Your email address is not verified.') })
             },
           }
         },
