@@ -29,6 +29,21 @@ export class RegisterRequest extends FormRequest {
 }
 
 /**
+ * Default sign-in validation (Laravel Breeze's `LoginRequest` analog). Only
+ * shape/presence — Better Auth still verifies the credentials themselves.
+ * Swap it via {@link AuthActions.loginUsing} to allow username login, require a
+ * captcha, block domains, etc. — same seam as every other flow.
+ */
+export class LoginRequest extends FormRequest {
+  rules(): Rules {
+    return {
+      email: 'required|email',
+      password: 'required|string',
+    }
+  }
+}
+
+/**
  * Default reset-password validation. `newPassword` uses the app-wide policy, so
  * the same complexity rules apply here as at registration — one definition,
  * every password-touching flow (Laravel's `Password::default()` reach).
@@ -64,6 +79,7 @@ export class UpdateProfileRequest extends FormRequest {
 
 const bindings = {
   register: RegisterRequest as AuthRequestClass,
+  login: LoginRequest as AuthRequestClass,
   resetPassword: ResetPasswordRequest as AuthRequestClass,
   updatePassword: UpdatePasswordRequest as AuthRequestClass,
   updateProfile: UpdateProfileRequest as AuthRequestClass,
@@ -80,6 +96,10 @@ export const AuthActions = {
   registerUsing(request: AuthRequestClass): void {
     bindings.register = request
   },
+  /** Swap the FormRequest that validates sign-in. */
+  loginUsing(request: AuthRequestClass): void {
+    bindings.login = request
+  },
   /** Swap the FormRequest that validates password reset. */
   resetPasswordUsing(request: AuthRequestClass): void {
     bindings.resetPassword = request
@@ -95,6 +115,9 @@ export const AuthActions = {
   get register(): AuthRequestClass {
     return bindings.register
   },
+  get login(): AuthRequestClass {
+    return bindings.login
+  },
   get resetPassword(): AuthRequestClass {
     return bindings.resetPassword
   },
@@ -103,5 +126,13 @@ export const AuthActions = {
   },
   get updateProfile(): AuthRequestClass {
     return bindings.updateProfile
+  },
+  /** Restore every binding to its framework default. Mainly for test isolation. */
+  reset(): void {
+    bindings.register = RegisterRequest
+    bindings.login = LoginRequest
+    bindings.resetPassword = ResetPasswordRequest
+    bindings.updatePassword = UpdatePasswordRequest
+    bindings.updateProfile = UpdateProfileRequest
   },
 }

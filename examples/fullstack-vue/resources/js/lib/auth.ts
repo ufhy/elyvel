@@ -21,7 +21,8 @@ async function post(path: string, body: Record<string, unknown>): Promise<{ erro
 }
 
 export const authApi = {
-  signUp: (name: string, email: string, password: string) => post('sign-up/email', { name, email, password }),
+  signUp: (name: string, email: string, password: string, passwordConfirmation: string) =>
+    post('sign-up/email', { name, email, password, password_confirmation: passwordConfirmation }),
   signIn: (email: string, password: string) => post('sign-in/email', { email, password }),
   signOut: () => post('sign-out', {}),
   requestPasswordReset: (email: string, redirectTo: string) => post('request-password-reset', { email, redirectTo }),

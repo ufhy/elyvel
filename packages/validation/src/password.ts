@@ -76,6 +76,11 @@ export class Password implements RuleObject {
     Password.defaultsFactory = factory
   }
 
+  /** Clear the app-wide default (back to a plain `min(8)`). Mainly for test isolation. */
+  static reset(): void {
+    Password.defaultsFactory = undefined
+  }
+
   /** The app's configured default (via {@link Password.defaults}), or a plain `min(8)`. */
   static default(): Password {
     return Password.defaultsFactory ? Password.defaultsFactory() : Password.min(8)

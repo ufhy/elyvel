@@ -4,6 +4,7 @@ export { AuthGuard, VerifiedGuard } from './auth-middleware'
 export {
   AuthActions,
   type AuthRequestClass,
+  LoginRequest,
   RegisterRequest,
   ResetPasswordRequest,
   UpdatePasswordRequest,

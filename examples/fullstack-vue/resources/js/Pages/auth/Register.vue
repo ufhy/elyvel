@@ -14,6 +14,7 @@ defineProps<{ socialProviders?: string[] }>()
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const passwordConfirmation = ref('')
 const error = ref('')
 const errors = ref<Record<string, string[]>>({})
 const busy = ref(false)
@@ -22,7 +23,7 @@ async function submit() {
   error.value = ''
   errors.value = {}
   busy.value = true
-  const { error: err, errors: bag } = await authApi.signUp(name.value, email.value, password.value)
+  const { error: err, errors: bag } = await authApi.signUp(name.value, email.value, password.value, passwordConfirmation.value)
   busy.value = false
   if (err) {
     errors.value = bag ?? {}
@@ -60,6 +61,12 @@ async function submit() {
         <p v-if="errors.password" class="text-sm text-destructive" data-testid="error-password">
           {{ errors.password[0] }}
         </p>
+      </div>
+      <div class="grid gap-2">
+        <Label for="password_confirmation">Confirm password</Label>
+        <Input id="password_confirmation" v-model="passwordConfirmation" type="password" autocomplete="new-password" required />
+        <!-- The `confirmed` rule reports a mismatch on the `password` field
+             (Laravel-consistent), so it renders under Password above. -->
       </div>
       <Button type="submit" class="w-full" :disabled="busy" data-testid="submit">
         {{ busy ? 'Creating…' : 'Create account' }}

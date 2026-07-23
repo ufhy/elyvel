@@ -1,9 +1,11 @@
 import { ConfigRepository, setConfigRepository } from '@elyvel/core'
 import { createConnection, SchemaBuilder, setConnection, table } from '@elyvel/database'
+import { Password } from '@elyvel/validation'
 import { betterAuth } from 'better-auth'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { composeBefore } from '../src/auth-hooks'
+import { AuthActions } from '../src/auth-requests'
 import { betterAuthPlugin } from '../src/better-auth'
 import { migrateBetterAuth } from '../src/better-auth-schema'
 import { eloquentAdapter } from '../src/eloquent-adapter'
@@ -33,8 +35,12 @@ const app: any = new Elysia()
   .get('/me', ({ user }: any) => user, { auth: true })
   .get('/verified-only', () => ({ ok: true }), { verified: true })
 
-// Fresh in-memory DB + Better Auth tables for each test (isolated).
+// Fresh in-memory DB + Better Auth tables for each test (isolated). Also reset
+// process-global auth defaults — another test file booting an app (e.g. an
+// example) may have set Password.defaults()/AuthActions in the shared process.
 beforeEach(async () => {
+  Password.reset()
+  AuthActions.reset()
   const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
   setConnection(conn)
   await migrateBetterAuth(new SchemaBuilder(conn), auth.options)
@@ -184,6 +190,21 @@ describe('Better Auth over the Eloquent adapter', () => {
     )
     expect(reset.status).toBe(422)
     expect(((await reset.json()) as { errors: Record<string, string[]> }).errors.newPassword).toBeDefined()
+  })
+
+  test('sign-in is validated through the same FormRequest layer', async () => {
+    // Missing/malformed login body → field-keyed 422, same as every other flow.
+    const res = await app.handle(
+      new Request('http://localhost/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'not-an-email', password: '' }),
+      }),
+    )
+    expect(res.status).toBe(422)
+    const body = (await res.json()) as { errors: Record<string, string[]> }
+    expect(body.errors.email).toBeDefined()
+    expect(body.errors.password).toBeDefined()
   })
 
   test('error normalizer: bad sign-in credentials become a translated envelope', async () => {

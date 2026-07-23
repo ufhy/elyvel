@@ -1,6 +1,8 @@
 import { createConnection, SchemaBuilder, setConnection, table } from '@elyvel/database'
+import { Password } from '@elyvel/validation'
 import { beforeEach, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
+import { AuthActions } from '../src/auth-requests'
 import { betterAuthPlugin } from '../src/better-auth'
 import { migrateBetterAuth } from '../src/better-auth-schema'
 import { defineAuth } from '../src/define-auth'
@@ -15,6 +17,9 @@ const auth = defineAuth({
 const app: any = new Elysia().use(betterAuthPlugin({ instance: auth }))
 
 beforeEach(async () => {
+  // Reset process-global auth defaults leaked by other test files in the shared run.
+  Password.reset()
+  AuthActions.reset()
   const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
   setConnection(conn)
   await migrateBetterAuth(new SchemaBuilder(conn), auth.options)

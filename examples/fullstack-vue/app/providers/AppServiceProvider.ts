@@ -1,5 +1,5 @@
 import type { User } from '@elyvel/auth'
-import { gate } from '@elyvel/auth'
+import { AuthActions, gate } from '@elyvel/auth'
 import { channel } from '@elyvel/broadcasting'
 import { ServiceProvider } from '@elyvel/core'
 import { configureLogViewer } from '@elyvel/log-viewer'
@@ -10,6 +10,7 @@ import { Post } from '../models/Post'
 import { PostObserver } from '../observers/PostObserver'
 import { CommentPolicy } from '../policies/CommentPolicy'
 import { PostPolicy } from '../policies/PostPolicy'
+import { RegisterRequest } from '../requests/RegisterRequest'
 import { DatabaseFailedJobStore } from '../support/DatabaseFailedJobStore'
 
 // Demo-only allowlist — swap for a real role/permission check (e.g. a `users.is_admin`
@@ -39,6 +40,10 @@ export class AppServiceProvider extends ServiceProvider {
         ? Password.min(10).mixedCase().numbers()
         : Password.min(8),
     )
+
+    // Swap the default registration validation for one that also requires
+    // `password_confirmation` (Fortify's `createUsersUsing` analog).
+    AuthActions.registerUsing(RegisterRequest)
 
     // A published post's comment stream is public (guests watch too); an
     // unpublished one is author-only — same rule PostController.show()

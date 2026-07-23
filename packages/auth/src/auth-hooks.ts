@@ -11,6 +11,7 @@ export const ELYVEL_VALIDATION = 'ELYVEL_VALIDATION'
  */
 const REQUEST_FOR: Record<string, () => AuthRequestClass> = {
   '/sign-up/email': () => AuthActions.register,
+  '/sign-in/email': () => AuthActions.login,
   '/reset-password': () => AuthActions.resetPassword,
   '/change-password': () => AuthActions.updatePassword,
   '/update-user': () => AuthActions.updateProfile,
