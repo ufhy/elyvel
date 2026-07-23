@@ -147,6 +147,25 @@ resource('/posts', PostController, {
 })
 ```
 
+### Composing several resources
+
+A route file default-exports **one** router, but `resource()` returns a
+composable plugin — so you don't need a file per resource. Chain as many as you
+like with `.use()` in a single file:
+
+```ts
+// routes/api.ts
+export default route()
+  .use(resource('/posts', PostController))
+  .use(resource('/users', UserController))
+  .use(resource('/comments', CommentController))
+```
+
+How you split them is purely organizational: keep them together, or group by
+domain across several files (`routes/blog.ts`, `routes/shop.ts`) or even
+subfolders (`routes/admin/*.ts`). Every `*.ts` under `routes/` — subfolders
+included — is auto-mounted.
+
 ## Route model binding
 
 Pass `bind` to resolve the URL parameter into a model instance automatically
