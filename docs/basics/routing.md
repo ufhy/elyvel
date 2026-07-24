@@ -46,22 +46,8 @@ Group related routes into their own files (`routes/web.ts`, `routes/blog.ts`,
 ## Middleware
 
 Attach middleware per route with the `middleware` option — a single alias or a
-list. Aliases (and any group names) are defined in `config/middleware.ts`:
-
-```ts
-// config/middleware.ts
-export default defineMiddlewareConfig({
-  global: [/* runs on every request */],
-  aliases: {
-    auth: AuthGuard,
-    verified: VerifiedGuard,
-    throttle: ThrottleMiddleware,
-  },
-  groups: {
-    web: [TrimStringsMiddleware, CsrfMiddleware],
-  },
-})
-```
+list. Aliases are named in `config/middleware.ts`, and an alias can take
+arguments after a colon:
 
 ```ts
 route()
@@ -69,23 +55,8 @@ route()
   .post('/comments', handler, { middleware: ['auth', 'throttle:60,1'] })
 ```
 
-An alias can take arguments after a colon — `throttle:60,1` passes `"60"` and
-`"1"` to the middleware's `handle(context, ...args)`.
-
-A middleware is a class extending `Middleware`. Return a response from `handle()`
-to short-circuit, or nothing to continue; an optional `terminate()` runs *after*
-the response is sent (logging, cleanup):
-
-```ts
-import { Middleware } from '@elyvel/core'
-
-export class EnsureTeamMember extends Middleware {
-  handle(ctx) {
-    if (!ctx.user?.teamId)
-      return ctx.status(403, { message: 'Not on a team.' })
-  }
-}
-```
+See [Middleware](/basics/middleware) for writing middleware, the config
+buckets (`global` / `aliases` / `groups`), and the built-ins.
 
 ## Route groups
 
