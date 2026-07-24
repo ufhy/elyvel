@@ -56,6 +56,17 @@ describe('middleware', () => {
     expect(await res.text()).toBe('ok')
   })
 
+  // Regression: global guards must also cover routes registered by a plugin
+  // that's itself a global item (e.g. betterAuthPlugin's `/api/auth/*`
+  // catch-all) — the guards are attached before the plugins are mounted.
+  test('global middleware covers routes registered by a global plugin item', async () => {
+    const pluginWithRoute = new Elysia({ name: 'plugin-with-route' }).all('/proxy/*', () => 'proxied')
+    const composed = new Elysia().use(globalMiddlewarePlugin([GlobalTag, pluginWithRoute]))
+    const res = await composed.handle(new Request('http://localhost/proxy/anything'))
+    expect(await res.text()).toBe('proxied')
+    expect(res.headers.get('x-global')).toBe('yes')
+  })
+
   test('route alias blocks without auth, passes with it', async () => {
     const denied = await app.handle(new Request('http://localhost/r/secure'))
     expect(denied.status).toBe(401)

@@ -7,6 +7,7 @@ import {
 } from '@elyvel/core'
 import { inertia } from '@elyvel/inertia'
 import { logViewer } from '@elyvel/log-viewer'
+import { SetLocale } from '../app/middleware/SetLocale'
 
 /**
  * HTTP middleware wiring — the app's central bootstrap (à la Laravel's
@@ -32,6 +33,9 @@ export default defineMiddlewareConfig({
   global: [
     TrimStringsMiddleware,
     ConvertEmptyStringsToNullMiddleware,
+    // Sets the request locale from `?lang=` / Accept-Language before anything
+    // renders — so validation errors etc. come back in the chosen language.
+    SetLocale,
     betterAuthPlugin(),
     inertia({
       vite: { entry: 'resources/js/app.ts' },

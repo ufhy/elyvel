@@ -212,7 +212,9 @@ export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
   const guards = items.filter((i): i is MiddlewareClass => !isElysia(i))
 
   let plugin: any = new Elysia({ name: 'elyvel-global-middleware' })
-  for (const p of plugins) plugin = plugin.use(p)
+  // Attach the global guards BEFORE mounting plugins, so the guards also cover
+  // routes those plugins register (e.g. betterAuthPlugin's `/api/auth/*`
+  // catch-all) — a hook only applies to routes defined after it.
   if (guards.length) {
     plugin = plugin
       .onBeforeHandle({ as: 'global' }, async (context: MiddlewareContext) => {
@@ -224,5 +226,6 @@ export function globalMiddlewarePlugin(items: MiddlewareItem[]): Elysia {
         await runTerminators(guards, context)
       })
   }
+  for (const p of plugins) plugin = plugin.use(p)
   return plugin as Elysia
 }
