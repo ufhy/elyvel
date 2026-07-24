@@ -112,12 +112,15 @@ rules(): Rules {
 ```
 
 Rule yang bisa dipakai ulang adalah object dengan method
-`validate(value, fail, ctx)`:
+`validate(value, fail, ctx)`. Anotasikan dengan `RuleObject` — itulah yang
+memberi tahu TypeScript (dan editor) bahwa object tersebut wajib punya method
+persis itu; salah nama atau signature-nya, error langsung menunjuk ke baris
+definisi, bukan ke tempat rule itu dipakai:
 
 ```ts
-import type { CustomRuleContext, FailFn } from '@elyvel/validation'
+import type { CustomRuleContext, FailFn, RuleObject } from '@elyvel/validation'
 
-export const NoSpaces = {
+export const NoSpaces: RuleObject = {
   validate(value: unknown, fail: FailFn, ctx: CustomRuleContext) {
     if (String(value).includes(' '))
       fail(`The ${ctx.attribute} field must not contain spaces.`)

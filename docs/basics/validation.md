@@ -109,12 +109,15 @@ rules(): Rules {
 }
 ```
 
-A reusable rule is an object with a `validate(value, fail, ctx)` method:
+A reusable rule is an object with a `validate(value, fail, ctx)` method.
+Annotate it with `RuleObject` — that's what tells TypeScript (and your editor)
+the object must have that exact method; get the name or signature wrong and
+the error points right at the definition, not at wherever the rule is used:
 
 ```ts
-import type { CustomRuleContext, FailFn } from '@elyvel/validation'
+import type { CustomRuleContext, FailFn, RuleObject } from '@elyvel/validation'
 
-export const NoSpaces = {
+export const NoSpaces: RuleObject = {
   validate(value: unknown, fail: FailFn, ctx: CustomRuleContext) {
     if (String(value).includes(' '))
       fail(`The ${ctx.attribute} field must not contain spaces.`)
