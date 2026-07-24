@@ -3,7 +3,7 @@ import type { Component } from 'vue'
 
 // Derived from the real Better Auth user, not redeclared — only the fields
 // actually consumed by this kit's components.
-export type User = Pick<AuthUser, 'name' | 'email' | 'image'>
+export type User = Pick<AuthUser, 'name' | 'email' | 'image' | 'twoFactorEnabled'>
 
 export interface NavItem {
   title: string

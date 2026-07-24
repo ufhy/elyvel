@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button'
 import { authApi } from '@/lib/auth'
 
-const props = defineProps<{ providers?: string[] }>()
+const props = defineProps<{ providers?: readonly string[] }>()
 
 const labels: Record<string, string> = { github: 'GitHub', google: 'Google' }
 

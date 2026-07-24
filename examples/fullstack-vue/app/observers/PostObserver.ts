@@ -1,3 +1,4 @@
+import type { ModelObserver } from '@elyvel/database'
 import { Str } from '@elyvel/support'
 import { Post } from '../models/Post'
 
@@ -30,7 +31,7 @@ const MAX_NUMBERED_ATTEMPTS = 20
  *   sends a notification) would need its own idempotency guard to be safe
  *   under repeated boots.
  */
-export class PostObserver {
+export class PostObserver implements ModelObserver<Post> {
   async creating(post: Post): Promise<void> {
     await this.deriveSlugIfBlank(post)
   }

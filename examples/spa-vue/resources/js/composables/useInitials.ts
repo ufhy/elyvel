@@ -18,10 +18,10 @@ export function getInitials(fullName?: string): string {
   }
 
   if (names.length === 1) {
-    return getInitial(names[0]).toUpperCase()
+    return getInitial(names[0] ?? '').toUpperCase()
   }
 
-  return `${getInitial(names[0])}${getInitial(names[names.length - 1])}`.toUpperCase()
+  return `${getInitial(names[0] ?? '')}${getInitial(names[names.length - 1] ?? '')}`.toUpperCase()
 }
 
 export function useInitials(): UseInitialsReturn {

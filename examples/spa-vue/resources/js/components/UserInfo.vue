@@ -9,12 +9,12 @@ const props = withDefaults(defineProps<{ user: User, showEmail?: boolean }>(), {
 })
 
 const { getInitials } = useInitials()
-const showAvatar = computed(() => !!props.user.avatar && props.user.avatar !== '')
+const showAvatar = computed(() => !!props.user.image && props.user.image !== '')
 </script>
 
 <template>
   <Avatar class="h-8 w-8 overflow-hidden rounded-lg">
-    <AvatarImage v-if="showAvatar" :src="user.avatar!" :alt="user.name" />
+    <AvatarImage v-if="showAvatar" :src="user.image!" :alt="user.name" />
     <AvatarFallback class="rounded-lg text-black dark:text-white">
       {{ getInitials(user.name) }}
     </AvatarFallback>
