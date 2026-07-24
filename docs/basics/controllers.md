@@ -114,7 +114,7 @@ async store(ctx: MiddlewareContext) {
 }
 ```
 
-See [Authentication](/security/authentication) for the gate and policies.
+See [Authorization](/security/authorization) for the gate and policies.
 
 ## Responses
 

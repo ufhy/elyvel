@@ -115,7 +115,7 @@ async store(ctx: MiddlewareContext) {
 }
 ```
 
-Lihat [Autentikasi](/id/security/authentication) untuk gate dan policy.
+Lihat [Otorisasi](/id/security/authorization) untuk gate dan policy.
 
 ## Response
 

@@ -54,6 +54,7 @@ export default defineConfig({
             text: 'Security',
             items: [
               { text: 'Authentication', link: '/security/authentication' },
+              { text: 'Authorization', link: '/security/authorization' },
             ],
           },
         ],
@@ -94,6 +95,7 @@ export default defineConfig({
             text: 'Keamanan',
             items: [
               { text: 'Autentikasi', link: '/id/security/authentication' },
+              { text: 'Otorisasi', link: '/id/security/authorization' },
             ],
           },
         ],
