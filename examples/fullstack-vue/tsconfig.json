@@ -4,7 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": { "@/*": ["./resources/js/*"] },
-    "types": ["bun"],
+    "types": ["bun", "vite/client"],
     "allowImportingTsExtensions": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts", "**/*.d.ts", "**/*.vue"]
 }

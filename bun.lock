@@ -42,6 +42,7 @@
         "@elyvel/validation": "workspace:*",
         "@elyvel/view": "workspace:*",
         "@elyvel/vite": "workspace:*",
+        "@inertiajs/vite": "^3.0.0",
         "@inertiajs/vue3": "^3.0.0",
         "@lucide/vue": "^1.17.0",
         "@vue/server-renderer": "^3.5.0",
@@ -67,7 +68,9 @@
         "@vitejs/plugin-vue": "^6.0.0",
         "eslint": "^10.0.0",
         "tailwindcss": "^4.0.0",
+        "typescript": "^6.0.3",
         "vite": "^8.0.0",
+        "vue-tsc": "^3.3.8",
       },
     },
     "examples/spa-vue": {

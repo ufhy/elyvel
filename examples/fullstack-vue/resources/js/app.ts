@@ -3,19 +3,18 @@ import { createApp, h } from 'vue'
 import { initializeTheme } from './composables/useAppearance'
 import '../css/app.css'
 
-/** Inertia + Vue client entry. Vite bundles this; the server boots it via data-page. */
+/**
+ * Inertia + Vue client entry. Vite bundles this; the server boots it via data-page.
+ * `pages: './Pages'` is expanded by the `@inertiajs/vite` plugin (vite.config.ts)
+ * into the lazy `import.meta.glob` resolver at build time — each page still
+ * compiles to its own chunk, fetched on demand.
+ */
 createInertiaApp({
-  // Lazy resolve (no `eager`): each page compiles to its own chunk and is
-  // fetched on demand, so the initial bundle stays small. Drop to a smaller app?
-  // add `{ eager: true }` and return the module directly for a single bundle.
-  resolve: (name) => {
-    const pages = import.meta.glob('./Pages/**/*.vue')
-    return (pages[`./Pages/${name}.vue`] as () => Promise<unknown>)()
-  },
+  pages: './Pages',
   setup({ el, App, props, plugin }) {
     createApp({ render: () => h(App, props) })
       .use(plugin)
-      .mount(el)
+      .mount(el!)
   },
 })
 

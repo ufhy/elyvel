@@ -1,10 +1,9 @@
+import type { User as AuthUser } from '@elyvel/auth'
 import type { Component } from 'vue'
 
-export interface User {
-  name: string
-  email: string
-  avatar?: string | null
-}
+// Derived from the real Better Auth user, not redeclared — only the fields
+// actually shared with the client via Inertia's `user` prop.
+export type User = Pick<AuthUser, 'name' | 'email' | 'image'>
 
 export interface NavItem {
   title: string
