@@ -12,40 +12,90 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/elyvel/logo.svg' }],
   ],
+  // Shared across every locale.
   themeConfig: {
-    // Shown in the nav bar before the site title.
     logo: '/logo.svg',
-    nav: [
-      { text: 'Guide', link: '/guide/installation' },
-      { text: 'Authentication', link: '/security/authentication' },
-    ],
-    sidebar: [
-      {
-        text: 'Getting Started',
-        items: [
-          { text: 'Installation', link: '/guide/installation' },
-          { text: 'Directory Structure', link: '/guide/directory-structure' },
-          { text: 'Configuration', link: '/guide/configuration' },
-        ],
-      },
-      {
-        text: 'The Basics',
-        items: [
-          { text: 'Routing', link: '/basics/routing' },
-          { text: 'Middleware', link: '/basics/middleware' },
-          { text: 'Controllers', link: '/basics/controllers' },
-        ],
-      },
-      {
-        text: 'Security',
-        items: [
-          { text: 'Authentication', link: '/security/authentication' },
-        ],
-      },
-    ],
     socialLinks: [
       { icon: 'github', link: 'https://github.com/ufhy/elyvel' },
     ],
     search: { provider: 'local' },
+  },
+  // English is the default (root); Bahasa Indonesia lives under /id/. The navbar
+  // language switcher is generated automatically; browser-language detection is
+  // handled client-side in .vitepress/theme (VitePress does no auto-redirect).
+  locales: {
+    root: {
+      label: 'English',
+      lang: 'en',
+      themeConfig: {
+        nav: [
+          { text: 'Guide', link: '/guide/installation' },
+          { text: 'Authentication', link: '/security/authentication' },
+        ],
+        sidebar: [
+          {
+            text: 'Getting Started',
+            items: [
+              { text: 'Installation', link: '/guide/installation' },
+              { text: 'Directory Structure', link: '/guide/directory-structure' },
+              { text: 'Configuration', link: '/guide/configuration' },
+            ],
+          },
+          {
+            text: 'The Basics',
+            items: [
+              { text: 'Routing', link: '/basics/routing' },
+              { text: 'Middleware', link: '/basics/middleware' },
+              { text: 'Controllers', link: '/basics/controllers' },
+            ],
+          },
+          {
+            text: 'Security',
+            items: [
+              { text: 'Authentication', link: '/security/authentication' },
+            ],
+          },
+        ],
+      },
+    },
+    id: {
+      label: 'Bahasa Indonesia',
+      lang: 'id',
+      // Must be the locale ROOT — the language switcher uses it as the base to
+      // map the current page into this locale. A deep path here mangles every
+      // switch target (e.g. .../id/guide/installation/guide/configuration).
+      link: '/id/',
+      description: 'Framework untuk Bun yang terinspirasi Laravel, dibangun di atas Elysia',
+      themeConfig: {
+        nav: [
+          { text: 'Panduan', link: '/id/guide/installation' },
+          { text: 'Autentikasi', link: '/id/security/authentication' },
+        ],
+        sidebar: [
+          {
+            text: 'Memulai',
+            items: [
+              { text: 'Instalasi', link: '/id/guide/installation' },
+              { text: 'Struktur Direktori', link: '/id/guide/directory-structure' },
+              { text: 'Konfigurasi', link: '/id/guide/configuration' },
+            ],
+          },
+          {
+            text: 'Dasar',
+            items: [
+              { text: 'Routing', link: '/id/basics/routing' },
+              { text: 'Middleware', link: '/id/basics/middleware' },
+              { text: 'Controller', link: '/id/basics/controllers' },
+            ],
+          },
+          {
+            text: 'Keamanan',
+            items: [
+              { text: 'Autentikasi', link: '/id/security/authentication' },
+            ],
+          },
+        ],
+      },
+    },
   },
 })
