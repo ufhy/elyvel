@@ -47,6 +47,7 @@ export default defineConfig({
               { text: 'Routing', link: '/basics/routing' },
               { text: 'Middleware', link: '/basics/middleware' },
               { text: 'Controllers', link: '/basics/controllers' },
+              { text: 'Validation', link: '/basics/validation' },
             ],
           },
           {
@@ -86,6 +87,7 @@ export default defineConfig({
               { text: 'Routing', link: '/id/basics/routing' },
               { text: 'Middleware', link: '/id/basics/middleware' },
               { text: 'Controller', link: '/id/basics/controllers' },
+              { text: 'Validasi', link: '/id/basics/validation' },
             ],
           },
           {
