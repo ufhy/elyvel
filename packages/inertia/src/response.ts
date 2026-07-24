@@ -49,16 +49,25 @@ export class OnceProp {
 /** The page object sent to the Inertia client. */
 export interface Page {
   component: string
-  props: Record<string, unknown>
+  // `errors` is always set (see `buildProps` — session-flashed errors, or `{}`).
+  props: Record<string, unknown> & { errors: Record<string, unknown> }
   url: string
   version: string
+  // Always present (even if empty) — the Inertia client's own `Page<T>` type
+  // requires both. We don't yet implement session flash sharing or
+  // client-remembered-state round-tripping, so these are honestly empty
+  // rather than fabricated: no flash data / no remembered state on this response.
+  flash: Record<string, unknown>
+  rememberedState: Record<string, unknown>
+  // Always present (even if empty) — matches Inertia's own `Page<T>` shape.
+  rescuedProps: string[]
   deferredProps?: Record<string, string[]>
   mergeProps?: string[]
   deepMergeProps?: string[]
   prependProps?: string[]
   matchPropsOn?: string[]
-  onceProps?: string[]
-  rescuedProps?: string[]
+  // No expiry tracking (yet) — each entry is honestly `expiresAt: null` ("never").
+  onceProps?: Record<string, { prop: string, expiresAt?: number | null }>
   encryptHistory?: boolean
   clearHistory?: boolean
   preserveFragment?: boolean
@@ -187,14 +196,17 @@ function parseList(header: string | null): string[] {
 
 /** The props (filtered/evaluated) plus the v2 page-object metadata they imply. */
 export interface BuiltProps {
-  props: Record<string, unknown>
+  // `errors` is always set (see below — session-flashed errors, or `{}`).
+  props: Record<string, unknown> & { errors: Record<string, unknown> }
+  // Always present (even if empty) — matches Inertia's own `Page<T>` shape.
+  rescuedProps: string[]
   deferredProps?: Record<string, string[]>
   mergeProps?: string[]
   deepMergeProps?: string[]
   prependProps?: string[]
   matchPropsOn?: string[]
-  onceProps?: string[]
-  rescuedProps?: string[]
+  // No expiry tracking (yet) — each entry is honestly `expiresAt: null` ("never").
+  onceProps?: Record<string, { prop: string, expiresAt?: number | null }>
 }
 
 /**
@@ -226,7 +238,7 @@ export async function buildProps(
   const deepMergeProps: string[] = []
   const prependProps: string[] = []
   const matchPropsOn: string[] = []
-  const onceProps: string[] = []
+  const onceProps: Record<string, { prop: string, expiresAt?: number | null }> = {}
   const rescuedProps: string[] = []
 
   const excludedByPartial = (key: string, isAlways: boolean) =>
@@ -266,7 +278,7 @@ export async function buildProps(
     }
     else if (value instanceof OnceProp) {
       out[key] = await evaluate(value.callback)
-      onceProps.push(key)
+      onceProps[key] = { prop: key, expiresAt: null }
     }
     else if (isAlways || isOptional) {
       out[key] = await evaluate(value.callback)
@@ -276,7 +288,11 @@ export async function buildProps(
     }
   }
 
-  const result: BuiltProps = { props: out }
+  // Always present — validation errors must survive partial-reload filtering
+  // (an `only` list that omits it shouldn't hide the current page's errors).
+  out.errors = merged.errors
+
+  const result: BuiltProps = { props: out as BuiltProps['props'], rescuedProps }
   if (Object.keys(deferred).length)
     result.deferredProps = deferred
   if (mergeProps.length)
@@ -287,9 +303,7 @@ export async function buildProps(
     result.prependProps = prependProps
   if (matchPropsOn.length)
     result.matchPropsOn = matchPropsOn
-  if (onceProps.length)
+  if (Object.keys(onceProps).length)
     result.onceProps = onceProps
-  if (rescuedProps.length)
-    result.rescuedProps = rescuedProps
   return result
 }

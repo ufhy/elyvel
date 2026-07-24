@@ -48,6 +48,12 @@ const SHARED_DEV_DEPS: Record<string, string> = {
   '@vitejs/plugin-vue': '^6.0.0',
   'tailwindcss': '^4.0.0',
   'vite': '^8.0.0',
+  // Vue's IDE tooling (Volar) needs its own @vue/language-tools resolvable
+  // from the project's own node_modules to fully bootstrap — without it,
+  // .vue files can fail to type-check/resolve at all when the app is opened
+  // as its own standalone project (not nested inside a bigger workspace that
+  // happens to already have it).
+  'vue-tsc': '^3.3.8',
 }
 
 const KITS: Record<Exclude<KitName, 'none'>, Kit> = {
@@ -58,12 +64,13 @@ const KITS: Record<Exclude<KitName, 'none'>, Kit> = {
       ...SHARED_DEPS,
       '@elyvel/inertia': 'workspace:*',
       '@elyvel/view': 'workspace:*',
+      '@inertiajs/vite': '^3.0.0',
       '@inertiajs/vue3': '^3.0.0',
       '@vue/server-renderer': '^3.5.0',
     },
     devDeps: { ...SHARED_DEV_DEPS },
     scripts: { 'build': 'vite build', 'build:ssr': 'vite build --ssr' },
-    overrides: new Set(['routes/web.ts']),
+    overrides: new Set(['routes/web.ts', 'tsconfig.json']),
     nextSteps: [
       'bun install',
       'bun run migrate      # creates the Better Auth tables',
@@ -77,7 +84,7 @@ const KITS: Record<Exclude<KitName, 'none'>, Kit> = {
     deps: { ...SHARED_DEPS, 'vue-router': '^4.5.0' },
     devDeps: { ...SHARED_DEV_DEPS },
     scripts: { build: 'vite build' },
-    overrides: new Set(['routes/web.ts']),
+    overrides: new Set(['routes/web.ts', 'tsconfig.json']),
     nextSteps: [
       'bun install',
       'bun run migrate      # creates the Better Auth tables',

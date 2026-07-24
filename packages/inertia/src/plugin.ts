@@ -147,6 +147,12 @@ export function inertia(config: InertiaConfig = {}) {
         props: built.props,
         url: url.pathname + url.search,
         version,
+        // Not yet implemented (no flash-message sharing / client-remembered-state
+        // round-trip) — honestly empty rather than omitted, since the Inertia
+        // client's own Page<T> type requires both fields on every response.
+        flash: {},
+        rememberedState: {},
+        rescuedProps: built.rescuedProps,
       }
       if (built.deferredProps)
         page.deferredProps = built.deferredProps
@@ -160,8 +166,6 @@ export function inertia(config: InertiaConfig = {}) {
         page.matchPropsOn = built.matchPropsOn
       if (built.onceProps)
         page.onceProps = built.onceProps
-      if (built.rescuedProps)
-        page.rescuedProps = built.rescuedProps
       if (response.encryptHistoryFlag)
         page.encryptHistory = true
       if (response.clearHistoryFlag)
