@@ -63,6 +63,7 @@ const KITS: Record<Exclude<KitName, 'none'>, Kit> = {
     deps: {
       ...SHARED_DEPS,
       '@elyvel/inertia': 'workspace:*',
+      '@elyvel/validation': 'workspace:*',
       '@elyvel/view': 'workspace:*',
       '@inertiajs/vite': '^3.0.0',
       '@inertiajs/vue3': '^3.0.0',
@@ -70,7 +71,7 @@ const KITS: Record<Exclude<KitName, 'none'>, Kit> = {
     },
     devDeps: { ...SHARED_DEV_DEPS },
     scripts: { 'build': 'vite build', 'build:ssr': 'vite build --ssr' },
-    overrides: new Set(['routes/web.ts', 'tsconfig.json']),
+    overrides: new Set(['routes/web.ts', 'tsconfig.json', 'app/providers/AppServiceProvider.ts']),
     nextSteps: [
       'bun install',
       'bun run migrate      # creates the Better Auth tables',
