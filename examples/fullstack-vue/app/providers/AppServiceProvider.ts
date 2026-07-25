@@ -7,7 +7,6 @@ import { configureFailedJobs } from '@elyvel/queue'
 import { Password } from '@elyvel/validation'
 import { Comment } from '../models/Comment'
 import { Post } from '../models/Post'
-import { PostObserver } from '../observers/PostObserver'
 import { CommentPolicy } from '../policies/CommentPolicy'
 import { PostPolicy } from '../policies/PostPolicy'
 import { RegisterRequest } from '../requests/RegisterRequest'
@@ -28,7 +27,6 @@ export class AppServiceProvider extends ServiceProvider {
 
     gate().policy(Post, new PostPolicy())
     gate().policy(Comment, new CommentPolicy())
-    Post.observe(new PostObserver())
 
     // App-wide password policy (Laravel's `Password::defaults()`). One place —
     // it governs registration, password reset, and change-password alike, and

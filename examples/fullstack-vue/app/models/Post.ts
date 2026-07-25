@@ -1,5 +1,6 @@
 import type { Dayjs } from '@elyvel/database'
-import { Model } from '@elyvel/database'
+import { Model, ObservedBy } from '@elyvel/database'
+import { PostObserver } from '../observers/PostObserver'
 import { Comment } from './Comment'
 
 /**
@@ -11,6 +12,7 @@ import { Comment } from './Comment'
  * author); `published` is flipped by the scheduler once that time arrives
  * (see `ScheduleServiceProvider`). Only `published` posts are publicly visible.
  */
+@ObservedBy(PostObserver)
 export class Post extends Model {
   static override table = 'posts'
   // user_id/author_name are trusted server fields merged in by the controller

@@ -164,6 +164,23 @@ export type ModelObserver<M extends Model = Model> = Partial<Record<ModelEvent, 
 type ModelObserverClass<M extends Model = Model> = new () => ModelObserver<M>
 
 /**
+ * Class decorator equivalent of `Model.observe()` (Laravel's `#[ObservedBy]`
+ * attribute) — attach one or more observers directly on the model:
+ *
+ *   @ObservedBy(PostObserver)
+ *   class Post extends Model { ... }
+ *
+ * Unlike PHP attributes (inert metadata needing separate reflection), this
+ * runs immediately when the class is defined, so it can just call `observe()`
+ * directly — no discovery step needed.
+ */
+export function ObservedBy<M extends Model>(...observers: (ModelObserver<M> | ModelObserverClass<M>)[]) {
+  return (target: ModelClass<M>, _context: ClassDecoratorContext): void => {
+    for (const observer of observers) target.observe(observer)
+  }
+}
+
+/**
  * Optional bridge so model lifecycle events also flow through an app-wide event
  * dispatcher (à la Laravel's `eloquent.<event>: <Model>`). Wire it once at boot,
  * e.g. `configureModelEventDispatcher((name, model) => event(name, model))`, then

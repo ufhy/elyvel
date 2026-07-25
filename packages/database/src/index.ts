@@ -65,6 +65,7 @@ export {
   Model,
   type ModelEvent,
   type ModelObserver,
+  ObservedBy,
 } from './model'
 export {
   type CursorRowPaginator,
