@@ -23,7 +23,7 @@ import {
 type PrunableClass = typeof Model & { prune(chunkSize?: number): Promise<number> }
 
 /** Boot the framework without HTTP routes — just enough to reach the DB. */
-async function boot() {
+export async function boot() {
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   return { app, conn: app.make(DatabaseToken) }
 }

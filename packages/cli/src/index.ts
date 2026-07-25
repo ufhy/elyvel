@@ -17,6 +17,7 @@ import { keyGenerate } from './commands/key'
 import { langPublish } from './commands/lang'
 import { down, up } from './commands/maintenance'
 import { make } from './commands/make'
+import { modelSyncCommand } from './commands/model-sync'
 import { newApp } from './commands/new'
 import { packageDiscoverCommand } from './commands/package-discover'
 import {
@@ -54,6 +55,7 @@ Usage:
   elyvel migrate:unlock                        Force-clear a stuck migration lock (crashed process)
   elyvel db:seed                               Run database/seeders/DatabaseSeeder
   elyvel model:prune [Name]                    Prune stale records (all prunable models, or one)
+  elyvel model:sync <Name> [--write]           Report (or add) declare fields missing vs. the DB table
 
   elyvel db                                    Open the native database shell (sqlite3 / psql)
   elyvel db:show                               List tables with row counts
@@ -181,6 +183,10 @@ async function main(): Promise<number> {
 
   if (command === 'model:prune') {
     return pruneCommand(rest[0])
+  }
+
+  if (command === 'model:sync') {
+    return modelSyncCommand(rest[0], flags)
   }
 
   if (command === 'db') {
