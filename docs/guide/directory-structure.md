@@ -2,7 +2,7 @@
 
 A scaffolded elyvel app follows a Laravel-like layout, so things are where you'd
 expect them. Below is a backend-only (`--kit none`) app; the `vue` and `spa`
-kits add `database/` and `resources/` on top.
+kits add `database/` and `frontend/` on top.
 
 ```
 my-app/
@@ -77,7 +77,7 @@ Environment variables — `APP_NAME`, `APP_ENV`, `APP_KEY`, `PORT`,
 Migrations live in `database/migrations/`. Run them with `bun run migrate`
 (`elyvel migrate`) or reset with `bun run migrate:fresh`.
 
-## The `resources` directory <Badge type="tip" text="vue / spa kits" />
+## The `frontend` directory <Badge type="tip" text="vue / spa kits" />
 
-Frontend assets — `resources/js` (Vue components/pages) and `resources/css` —
-compiled by Vite.
+Frontend source — Vue components/pages under `frontend/` and styles under
+`frontend/css` — compiled by Vite.

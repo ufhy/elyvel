@@ -3,7 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "paths": { "@/*": ["./resources/js/*"] },
+    "paths": { "@/*": ["./frontend/*"] },
     "types": ["bun"],
     "allowImportingTsExtensions": true,
     "strict": true,

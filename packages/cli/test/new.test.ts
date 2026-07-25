@@ -46,8 +46,8 @@ describe('elyvel new', () => {
       'config/auth.ts',
       'config/mail.ts',
       'routes/auth.ts',
-      'resources/js/Pages/auth/Login.vue',
-      'resources/js/Pages/Welcome.vue',
+      'frontend/Pages/auth/Login.vue',
+      'frontend/Pages/Welcome.vue',
       'vite.config.ts',
     ]) {
       expect(existsSync(join(dir, 'kit-app', f))).toBe(true)
@@ -65,7 +65,7 @@ describe('elyvel new', () => {
     for (const f of ['config/app.ts', 'routes/web.ts', 'app/providers/AppServiceProvider.ts']) {
       expect(existsSync(join(dir, 'bare-app', f))).toBe(true)
     }
-    for (const f of ['config/auth.ts', 'resources/js/Pages/Welcome.vue', 'vite.config.ts']) {
+    for (const f of ['config/auth.ts', 'frontend/Pages/Welcome.vue', 'vite.config.ts']) {
       expect(existsSync(join(dir, 'bare-app', f))).toBe(false)
     }
     const pkg = JSON.parse(read('bare-app', 'package.json'))

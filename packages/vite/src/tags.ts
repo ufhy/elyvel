@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 
 export interface ViteOptions {
-  /** Client entry, e.g. `resources/js/app.ts`. */
+  /** Client entry, e.g. `frontend/app.ts`. */
   entry: string
   /** Dev server URL (used when no build manifest is found). */
   devUrl?: string

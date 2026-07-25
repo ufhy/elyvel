@@ -9,11 +9,11 @@ import { viteTags } from '../src/tags'
 
 describe('viteTags', () => {
   test('emits the dev client + entry (under the vite base) when no manifest exists', () => {
-    const tags = viteTags({ entry: 'resources/js/app.ts', manifest: 'does/not/exist.json' })
+    const tags = viteTags({ entry: 'frontend/app.ts', manifest: 'does/not/exist.json' })
     // The dev server serves under `base` (default /build/), so the injected
     // URLs must include it — without it the module requests 404.
     expect(tags).toContain('http://localhost:5173/build/@vite/client')
-    expect(tags).toContain('http://localhost:5173/build/resources/js/app.ts')
+    expect(tags).toContain('http://localhost:5173/build/frontend/app.ts')
   })
 
   test('dev tags honor a custom base', () => {
@@ -32,7 +32,7 @@ describe('viteTags', () => {
       manifestPath = join(dir, 'manifest.json')
       writeFileSync(
         manifestPath,
-        JSON.stringify({ 'resources/js/app.ts': { file: 'assets/app-abc123.js', css: ['assets/app-abc123.css'] } }),
+        JSON.stringify({ 'frontend/app.ts': { file: 'assets/app-abc123.js', css: ['assets/app-abc123.css'] } }),
       )
     })
     afterEach(() => {
@@ -44,14 +44,14 @@ describe('viteTags', () => {
 
     test('is IGNORED outside production — a stale build never shadows the dev server', () => {
       process.env.APP_ENV = 'local'
-      const tags = viteTags({ entry: 'resources/js/app.ts', manifest: manifestPath })
+      const tags = viteTags({ entry: 'frontend/app.ts', manifest: manifestPath })
       expect(tags).toContain('http://localhost:5173/build/@vite/client')
       expect(tags).not.toContain('assets/app-abc123.js')
     })
 
     test('is honored when APP_ENV=production', () => {
       process.env.APP_ENV = 'production'
-      const tags = viteTags({ entry: 'resources/js/app.ts', manifest: manifestPath })
+      const tags = viteTags({ entry: 'frontend/app.ts', manifest: manifestPath })
       expect(tags).toContain('/build/assets/app-abc123.js')
       expect(tags).toContain('/build/assets/app-abc123.css')
       expect(tags).not.toContain('@vite/client')
@@ -61,7 +61,7 @@ describe('viteTags', () => {
 
 describe('spa()', () => {
   const app = () =>
-    new Elysia().use(spa({ entry: 'resources/js/spa.ts', prefix: '/dashboard', buildDir: '.' }))
+    new Elysia().use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard', buildDir: '.' }))
 
   test('serves the SPA shell (root div + vite tags) at the prefix', async () => {
     const res = await app().handle(new Request('http://localhost/dashboard'))
@@ -91,7 +91,7 @@ describe('spa()', () => {
   test('a route OUTSIDE the prefix is not shadowed by the SPA', async () => {
     const withApi = new Elysia()
       .get('/api/health', () => ({ ok: true }))
-      .use(spa({ entry: 'resources/js/spa.ts', prefix: '/dashboard', buildDir: '.' }))
+      .use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard', buildDir: '.' }))
     const res = await withApi.handle(new Request('http://localhost/api/health'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })

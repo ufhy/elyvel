@@ -22,7 +22,7 @@ export default antfu(
       'packages/cli/templates/**',
       '**/*.tmpl',
       // Vendored shadcn-vue primitives — owned by the app, kept in upstream style.
-      '**/resources/js/components/ui/**',
+      '**/frontend/components/ui/**',
       // READMEs carry illustrative (non-compiling) code fences — don't lint docs.
       '**/*.md',
       // VitePress build output + generated cache.

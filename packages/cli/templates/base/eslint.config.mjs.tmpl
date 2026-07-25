@@ -18,7 +18,7 @@ export default antfu(
       '**/node_modules',
       'public/build',
       // Vendored shadcn-vue primitives — owned by you, kept in upstream style.
-      '**/resources/js/components/ui/**',
+      '**/frontend/components/ui/**',
     ],
   },
   {

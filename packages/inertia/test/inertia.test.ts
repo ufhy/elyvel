@@ -38,12 +38,12 @@ describe('first (non-XHR) load', () => {
   })
 
   test('vite tags inject the dev client + entry when no manifest', async () => {
-    const res = await build({ vite: { entry: 'resources/js/app.ts' } }).handle(
+    const res = await build({ vite: { entry: 'frontend/app.ts' } }).handle(
       new Request('http://localhost/home'),
     )
     const body = await res.text()
     expect(body).toContain('http://localhost:5173/build/@vite/client')
-    expect(body).toContain('http://localhost:5173/build/resources/js/app.ts')
+    expect(body).toContain('http://localhost:5173/build/frontend/app.ts')
   })
 })
 

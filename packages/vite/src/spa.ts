@@ -35,7 +35,7 @@ function defaultShell(opts: { head: string, rootId: string, title?: string }): s
  * under `prefix`, so client-side routing / deep links work. Pair it with your
  * JSON API (Resource + Bearer auth) on `/api`.
  *
- *   route().use(spa({ entry: 'resources/js/spa.ts', prefix: '/dashboard' }))
+ *   route().use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard' }))
  */
 export function spa(options: SpaOptions) {
   const prefix = (options.prefix ?? '').replace(/\/+$/, '')

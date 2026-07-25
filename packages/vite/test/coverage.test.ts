@@ -30,9 +30,9 @@ describe('viteTags — production manifest', () => {
 
   test('emits hashed script + css tags from the manifest chunk', () => {
     const path = manifest({
-      'resources/js/app.ts': { file: 'assets/app.abc123.js', css: ['assets/app.def456.css'] },
+      'frontend/app.ts': { file: 'assets/app.abc123.js', css: ['assets/app.def456.css'] },
     })
-    const html = viteTags({ entry: 'resources/js/app.ts', manifest: path, base: '/build/' })
+    const html = viteTags({ entry: 'frontend/app.ts', manifest: path, base: '/build/' })
     expect(html).toContain('<script type="module" src="/build/assets/app.abc123.js"></script>')
     expect(html).toContain('<link rel="stylesheet" href="/build/assets/app.def456.css">')
   })

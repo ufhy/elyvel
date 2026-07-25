@@ -12,7 +12,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./resources/js', import.meta.url)) },
+    alias: { '@': fileURLToPath(new URL('./frontend', import.meta.url)) },
   },
   base: '/build/',
   publicDir: false,
@@ -20,6 +20,6 @@ export default defineConfig({
     manifest: true,
     outDir: 'public/build',
     emptyOutDir: true,
-    rollupOptions: { input: 'resources/js/app.ts' },
+    rollupOptions: { input: 'frontend/app.ts' },
   },
 })

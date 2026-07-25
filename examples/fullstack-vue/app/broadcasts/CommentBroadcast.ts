@@ -5,7 +5,7 @@ import { commentResource } from '../resources/CommentResource'
 
 /**
  * Broadcast to everyone viewing a post when a new comment lands — see
- * `resources/js/pages/Blog/Show.vue`'s WebSocket subscription. The
+ * `frontend/Pages/Blog/Show.vue`'s WebSocket subscription. The
  * `private-` prefix routes subscription attempts through the `channel()` rule
  * registered in `AppServiceProvider` (published → anyone; unpublished →
  * author only), so an unpublished post's comments can't leak to a guessed id.

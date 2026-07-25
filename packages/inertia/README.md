@@ -12,7 +12,7 @@ import { route } from '@elyvel/core'
 
 export default route()
   .use(inertia({
-    vite: { entry: 'resources/js/app.ts' },
+    vite: { entry: 'frontend/app.ts' },
     ssr: { bundle: 'public/build/ssr/ssr.js' }, // optional
   }))
   .get('/users', async () => Inertia.render('Users/Index', {
@@ -30,7 +30,7 @@ server** — only the client entry and Vite plugin differ per framework.
 ## Client — Vue (see `examples/basic-app`)
 
 ```ts
-// resources/js/app.ts
+// frontend/app.ts
 import { createInertiaApp } from '@inertiajs/vue3'
 import { createApp, h } from 'vue'
 
@@ -49,7 +49,7 @@ Vite: `@vitejs/plugin-vue`. SSR entry (`ssr.ts`) uses `@vue/server-renderer`'s
 ## Client — React
 
 ```tsx
-// resources/js/app.tsx
+// frontend/app.tsx
 import { createInertiaApp } from '@inertiajs/react'
 import { hydrateRoot } from 'react-dom/client'
 
@@ -65,7 +65,7 @@ createInertiaApp({
 SSR entry:
 
 ```tsx
-// resources/js/ssr.tsx
+// frontend/ssr.tsx
 import { createInertiaApp } from '@inertiajs/react'
 import ReactDOMServer from 'react-dom/server'
 
@@ -86,7 +86,7 @@ Vite: `@vitejs/plugin-react`. Deps: `@inertiajs/react react react-dom`.
 ## Client — Svelte
 
 ```ts
-// resources/js/app.ts
+// frontend/app.ts
 import { createInertiaApp } from '@inertiajs/svelte'
 import { mount } from 'svelte'
 

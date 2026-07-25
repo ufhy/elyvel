@@ -1,7 +1,7 @@
 import { createInertiaApp } from '@inertiajs/vue3'
 import { createApp, h } from 'vue'
 import { initializeTheme } from './composables/useAppearance'
-import '../css/app.css'
+import './css/app.css'
 
 /**
  * Inertia + Vue client entry. Vite bundles this; the server boots it via data-page.

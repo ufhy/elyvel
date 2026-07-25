@@ -19,16 +19,16 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ isSsrBuild }) => ({
   plugins: [vue(), tailwindcss(), inertia({ ssr: false })],
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./resources/js', import.meta.url)) },
+    alias: { '@': fileURLToPath(new URL('./frontend', import.meta.url)) },
   },
   base: '/build/',
   publicDir: false,
   build: isSsrBuild
-    ? { ssr: true, outDir: 'public/build/ssr', emptyOutDir: true, rollupOptions: { input: 'resources/js/ssr.ts' } }
+    ? { ssr: true, outDir: 'public/build/ssr', emptyOutDir: true, rollupOptions: { input: 'frontend/ssr.ts' } }
     : {
         manifest: true,
         outDir: 'public/build',
         emptyOutDir: true,
-        rollupOptions: { input: 'resources/js/app.ts' },
+        rollupOptions: { input: 'frontend/app.ts' },
       },
 }))

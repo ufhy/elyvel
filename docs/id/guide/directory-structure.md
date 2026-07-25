@@ -2,7 +2,7 @@
 
 Aplikasi elyvel yang di-scaffold mengikuti layout ala Laravel, jadi semuanya berada di tempat yang kamu
 harapkan. Di bawah ini adalah aplikasi backend-only (`--kit none`); kit `vue` dan `spa`
-menambahkan `database/` dan `resources/` di atasnya.
+menambahkan `database/` dan `frontend/` di atasnya.
 
 ```
 my-app/
@@ -77,7 +77,7 @@ Variabel environment — `APP_NAME`, `APP_ENV`, `APP_KEY`, `PORT`,
 Migration berada di `database/migrations/`. Jalankan dengan `bun run migrate`
 (`elyvel migrate`) atau reset dengan `bun run migrate:fresh`.
 
-## Direktori `resources` <Badge type="tip" text="vue / spa kits" />
+## Direktori `frontend` <Badge type="tip" text="vue / spa kits" />
 
-Aset frontend — `resources/js` (komponen/halaman Vue) dan `resources/css` —
-dikompilasi oleh Vite.
+Source frontend — komponen/halaman Vue di `frontend/` dan style di
+`frontend/css` — dikompilasi oleh Vite.

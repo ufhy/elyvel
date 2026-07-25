@@ -38,7 +38,7 @@ export default defineMiddlewareConfig({
     SetLocale,
     betterAuthPlugin(),
     inertia({
-      vite: { entry: 'resources/js/app.ts' },
+      vite: { entry: 'frontend/app.ts' },
       ssr: { bundle: 'public/build/ssr/ssr.js' },
       head: favicon + themeScript,
     }),
