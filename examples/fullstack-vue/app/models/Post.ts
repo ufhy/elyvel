@@ -30,7 +30,11 @@ export class Post extends Model {
     'author_email',
   ]
 
-  static override casts = { published: 'boolean' as const, published_at: 'datetime' as const }
+  static override casts = {
+    published: 'boolean' as const,
+    published_at: 'datetime' as const,
+  }
+
   static override softDeletes = true
 
   declare id: number

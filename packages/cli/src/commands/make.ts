@@ -118,21 +118,17 @@ const blueprints: Record<string, Blueprint> = {
   },
 }
 
-/** Handle `make:<type> <Name>`, returning an exit code. */
-export async function make(
+/** Generate a single blueprint file, returning an exit code. */
+async function generate(
   type: string,
-  rawName?: string,
-  flags: Record<string, string | boolean> = {},
+  rawName: string,
+  flags: Record<string, string | boolean>,
 ): Promise<number> {
   const blueprint = blueprints[type]
   if (!blueprint) {
     console.error(
       `Unknown generator "make:${type}". Available: ${Object.keys(blueprints).join(', ')}`,
     )
-    return 1
-  }
-  if (!rawName) {
-    console.error(`Missing name. Usage: elyvel make:${type} <Name>`)
     return 1
   }
 
@@ -160,4 +156,52 @@ export async function make(
     console.error(`✗ ${(error as Error).message}`)
     return 1
   }
+}
+
+/**
+ * `make:model <Name>` companions (Laravel's `-m`/`-f`/`-s`/`-c`/`-a` flags) — each
+ * generates its own file alongside the model, named/tabled to match it.
+ */
+async function generateModelCompanions(
+  rawName: string,
+  flags: Record<string, string | boolean>,
+): Promise<number[]> {
+  const wants = (flag: string) => Boolean(flags.all || flags[flag])
+  const table = tableName(makeNames(rawName).snake)
+  const results: number[] = []
+
+  if (wants('migration'))
+    results.push(await generate('migration', `create_${table}_table`, {}))
+  if (wants('factory'))
+    results.push(await generate('factory', rawName, {}))
+  if (wants('seed'))
+    results.push(await generate('seeder', rawName, {}))
+  if (wants('controller'))
+    results.push(await generate('controller', rawName, {}))
+
+  return results
+}
+
+/** Handle `make:<type> <Name>`, returning an exit code. */
+export async function make(
+  type: string,
+  rawName?: string,
+  flags: Record<string, string | boolean> = {},
+): Promise<number> {
+  if (!blueprints[type]) {
+    console.error(
+      `Unknown generator "make:${type}". Available: ${Object.keys(blueprints).join(', ')}`,
+    )
+    return 1
+  }
+  if (!rawName) {
+    console.error(`Missing name. Usage: elyvel make:${type} <Name>`)
+    return 1
+  }
+
+  const results = [await generate(type, rawName, flags)]
+  if (type === 'model')
+    results.push(...await generateModelCompanions(rawName, flags))
+
+  return results.some(code => code !== 0) ? 1 : 0
 }

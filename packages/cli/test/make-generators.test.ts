@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
@@ -79,5 +79,45 @@ describe('make:factory', () => {
     const src = read('database/factories/PostFactory.ts')
     expect(src).toContain('export const postFactory = defineFactory(Post,')
     expect(src).toContain('import { Post } from \'../../app/models/Post\'')
+  })
+})
+
+describe('make:model companions', () => {
+  test('plain make:model generates only the model', async () => {
+    expect(await make('model', 'Category')).toBe(0)
+    expect(read('app/models/Category.ts')).toContain('static override table = \'categories\'')
+  })
+
+  test('--migration generates a create_<table>_table migration', async () => {
+    expect(await make('model', 'Category', { migration: true })).toBe(0)
+    const [file] = readdirSync(join(dir, 'database/migrations'))
+    const src = read(`database/migrations/${file}`)
+    expect(file).toMatch(/_create_categories_table\.ts$/)
+    expect(src).toContain('schema.create(\'categories\'')
+  })
+
+  test('--factory generates a matching factory', async () => {
+    expect(await make('model', 'Category', { factory: true })).toBe(0)
+    const src = read('database/factories/CategoryFactory.ts')
+    expect(src).toContain('export const categoryFactory = defineFactory(Category,')
+  })
+
+  test('--seed generates a matching seeder', async () => {
+    expect(await make('model', 'Category', { seed: true })).toBe(0)
+    expect(read('database/seeders/CategorySeeder.ts')).toContain('export class CategorySeeder')
+  })
+
+  test('--controller generates a matching controller', async () => {
+    expect(await make('model', 'Category', { controller: true })).toBe(0)
+    expect(read('app/controllers/CategoryController.ts')).toContain('export class CategoryController')
+  })
+
+  test('--all generates every companion', async () => {
+    expect(await make('model', 'Category', { all: true })).toBe(0)
+    expect(read('app/models/Category.ts')).toContain('class Category')
+    expect(read('database/factories/CategoryFactory.ts')).toContain('categoryFactory')
+    expect(read('database/seeders/CategorySeeder.ts')).toContain('class CategorySeeder')
+    expect(read('app/controllers/CategoryController.ts')).toContain('class CategoryController')
+    expect(readdirSync(join(dir, 'database/migrations')).some(f => f.endsWith('_create_categories_table.ts'))).toBe(true)
   })
 })

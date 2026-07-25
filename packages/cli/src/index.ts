@@ -77,7 +77,9 @@ Usage:
 
   elyvel make:controller <Name>                Generate a controller plugin
   elyvel make:middleware <Name>                Generate a middleware plugin
-  elyvel make:model <Name>                     Generate a model + table schema
+  elyvel make:model <Name> [--migration] [--factory] [--seed] [--controller] [--all]
+                                                Generate a model + table schema
+                                                (companions: migration/factory/seeder/controller)
   elyvel make:migration <name>                 Generate a migration
   elyvel make:seeder <Name>                    Generate a seeder
   elyvel make:factory <Name>                   Generate a model factory (Faker)
