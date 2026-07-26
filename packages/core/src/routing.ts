@@ -15,6 +15,52 @@ export type RouteHandler = (context: MiddlewareContext) => unknown
  */
 export abstract class Controller {}
 
+// Method → its declared middleware/authorize-ability, class → its declared
+// middleware — populated immediately when `@UseMiddleware`/`@Authorize` run
+// (class-definition time), read back by `resource()`/`apiResource()` below.
+const METHOD_MIDDLEWARE = new WeakMap<Function, string[]>()
+const CLASS_MIDDLEWARE = new WeakMap<Function, string[]>()
+const METHOD_AUTHORIZE = new WeakMap<Function, string>()
+
+/**
+ * Attach middleware to a controller action (Laravel's `#[Middleware]`) — on a
+ * method, applies to that action only; on the class, to every action:
+ *
+ *   class PostController extends Controller {
+ *     @UseMiddleware('auth')
+ *     async store(ctx: MiddlewareContext) { ... }
+ *   }
+ *
+ * Merged with any `resource(..., { middleware })` passed at the registration
+ * site (class, then method, then that option), not replaced by it.
+ */
+export function UseMiddleware(...names: string[]) {
+  return (target: unknown, context: ClassMethodDecoratorContext | ClassDecoratorContext): void => {
+    if (context.kind === 'class')
+      CLASS_MIDDLEWARE.set(target as Function, names)
+    else if (context.kind === 'method')
+      METHOD_MIDDLEWARE.set(target as Function, names)
+  }
+}
+
+/**
+ * Authorize a controller action (Laravel's `#[Authorize]`) — runs `ctx.authorize`
+ * (injected by the auth package's middleware, same convention a hand-written
+ * `authorize(ctx, ability, ctx.model)` helper uses) before the action, passing
+ * `ctx.model` when the action is route-model-bound:
+ *
+ *   class PostController extends Controller {
+ *     @Authorize('update')
+ *     async update(ctx: MiddlewareContext) { ... } // ctx.model already resolved
+ *   }
+ */
+export function Authorize(ability: string) {
+  return (target: RouteHandler, context: ClassMethodDecoratorContext): void => {
+    METHOD_AUTHORIZE.set(target as unknown as Function, ability)
+    void context
+  }
+}
+
 /** The seven RESTful resource actions, à la Laravel's `Route::resource`. */
 export type ResourceAction = 'index' | 'create' | 'store' | 'show' | 'edit' | 'update' | 'destroy'
 
@@ -91,11 +137,17 @@ function selectedActions(options: ResourceOptions, base: ResourceAction[]): Reso
   return base
 }
 
-function middlewareFor(action: ResourceAction, options: ResourceOptions): string[] {
+function middlewareFor(
+  action: ResourceAction,
+  options: ResourceOptions,
+  Controller: ControllerClass,
+  fn: RouteHandler | undefined,
+): string[] {
+  const classMw = CLASS_MIDDLEWARE.get(Controller) ?? []
+  const methodMw = fn ? (METHOD_MIDDLEWARE.get(fn) ?? []) : []
   const mw = options.middleware
-  if (!mw)
-    return []
-  return Array.isArray(mw) ? mw : (mw[action] ?? [])
+  const explicit = !mw ? [] : Array.isArray(mw) ? mw : (mw[action] ?? [])
+  return [...classMw, ...methodMw, ...explicit]
 }
 
 /**
@@ -161,7 +213,8 @@ function buildResource(
   let r: any = route(path)
 
   const opts = (action: ResourceAction) => {
-    const mw = middlewareFor(action, options)
+    const fn = instance[action]
+    const mw = middlewareFor(action, options, Controller, typeof fn === 'function' ? fn : undefined)
     return mw.length ? { middleware: mw } : undefined
   }
 
@@ -195,11 +248,25 @@ function buildResource(
     }
   }
 
+  // Wrap with the `@Authorize`'d ability check (runs after model binding, so
+  // `ctx.model` is already resolved for show/update/destroy).
+  const authorizeAction = (fn: RouteHandler, handler: RouteHandler): RouteHandler => {
+    const ability = METHOD_AUTHORIZE.get(fn)
+    if (!ability)
+      return handler
+    return (ctx) => {
+      (ctx.authorize as ((a: string, ...x: unknown[]) => void) | undefined)?.(ability, ctx.model)
+      return handler(ctx)
+    }
+  }
+
   const bind = (action: ResourceAction): RouteHandler | undefined => {
     const fn = instance[action]
     if (typeof fn !== 'function')
       return undefined
-    return bindAction(action, (fn as RouteHandler).bind(instance))
+    // Model binding must run FIRST so `ctx.model` exists by the time
+    // `@Authorize` reads it — bindAction is the outer wrapper, authorize the inner.
+    return bindAction(action, authorizeAction(fn, (fn as RouteHandler).bind(instance)))
   }
 
   const fullPath = (suffix: string) => `${path}${suffix}`.replace(/\/$/, '') || '/'

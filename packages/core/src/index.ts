@@ -103,6 +103,7 @@ export type { RouteModule } from './router'
 export { loadRoutes } from './router'
 export {
   apiResource,
+  Authorize,
   type Binder,
   Controller,
   type ControllerClass,
@@ -117,6 +118,7 @@ export {
   singleton,
   type SingletonAction,
   type SingletonOptions,
+  UseMiddleware,
 } from './routing'
 export type { ServiceProviderClass } from './service-provider'
 export { ServiceProvider } from './service-provider'
