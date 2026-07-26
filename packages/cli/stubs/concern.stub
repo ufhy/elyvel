@@ -1,0 +1,46 @@
+import type { Concern } from '@elyvel/database'
+
+/**
+ * {{class}}Fields — the typed shape {{class}} adds to a model. Merge it onto
+ * the model with an interface (`interface Post extends {{class}}Fields {}`)
+ * right next to the class declaration — TypeScript combines the two.
+ */
+export interface {{class}}Fields {
+  // example: status: string
+}
+
+/**
+ * {{class}} — a model concern (Laravel trait equivalent). Apply with
+ * `withConcerns(Post, {{class}})` right after the model's class declaration.
+ *
+ *   // eslint-disable-next-line ts/no-unsafe-declaration-merging
+ *   export interface Post extends {{class}}Fields {}
+ *   // eslint-disable-next-line ts/no-unsafe-declaration-merging
+ *   export class Post extends Model {
+ *     static override table = 'posts'
+ *   }
+ *   withConcerns(Post, {{class}})
+ */
+export const {{class}}: Concern = {
+  // Columns this concern's fields may be mass-assigned through
+  // (create()/fill()) — same rules as a model's own `fillable`:
+  //   fillable: ['status'],
+
+  // Attribute casts for this concern's columns:
+  //   casts: { status: 'string' },
+
+  // Opt-in local scopes — applied via `.scope('name')`:
+  //   scopes: { active: q => q.where('status', 'active') },
+
+  // Global scopes — auto-applied to EVERY query, no `.scope()` call needed
+  // (Laravel's `bootX()` registering a scope). Note: operates on the raw
+  // QueryBuilder, not the Eloquent-aware builder local scopes get:
+  //   globalScopes: { published: q => q.where('published', true) },
+
+  // Instance methods, merged onto the model's prototype:
+  //   methods: {
+  //     someMethod(this: Model & {{class}}Fields) { ... },
+  //   },
+}
+
+export default {{class}}

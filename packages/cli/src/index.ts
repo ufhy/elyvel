@@ -83,6 +83,7 @@ Usage:
                                                 Generate a model + table schema
                                                 (companions: migration/factory/seeder/controller)
   elyvel make:migration <name>                 Generate a migration
+  elyvel make:concern <Name>                   Generate a model concern (Laravel trait equivalent)
   elyvel make:seeder <Name>                    Generate a seeder
   elyvel make:factory <Name>                   Generate a model factory (Faker)
   elyvel make:policy <Name> [--model[=Model]]  Generate an authorization policy

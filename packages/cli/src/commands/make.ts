@@ -116,6 +116,12 @@ const blueprints: Record<string, Blueprint> = {
       return { Model: model.class }
     },
   },
+  concern: {
+    stub: 'concern',
+    suffix: '',
+    dir: 'app/concerns',
+    filename: n => `${n.class}.ts`,
+  },
 }
 
 /** Generate a single blueprint file, returning an exit code. */

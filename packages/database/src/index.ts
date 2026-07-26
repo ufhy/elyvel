@@ -1,3 +1,4 @@
+export { type Concern, withConcerns } from './concern'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export {
   afterCommit,

@@ -82,6 +82,16 @@ describe('make:factory', () => {
   })
 })
 
+describe('make:concern', () => {
+  test('generates a Concern object + matching Fields interface', async () => {
+    expect(await make('concern', 'HasStatus')).toBe(0)
+    const src = read('app/concerns/HasStatus.ts')
+    expect(src).toContain('export interface HasStatusFields')
+    expect(src).toContain('export const HasStatus: Concern')
+    expect(src).toContain('import type { Concern } from \'@elyvel/database\'')
+  })
+})
+
 describe('make:model companions', () => {
   test('plain make:model generates only the model', async () => {
     expect(await make('model', 'Category')).toBe(0)
