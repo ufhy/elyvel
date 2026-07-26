@@ -2,7 +2,7 @@ import type { MiddlewareContext } from '../src/middleware'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { registerMiddlewareRegistry } from '../src/middleware'
-import { Controller, invoke, resource, singleton } from '../src/routing'
+import { apiSingleton, Controller, invoke, resource, singleton } from '../src/routing'
 
 registerMiddlewareRegistry({ aliases: {} })
 
@@ -12,47 +12,90 @@ describe('singleton resource', () => {
       return { name: 'Ada' }
     }
 
+    async edit() {
+      return { form: 'edit' }
+    }
+
     async update(ctx: MiddlewareContext) {
       return { updated: ctx.body }
+    }
+
+    async create() {
+      return { form: 'create' }
+    }
+
+    async store() {
+      return { created: true }
     }
 
     async destroy() {
       return { deleted: true }
     }
   }
-  const app = new Elysia().use(singleton('/profile', ProfileController))
   const json = { 'content-type': 'application/json' }
 
-  test('show/update/destroy without :id', async () => {
+  test('base singleton: show/edit/update — NOT create/store/destroy (Laravel parity)', async () => {
+    const app = new Elysia().use(singleton('/profile', ProfileController))
+
     expect(await (await app.handle(new Request('http://localhost/profile'))).json()).toEqual({
       name: 'Ada',
+    })
+    expect(await (await app.handle(new Request('http://localhost/profile/edit'))).json()).toEqual({
+      form: 'edit',
     })
     const upd = await app.handle(
       new Request('http://localhost/profile', { method: 'PUT', headers: json, body: '{"x":1}' }),
     )
     expect(await upd.json()).toEqual({ updated: { x: 1 } })
-    const del = await app.handle(new Request('http://localhost/profile', { method: 'DELETE' }))
-    expect(await del.json()).toEqual({ deleted: true })
+
+    expect((await app.handle(new Request('http://localhost/profile/create'))).status).toBe(404)
+    expect(
+      (await app.handle(new Request('http://localhost/profile', { method: 'POST', headers: json, body: '{}' }))).status,
+    ).not.toBe(200)
+    expect((await app.handle(new Request('http://localhost/profile', { method: 'DELETE' }))).status).not.toBe(200)
   })
 
-  test('no store route unless creatable', async () => {
-    const res = await app.handle(
+  test('creatable() adds create/store/destroy', async () => {
+    const app = new Elysia().use(singleton('/profile', ProfileController, { creatable: true }))
+
+    expect(await (await app.handle(new Request('http://localhost/profile/create'))).json()).toEqual({
+      form: 'create',
+    })
+    const stored = await app.handle(
       new Request('http://localhost/profile', { method: 'POST', headers: json, body: '{}' }),
     )
-    expect(res.status).not.toBe(200)
+    expect(await stored.json()).toEqual({ created: true })
+    const destroyed = await app.handle(new Request('http://localhost/profile', { method: 'DELETE' }))
+    expect(await destroyed.json()).toEqual({ deleted: true })
   })
 
-  test('creatable adds a store route', async () => {
-    class Creatable extends Controller {
-      async store() {
-        return { created: true }
-      }
-    }
-    const app2 = new Elysia().use(singleton('/setup', Creatable, { creatable: true }))
-    const res = await app2.handle(
-      new Request('http://localhost/setup', { method: 'POST', headers: json, body: '{}' }),
+  test('destroyable() adds ONLY destroy, without create/store', async () => {
+    const app = new Elysia().use(singleton('/profile', ProfileController, { destroyable: true }))
+
+    const destroyed = await app.handle(new Request('http://localhost/profile', { method: 'DELETE' }))
+    expect(await destroyed.json()).toEqual({ deleted: true })
+    expect((await app.handle(new Request('http://localhost/profile/create'))).status).toBe(404)
+    expect(
+      (await app.handle(new Request('http://localhost/profile', { method: 'POST', headers: json, body: '{}' }))).status,
+    ).not.toBe(200)
+  })
+
+  test('apiSingleton: show/update only — no create/edit form routes', async () => {
+    const app = new Elysia().use(apiSingleton('/profile', ProfileController))
+
+    expect(await (await app.handle(new Request('http://localhost/profile'))).json()).toEqual({ name: 'Ada' })
+    expect((await app.handle(new Request('http://localhost/profile/edit'))).status).toBe(404)
+    expect((await app.handle(new Request('http://localhost/profile/create'))).status).toBe(404)
+  })
+
+  test('apiSingleton + creatable() adds store/destroy but still no create/edit forms', async () => {
+    const app = new Elysia().use(apiSingleton('/profile', ProfileController, { creatable: true }))
+
+    const stored = await app.handle(
+      new Request('http://localhost/profile', { method: 'POST', headers: json, body: '{}' }),
     )
-    expect(await res.json()).toEqual({ created: true })
+    expect(await stored.json()).toEqual({ created: true })
+    expect((await app.handle(new Request('http://localhost/profile/create'))).status).toBe(404)
   })
 })
 

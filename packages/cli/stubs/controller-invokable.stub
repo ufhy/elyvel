@@ -1,0 +1,19 @@
+import type { MiddlewareContext } from '@elyvel/core'
+import { Controller } from '@elyvel/core'
+{{modelImport}}
+/**
+ * {{class}} — a single-action (invokable) controller, for one complex action
+ * that doesn't fit the RESTful resource shape. Wire it up in a `routes/` file:
+ *
+ *   import { invoke, route } from '@elyvel/core'
+ *   import { {{class}} } from '../app/controllers/{{class}}'
+ *   export default route().post('/{{kebab}}', invoke({{class}}))
+ */
+export class {{class}} extends Controller {
+  async handle(ctx: MiddlewareContext) {
+    void ctx
+    return { ok: true }
+  }
+}
+
+export default {{class}}

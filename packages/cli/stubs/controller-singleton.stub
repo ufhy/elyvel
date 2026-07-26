@@ -1,0 +1,31 @@
+import type { MiddlewareContext } from '@elyvel/core'
+import { Controller } from '@elyvel/core'
+{{modelImport}}
+/**
+ * {{class}} — a singleton resource controller (no `:id`; one instance per
+ * context, e.g. `/profile`). Wire it up in a `routes/` file:
+ *
+ *   import { singleton } from '@elyvel/core'
+ *   import { {{class}} } from '../app/controllers/{{class}}'
+ *   export default singleton('/{{kebab}}', {{class}})
+ */
+export class {{class}} extends Controller {
+  /** GET /{{kebab}} */
+  async show(ctx: MiddlewareContext) {
+    void ctx
+    return {}
+  }
+
+  /** GET /{{kebab}}/edit */
+  async edit(ctx: MiddlewareContext) {
+    void ctx
+    return { form: 'edit' }
+  }
+
+  /** PUT|PATCH /{{kebab}} */
+  async update(ctx: MiddlewareContext) {
+    return ctx.body
+  }
+}
+
+export default {{class}}

@@ -16,11 +16,11 @@ export async function renderStub(
 
 /**
  * Write `contents` to `target`, creating parent dirs. Refuses to overwrite an
- * existing file so a generator never clobbers user code.
+ * existing file (so a generator never clobbers user code) unless `force` is set.
  */
-export async function writeGenerated(target: string, contents: string): Promise<void> {
-  if (existsSync(target)) {
-    throw new Error(`File already exists: ${target}`)
+export async function writeGenerated(target: string, contents: string, force = false): Promise<void> {
+  if (!force && existsSync(target)) {
+    throw new Error(`File already exists: ${target} (use --force to overwrite)`)
   }
   await mkdir(dirname(target), { recursive: true })
   await Bun.write(target, contents)

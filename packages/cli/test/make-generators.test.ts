@@ -19,6 +19,73 @@ afterEach(() => {
 
 const read = (rel: string) => readFileSync(join(dir, rel), 'utf8')
 
+describe('make:controller flags', () => {
+  test('default: the 5-action JSON stub (unchanged)', async () => {
+    expect(await make('controller', 'Post')).toBe(0)
+    const src = read('app/controllers/PostController.ts')
+    expect(src).toContain('async index(')
+    expect(src).toContain('async store(')
+    expect(src).not.toContain('async create(')
+  })
+
+  test('--resource generates the full 7-action stub, with create/edit', async () => {
+    expect(await make('controller', 'Post', { resource: true })).toBe(0)
+    const src = read('app/controllers/PostController.ts')
+    for (const action of ['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
+      expect(src).toContain(`async ${action}(`)
+  })
+
+  test('--invokable generates a single handle() method', async () => {
+    expect(await make('controller', 'ProvisionServer', { invokable: true })).toBe(0)
+    const src = read('app/controllers/ProvisionServerController.ts')
+    expect(src).toContain('async handle(')
+    expect(src).not.toContain('async index(')
+  })
+
+  test('--singleton generates show/edit/update, no create/store/destroy', async () => {
+    expect(await make('controller', 'Profile', { singleton: true })).toBe(0)
+    const src = read('app/controllers/ProfileController.ts')
+    expect(src).toContain('async show(')
+    expect(src).toContain('async edit(')
+    expect(src).toContain('async update(')
+    expect(src).not.toContain('async create(')
+    expect(src).not.toContain('async destroy(')
+  })
+
+  test('--singleton --creatable adds create/store/destroy too', async () => {
+    expect(await make('controller', 'Profile', { singleton: true, creatable: true })).toBe(0)
+    const src = read('app/controllers/ProfileController.ts')
+    for (const action of ['create', 'store', 'show', 'edit', 'update', 'destroy'])
+      expect(src).toContain(`async ${action}(`)
+  })
+
+  test('--model adds a route-model-binding hint comment, not a live (unused) import', async () => {
+    expect(await make('controller', 'Post', { model: 'Post' })).toBe(0)
+    const src = read('app/controllers/PostController.ts')
+    expect(src).toContain('bind: Post')
+    expect(src).not.toContain('import type { Post }')
+  })
+
+  test('--parent adds a nested-resource hint comment', async () => {
+    expect(await make('controller', 'Comment', { parent: 'Post' })).toBe(0)
+    const src = read('app/controllers/CommentController.ts')
+    expect(src).toContain('Nested under Post')
+    expect(src).toContain('shallow: true')
+  })
+
+  test('--requests also generates Store/Update FormRequest classes', async () => {
+    expect(await make('controller', 'Post', { requests: true })).toBe(0)
+    expect(read('app/requests/StorePostRequest.ts')).toContain('export class StorePostRequest')
+    expect(read('app/requests/UpdatePostRequest.ts')).toContain('export class UpdatePostRequest')
+  })
+
+  test('--force allows overwriting an existing generated file', async () => {
+    expect(await make('controller', 'Post')).toBe(0)
+    expect(await make('controller', 'Post')).toBe(1) // refused without --force
+    expect(await make('controller', 'Post', { force: true })).toBe(0) // allowed with it
+  })
+})
+
 describe('make:request', () => {
   test('generates a FormRequest', async () => {
     expect(await make('request', 'StorePost')).toBe(0)

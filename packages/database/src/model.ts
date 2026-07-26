@@ -462,6 +462,11 @@ export class Model {
     return this.query().where(this.primaryKey, id).first()
   }
 
+  /** Like `find()`, but also matches soft-deleted rows (`@elyvel/core`'s `resource({ withTrashed })`). */
+  static findWithTrashed<M extends Model>(this: ModelClass<M>, id: unknown): Promise<M | undefined> {
+    return this.query().withTrashed().where(this.primaryKey, id).first()
+  }
+
   /** The column route-model-binding resolves against by default (Laravel's `getRouteKeyName`). Override for slug binding. */
   static routeKeyName = 'id'
 
@@ -476,6 +481,15 @@ export class Model {
     field?: string,
   ): Promise<M | undefined> {
     return this.query().where(field ?? this.routeKeyName, value).first()
+  }
+
+  /** Like `resolveRouteBinding()`, but also matches soft-deleted rows. */
+  static resolveRouteBindingWithTrashed<M extends Model>(
+    this: ModelClass<M>,
+    value: unknown,
+    field?: string,
+  ): Promise<M | undefined> {
+    return this.query().withTrashed().where(field ?? this.routeKeyName, value).first()
   }
 
   /** Find several rows by primary key. */

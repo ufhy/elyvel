@@ -77,7 +77,11 @@ Usage:
   elyvel schedule:list                         List scheduled tasks and their cron
   elyvel broadcast:serve [--port=<n>]           Run the WebSocket/broadcast layer as its own process
 
-  elyvel make:controller <Name>                Generate a controller plugin
+  elyvel make:controller <Name> [--resource] [--invokable] [--singleton [--creatable]]
+                                [--model=X] [--parent=X] [--requests] [--force]
+                                                Generate a controller (default: 5-action JSON;
+                                                --resource: 7-action w/ create/edit; --invokable: single-action;
+                                                --singleton: no-id resource; --requests: + Store/Update FormRequests)
   elyvel make:middleware <Name>                Generate a middleware plugin
   elyvel make:model <Name> [--migration] [--factory] [--seed] [--controller] [--all]
                                                 Generate a model + table schema

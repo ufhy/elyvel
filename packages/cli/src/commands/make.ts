@@ -152,9 +152,42 @@ async function generate(
     vars = { ...vars, Model: makeNames(modelRaw).class }
   }
 
+  // `make:controller <Name> [--resource] [--invokable] [--singleton [--creatable]] [--model=X] [--parent=X]`
+  if (type === 'controller') {
+    if (flags.invokable) {
+      stub = 'controller-invokable'
+    }
+    else if (flags.singleton) {
+      stub = flags.creatable ? 'controller-singleton-creatable' : 'controller-singleton'
+    }
+    else if (flags.resource) {
+      stub = 'controller-resource'
+    }
+
+    // Comments, not live imports/wiring: route-model-binding (`bind`) and
+    // nesting are configured where the resource is REGISTERED (a routes/
+    // file), not inside the controller class itself — a live import here
+    // would just be unused code, not working code.
+    const hints: string[] = []
+    if (flags.model) {
+      const modelRaw = typeof flags.model === 'string' ? flags.model : names.snake.replace(/_controller$/, '')
+      const Model = makeNames(modelRaw).class
+      hints.push(`// Route-model-bound: resource('/${names.kebab.replace(/-controller$/, '')}', ${names.class}, { bind: ${Model} }) — see app/models/${Model}.ts`)
+    }
+    if (flags.parent) {
+      const parentRaw = typeof flags.parent === 'string' ? flags.parent : 'Parent'
+      const Parent = makeNames(parentRaw).class
+      const parentKebab = makeNames(parentRaw).kebab
+      hints.push(
+        `// Nested under ${Parent}: resource('/${parentKebab}/:${parentKebab}/${names.kebab.replace(/-controller$/, '')}', ${names.class}, { shallow: true })`,
+      )
+    }
+    vars = { ...vars, modelImport: hints.length ? `${hints.join('\n')}\n` : '' }
+  }
+
   try {
     const contents = await renderStub(stub, vars)
-    await writeGenerated(target, contents)
+    await writeGenerated(target, contents, Boolean(flags.force))
     console.log(`✓ Created ${relative(process.cwd(), target)}`)
     return 0
   }
@@ -188,6 +221,24 @@ async function generateModelCompanions(
   return results
 }
 
+/**
+ * `make:controller <Name> --requests` (Laravel's `--requests` on `make:controller
+ * --resource`) — Store/Update FormRequest classes for the resource, named after
+ * the controller with the `Controller` suffix stripped (`PostController` → `StorePostRequest`/`UpdatePostRequest`).
+ */
+async function generateControllerCompanions(
+  rawName: string,
+  flags: Record<string, string | boolean>,
+): Promise<number[]> {
+  if (!flags.requests)
+    return []
+  const base = makeNames(rawName, 'Controller').snake.replace(/_controller$/, '')
+  return [
+    await generate('request', `store_${base}`, {}),
+    await generate('request', `update_${base}`, {}),
+  ]
+}
+
 /** Handle `make:<type> <Name>`, returning an exit code. */
 export async function make(
   type: string,
@@ -208,6 +259,8 @@ export async function make(
   const results = [await generate(type, rawName, flags)]
   if (type === 'model')
     results.push(...await generateModelCompanions(rawName, flags))
+  if (type === 'controller')
+    results.push(...await generateControllerCompanions(rawName, flags))
 
   return results.some(code => code !== 0) ? 1 : 0
 }

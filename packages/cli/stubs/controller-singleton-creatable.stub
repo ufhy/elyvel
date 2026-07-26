@@ -1,0 +1,49 @@
+import type { MiddlewareContext } from '@elyvel/core'
+import { Controller } from '@elyvel/core'
+{{modelImport}}
+/**
+ * {{class}} — a creatable singleton resource controller (no `:id`; one
+ * instance per context, e.g. `/profile`), with create/store/destroy too.
+ * Wire it up in a `routes/` file:
+ *
+ *   import { singleton } from '@elyvel/core'
+ *   import { {{class}} } from '../app/controllers/{{class}}'
+ *   export default singleton('/{{kebab}}', {{class}}, { creatable: true })
+ */
+export class {{class}} extends Controller {
+  /** GET /{{kebab}}/create */
+  async create(ctx: MiddlewareContext) {
+    void ctx
+    return { form: 'create' }
+  }
+
+  /** POST /{{kebab}} */
+  async store(ctx: MiddlewareContext) {
+    return ctx.body
+  }
+
+  /** GET /{{kebab}} */
+  async show(ctx: MiddlewareContext) {
+    void ctx
+    return {}
+  }
+
+  /** GET /{{kebab}}/edit */
+  async edit(ctx: MiddlewareContext) {
+    void ctx
+    return { form: 'edit' }
+  }
+
+  /** PUT|PATCH /{{kebab}} */
+  async update(ctx: MiddlewareContext) {
+    return ctx.body
+  }
+
+  /** DELETE /{{kebab}} */
+  async destroy(ctx: MiddlewareContext) {
+    void ctx
+    return { deleted: true }
+  }
+}
+
+export default {{class}}

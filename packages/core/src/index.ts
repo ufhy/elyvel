@@ -103,22 +103,32 @@ export type { RouteModule } from './router'
 export { loadRoutes } from './router'
 export {
   apiResource,
+  apiResources,
+  apiSingleton,
   Authorize,
+  authorizeResource,
   type Binder,
   Controller,
   type ControllerClass,
   fallback,
+  type FormRequestLike,
   type InvokableClass,
   invoke,
   type ModelBinder,
   resource,
   type ResourceAction,
   type ResourceOptions,
+  type ResourceRoute,
+  resources,
   type RouteHandler,
+  type RouteMeta,
+  routeMetaEntries,
   singleton,
   type SingletonAction,
   type SingletonOptions,
   UseMiddleware,
+  ValidateWith,
+  WithoutMiddleware,
 } from './routing'
 export type { ServiceProviderClass } from './service-provider'
 export { ServiceProvider } from './service-provider'

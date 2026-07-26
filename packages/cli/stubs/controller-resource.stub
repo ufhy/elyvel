@@ -2,16 +2,13 @@ import type { MiddlewareContext } from '@elyvel/core'
 import { Controller } from '@elyvel/core'
 {{modelImport}}
 /**
- * {{class}} — a RESTful controller. Wire it up in a `routes/` file:
+ * {{class}} — a full 7-action resource controller (index/create/store/show/
+ * edit/update/destroy), for rendering forms (e.g. Inertia pages). Wire it up
+ * in a `routes/` file:
  *
- *   import { apiResource } from '@elyvel/core'
+ *   import { resource } from '@elyvel/core'
  *   import { {{class}} } from '../app/controllers/{{class}}'
- *   export default apiResource('/{{kebab}}', {{class}})
- *
- * Only the methods you define are routed. `apiResource` wires the 5 JSON
- * actions (index/store/show/update/destroy). Rendering a form instead (e.g.
- * an Inertia page)? Add `create`/`edit` methods and use `resource` instead —
- * it wires all 7, à la Laravel's `Route::resource`.
+ *   export default resource('/{{kebab}}', {{class}})
  */
 export class {{class}} extends Controller {
   /** GET /{{kebab}} */
@@ -20,14 +17,25 @@ export class {{class}} extends Controller {
     return []
   }
 
-  /** GET /{{kebab}}/:id */
-  async show(ctx: MiddlewareContext) {
-    return { id: ctx.params.id }
+  /** GET /{{kebab}}/create */
+  async create(ctx: MiddlewareContext) {
+    void ctx
+    return { form: 'create' }
   }
 
   /** POST /{{kebab}} */
   async store(ctx: MiddlewareContext) {
     return ctx.body
+  }
+
+  /** GET /{{kebab}}/:id */
+  async show(ctx: MiddlewareContext) {
+    return { id: ctx.params.id }
+  }
+
+  /** GET /{{kebab}}/:id/edit */
+  async edit(ctx: MiddlewareContext) {
+    return { form: 'edit', id: ctx.params.id }
   }
 
   /** PUT|PATCH /{{kebab}}/:id */
