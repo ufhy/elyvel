@@ -1,8 +1,8 @@
+import type { EloquentCollection } from './eloquent-collection'
 import type { Model, ModelClass } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
 import type { Relation } from './relations'
 import { LazyCollection } from '@elyvel/support'
-import { EloquentCollection } from './eloquent-collection'
 import { eagerLoad, MorphTo } from './relations'
 
 type Row = Record<string, unknown>
@@ -406,6 +406,12 @@ export class EloquentBuilder<M extends Model> {
     return this
   }
 
+  /** Exclude soft-deleted rows (the default — for reverting an earlier `withTrashed()`/`onlyTrashed()` in the same chain). */
+  withoutTrashed(): this {
+    this.trashed = 'default'
+    return this
+  }
+
   /** Skip a named global scope for this query. */
   withoutGlobalScope(name: string): this {
     this.removedScopes.add(name)
@@ -516,7 +522,7 @@ export class EloquentBuilder<M extends Model> {
     for (const { path, constrain } of this.eagerLoads) {
       await eagerLoad(models, path, constrain)
     }
-    return new EloquentCollection(models)
+    return (this.model as unknown as ModelClass<M>).newCollection(models)
   }
 
   async first(): Promise<M | undefined> {
@@ -605,7 +611,7 @@ export class EloquentBuilder<M extends Model> {
     const items = (await this.get()).all()
     const hasMore = items.length > perPage
     return {
-      data: new EloquentCollection(items.slice(0, perPage)),
+      data: (this.model as unknown as ModelClass<M>).newCollection(items.slice(0, perPage)),
       perPage,
       currentPage: page,
       hasMore,
@@ -626,7 +632,7 @@ export class EloquentBuilder<M extends Model> {
     const hasMore = items.length > perPage
     const data = items.slice(0, perPage)
     const nextCursor = hasMore ? (data[data.length - 1]?.getAttribute(column) ?? null) : null
-    return { data: new EloquentCollection(data), perPage, nextCursor }
+    return { data: (this.model as unknown as ModelClass<M>).newCollection(data), perPage, nextCursor }
   }
 
   async value<T = unknown>(column: string): Promise<T | undefined> {

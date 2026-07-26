@@ -164,7 +164,7 @@ export class HasMany<R extends Model> extends Relation<R> {
     const grouped = (await query.get()).groupBy(this.foreignKey as keyof R)
     for (const parent of parents) {
       const items = grouped[String(parent.getAttribute(this.localKey))]?.all() ?? []
-      parent.setRelation(name, new EloquentCollection(items))
+      parent.setRelation(name, this.related.newCollection(items))
     }
   }
 
@@ -286,6 +286,8 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
   }
 
   private pivotTimestamps = false
+  private readonly extraPivotColumns: string[] = []
+  private pivotClass?: typeof Model
   protected addConstraints(): void {}
   private pivot(): QueryBuilder {
     const q = new QueryBuilder(useConnection(), this.pivotTable)
@@ -294,9 +296,10 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     return q
   }
 
-  /** Attach the pivot row (all its columns) onto each related model as `pivot`. */
-  withPivot(): this {
-    return this // pivot columns are always attached; kept for API familiarity
+  /** Expose extra pivot table columns on `.pivot` (beyond the two keys / timestamps). */
+  withPivot(...columns: string[]): this {
+    this.extraPivotColumns.push(...columns)
+    return this
   }
 
   /** Set created_at/updated_at on the pivot when attaching. */
@@ -305,10 +308,29 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     return this
   }
 
+  /** Use a custom Model subclass (Laravel's `Pivot`) for `.pivot`, instead of a plain object. */
+  using(pivotClass: typeof Model): this {
+    this.pivotClass = pivotClass
+    return this
+  }
+
   private attachPivot(models: R[], pivotRows: Record<string, unknown>[]): void {
+    const exposed = new Set([
+      this.foreignPivotKey,
+      this.relatedPivotKey,
+      ...(this.morphType ? [this.morphType] : []),
+      ...(this.pivotTimestamps ? ['created_at', 'updated_at'] : []),
+      ...this.extraPivotColumns,
+    ])
     const byRelated = new Map(pivotRows.map(r => [String(r[this.relatedPivotKey]), r]))
     for (const model of models) {
-      model.setRelation('pivot', byRelated.get(String(model.getAttribute(this.relatedKey))))
+      const row = byRelated.get(String(model.getAttribute(this.relatedKey)))
+      if (!row) {
+        model.setRelation('pivot', undefined)
+        continue
+      }
+      const projected = Object.fromEntries(Object.entries(row).filter(([k]) => exposed.has(k)))
+      model.setRelation('pivot', this.pivotClass ? this.pivotClass.hydrate(projected) : projected)
     }
   }
 
@@ -318,7 +340,7 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
       .get()
     const ids = rows.map(r => r[this.relatedPivotKey])
     if (ids.length === 0)
-      return new EloquentCollection<R>([])
+      return this.related.newCollection([])
     const related = await this.related.query().whereIn(this.relatedKey, ids).get()
     this.attachPivot(related.all(), rows)
     return related
@@ -328,14 +350,27 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     return (await this.get()).first()
   }
 
-  async attach(ids: unknown | unknown[]): Promise<void> {
-    const list = Array.isArray(ids) ? ids : [ids]
+  /**
+   * Attach one/many related ids, optionally with extra pivot attributes — either
+   * shared across all ids (`attach([1, 2], { role: 'x' })`) or per-id
+   * (`attach({ 1: { role: 'a' }, 2: { role: 'b' } })`).
+   */
+  async attach(
+    ids: unknown | unknown[] | Record<string, Record<string, unknown>>,
+    attributes: Record<string, unknown> = {},
+  ): Promise<void> {
+    const entries: [unknown, Record<string, unknown>][]
+      = ids !== null && typeof ids === 'object' && !Array.isArray(ids)
+        ? Object.entries(ids)
+        : (Array.isArray(ids) ? ids : [ids]).map(id => [id, attributes])
+
     const parentId = this.parent.getAttribute(this.parentKey)
     const now = new Date().toISOString()
-    for (const id of list) {
+    for (const [id, extra] of entries) {
       const row: Record<string, unknown> = {
         [this.foreignPivotKey]: parentId,
         [this.relatedPivotKey]: id,
+        ...extra,
       }
       if (this.morphType)
         row[this.morphType] = this.morphClass
@@ -402,7 +437,7 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     const parentKeys = parents.map(p => p.getAttribute(this.parentKey))
     const pivotRows = await this.pivot().whereIn(this.foreignPivotKey, parentKeys).get()
     const relatedIds = [...new Set(pivotRows.map(r => r[this.relatedPivotKey]))]
-    let related = new EloquentCollection<R>([])
+    let related = this.related.newCollection<R>([])
     if (relatedIds.length) {
       const query = this.related.query().whereIn(this.relatedKey, relatedIds)
       constrain?.(query)
@@ -422,7 +457,7 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     }
     for (const parent of parents) {
       const bucket = byParent.get(String(parent.getAttribute(this.parentKey))) ?? []
-      parent.setRelation(name, new EloquentCollection(bucket))
+      parent.setRelation(name, this.related.newCollection(bucket))
     }
   }
 
@@ -484,7 +519,7 @@ export class MorphMany<R extends Model> extends Relation<R> {
     const grouped = (await query.get()).groupBy(this.idField as keyof R)
     for (const parent of parents) {
       const items = grouped[String(parent.getAttribute(this.localKey))]?.all() ?? []
-      parent.setRelation(name, new EloquentCollection(items))
+      parent.setRelation(name, this.related.newCollection(items))
     }
   }
 
@@ -547,7 +582,7 @@ export class MorphTo extends Relation<Model> {
 
   override async get(): Promise<EloquentCollection<Model>> {
     const model = await this.first()
-    return new EloquentCollection(model ? [model] : [])
+    return model ? (model.constructor as typeof Model).newCollection([model]) : new EloquentCollection([])
   }
 
   async eager(parents: Model[], name: string): Promise<void> {
@@ -625,7 +660,7 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
     const rows = await this.throughRows([this.parent.getAttribute(this.localKey)])
     const throughIds = rows.map(t => t.getAttribute(this.secondLocalKey))
     if (throughIds.length === 0)
-      return new EloquentCollection<R>([])
+      return this.related.newCollection([])
     return this.related.query().whereIn(this.secondKey, throughIds).get()
   }
 
@@ -641,7 +676,7 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
     const throughIds = rows.map(t => t.getAttribute(this.secondLocalKey))
     const far = throughIds.length
       ? await this.related.query().whereIn(this.secondKey, throughIds).get()
-      : new EloquentCollection<R>([])
+      : this.related.newCollection<R>([])
     const byParent = new Map<string, R[]>()
     for (const model of far.all()) {
       const parentKey = throughToParent.get(String(model.getAttribute(this.secondKey)))
@@ -653,7 +688,7 @@ export class HasManyThrough<R extends Model> extends Relation<R> {
     }
     for (const parent of parents) {
       const bucket = byParent.get(String(parent.getAttribute(this.localKey))) ?? []
-      parent.setRelation(name, new EloquentCollection(bucket))
+      parent.setRelation(name, this.related.newCollection(bucket))
     }
   }
 

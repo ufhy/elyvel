@@ -24,4 +24,16 @@ export class EloquentCollection<M extends Model> extends Collection<M> {
     for (const path of paths) await eagerLoad(this.all() as unknown as Model[], path)
     return this
   }
+
+  /** Add `<relation>_count` to every model in the collection (post-fetch counterpart of `withCount`). */
+  async loadCount(...names: string[]): Promise<this> {
+    const models = this.all() as unknown as Model[]
+    if (models.length === 0)
+      return this
+    for (const name of names) {
+      const relation = (models[0] as unknown as Record<string, () => { eagerCount(models: Model[], name: string): Promise<void> } | undefined>)[name]?.()
+      await relation?.eagerCount(models, name)
+    }
+    return this
+  }
 }

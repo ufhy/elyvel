@@ -1,4 +1,5 @@
 import type { EagerConstraint } from './eloquent-builder'
+import type { Relation } from './relations'
 import { date } from '@elyvel/core'
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
@@ -16,6 +17,7 @@ import {
   MorphMany,
   MorphOne,
   MorphTo,
+
 } from './relations'
 
 export type Attributes = Record<string, unknown>
@@ -44,6 +46,18 @@ export interface CustomCast {
 }
 
 export type Cast = CastType | CustomCast
+
+/**
+ * A computed accessor (Laravel's `Attribute::make`) — either a plain getter
+ * function, or a `{ get, set }` pair. `set` returns the underlying attribute(s)
+ * to store, so one computed field can fan out to several real columns.
+ */
+export type Accessor
+  = | ((model: Model) => unknown)
+    | {
+      get?(model: Model): unknown
+      set?(value: unknown, model: Model): Attributes
+    }
 
 /** Truthy set for the `boolean` cast — shared by the read and write paths so they never disagree. */
 function toBool(value: unknown): boolean {
@@ -264,8 +278,19 @@ export class Model {
   static visible: string[] = []
   /** Computed attributes appended to serialization (resolved via `accessors`). */
   static appends: string[] = []
-  /** Computed read accessors: `{ full_name: (m) => `${m.first} ${m.last}` }`. */
-  static accessors: Record<string, (model: Model) => unknown> = {}
+  /**
+   * Computed accessors (Laravel's `Attribute::make(get:, set:)`) — either a plain
+   * getter function, or a `{ get, set }` pair. `set` returns the underlying
+   * attribute(s) to store (one computed field can fan out to several columns):
+   *
+   *   static override accessors = {
+   *     full_name: {
+   *       get: (m) => `${m.getAttribute('first_name')} ${m.getAttribute('last_name')}`,
+   *       set: (v: string) => { const [first, last] = v.split(' '); return { first_name: first, last_name: last } },
+   *     },
+   *   }
+   */
+  static accessors: Record<string, Accessor> = {}
   /** Mass-assignable attributes (whitelist). Set this to allow `create`/`fill`. */
   static fillable: string[] = []
   /**
@@ -359,6 +384,9 @@ export class Model {
   static createdAtColumn = 'created_at'
   static updatedAtColumn = 'updated_at'
 
+  /** Relation method names to `touch()` (bump `updated_at`) whenever this model is saved or deleted. */
+  static touches: string[] = []
+
   /** Register a named global scope applied to every query for this model. */
   static addGlobalScope(name: string, scope: ScopeFn): void {
     ownScopes(this).set(name, scope)
@@ -387,6 +415,8 @@ export class Model {
   /** Attributes changed during the most recent save (for `wasChanged`/`getChanges`). */
   private changes: Attributes = {}
   exists = false
+  /** True once this instance has gone through an INSERT (via `save()`/`create()`), for this lifecycle. */
+  wasRecentlyCreated = false
   /** Loaded relations (populated by eager loading via `with()`). */
   relations: Record<string, unknown> = {}
   private readonly makeHiddenSet = new Set<string>()
@@ -402,6 +432,11 @@ export class Model {
   // ── config ──────────────────────────────────────────────────────────────
   static getTableName(): string {
     return this.table ?? `${this.name.toLowerCase()}s`
+  }
+
+  /** Wrap a batch of instances in this model's collection type — override to return a custom `EloquentCollection` subclass. */
+  static newCollection<M extends Model>(this: ModelClass<M>, models: M[]): EloquentCollection<M> {
+    return new EloquentCollection<M>(models)
   }
 
   // ── static query API ──────────────────────────────────────────────────────
@@ -587,7 +622,7 @@ export class Model {
   ): Promise<EloquentCollection<M>> {
     const models: M[] = []
     for (const attrs of records) models.push(await this.create(attrs))
-    return new EloquentCollection(models)
+    return this.newCollection(models)
   }
 
   /** Delete rows by primary key(s). Returns the number deleted. */
@@ -648,6 +683,11 @@ export class Model {
   }
 
   setAttribute(key: string, value: unknown): void {
+    const accessor = this.self().accessors[key]
+    if (accessor && typeof accessor === 'object' && accessor.set) {
+      Object.assign(this.attributes, accessor.set(value, this))
+      return
+    }
     this.attributes[key] = value
   }
 
@@ -655,7 +695,7 @@ export class Model {
     const self = this.self()
     const accessor = self.accessors[key]
     if (accessor)
-      return accessor(this)
+      return typeof accessor === 'function' ? accessor(this) : accessor.get?.(this)
     const type = this.effectiveCast(key)
     const value = this.attributes[key]
     return type ? castGet(type, value) : value
@@ -882,6 +922,15 @@ export class Model {
     return this
   }
 
+  /** Add `<relation>_count` to an already-fetched instance (post-fetch counterpart of `withCount`). */
+  async loadCount(...names: string[]): Promise<this> {
+    for (const name of names) {
+      const relation = (this as unknown as Record<string, () => Relation<Model> | undefined>)[name]?.()
+      await relation?.eagerCount([this], name)
+    }
+    return this
+  }
+
   getDirty(): Attributes {
     const dirty: Attributes = {}
     for (const [key, value] of Object.entries(this.attributes)) {
@@ -985,10 +1034,12 @@ export class Model {
       this.attributes = { ...this.attributes, ...row } // pick up generated id/defaults
       this.changes = { ...this.attributes }
       this.exists = true
+      this.wasRecentlyCreated = true
       this.original = { ...this.attributes }
       await this.fireEvent('created')
     }
     await this.fireEvent('saved')
+    await this.touchOwners()
     return this
   }
 
@@ -1031,6 +1082,23 @@ export class Model {
     return clone
   }
 
+  /**
+   * `touch()` every relation named in `static touches` (Laravel's `$touches`) —
+   * called after this model saves or is deleted. Recurses: if a touched
+   * parent has its own `touches`, that parent's `touch()` → `save()` cascades further.
+   */
+  private async touchOwners(): Promise<void> {
+    const self = this.self()
+    for (const name of self.touches) {
+      const relation = (this as unknown as Record<string, () => unknown>)[name]?.()
+      const related = relation && typeof (relation as { first?: unknown }).first === 'function'
+        ? await (relation as { first(): Promise<Model | undefined> }).first()
+        : (relation as Model | undefined)
+      if (related && typeof related.touch === 'function')
+        await related.touch()
+    }
+  }
+
   /** Bump the `updated_at` column (or its configured override) to now and persist. */
   async touch(): Promise<this> {
     this.setAttribute(this.self().updatedAtColumn, new Date().toISOString())
@@ -1048,6 +1116,7 @@ export class Model {
     }
     else {
       await this.performDelete()
+      await this.touchOwners()
     }
     await this.fireEvent('deleted')
   }
@@ -1056,6 +1125,7 @@ export class Model {
   async forceDelete(): Promise<void> {
     await this.fireEvent('forceDeleting')
     await this.performDelete()
+    await this.touchOwners()
     await this.fireEvent('forceDeleted')
   }
 

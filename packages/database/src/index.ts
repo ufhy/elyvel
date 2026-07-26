@@ -58,6 +58,7 @@ export {
   status,
 } from './migrator'
 export {
+  type Accessor,
   type Attributes,
   type Cast,
   type CastType,

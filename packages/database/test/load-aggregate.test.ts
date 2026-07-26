@@ -76,5 +76,27 @@ for (const d of dialects) {
       expect(users.get(0)?.getRelation<EloquentCollection<Post>>('posts').count()).toBe(2)
       expect(users.get(1)?.getRelation<EloquentCollection<Post>>('posts').count()).toBe(1)
     })
+
+    test('withCount adds <relation>_count without keeping the loaded relation around', async () => {
+      const users = await User.query().withCount('posts').orderBy('id').get()
+      expect(users.get(0)?.getAttribute('posts_count')).toBe(2)
+      expect(users.get(1)?.getAttribute('posts_count')).toBe(1)
+      // withCount is meant to be lightweight — the relation itself isn't kept loaded
+      expect(users.get(0)?.getRelation('posts')).toBeUndefined()
+    })
+
+    test('Model.loadCount() adds <relation>_count to an already-fetched instance', async () => {
+      const ada = await User.where('name', 'Ada').first()
+      expect(ada?.getAttribute('posts_count')).toBeUndefined()
+      await ada?.loadCount('posts')
+      expect(ada?.getAttribute('posts_count')).toBe(2)
+    })
+
+    test('EloquentCollection.loadCount() adds <relation>_count to every model', async () => {
+      const users = await User.query().orderBy('id').get()
+      await users.loadCount('posts')
+      expect(users.get(0)?.getAttribute('posts_count')).toBe(2)
+      expect(users.get(1)?.getAttribute('posts_count')).toBe(1)
+    })
   })
 }
