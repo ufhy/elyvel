@@ -20,7 +20,10 @@ my-app/
 │   └── web.ts
 ├── server.ts
 ├── .env
+├── .gitignore
+├── eslint.config.mjs
 ├── package.json
+├── README.md
 └── tsconfig.json
 ```
 
@@ -81,3 +84,10 @@ Migrations live in `database/migrations/`. Run them with `bun run migrate`
 
 Frontend source — Vue components/pages under `frontend/` and styles under
 `frontend/css` — compiled by Vite.
+
+## Extra config files <Badge type="tip" text="vue / spa kits" />
+
+On top of the base `config/` files above, the `vue`/`spa` kits also add
+`config/auth.ts` (Better Auth — see [Authentication](/security/authentication)),
+`config/middleware.ts` (see [Middleware](/basics/middleware)), and
+`config/mail.ts` (mailer transports for auth emails).

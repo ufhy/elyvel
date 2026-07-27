@@ -20,7 +20,10 @@ my-app/
 │   └── web.ts
 ├── server.ts
 ├── .env
+├── .gitignore
+├── eslint.config.mjs
 ├── package.json
+├── README.md
 └── tsconfig.json
 ```
 
@@ -81,3 +84,10 @@ Migration berada di `database/migrations/`. Jalankan dengan `bun run migrate`
 
 Source frontend — komponen/halaman Vue di `frontend/` dan style di
 `frontend/css` — dikompilasi oleh Vite.
+
+## File config tambahan <Badge type="tip" text="vue / spa kits" />
+
+Selain file `config/` dasar di atas, kit `vue`/`spa` juga menambahkan
+`config/auth.ts` (Better Auth — lihat [Autentikasi](/id/security/authentication)),
+`config/middleware.ts` (lihat [Middleware](/id/basics/middleware)), dan
+`config/mail.ts` (transport mailer untuk email auth).

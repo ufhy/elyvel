@@ -50,17 +50,29 @@ A failed validation returns:
 ## Rules
 
 Rules are a pipe-separated string per field, or an array (needed when mixing
-strings with custom rules — see below). A representative set:
+strings with custom rules — see below).
 
 | Category | Rules |
 | --- | --- |
-| Presence | `required`, `nullable`, `sometimes`, `present`, `filled`, `required_if`, `required_unless`, `required_with`, `prohibited`, `prohibited_if` |
+| Presence | `required`, `nullable`, `sometimes`, `present`, `filled`, `required_if`, `required_unless`, `required_with`, `required_with_all`, `required_without`, `required_without_all`, `prohibited`, `prohibited_if`, `prohibited_unless`, `missing`, `missing_if`, `missing_with`, `accepted`, `accepted_if`, `declined`, `declined_if` |
 | Type | `string`, `integer`, `numeric`, `boolean`, `array`, `date` |
-| Format | `email`, `url`, `uuid`, `ulid`, `ip`, `json`, `regex`, `alpha`, `alpha_num`, `alpha_dash` |
+| Format | `email`, `url`, `uuid`, `ulid`, `ip`, `mac_address`, `hex_color`, `json`, `timezone`, `alpha`, `alpha_num`, `alpha_dash`, `ascii`, `uppercase`, `lowercase`, `in`, `not_in`, `in_array`, `regex`, `starts_with`, `ends_with`, `doesnt_start_with`, `doesnt_end_with`, `digits`, `digits_between`, `decimal`, `multiple_of` |
 | Size | `min`, `max`, `size`, `between` (string length, number value, or array/file count — inferred from the field's type) |
-| Comparison | `same`, `different`, `confirmed`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in` |
-| Files | `file`, `image`, `mimes`, `dimensions`, `max` (kilobytes) |
+| Comparison | `same`, `different`, `confirmed`, `gt`, `gte`, `lt`, `lte`, `date_format`, `before`, `before_or_equal`, `after`, `after_or_equal`, `date_equals` |
+| Files | `file`, `image`, `mimes`, `mimetypes`, `dimensions`, `max` (kilobytes) |
 | Database | `unique`, `exists` |
+
+`before`/`after`/`before_or_equal`/`after_or_equal`/`date_equals` compare
+against another field or a literal date string:
+
+```ts
+rules(): Rules {
+  return {
+    starts_at: 'required|date',
+    ends_at: 'required|date|after:starts_at',
+  }
+}
+```
 
 ```ts
 rules(): Rules {
@@ -188,6 +200,41 @@ rules(): Rules {
   }
 }
 ```
+
+`distinct` checks a wildcard field's values are unique across the array
+(Laravel's `distinct`):
+
+```ts
+rules(): Rules {
+  return { 'tags.*': 'distinct|string' }
+}
+```
+
+## Controlling validation flow
+
+A few pseudo-rules change *how* validation runs rather than checking a value:
+
+- **`bail`** — stop validating a field at its first failing rule, instead of
+  collecting every failure for it (Laravel's `bail`):
+
+  ```ts
+  rules(): Rules {
+    return { email: 'bail|required|email|unique:users,email' }
+  }
+  ```
+
+- **`exclude`** / **`exclude_if:field,value`** / **`exclude_unless:field,value`**
+  / **`exclude_with:field`** / **`exclude_without:field`** — remove the field
+  from the validated output entirely (and skip its own rules), conditionally:
+
+  ```ts
+  rules(): Rules {
+    return {
+      payment_type: 'required|in:card,cash',
+      card_token: 'exclude_unless:payment_type,card|required|string',
+    }
+  }
+  ```
 
 ## Customizing messages & attribute names
 

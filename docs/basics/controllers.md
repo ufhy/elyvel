@@ -40,6 +40,19 @@ Generate one with the CLI — it scaffolds the five JSON actions
 bunx elyvel make:controller PostController
 ```
 
+Flags shape what gets generated:
+
+| Flag | Generates |
+| --- | --- |
+| `--resource` | The full seven-action form controller (adds `create`/`edit`) |
+| `--invokable` | A single-action controller with just `handle()` — see [Single-action controllers](/basics/routing#single-action-controllers) |
+| `--singleton` | `show`/`edit`/`update` only (no `:id`) — see [Singleton resources](/basics/routing#singleton-resources) |
+| `--singleton --creatable` | The singleton form, plus `create`/`store`/`destroy` |
+| `--model=Post` | Adds a comment hint showing the `resource(..., { bind: Post })` wiring |
+| `--parent=Post` | Adds a comment hint showing the nested/shallow `resource()` wiring |
+| `--requests` | Also generates `Store<Name>Request`/`Update<Name>Request` FormRequests |
+| `--force` | Overwrite an existing file |
+
 ## The resource actions
 
 `resource()` and `apiResource()` map HTTP verbs to controller methods. **Only
@@ -79,7 +92,13 @@ Every action receives the `MiddlewareContext` (`ctx`):
   layer (see [Authentication](/security/authentication)).
 - `ctx.model` — the bound model instance, when the resource was registered with
   `bind` (route-model binding). It's resolved before the action runs, so it's
-  always a loaded record — or the request already 404'd.
+  always a loaded record — or the request already 404'd. Binding also supports
+  `bindField` (bind by a column other than the primary key), `withTrashed`
+  (allow soft-deleted rows), `scoped` (verify a nested child belongs to its
+  parent), and `onMissing` (a custom handler instead of the default 404) — see
+  [Route model binding](/basics/routing#route-model-binding).
+- `ctx.validated` — the validated data, when the action is decorated with
+  `@ValidateWith` (see below).
 
 ```ts
 async show(ctx: MiddlewareContext) {
@@ -101,6 +120,18 @@ async store(ctx: MiddlewareContext) {
 }
 ```
 
+Or skip the manual call with `@ValidateWith` — it runs the FormRequest before
+the action and exposes the result as `ctx.validated`:
+
+```ts
+import { ValidateWith } from '@elyvel/core'
+
+@ValidateWith(StorePostRequest)
+async store(ctx: MiddlewareContext) {
+  return Post.create(ctx.validated) // already validated
+}
+```
+
 ## Authorizing actions
 
 When the route runs through the auth layer, `ctx.authorize(ability, …)` enforces
@@ -114,7 +145,51 @@ async store(ctx: MiddlewareContext) {
 }
 ```
 
+Or use the `@Authorize` decorator — it runs the check before the action, using
+`ctx.model` when the action is route-model-bound:
+
+```ts
+import { Authorize } from '@elyvel/core'
+
+@Authorize('update')
+async update(ctx: MiddlewareContext) { /* ctx.model already checked */ }
+```
+
+For a whole controller, `authorizeResource()` wires every resource action to
+its conventional ability at once (`index`→`viewAny`, `show`→`view`,
+`create`/`store`→`create`, `edit`/`update`→`update`, `destroy`→`delete`) —
+called where the resource is registered, not inside the class:
+
+```ts
+// routes/web.ts
+import { authorizeResource, resource } from '@elyvel/core'
+
+authorizeResource(PostController)
+export default resource('/posts', PostController, { bind: Post })
+```
+
 See [Authorization](/security/authorization) for the gate and policies.
+
+## Middleware on a controller
+
+`@UseMiddleware`/`@WithoutMiddleware` attach or exclude middleware per action or
+for the whole class (merged with anything `resource(..., { middleware })` adds,
+not replaced by it):
+
+```ts
+import { Controller, UseMiddleware, WithoutMiddleware } from '@elyvel/core'
+
+@UseMiddleware('auth', 'subscribed')
+export class PostController extends Controller {
+  @WithoutMiddleware('subscribed') // only 'auth' applies here
+  async index(ctx: MiddlewareContext) { /* ... */ }
+}
+```
+
+See [Middleware](/basics/middleware) and
+[Routing](/basics/routing#controller-level-middleware-authorization--validation)
+for the full picture, including adjusting a resource's middleware fluently
+after registration.
 
 ## Responses
 

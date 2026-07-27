@@ -107,6 +107,29 @@ route('/admin', { middleware: ['auth'] })
   .get('/settings', settings)
 ```
 
+## Memasang middleware pada controller
+
+Selain `{ middleware }` di `route()`/`resource()`, sebuah controller bisa
+mendeklarasikan middleware-nya sendiri dengan decorator
+`@UseMiddleware`/`@WithoutMiddleware` — di sebuah method (cuma aksi itu) atau
+class (setiap aksi). Ini digabung dengan apa pun yang ditambahkan registrasi
+route-nya, bukan menggantikannya:
+
+```ts
+import { Controller, UseMiddleware, WithoutMiddleware } from '@elyvel/core'
+
+@UseMiddleware('auth', 'subscribed')
+export class PostController extends Controller {
+  @WithoutMiddleware('subscribed') // cuma 'auth' yang berlaku di sini
+  async index(ctx: MiddlewareContext) { /* ... */ }
+}
+```
+
+Lihat [Routing](/id/basics/routing#middleware-otorisasi--validasi-di-level-controller)
+untuk gambaran lengkapnya bersama `@Authorize`/`@ValidateWith`, dan untuk
+mengatur middleware sebuah `resource()` secara fluent setelah registrasi
+(`.middleware()`/`.middlewareFor()`/`.withoutMiddlewareFor()`).
+
 ## Parameter middleware
 
 Sebuah alias dapat menerima argumen setelah tanda titik dua; argumen tersebut tiba
@@ -161,6 +184,52 @@ global: [TrimStringsMiddleware, ConvertEmptyStringsToNullMiddleware]
 Group `web` adalah sebuah group, bukan global, sehingga CSRF hanya berlaku di
 tempat yang Anda pilih — route API/token tetap kebal terhadap CSRF. Definisikan
 ulang `web` di config Anda untuk mengubahnya.
+
+## Rate limiting
+
+`throttle:max,minutes` (ditunjukkan di atas) adalah bentuk sederhana per-IP
+client. Untuk limiter bernama yang dapat dipakai ulang — limit berbeda per
+user vs per IP, response custom, cuma menghitung percobaan yang gagal —
+daftarkan satu dengan `RateLimiter.for` (`RateLimiter::for` milik Laravel),
+biasanya di `boot()` sebuah service provider:
+
+```ts
+import { Limit, RateLimiter } from '@elyvel/core'
+
+RateLimiter.for('otp', ctx =>
+  Limit.perMinute(5)
+    .by(ctx.user?.email ?? ctx.request.headers.get('x-forwarded-for') ?? 'guest')
+    .response(ctx => ctx.status(429, { message: 'Too many OTP requests.' })),
+)
+```
+
+Lalu referensikan berdasarkan nama alih-alih `max,minutes`:
+
+```ts
+route().post('/otp', handler, { middleware: 'throttle:otp' })
+```
+
+Builder `Limit`: `perSecond`/`perMinute`/`perMinutes`/`perHour`/`perDay`/`none`
+(tak terbatas), `.by(key)` (segmentasi berdasarkan user id, email, apa pun),
+`.response(cb)` (response custom saat terlampaui), `.after(cb)` (cuma hitung
+percobaan ketika status response cocok — mis. cuma hitung percobaan login yang
+gagal).
+
+Facade `RateLimiter` juga punya method langsung dan programatik untuk
+menjalankan logika Anda sendiri — `attempt`, `hit`, `increment`,
+`tooManyAttempts`, `remaining`, `retriesLeft`, `resetAttempts`/`clear`,
+`availableIn` — primitive yang sama yang dipakai middleware-nya sendiri.
+
+Secara default, key client adalah alamat socket peer yang sebenarnya, bukan
+`X-Forwarded-For`/`X-Real-IP` (bisa dipalsukan client kalau tidak). Di belakang
+proxy/load balancer yang men-set header tersebut, opt-in dengan
+`trustProxies()`:
+
+```ts
+import { trustProxies } from '@elyvel/core'
+
+trustProxies() // sekarang X-Forwarded-For / X-Real-IP dipercaya
+```
 
 ## Pekerjaan setelah response
 

@@ -32,6 +32,16 @@ gate().define('viewAdminPanel', user => user?.role === 'admin')
 gate().allows('viewAdminPanel', user) // boolean
 ```
 
+Secara default sebuah ability tidak berjalan sama sekali untuk guest (`user`
+adalah `null`) — kirim `{ allowGuest: true }` sebagai argumen ketiga saat
+ability-nya sendiri perlu menangani kasus belum-terautentikasi:
+
+```ts
+gate().define('viewPublicStats', user => user === null || user.role !== 'banned', {
+  allowGuest: true,
+})
+```
+
 ## Policy
 
 Policy mengelompokkan ability untuk satu model ke dalam sebuah class — satu
@@ -71,8 +81,10 @@ gate().policy(Post, new PostPolicy())
 
 Sebuah method bisa mengembalikan `boolean` biasa, atau `Response` saat kamu
 ingin pesan/status penolakan spesifik: `Response.allow()`,
-`Response.deny(message, status?)`, `Response.denyAsNotFound()` (404, bukan 403
-— menyembunyikan keberadaan sebuah resource dari user yang tidak berwenang).
+`Response.deny(message, status?)`, `Response.denyWithStatus(status, message?)`
+(set status tanpa pesan "unauthorized" default), `Response.denyAsNotFound()`
+(404, bukan 403 — menyembunyikan keberadaan sebuah resource dari user yang
+tidak berwenang).
 
 ### `before` — filter untuk seluruh policy
 
@@ -89,6 +101,22 @@ class PostPolicy {
 }
 ```
 
+Gate itu sendiri juga punya hook `before`/`after` yang berlaku satu app — untuk
+logika yang harus berlaku di *setiap* ability/policy, bukan cuma method satu
+policy (`Gate::before`/`Gate::after` milik Laravel):
+
+```ts
+gate().before((user, ability, args) => {
+  if (user?.role === 'super-admin')
+    return true // memutus setiap pengecekan, ability apa pun
+  return undefined // lanjut seperti biasa
+})
+
+gate().after((user, ability, result, args) => {
+  // hanya dikonsultasikan ketika ability/policy-nya sendiri mengembalikan null/undefined
+})
+```
+
 ## Memeriksa ability
 
 Gate menyediakan pengecekan langsung, atau ikat user sekali dengan `forUser`
@@ -99,8 +127,15 @@ untuk permukaan yang ergonomis per-request (inilah yang menjadi
 ```ts
 gate().allows('update', user, post) // boolean
 gate().denies('update', user, post) // boolean
+gate().check('update', user, post) // alias dari allows
+gate().any(['update', 'delete'], user, post) // true kalau SALAH SATU ability lolos
+gate().none(['update', 'delete'], user, post) // true kalau TIDAK ADA yang lolos
+gate().inspect('update', user, post) // Response lengkap — allowed()/message()/status()
 gate().forUser(user).authorize('update', post) // throws AuthorizationError if denied
 ```
+
+`forUser(user)` mengembalikan permukaan `check`/`any`/`none`/`inspect` yang
+sama dengan `user` sudah terikat (`gate().forUser(user).any([...], post)`, dst).
 
 Di controller:
 
@@ -125,6 +160,38 @@ webRoute().delete('/posts/:id', destroy, {
   can: ['update', ctx => ctx.model],
 })
 ```
+
+### Mengotorisasi seluruh controller resource
+
+Alih-alih pengecekan ability di dalam setiap aksi, `@Authorize` pada method
+controller menjalankan pengecekan sebelum aksi (menggunakan `ctx.model` ketika
+route-nya model-bound):
+
+```ts
+import { Authorize, Controller } from '@elyvel/core'
+
+export class PostController extends Controller {
+  @Authorize('update')
+  async update(ctx: MiddlewareContext) { /* ctx.model sudah dicek */ }
+}
+```
+
+`authorizeResource()` menghubungkan setiap aksi resource ke ability
+konvensionalnya sekaligus (`$this->authorizeResource()` milik Laravel) —
+`index`→`viewAny`, `show`→`view`, `create`/`store`→`create`,
+`edit`/`update`→`update`, `destroy`→`delete` — dipanggil di tempat resource-nya
+didaftarkan, bukan di dalam class. `@Authorize` eksplisit di method tertentu
+tetap menang atas default ini:
+
+```ts
+// routes/web.ts
+import { authorizeResource, resource } from '@elyvel/core'
+
+authorizeResource(PostController)
+export default resource('/posts', PostController, { bind: Post })
+```
+
+Lihat [Controllers](/id/basics/controllers#otorisasi-aksi) untuk lebih lanjut.
 
 ## Pengecekan inline
 

@@ -51,18 +51,29 @@ Validasi yang gagal mengembalikan:
 ## Rule
 
 Rule adalah string yang dipisah pipe per field, atau array (diperlukan saat
-mencampur string dengan rule kustom — lihat di bawah). Sebagian rule yang umum
-dipakai:
+mencampur string dengan rule kustom — lihat di bawah).
 
 | Kategori | Rule |
 | --- | --- |
-| Kehadiran | `required`, `nullable`, `sometimes`, `present`, `filled`, `required_if`, `required_unless`, `required_with`, `prohibited`, `prohibited_if` |
+| Kehadiran | `required`, `nullable`, `sometimes`, `present`, `filled`, `required_if`, `required_unless`, `required_with`, `required_with_all`, `required_without`, `required_without_all`, `prohibited`, `prohibited_if`, `prohibited_unless`, `missing`, `missing_if`, `missing_with`, `accepted`, `accepted_if`, `declined`, `declined_if` |
 | Tipe | `string`, `integer`, `numeric`, `boolean`, `array`, `date` |
-| Format | `email`, `url`, `uuid`, `ulid`, `ip`, `json`, `regex`, `alpha`, `alpha_num`, `alpha_dash` |
+| Format | `email`, `url`, `uuid`, `ulid`, `ip`, `mac_address`, `hex_color`, `json`, `timezone`, `alpha`, `alpha_num`, `alpha_dash`, `ascii`, `uppercase`, `lowercase`, `in`, `not_in`, `in_array`, `regex`, `starts_with`, `ends_with`, `doesnt_start_with`, `doesnt_end_with`, `digits`, `digits_between`, `decimal`, `multiple_of` |
 | Ukuran | `min`, `max`, `size`, `between` (panjang string, nilai angka, atau jumlah item array/file — ditentukan dari tipe field) |
-| Perbandingan | `same`, `different`, `confirmed`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in` |
-| File | `file`, `image`, `mimes`, `dimensions`, `max` (kilobita) |
+| Perbandingan | `same`, `different`, `confirmed`, `gt`, `gte`, `lt`, `lte`, `date_format`, `before`, `before_or_equal`, `after`, `after_or_equal`, `date_equals` |
+| File | `file`, `image`, `mimes`, `mimetypes`, `dimensions`, `max` (kilobita) |
 | Database | `unique`, `exists` |
+
+`before`/`after`/`before_or_equal`/`after_or_equal`/`date_equals`
+membandingkan terhadap field lain atau string tanggal literal:
+
+```ts
+rules(): Rules {
+  return {
+    starts_at: 'required|date',
+    ends_at: 'required|date|after:starts_at',
+  }
+}
+```
 
 ```ts
 rules(): Rules {
@@ -192,6 +203,43 @@ rules(): Rules {
   }
 }
 ```
+
+`distinct` mengecek nilai sebuah field wildcard unik di seluruh array (`distinct`
+milik Laravel):
+
+```ts
+rules(): Rules {
+  return { 'tags.*': 'distinct|string' }
+}
+```
+
+## Mengontrol alur validasi
+
+Beberapa pseudo-rule mengubah *bagaimana* validasi berjalan, bukan mengecek
+sebuah nilai:
+
+- **`bail`** — hentikan validasi sebuah field pada rule pertama yang gagal,
+  alih-alih mengumpulkan setiap kegagalannya (`bail` milik Laravel):
+
+  ```ts
+  rules(): Rules {
+    return { email: 'bail|required|email|unique:users,email' }
+  }
+  ```
+
+- **`exclude`** / **`exclude_if:field,value`** / **`exclude_unless:field,value`**
+  / **`exclude_with:field`** / **`exclude_without:field`** — hapus field dari
+  output tervalidasi sepenuhnya (dan lewati rule-nya sendiri), secara
+  kondisional:
+
+  ```ts
+  rules(): Rules {
+    return {
+      payment_type: 'required|in:card,cash',
+      card_token: 'exclude_unless:payment_type,card|required|string',
+    }
+  }
+  ```
 
 ## Mengustomisasi pesan & nama atribut
 

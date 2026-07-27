@@ -21,6 +21,12 @@ export default defineAppConfig({
   key: process.env.APP_KEY, // signs cookies; powers `encrypted` casts
   port: Number(process.env.PORT ?? 3000),
 
+  // Tampilkan halaman debug detail untuk 500 yang tidak tertangkap di luar
+  // production (default true di sana; selalu mati di production apa pun ini).
+  debug: process.env.APP_ENV !== 'production',
+  // Timezone untuk *tampilan* tanggal — penyimpanan selalu tetap UTC. Default `UTC`.
+  timezone: 'Asia/Makassar',
+
   // Service providers booted at startup.
   providers: [EloquentServiceProvider, I18nServiceProvider, AppServiceProvider],
 })
@@ -62,7 +68,7 @@ kamu mengadopsi sebuah package.
 
 | File | Mengonfigurasi |
 | --- | --- |
-| `app.ts` | Nama, environment, key, port, provider |
+| `app.ts` | Nama, environment, halaman debug, timezone, key, port, provider |
 | `database.ts` | Koneksi database (Eloquent) |
 | `session.ts` | Driver cookie/session |
 | `logging.ts` | Channel log & formatting |
@@ -76,8 +82,9 @@ kamu mengadopsi sebuah package.
 | `auth.ts` | Autentikasi — lihat [Autentikasi](/id/security/authentication) |
 | `middleware.ts` | Middleware global, alias, dan group |
 
-`auth.ts` dan `middleware.ts` dikirim bersama starter kit `vue`/`spa` (yang merangkai
-Better Auth); aplikasi backend-only menambahkannya secara manual saat membutuhkannya.
+`auth.ts`, `middleware.ts`, dan `mail.ts` dikirim bersama starter kit `vue`/`spa`
+(yang merangkai Better Auth beserta emailnya); aplikasi backend-only
+menambahkannya secara manual saat membutuhkannya.
 
 ## Service provider
 

@@ -101,6 +101,28 @@ route('/admin', { middleware: ['auth'] })
   .get('/settings', settings)
 ```
 
+## Attaching middleware on a controller
+
+Besides `{ middleware }` on `route()`/`resource()`, a controller can declare its
+own middleware with `@UseMiddleware`/`@WithoutMiddleware` decorators — on a
+method (that action only) or the class (every action). They're merged with
+whatever the route registration adds, not replaced by it:
+
+```ts
+import { Controller, UseMiddleware, WithoutMiddleware } from '@elyvel/core'
+
+@UseMiddleware('auth', 'subscribed')
+export class PostController extends Controller {
+  @WithoutMiddleware('subscribed') // only 'auth' applies here
+  async index(ctx: MiddlewareContext) { /* ... */ }
+}
+```
+
+See [Routing](/basics/routing#controller-level-middleware-authorization--validation)
+for the full picture alongside `@Authorize`/`@ValidateWith`, and for adjusting a
+`resource()`'s middleware fluently after registration
+(`.middleware()`/`.middlewareFor()`/`.withoutMiddlewareFor()`).
+
 ## Middleware parameters
 
 An alias can take arguments after a colon; they arrive as trailing string
@@ -154,6 +176,49 @@ global: [TrimStringsMiddleware, ConvertEmptyStringsToNullMiddleware]
 
 The `web` group is a group, not a global, so CSRF applies only where you opt in —
 API/token routes stay CSRF-immune. Redefine `web` in your config to change it.
+
+## Rate limiting
+
+`throttle:max,minutes` (shown above) is the simple, per-client-IP form. For
+named, reusable limiters — different limits per user vs. per IP, custom
+responses, only counting failed attempts — register one with `RateLimiter.for`
+(Laravel's `RateLimiter::for`), typically in a service provider's `boot()`:
+
+```ts
+import { Limit, RateLimiter } from '@elyvel/core'
+
+RateLimiter.for('otp', ctx =>
+  Limit.perMinute(5)
+    .by(ctx.user?.email ?? ctx.request.headers.get('x-forwarded-for') ?? 'guest')
+    .response(ctx => ctx.status(429, { message: 'Too many OTP requests.' })),
+)
+```
+
+Then reference it by name instead of `max,minutes`:
+
+```ts
+route().post('/otp', handler, { middleware: 'throttle:otp' })
+```
+
+`Limit` builders: `perSecond`/`perMinute`/`perMinutes`/`perHour`/`perDay`/`none`
+(unlimited), `.by(key)` (segment by user id, email, anything), `.response(cb)`
+(custom response when exceeded), `.after(cb)` (only count the attempt when the
+response status matches — e.g. count only failed login attempts).
+
+The `RateLimiter` facade also has direct, programmatic methods for driving your
+own logic — `attempt`, `hit`, `increment`, `tooManyAttempts`, `remaining`,
+`retriesLeft`, `resetAttempts`/`clear`, `availableIn` — the same primitives the
+middleware itself uses.
+
+By default the client key is the real socket peer address, not
+`X-Forwarded-For`/`X-Real-IP` (spoofable by the client otherwise). Behind a
+proxy/load balancer that sets those headers, opt in with `trustProxies()`:
+
+```ts
+import { trustProxies } from '@elyvel/core'
+
+trustProxies() // now X-Forwarded-For / X-Real-IP are trusted
+```
 
 ## After-response work
 

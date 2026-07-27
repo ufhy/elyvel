@@ -56,7 +56,8 @@ route()
 ```
 
 Lihat [Middleware](/id/basics/middleware) untuk menulis middleware, bucket config
-(`global` / `aliases` / `groups`), dan middleware bawaan.
+(`global` / `aliases` / `groups`), middleware bawaan, dan decorator
+`@UseMiddleware`/`@WithoutMiddleware` di controller.
 
 ## Group route
 
@@ -120,6 +121,62 @@ resource('/posts', PostController, {
 })
 ```
 
+### Mengubah middleware setelah registrasi
+
+Object yang dikembalikan `resource()`/`apiResource()` juga punya penyesuaian
+fluent ala Laravel setelah registrasi — berguna kalau Anda ingin mengatur
+middleware satu resource langsung di tempat pemanggilannya, bukan lewat
+`options.middleware`:
+
+```ts
+resource('/posts', PostController)
+  .middleware('auth') // setiap aksi
+  .middlewareFor(['store', 'update', 'destroy'], 'verified') // cuma aksi ini
+  .withoutMiddlewareFor('index', 'auth') // index tetap publik
+```
+
+### Middleware, otorisasi & validasi di level controller
+
+Selain (atau bersama) `resource(..., { middleware })`, sebuah controller bisa
+mendeklarasikan middleware, pengecekan ability, dan validasinya sendiri lewat
+decorator — padanan `#[Middleware]`/`#[Authorize]`/type-hinted-`FormRequest`
+milik Laravel. Ini digabung dengan apa pun yang ditambahkan opsi `resource()`
+sendiri, bukan menggantikannya:
+
+```ts
+import { Authorize, Controller, UseMiddleware, ValidateWith, WithoutMiddleware } from '@elyvel/core'
+import { StorePostRequest } from '../requests/StorePostRequest'
+
+@UseMiddleware('auth', 'subscribed')
+export class PostController extends Controller {
+  @WithoutMiddleware('subscribed') // cuma 'auth' yang berlaku di index
+  async index(ctx: MiddlewareContext) { /* ... */ }
+
+  @ValidateWith(StorePostRequest)
+  async store(ctx: MiddlewareContext) {
+    return Post.create(ctx.validated) // sudah tervalidasi — tanpa panggilan .validate() manual
+  }
+
+  @Authorize('update') // ctx.authorize('update', ctx.model) sebelum aksi berjalan
+  async update(ctx: MiddlewareContext) { /* ... */ }
+}
+```
+
+`@UseMiddleware`/`@WithoutMiddleware` bekerja di class (setiap aksi) atau satu
+method. `@Authorize` berjalan *setelah* route model binding, jadi `ctx.model`
+sudah ter-resolve saat pengecekan ability dilakukan.
+
+Untuk seluruh resource, `authorizeResource()` menghubungkan setiap aksi ke
+ability policy konvensionalnya sekaligus (`$this->authorizeResource()` milik
+Laravel) — `index`→`viewAny`, `show`→`view`, `create`/`store`→`create`,
+`edit`/`update`→`update`, `destroy`→`delete` — daripada `@Authorize` di setiap
+method. `@Authorize` eksplisit di method tertentu tetap menang:
+
+```ts
+authorizeResource(PostController)
+export default resource('/posts', PostController, { bind: Post })
+```
+
 ### Menggabungkan beberapa resource
 
 Sebuah file route melakukan default-export **satu** router, tetapi `resource()`
@@ -133,6 +190,20 @@ export default route()
   .use(resource('/posts', PostController))
   .use(resource('/users', UserController))
   .use(resource('/comments', CommentController))
+```
+
+Atau daftarkan beberapa sekaligus dengan `resources()`/`apiResources()`
+(`Route::resources`/`Route::apiResources` milik Laravel) — sebuah map segmen
+URL → controller, berbagi opsi yang sama:
+
+```ts
+import { resources } from '@elyvel/core'
+
+export default resources({
+  posts: PostController,
+  users: UserController,
+  comments: CommentController,
+})
 ```
 
 Bagaimana Anda memisahkannya murni bersifat organisasional: simpan mereka
@@ -159,12 +230,109 @@ Bind berdasarkan kolom selain primary key dengan **opsi** `bindField`
 resource('/posts', PostController, { bind: Post, bindField: 'slug' })
 ```
 
+Izinkan baris soft-deleted ikut ter-resolve juga (`->withTrashed()` milik
+Laravel) — `true` berlaku untuk `show`/`edit`/`update` (default Laravel), atau
+sebutkan sebagian aksi secara eksplisit. Model yang di-bind butuh
+`findWithTrashed`/`resolveRouteBindingWithTrashed` (`Model` milik elyvel sudah
+punya keduanya):
+
+```ts
+resource('/posts', PostController, { bind: Post, withTrashed: true })
+```
+
+Jalankan handler Anda sendiri alih-alih 404 default saat binding tidak
+menemukan apa pun, dengan `onMissing`:
+
+```ts
+resource('/posts', PostController, {
+  bind: Post,
+  onMissing: ctx => ctx.status(404, { message: 'No such post.' }),
+})
+```
+
+### Menyarangkan resource
+
 Ganti nama segmen dengan `param` — diperlukan saat menyarangkan resource, sehingga
 parent dan child sepakat mengenai nama parameter:
 
 ```ts
 resource('/blog', PostController, { bind: Post, param: 'post' })
   .use(apiResource('/:post/comments', CommentController, { bind: Comment }))
+```
+
+Verifikasi bahwa child yang di-resolve benar-benar milik parent-nya, bukan
+sekadar resolve berdasarkan id-nya sendiri, dengan `scoped` (`->scoped()` milik
+Laravel) — ketidakcocokan akan 404 (atau menjalankan `onMissing`) persis seperti
+baris yang tidak ditemukan:
+
+```ts
+resource('/photos/:photo/comments', CommentController, {
+  bind: Comment,
+  scoped: { photo: 'photo_id' },
+})
+// GET /photos/1/comments/5 → 404 kecuali photo_id milik Comment#5 adalah 1
+```
+
+Untuk resource yang bersarang dalam-dalam, `shallow` (`->shallow()` milik
+Laravel) mempertahankan aksi koleksi (`index`/`create`/`store`) di bawah path
+nested penuh, tapi memindahkan aksi member (`show`/`edit`/`update`/`destroy` —
+yang sudah membawa id unik) ke path datar `/<resource>/:id` alih-alih mengulang
+segmen parent:
+
+```ts
+resource('/photos/:photo/comments', CommentController, { shallow: true })
+// index/create/store → /photos/:photo/comments
+// show/edit/update/destroy → /comments/:id
+```
+
+## Singleton resource
+
+Untuk resource tanpa id — satu instance per context, seperti `/profile` atau
+`/settings` — gunakan `singleton()` (`Route::singleton` milik Laravel) alih-alih
+`resource()`. Controller me-resolve instance tunggalnya sendiri (mis. dari
+`ctx.user`):
+
+| Verb | Path | Aksi |
+| --- | --- | --- |
+| GET | `/` | `show` |
+| GET | `/edit` | `edit` |
+| PUT / PATCH | `/` | `update` |
+
+```ts
+import { singleton } from '@elyvel/core'
+
+export default singleton('/profile', ProfileController)
+```
+
+`{ creatable: true }` menambahkan `create`/`store`/`destroy` (`->creatable()`
+milik Laravel); `{ destroyable: true }` menambahkan `destroy` saja tanpa
+create/store. `apiSingleton()` adalah varian JSON-only-nya (tanpa route form
+`create`/`edit`) — `show`/`update` secara default, `{ creatable: true }`
+menambahkan `store`/`destroy`.
+
+## Controller single-action
+
+Untuk controller yang cuma melakukan satu hal, definisikan `handle()` (atau
+`__invoke()`) dan hubungkan dengan `invoke()` (single-action controller milik
+Laravel) alih-alih `resource()` penuh:
+
+```ts
+import { invoke, route } from '@elyvel/core'
+import { ProvisionServer } from '../app/controllers/ProvisionServer'
+
+export default route().post('/provision', invoke(ProvisionServer))
+```
+
+## Route fallback
+
+`fallback()` (`Route::fallback` milik Laravel) berjalan saat tidak ada yang
+cocok — default-export dari file `routes/` (dimuat terakhir) atau `.use()` di
+root:
+
+```ts
+import { fallback } from '@elyvel/core'
+
+export default fallback(ctx => ctx.status(404, { message: 'Not found.' }))
 ```
 
 ## Named route & pembuatan URL
@@ -181,10 +349,34 @@ urlFor('posts.show', { id: 42 }) // "/posts/42"
 urlFor('posts.index', { page: 2 }) // "/posts?page=2" — extras become query params
 ```
 
+`resource()`/`apiResource()` bisa mendaftarkan nama untuk semua aksinya
+sekaligus lewat opsi `name` — setiap aksi mendapat `<name>.<action>`
+(`posts.index`, `posts.show`, ...):
+
+```ts
+resource('/posts', PostController, { name: 'posts' })
+```
+
+Timpa nama aksi tertentu dengan `names` (`->names()` milik Laravel) alih-alih
+pola seragam:
+
+```ts
+resource('/photos', PhotoController, {
+  name: 'photos',
+  names: { create: 'photos.build' }, // create → photos.build; sisanya → photos.<action>
+})
+```
+
 ## Memeriksa route
 
-Daftarkan setiap route yang terdaftar (dan named route) dengan CLI:
+Daftarkan setiap route yang terdaftar dengan CLI:
 
 ```bash
 elyvel route:list
 ```
+
+Untuk route yang didaftarkan lewat `resource()`/`apiResource()`, ini juga
+menampilkan kolom **Middleware** dan **Authorize** (dari
+`@UseMiddleware`/`resource({ middleware })` dan `@Authorize`/`authorizeResource()`).
+Command ini belum menampilkan named route — itu dilacak terpisah lewat
+`named()`/`urlFor()`, tidak ditampilkan command ini.

@@ -21,6 +21,12 @@ export default defineAppConfig({
   key: process.env.APP_KEY, // signs cookies; powers `encrypted` casts
   port: Number(process.env.PORT ?? 3000),
 
+  // Show the detailed debug page for uncaught 500s outside production
+  // (default true there already; always off in production regardless).
+  debug: process.env.APP_ENV !== 'production',
+  // Timezone for date *display* — storage always stays UTC. Default `UTC`.
+  timezone: 'Asia/Makassar',
+
   // Service providers booted at startup.
   providers: [EloquentServiceProvider, I18nServiceProvider, AppServiceProvider],
 })
@@ -62,7 +68,7 @@ adopt a package.
 
 | File | Configures |
 | --- | --- |
-| `app.ts` | Name, environment, key, port, providers |
+| `app.ts` | Name, environment, debug page, timezone, key, port, providers |
 | `database.ts` | Database connections (Eloquent) |
 | `session.ts` | Cookie/session driver |
 | `logging.ts` | Log channels & formatting |
@@ -76,8 +82,9 @@ adopt a package.
 | `auth.ts` | Authentication — see [Authentication](/security/authentication) |
 | `middleware.ts` | Global middleware, aliases, and groups |
 
-`auth.ts` and `middleware.ts` ship with the `vue`/`spa` starter kits (which wire
-up Better Auth); a backend-only app adds them by hand when it needs them.
+`auth.ts`, `middleware.ts`, and `mail.ts` ship with the `vue`/`spa` starter kits
+(which wire up Better Auth and its emails); a backend-only app adds them by
+hand when it needs them.
 
 ## Service providers
 

@@ -41,6 +41,19 @@ Buat satu dengan CLI — ia men-scaffold lima aksi JSON
 bunx elyvel make:controller PostController
 ```
 
+Flag membentuk apa yang digenerate:
+
+| Flag | Menggenerate |
+| --- | --- |
+| `--resource` | Controller form tujuh-aksi lengkap (menambah `create`/`edit`) |
+| `--invokable` | Controller single-action dengan cuma `handle()` — lihat [Controller single-action](/id/basics/routing#controller-single-action) |
+| `--singleton` | Cuma `show`/`edit`/`update` (tanpa `:id`) — lihat [Singleton resource](/id/basics/routing#singleton-resource) |
+| `--singleton --creatable` | Bentuk singleton, plus `create`/`store`/`destroy` |
+| `--model=Post` | Menambah komentar hint yang menunjukkan wiring `resource(..., { bind: Post })` |
+| `--parent=Post` | Menambah komentar hint yang menunjukkan wiring `resource()` nested/shallow |
+| `--requests` | Juga menggenerate FormRequest `Store<Name>Request`/`Update<Name>Request` |
+| `--force` | Timpa file yang sudah ada |
+
 ## Aksi resource
 
 `resource()` dan `apiResource()` memetakan HTTP verb ke method controller. **Hanya
@@ -81,6 +94,12 @@ Setiap aksi menerima `MiddlewareContext` (`ctx`):
 - `ctx.model` — instance model yang di-bind, ketika resource didaftarkan dengan
   `bind` (route-model binding). Ia di-resolve sebelum aksi berjalan, jadi ia
   selalu berupa record yang sudah dimuat — atau request sudah 404 sebelumnya.
+  Binding juga mendukung `bindField` (bind berdasarkan kolom selain primary
+  key), `withTrashed` (izinkan baris soft-deleted), `scoped` (verifikasi child
+  nested milik parent-nya), dan `onMissing` (handler custom alih-alih 404
+  default) — lihat [Route model binding](/id/basics/routing#route-model-binding).
+- `ctx.validated` — data yang tervalidasi, ketika aksi di-decorate dengan
+  `@ValidateWith` (lihat di bawah).
 
 ```ts
 async show(ctx: MiddlewareContext) {
@@ -102,6 +121,18 @@ async store(ctx: MiddlewareContext) {
 }
 ```
 
+Atau lewati pemanggilan manual dengan `@ValidateWith` — ia menjalankan
+FormRequest sebelum aksi dan mengekspos hasilnya sebagai `ctx.validated`:
+
+```ts
+import { ValidateWith } from '@elyvel/core'
+
+@ValidateWith(StorePostRequest)
+async store(ctx: MiddlewareContext) {
+  return Post.create(ctx.validated) // sudah tervalidasi
+}
+```
+
 ## Otorisasi aksi
 
 Ketika route berjalan melalui layer auth, `ctx.authorize(ability, …)` menegakkan
@@ -115,7 +146,52 @@ async store(ctx: MiddlewareContext) {
 }
 ```
 
+Atau gunakan decorator `@Authorize` — ia menjalankan pengecekan sebelum aksi,
+menggunakan `ctx.model` ketika aksinya route-model-bound:
+
+```ts
+import { Authorize } from '@elyvel/core'
+
+@Authorize('update')
+async update(ctx: MiddlewareContext) { /* ctx.model sudah dicek */ }
+```
+
+Untuk seluruh controller, `authorizeResource()` menghubungkan setiap aksi
+resource ke ability konvensionalnya sekaligus (`index`→`viewAny`,
+`show`→`view`, `create`/`store`→`create`, `edit`/`update`→`update`,
+`destroy`→`delete`) — dipanggil di tempat resource-nya didaftarkan, bukan di
+dalam class:
+
+```ts
+// routes/web.ts
+import { authorizeResource, resource } from '@elyvel/core'
+
+authorizeResource(PostController)
+export default resource('/posts', PostController, { bind: Post })
+```
+
 Lihat [Otorisasi](/id/security/authorization) untuk gate dan policy.
+
+## Middleware pada controller
+
+`@UseMiddleware`/`@WithoutMiddleware` memasang atau mengecualikan middleware
+per aksi atau untuk seluruh class (digabung dengan apa pun yang ditambahkan
+`resource(..., { middleware })`, bukan menggantikannya):
+
+```ts
+import { Controller, UseMiddleware, WithoutMiddleware } from '@elyvel/core'
+
+@UseMiddleware('auth', 'subscribed')
+export class PostController extends Controller {
+  @WithoutMiddleware('subscribed') // cuma 'auth' yang berlaku di sini
+  async index(ctx: MiddlewareContext) { /* ... */ }
+}
+```
+
+Lihat [Middleware](/id/basics/middleware) dan
+[Routing](/id/basics/routing#middleware-otorisasi--validasi-di-level-controller)
+untuk gambaran lengkapnya, termasuk mengatur middleware sebuah resource secara
+fluent setelah registrasi.
 
 ## Response
 

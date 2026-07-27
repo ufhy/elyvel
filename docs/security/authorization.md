@@ -32,6 +32,16 @@ gate().define('viewAdminPanel', user => user?.role === 'admin')
 gate().allows('viewAdminPanel', user) // boolean
 ```
 
+By default an ability doesn't run at all for a guest (`user` is `null`) — pass
+`{ allowGuest: true }` as a third argument when the ability itself needs to
+handle the unauthenticated case:
+
+```ts
+gate().define('viewPublicStats', user => user === null || user.role !== 'banned', {
+  allowGuest: true,
+})
+```
+
 ## Policies
 
 A policy groups the abilities for one model into a class — one method per
@@ -71,8 +81,9 @@ gate().policy(Post, new PostPolicy())
 
 A method can return a plain `boolean`, or a `Response` when you want a specific
 denial message/status: `Response.allow()`, `Response.deny(message, status?)`,
-`Response.denyAsNotFound()` (404 instead of 403 — hides a resource's existence
-from unauthorized users).
+`Response.denyWithStatus(status, message?)` (set the status without the
+default "unauthorized" message), `Response.denyAsNotFound()` (404 instead of
+403 — hides a resource's existence from unauthorized users).
 
 ### `before` — a policy-wide filter
 
@@ -89,6 +100,22 @@ class PostPolicy {
 }
 ```
 
+The gate itself also has process-wide `before`/`after` hooks — for logic that
+should apply across *every* ability/policy, not just one policy's methods
+(Laravel's `Gate::before`/`Gate::after`):
+
+```ts
+gate().before((user, ability, args) => {
+  if (user?.role === 'super-admin')
+    return true // short-circuits every check, any ability
+  return undefined // fall through as usual
+})
+
+gate().after((user, ability, result, args) => {
+  // only consulted when the ability/policy itself returned null/undefined
+})
+```
+
 ## Checking abilities
 
 The gate exposes the checks directly, or bind a user once with `forUser` for a
@@ -98,8 +125,15 @@ are, in a route handler — see [Authentication](/security/authentication)):
 ```ts
 gate().allows('update', user, post) // boolean
 gate().denies('update', user, post) // boolean
+gate().check('update', user, post) // alias of allows
+gate().any(['update', 'delete'], user, post) // true if ANY ability passes
+gate().none(['update', 'delete'], user, post) // true if NONE pass
+gate().inspect('update', user, post) // the full Response — allowed()/message()/status()
 gate().forUser(user).authorize('update', post) // throws AuthorizationError if denied
 ```
+
+`forUser(user)` returns the same `check`/`any`/`none`/`inspect` surface with
+`user` already bound (`gate().forUser(user).any([...], post)`, etc).
 
 In a controller:
 
@@ -123,6 +157,37 @@ webRoute().delete('/posts/:id', destroy, {
   can: ['update', ctx => ctx.model],
 })
 ```
+
+### Authorizing a whole resource controller
+
+Instead of an ability check inside every action, `@Authorize` on a controller
+method runs the check before the action (using `ctx.model` when the route is
+model-bound):
+
+```ts
+import { Authorize, Controller } from '@elyvel/core'
+
+export class PostController extends Controller {
+  @Authorize('update')
+  async update(ctx: MiddlewareContext) { /* ctx.model already checked */ }
+}
+```
+
+`authorizeResource()` wires every resource action to its conventional ability
+at once (Laravel's `$this->authorizeResource()`) — `index`→`viewAny`,
+`show`→`view`, `create`/`store`→`create`, `edit`/`update`→`update`,
+`destroy`→`delete` — called where the resource is registered, not inside the
+class. An explicit `@Authorize` on a specific method still wins over the default:
+
+```ts
+// routes/web.ts
+import { authorizeResource, resource } from '@elyvel/core'
+
+authorizeResource(PostController)
+export default resource('/posts', PostController, { bind: Post })
+```
+
+See [Controllers](/basics/controllers#authorizing-actions) for more.
 
 ## Inline checks
 
