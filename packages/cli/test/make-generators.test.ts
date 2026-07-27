@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { make } from '../src/commands/make'
+import { generateMigrationPluginCommand, make } from '../src/commands/make'
 
 let dir: string
 let cwd: string
@@ -83,6 +83,25 @@ describe('make:controller flags', () => {
     expect(await make('controller', 'Post')).toBe(0)
     expect(await make('controller', 'Post')).toBe(1) // refused without --force
     expect(await make('controller', 'Post', { force: true })).toBe(0) // allowed with it
+  })
+})
+
+describe('auth:generate-migration-plugin', () => {
+  test('generates a migrateBetterAuth re-run migration — no name to invent', async () => {
+    expect(await generateMigrationPluginCommand()).toBe(0)
+    const [file] = readdirSync(join(dir, 'database/migrations'))
+    expect(file).toMatch(/_sync_auth_schema\.ts$/)
+    const src = read(`database/migrations/${file}`)
+    expect(src).toContain('migrateBetterAuth(schema, app(AuthToken).options)')
+    expect(src).not.toContain('schema.create(')
+  })
+
+  test('make:migration stays the plain create-table stub (unaffected)', async () => {
+    expect(await make('migration', 'create_widgets_table')).toBe(0)
+    const [file] = readdirSync(join(dir, 'database/migrations'))
+    const src = read(`database/migrations/${file}`)
+    expect(src).toContain('schema.create(')
+    expect(src).not.toContain('migrateBetterAuth')
   })
 })
 

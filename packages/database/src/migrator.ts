@@ -148,23 +148,34 @@ export async function loadMigrations(dir: string): Promise<LoadedMigration[]> {
   return loaded
 }
 
+export interface MigrateOptions {
+  /** Run each migration as its own batch, so `migrate:rollback` can undo them one at a time. */
+  step?: boolean
+  /** Collect the SQL each migration would run instead of executing it — no ledger writes either. */
+  pretend?: string[]
+}
+
 /** The actual "apply pending migrations" work — always called with the lock already held. */
-async function runPending(conn: Connection, dir: string): Promise<string[]> {
+async function runPending(conn: Connection, dir: string, options: MigrateOptions = {}): Promise<string[]> {
   await ensureLedger(conn)
   const ran = await ranNames(conn)
-  const batch = await nextBatch(conn)
-  const schema = new SchemaBuilder(conn)
+  let batch = await nextBatch(conn)
+  const schema = new SchemaBuilder(conn, { dryRun: options.pretend })
   const pending = (await loadMigrations(dir)).filter(m => !ran.has(m.name))
   const g = conn.grammar
 
   const applied: string[] = []
   for (const { name, migration } of pending) {
     await migration.up(schema)
-    await conn.statement(
-      `INSERT INTO ${TABLE} (name, batch, ran_at) VALUES (${g.placeholder(0)}, ${g.placeholder(1)}, ${g.placeholder(2)})`,
-      [name, batch, new Date().toISOString()],
-    )
+    if (!options.pretend) {
+      await conn.statement(
+        `INSERT INTO ${TABLE} (name, batch, ran_at) VALUES (${g.placeholder(0)}, ${g.placeholder(1)}, ${g.placeholder(2)})`,
+        [name, batch, new Date().toISOString()],
+      )
+    }
     applied.push(name)
+    if (options.step)
+      batch++
   }
   return applied
 }
@@ -174,8 +185,8 @@ async function runPending(conn: Connection, dir: string): Promise<string[]> {
  * running if another process holds the migration lock (e.g. a sibling
  * instance in a rolling deploy already migrating) — see {@link withMigrationLock}.
  */
-export async function migrate(conn: Connection, dir: string): Promise<string[]> {
-  return withMigrationLock(conn, () => runPending(conn, dir))
+export async function migrate(conn: Connection, dir: string, options: MigrateOptions = {}): Promise<string[]> {
+  return withMigrationLock(conn, () => runPending(conn, dir, options))
 }
 
 async function userTables(conn: Connection): Promise<string[]> {
@@ -197,30 +208,97 @@ async function userTables(conn: Connection): Promise<string[]> {
   return rows.map(r => r.name)
 }
 
-/** Roll back the most recent batch (runs `down` in reverse, clears ledger rows). */
-export async function rollback(conn: Connection, dir: string): Promise<string[]> {
+export interface RollbackOptions {
+  /** Roll back this many of the most-recently-run migrations, across batches, instead of just the last batch. */
+  step?: number
+  /** Roll back this specific batch number instead of the last one. */
+  batch?: number
+  /** Collect the SQL each `down()` would run instead of executing it — no ledger writes either. */
+  pretend?: string[]
+}
+
+/** Shared by {@link rollback} and {@link reset}: run `down()` for every name in `targetNames`. */
+async function runDown(
+  conn: Connection,
+  dir: string,
+  targetNames: Set<string>,
+  pretend?: string[],
+): Promise<string[]> {
+  if (targetNames.size === 0)
+    return []
+  const schema = new SchemaBuilder(conn, { dryRun: pretend })
+  const g = conn.grammar
+  const rolledBack: string[] = []
+  for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
+    if (!targetNames.has(name))
+      continue
+    await migration.down(schema)
+    if (!pretend)
+      await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
+    rolledBack.push(name)
+  }
+  return rolledBack
+}
+
+/**
+ * Roll back migrations. By default, the most recent batch; `{ batch }` targets
+ * a specific batch number, `{ step }` the last N migrations across batches
+ * (most-recently-run first) regardless of which batch they're in.
+ */
+export async function rollback(conn: Connection, dir: string, options: RollbackOptions = {}): Promise<string[]> {
   return withMigrationLock(conn, async () => {
     await ensureLedger(conn)
     const rows = await conn.select<{ name: string, batch: number | string }>(
-      `SELECT name, batch FROM ${TABLE}`,
+      `SELECT name, batch FROM ${TABLE} ORDER BY batch DESC, name DESC`,
     )
     if (rows.length === 0)
       return []
-    const maxBatch = Math.max(...rows.map(r => Number(r.batch)))
-    const inBatch = new Set(rows.filter(r => Number(r.batch) === maxBatch).map(r => r.name))
 
-    const schema = new SchemaBuilder(conn)
-    const g = conn.grammar
-    const rolledBack: string[] = []
-    for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
-      if (!inBatch.has(name))
-        continue
-      await migration.down(schema)
-      await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
-      rolledBack.push(name)
+    let targetNames: Set<string>
+    if (options.batch !== undefined) {
+      targetNames = new Set(rows.filter(r => Number(r.batch) === options.batch).map(r => r.name))
     }
-    return rolledBack
+    else if (options.step !== undefined) {
+      targetNames = new Set(rows.slice(0, options.step).map(r => r.name))
+    }
+    else {
+      const maxBatch = Math.max(...rows.map(r => Number(r.batch)))
+      targetNames = new Set(rows.filter(r => Number(r.batch) === maxBatch).map(r => r.name))
+    }
+
+    return runDown(conn, dir, targetNames, options.pretend)
   })
+}
+
+/** Roll back every applied migration (`migrate:reset` — unlike `rollback`, not just the last batch). */
+export async function reset(conn: Connection, dir: string): Promise<string[]> {
+  return withMigrationLock(conn, async () => {
+    await ensureLedger(conn)
+    const rows = await conn.select<{ name: string }>(`SELECT name FROM ${TABLE}`)
+    return runDown(conn, dir, new Set(rows.map(r => r.name)))
+  })
+}
+
+export interface RefreshOptions {
+  /** Roll back and re-run only the last N migrations instead of the whole database. */
+  step?: number
+  /** Run after re-migrating (e.g. wire up `elyvel db:seed`'s DatabaseSeeder) — `migrate:refresh --seed`. */
+  seed?(): Promise<void>
+}
+
+/** Roll back every migration (or the last `step`), then re-run `migrate` — `migrate:refresh`. */
+export async function refresh(
+  conn: Connection,
+  dir: string,
+  options: RefreshOptions = {},
+): Promise<{ rolledBack: string[], applied: string[] }> {
+  const rolledBack = options.step !== undefined
+    ? await rollback(conn, dir, { step: options.step })
+    : await reset(conn, dir)
+  const applied = await migrate(conn, dir)
+  if (options.seed)
+    await options.seed()
+  return { rolledBack, applied }
 }
 
 /** Report each migration's applied/pending state. */

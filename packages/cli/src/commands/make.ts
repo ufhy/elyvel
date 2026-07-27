@@ -239,6 +239,32 @@ async function generateControllerCompanions(
   ]
 }
 
+/**
+ * `elyvel auth:generate-migration-plugin` — no name to invent, no flag to
+ * remember: it generates a migration that re-runs `migrateBetterAuth`
+ * (idempotent/incremental — see `better-auth-schema.ts`), for after you've
+ * enabled a new Better Auth plugin in `config/auth.ts` (added by hand) on an
+ * app that's already migrated. Mirrors Laravel's `queue:table`/`session:table`
+ * — a fixed-purpose migration generator that takes no argument because
+ * there's only one thing to name it.
+ */
+export async function generateMigrationPluginCommand(): Promise<number> {
+  const target = join(process.cwd(), 'database/migrations', `${timestamp()}_sync_auth_schema.ts`)
+  try {
+    const contents = await renderStub('migration-auth', {})
+    await writeGenerated(target, contents, false)
+    console.log(`✓ Created ${relative(process.cwd(), target)}`)
+    console.log(
+      '  Add the plugin to config/auth.ts (import it from \'better-auth/plugins\', add it to `plugins: [...]`), then `elyvel migrate`.',
+    )
+    return 0
+  }
+  catch (error) {
+    console.error(`✗ ${(error as Error).message}`)
+    return 1
+  }
+}
+
 /** Handle `make:<type> <Name>`, returning an exit code. */
 export async function make(
   type: string,

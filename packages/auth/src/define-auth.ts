@@ -1,8 +1,52 @@
 import type { BetterAuthOptions } from 'better-auth'
+import { Str } from '@elyvel/support'
 import { Password } from '@elyvel/validation'
 import { betterAuth } from 'better-auth'
+import { getSchema } from 'better-auth/db'
 import { composeBefore } from './auth-hooks'
 import { eloquentAdapter } from './eloquent-adapter'
+
+/** The 4 core models Better Auth always has, keyed the same as its own options. */
+const CORE_MODELS = ['user', 'session', 'account', 'verification'] as const
+
+/**
+ * Better Auth's own fields are camelCase (`emailVerified`, `userId`, ...) —
+ * remap each one to its snake_case column name so the physical schema matches
+ * every other Eloquent table in the framework. This only changes the stored
+ * column name (Better Auth reads it back via `fieldName`); the JS-level
+ * property name apps see (`ctx.user.emailVerified`, `session.userId`, ...) is
+ * completely unaffected. Scoped to the 4 core models' OWN known fields —
+ * verified NOT to cover: (1) a plugin's own separate table (e.g.
+ * `twoFactor()`'s `twoFactor` table), and (2) a plugin's additional field
+ * merged onto a core table (e.g. `twoFactor()`'s `users.twoFactorEnabled`) —
+ * both stay in whatever casing the plugin itself hardcodes, since Better
+ * Auth resolves those independently of this model-level `fields` map. Pass
+ * `fields`/`additionalFields` into that plugin's own options if you want it
+ * snake_case too (plugin-specific, not something this helper can do generically).
+ *
+ * `getSchema()` keys its output by the resolved `modelName` (table name), NOT
+ * the internal model id, once `modelName` is set — so each model's own
+ * `options.<model>.modelName` (falling back to its elyvel default) is looked
+ * up dynamically rather than assumed, in case an app ever overrides it.
+ */
+function snakeCaseCoreFields(options: BetterAuthOptions): Record<(typeof CORE_MODELS)[number], { fields: Record<string, string> }> {
+  const defaultModelNames: Record<(typeof CORE_MODELS)[number], string> = {
+    user: 'users',
+    session: 'sessions',
+    account: 'accounts',
+    verification: 'verifications',
+  }
+  const schema = getSchema(options) as Record<string, { fields: Record<string, unknown> }>
+  const result = {} as Record<(typeof CORE_MODELS)[number], { fields: Record<string, string> }>
+  for (const model of CORE_MODELS) {
+    const tableName = (options as Record<string, { modelName?: string } | undefined>)[model]?.modelName
+      ?? defaultModelNames[model]
+    const fields: Record<string, string> = {}
+    for (const field of Object.keys(schema[tableName]?.fields ?? {})) fields[field] = Str.snake(field)
+    result[model] = { fields }
+  }
+  return result
+}
 
 /**
  * `config/auth.ts` is authored with **native Better Auth options** — plugins
@@ -116,7 +160,10 @@ export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof b
       FEATURE_PATHS[key as keyof AuthFeatures]?.forEach(path => disabledPaths.add(path))
   }
 
-  return betterAuth({
+  // Resolve everything except the snake_case fields remap first — computing
+  // it needs the fully-merged options (so plugin-contributed fields on the
+  // 4 core models are seen too) via Better Auth's own `getSchema`.
+  const resolved = {
     user: { modelName: 'users' },
     session: { modelName: 'sessions' },
     account: { modelName: 'accounts' },
@@ -142,6 +189,17 @@ export function defineAuth(options: DefineAuthOptions = {}): ReturnType<typeof b
     // Disabled feature endpoints → real 404 (see AuthFeatures). After `...ba`
     // so the computed set (which already folded in ba.disabledPaths) wins.
     disabledPaths: [...disabledPaths],
+  } as BetterAuthOptions
+
+  // Snake-case every core field's storage column — an explicit `fields`
+  // override the app already set (on `ba.user`/etc) still wins.
+  const snake = snakeCaseCoreFields(resolved)
+  return betterAuth({
+    ...resolved,
+    user: { ...resolved.user, fields: { ...snake.user.fields, ...resolved.user?.fields } },
+    session: { ...resolved.session, fields: { ...snake.session.fields, ...resolved.session?.fields } },
+    account: { ...resolved.account, fields: { ...snake.account.fields, ...resolved.account?.fields } },
+    verification: { ...resolved.verification, fields: { ...snake.verification.fields, ...resolved.verification?.fields } },
   } as BetterAuthOptions)
 }
 

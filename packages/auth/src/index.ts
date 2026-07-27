@@ -45,6 +45,7 @@ export {
   createAuth,
   TooManyAttemptsError,
 } from './manager'
+export { AuthAccount, AuthSession, AuthUser, AuthVerification } from './models'
 export { authHasPlugin, type AuthInstance, AuthServiceProvider, AuthToken } from './provider'
 export { actingAs, actingAsGuest, currentTestActor, stopActingAs } from './testing'
 export { generateToken, hashToken } from './token'

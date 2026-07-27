@@ -39,13 +39,26 @@ export {
 } from './eloquent-builder'
 export { EloquentCollection } from './eloquent-collection'
 export { defineFactory, Factory, type FactoryDefinition } from './factory'
-export type { ColumnDefinition, ColumnType, Dialect, Grammar } from './grammar'
+export type {
+  ColumnDefinition,
+  ColumnType,
+  Dialect,
+  ForeignKeyDefinition,
+  Grammar,
+  PrimaryKeyDefinition,
+  RefAction,
+} from './grammar'
 export {
   type ColumnInfo,
   countRows,
+  hasColumn,
+  hasIndex,
+  hasTable,
+  type IndexInfo,
   listTables,
   openConnectionCount,
   tableColumns,
+  tableIndexes,
 } from './inspect'
 export {
   forceUnlock,
@@ -54,6 +67,8 @@ export {
   migrate,
   type Migration,
   MigrationLockError,
+  refresh,
+  reset,
   rollback,
   status,
 } from './migrator'

@@ -1,0 +1,20 @@
+import type { Migration } from '@elyvel/database'
+import { AuthToken, migrateBetterAuth } from '@elyvel/auth'
+import { app } from '@elyvel/core'
+
+/**
+ * Re-run after enabling a new Better Auth plugin in `config/auth.ts`.
+ * `migrateBetterAuth` is idempotent/incremental: an already-existing table is
+ * left alone except for any columns the new plugin adds, and a wholly new
+ * plugin table (e.g. `twoFactor()`'s own `twoFactor` table) gets created.
+ */
+export default {
+  up: async (schema) => {
+    await migrateBetterAuth(schema, app(AuthToken).options)
+  },
+  down: async () => {
+    // No-op: this migration only ADDS whatever the plugin needs — rolling it
+    // back would risk dropping columns/tables other data now depends on.
+    // Drop the specific plugin table/columns yourself here if you truly need to.
+  },
+} satisfies Migration

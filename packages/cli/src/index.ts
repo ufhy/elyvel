@@ -8,6 +8,8 @@ import {
   dbTableCommand,
   migrateCommand,
   pruneCommand,
+  refreshCommand,
+  resetCommand,
   rollbackCommand,
   seedCommand,
   statusCommand,
@@ -16,7 +18,7 @@ import {
 import { keyGenerate } from './commands/key'
 import { langPublish } from './commands/lang'
 import { down, up } from './commands/maintenance'
-import { make } from './commands/make'
+import { generateMigrationPluginCommand, make } from './commands/make'
 import { modelSyncCommand } from './commands/model-sync'
 import { newApp } from './commands/new'
 import { packageDiscoverCommand } from './commands/package-discover'
@@ -48,9 +50,11 @@ Usage:
   elyvel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
   elyvel lang:publish --package=<name> [--force]  Copy an installed package's lang/ to lang/vendor/<name>
 
-  elyvel migrate                               Run pending migrations
-  elyvel migrate:fresh                         Drop all tables and re-migrate
-  elyvel migrate:rollback                      Roll back the last migration batch
+  elyvel migrate [--step] [--pretend]          Run pending migrations
+  elyvel migrate:fresh [--seed]                Drop all tables and re-migrate
+  elyvel migrate:rollback [--step=N] [--batch=N] [--pretend]  Roll back migrations (last batch by default)
+  elyvel migrate:reset                         Roll back every applied migration
+  elyvel migrate:refresh [--step=N] [--seed]   Roll back (all, or last N) then re-migrate
   elyvel migrate:status                        Show applied/pending migrations
   elyvel migrate:unlock                        Force-clear a stuck migration lock (crashed process)
   elyvel db:seed                               Run database/seeders/DatabaseSeeder
@@ -87,6 +91,7 @@ Usage:
                                                 Generate a model + table schema
                                                 (companions: migration/factory/seeder/controller)
   elyvel make:migration <name>                 Generate a migration
+  elyvel auth:generate-migration-plugin        Generate a migration that re-runs migrateBetterAuth (after enabling a new plugin by hand)
   elyvel make:concern <Name>                   Generate a model concern (Laravel trait equivalent)
   elyvel make:seeder <Name>                    Generate a seeder
   elyvel make:factory <Name>                   Generate a model factory (Faker)
@@ -163,15 +168,23 @@ async function main(): Promise<number> {
   }
 
   if (command === 'migrate') {
-    return migrateCommand(false)
+    return migrateCommand(false, flags)
   }
 
   if (command === 'migrate:fresh') {
-    return migrateCommand(true)
+    return migrateCommand(true, flags)
   }
 
   if (command === 'migrate:rollback') {
-    return rollbackCommand()
+    return rollbackCommand(flags)
+  }
+
+  if (command === 'migrate:reset') {
+    return resetCommand()
+  }
+
+  if (command === 'migrate:refresh') {
+    return refreshCommand(flags)
   }
 
   if (command === 'migrate:status') {
@@ -180,6 +193,10 @@ async function main(): Promise<number> {
 
   if (command === 'migrate:unlock') {
     return unlockCommand()
+  }
+
+  if (command === 'auth:generate-migration-plugin') {
+    return generateMigrationPluginCommand()
   }
 
   if (command === 'db:seed') {

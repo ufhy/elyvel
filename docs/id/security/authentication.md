@@ -32,6 +32,30 @@ export default defineAuthConfig({
 })
 ```
 
+### Menambah plugin setelah aplikasi sudah dimigrasikan
+
+Mengaktifkan plugin baru (mis. `username()`) pada aplikasi yang migrasi
+pertamanya sudah pernah dijalankan itu aman: `migrateBetterAuth` (dipakai oleh
+migration yang membuat tabel-tabel Better Auth) bersifat **idempotent dan
+inkremental** — tabel yang sudah ada dibiarkan apa adanya kecuali kolom yang
+ditambahkan plugin baru, dan tabel plugin yang sepenuhnya baru (mis. tabel
+`twoFactor` milik `twoFactor()` sendiri) dibuat.
+
+1. Tambahkan plugin ke `config/auth.ts` secara manual (import dari
+   `better-auth/plugins`, tambahkan ke `plugins: [...]`).
+2. Jalankan `elyvel auth:generate-migration-plugin` — tidak perlu memikirkan
+   nama, ini menggenerate migration yang menjalankan ulang `migrateBetterAuth`.
+3. `elyvel migrate`.
+
+```ts
+// config/auth.ts
+import { twoFactor, username } from 'better-auth/plugins'
+
+export default defineAuthConfig({
+  plugins: [twoFactor(), username()], // username() ditambahkan belakangan
+})
+```
+
 ## Pemasangan
 
 Better Auth dipasang sekali, sebagai global middleware, di `config/middleware.ts`:
@@ -95,6 +119,62 @@ webRoute().get('/posts/:id/edit', (ctx) => {
 ```
 
 `ctx.can(ability, …)`, `ctx.cannot(…)`, dan `ctx.authorize(…)` juga tersedia.
+
+### Model Eloquent untuk tabel-tabel auth
+
+Tabel milik Better Auth sendiri diekspos sebagai model Eloquent asli — jadi
+Anda bisa query dan berelasi dengannya seperti tabel lain di framework, bukan
+sekadar menyentuh kolom `user_id` polos:
+
+```ts
+import { AuthUser } from '@elyvel/auth'
+
+const user = await AuthUser.find(id)
+const accounts = await user.accounts().get() // hasMany(AuthAccount, 'user_id')
+const sessions = await user.sessions().get() // hasMany(AuthSession, 'user_id')
+```
+
+| Model | Tabel | Catatan |
+| --- | --- | --- |
+| `AuthUser` | `users` | Relasi `accounts()`, `sessions()`. |
+| `AuthAccount` | `accounts` | Satu baris per metode login yang tertaut (password, tiap provider OAuth). `user()` belongsTo `AuthUser`. Menyembunyikan `access_token`/`refresh_token`/`id_token`/`password`. |
+| `AuthSession` | `sessions` | Satu baris per sesi login aktif. `user()` belongsTo `AuthUser`. Menyembunyikan `token`. |
+| `AuthVerification` | `verifications` | Token verifikasi email / reset password, di-key berdasarkan `identifier` (mis. email) — tidak ada FK ke `users`. |
+
+Hanya field yang selalu dimiliki Better Auth yang dideklarasikan/bertipe.
+Field tambahan milik plugin di `users` (mis. `twoFactorEnabled` dari
+`twoFactor()`) tetap merupakan attribute asli pada baris tersebut — `declare`
+sendiri di subclass kalau ingin diberi tipe:
+
+```ts
+// app/models/User.ts
+import { AuthUser } from '@elyvel/auth'
+import { Post } from './Post'
+
+export class User extends AuthUser {
+  declare twoFactorEnabled: boolean
+
+  posts() {
+    return this.hasMany(Post, 'user_id')
+  }
+}
+```
+
+::: tip Batasan subclass
+Relasi yang didefinisikan di class dasar — `AuthAccount.user()` →
+`belongsTo(AuthUser, ...)` — tetap menghasilkan instance `AuthUser` dasar,
+bukan subclass `User` Anda, walau barisnya sama persis. Kalau butuh itu ikut
+ter-upgrade, subclass juga `AuthAccount`/`AuthSession` dan override `user()`
+supaya menunjuk ke class `User` Anda sendiri.
+:::
+
+Field Better Auth sendiri itu camelCase (`emailVerified`, `userId`, …); elyvel
+me-remap setiap field inti ke nama kolom snake_case-nya (`email_verified`,
+`user_id`, …) supaya cocok dengan tabel lain di framework. Ini hanya mengubah
+nama kolom yang disimpan — API level-JS milik Better Auth sendiri
+(`ctx.user.emailVerified`, `session.userId`) sama sekali tidak terpengaruh.
+Field tambahan milik plugin di tabel inti (mis. `twoFactorEnabled` dari
+`twoFactor()`) **tidak** ikut di-remap dan tetap camelCase.
 
 ## Memvalidasi & mengustomisasi tiap alur
 

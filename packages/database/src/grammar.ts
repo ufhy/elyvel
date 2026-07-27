@@ -2,7 +2,9 @@ export type Dialect = 'sqlite' | 'pg' | 'mysql'
 
 export type ColumnType
   = | 'id'
+    | 'tinyInteger'
     | 'smallInteger'
+    | 'mediumInteger'
     | 'integer'
     | 'bigInteger'
     | 'float'
@@ -12,6 +14,7 @@ export type ColumnType
     | 'char'
     | 'string'
     | 'text'
+    | 'tinyText'
     | 'mediumText'
     | 'longText'
     | 'uuid'
@@ -20,15 +23,23 @@ export type ColumnType
     | 'binary'
     | 'date'
     | 'time'
+    | 'timeTz'
     | 'timestamp'
     | 'timestampTz'
     | 'datetime'
+    | 'dateTimeTz'
+    | 'year'
+    | 'ipAddress'
+    | 'macAddress'
     | 'inet'
     | 'cidr'
     | 'macaddr'
     | 'interval'
     | 'enum'
     | 'array'
+
+/** Foreign-key/referential action, shared by `onDelete`/`onUpdate`. */
+export type RefAction = 'cascade' | 'set null' | 'restrict' | 'no action'
 
 export interface ColumnDefinition {
   name: string
@@ -42,7 +53,15 @@ export interface ColumnDefinition {
   nullable?: boolean
   unique?: boolean
   default?: unknown
-  references?: { table: string, column: string, onDelete?: 'cascade' | 'set null' | 'restrict' }
+  references?: { table: string, column: string, onDelete?: RefAction, onUpdate?: RefAction, name?: string }
+  /** `UNSIGNED` on MariaDB/MySQL integer columns (ignored elsewhere, like Laravel). */
+  unsigned?: boolean
+  /** Column comment (MariaDB/MySQL/PostgreSQL — ignored on SQLite). */
+  comment?: string
+  /** `DEFAULT CURRENT_TIMESTAMP` for timestamp/datetime columns. */
+  useCurrent?: boolean
+  /** `ON UPDATE CURRENT_TIMESTAMP` (MariaDB/MySQL only). */
+  useCurrentOnUpdate?: boolean
   /** Marks this column definition as a modification (`->change()`) rather than an add. */
   change?: boolean
 }
@@ -52,6 +71,21 @@ export interface IndexDefinition {
   columns: string[]
   unique: boolean
   name: string
+}
+
+/** A composite (or single-column) primary key, added separately from `id()`. */
+export interface PrimaryKeyDefinition {
+  columns: string[]
+  name?: string
+}
+
+/** A standalone foreign key constraint on one or more existing columns. */
+export interface ForeignKeyDefinition {
+  columns: string[]
+  name?: string
+  references?: { table: string, column: string }
+  onDelete?: RefAction
+  onUpdate?: RefAction
 }
 
 /**
@@ -73,22 +107,33 @@ export abstract class Grammar {
       .join('.')
   }
 
-  compileCreateTable(table: string, columns: ColumnDefinition[]): string {
+  compileCreateTable(
+    table: string,
+    columns: ColumnDefinition[],
+    primaryKeys: PrimaryKeyDefinition[] = [],
+  ): string {
     const defs = columns.map(c => this.compileColumn(c))
     const constraints: string[] = []
     for (const c of columns) {
       if (c.unique && c.type !== 'id')
         constraints.push(`UNIQUE (${this.wrap(c.name)})`)
-      if (c.references) {
-        const onDelete = c.references.onDelete
-          ? ` ON DELETE ${c.references.onDelete.toUpperCase()}`
-          : ''
-        constraints.push(
-          `FOREIGN KEY (${this.wrap(c.name)}) REFERENCES ${this.wrap(c.references.table)} (${this.wrap(c.references.column)})${onDelete}`,
-        )
-      }
+      if (c.references)
+        constraints.push(this.foreignKeyConstraint(c.references, [c.name]))
     }
+    for (const pk of primaryKeys)
+      constraints.push(`PRIMARY KEY (${pk.columns.map(c => this.wrap(c)).join(', ')})`)
     return `CREATE TABLE ${this.wrap(table)} (${[...defs, ...constraints].join(', ')})`
+  }
+
+  /** Shared `FOREIGN KEY (...) REFERENCES ... ON DELETE ... ON UPDATE ...` fragment. */
+  protected foreignKeyConstraint(
+    references: { table: string, column: string, onDelete?: RefAction, onUpdate?: RefAction },
+    columns: string[],
+  ): string {
+    const onDelete = references.onDelete ? ` ON DELETE ${references.onDelete.toUpperCase()}` : ''
+    const onUpdate = references.onUpdate ? ` ON UPDATE ${references.onUpdate.toUpperCase()}` : ''
+    const cols = columns.map(c => this.wrap(c)).join(', ')
+    return `FOREIGN KEY (${cols}) REFERENCES ${this.wrap(references.table)} (${this.wrap(references.column)})${onDelete}${onUpdate}`
   }
 
   compileDropTableIfExists(table: string): string {
@@ -98,6 +143,70 @@ export abstract class Grammar {
 
   compileAddColumn(table: string, column: ColumnDefinition): string {
     return `ALTER TABLE ${this.wrap(table)} ADD COLUMN ${this.compileColumn(column)}`
+  }
+
+  /** A separate `ADD CONSTRAINT ... FOREIGN KEY` for a column added via `table()` (ALTER). */
+  compileAddForeignKeyForColumn(table: string, column: ColumnDefinition): string {
+    if (!column.references)
+      throw new Error('[eloquent] compileAddForeignKeyForColumn called on a column with no references.')
+    if (this.dialect === 'sqlite') {
+      throw new Error(
+        '[eloquent] A foreign key added via table() is not supported on SQLite — define it in create() instead.',
+      )
+    }
+    const name = column.references.name ?? this.defaultConstraintName(table, [column.name], 'foreign')
+    return `ALTER TABLE ${this.wrap(table)} ADD CONSTRAINT ${this.wrap(name)} ${this.foreignKeyConstraint(column.references, [column.name])}`
+  }
+
+  /** `foreign([...]).references(...).on(...)` — a standalone FK not tied to a column push. */
+  compileAddForeignKey(table: string, fk: ForeignKeyDefinition): string {
+    if (!fk.references)
+      throw new Error('[eloquent] foreign() requires .references(column).on(table).')
+    if (this.dialect === 'sqlite') {
+      throw new Error(
+        '[eloquent] foreign() is not supported on SQLite — define the foreign key in create() instead.',
+      )
+    }
+    const name = fk.name ?? this.defaultConstraintName(table, fk.columns, 'foreign')
+    return `ALTER TABLE ${this.wrap(table)} ADD CONSTRAINT ${this.wrap(name)} ${this.foreignKeyConstraint({ ...fk.references, onDelete: fk.onDelete, onUpdate: fk.onUpdate }, fk.columns)}`
+  }
+
+  compileAddPrimaryKey(table: string, pk: PrimaryKeyDefinition): string {
+    if (this.dialect === 'sqlite') {
+      throw new Error(
+        '[eloquent] Adding a primary key via table() is not supported on SQLite — define it in create() instead.',
+      )
+    }
+    return `ALTER TABLE ${this.wrap(table)} ADD PRIMARY KEY (${pk.columns.map(c => this.wrap(c)).join(', ')})`
+  }
+
+  compileDropPrimary(table: string, name?: string): string {
+    if (this.dialect === 'sqlite') {
+      throw new Error('[eloquent] dropPrimary is not supported on SQLite (rebuild the table instead).')
+    }
+    if (this.dialect === 'mysql')
+      return `ALTER TABLE ${this.wrap(table)} DROP PRIMARY KEY`
+    return `ALTER TABLE ${this.wrap(table)} DROP CONSTRAINT ${this.wrap(name ?? this.defaultConstraintName(table, ['pkey'], ''))}`
+  }
+
+  compileRenameIndex(table: string, from: string, to: string): string {
+    if (this.dialect === 'sqlite') {
+      throw new Error('[eloquent] renameIndex is not supported on SQLite (drop and recreate instead).')
+    }
+    if (this.dialect === 'mysql')
+      return `ALTER TABLE ${this.wrap(table)} RENAME INDEX ${this.wrap(from)} TO ${this.wrap(to)}`
+    return `ALTER INDEX ${this.wrap(from)} RENAME TO ${this.wrap(to)}`
+  }
+
+  /** Postgres needs a separate `COMMENT ON COLUMN` — MySQL inlines it, SQLite has no comments. */
+  compileColumnComment(table: string, column: string, comment: string): string | null {
+    if (this.dialect !== 'pg')
+      return null
+    return `COMMENT ON COLUMN ${this.wrap(table)}.${this.wrap(column)} IS ${this.literal(comment)}`
+  }
+
+  protected defaultConstraintName(table: string, columns: string[], suffix: string): string {
+    return [table, ...columns, suffix].filter(Boolean).join('_')
   }
 
   compileCreateIndex(table: string, index: IndexDefinition): string {
@@ -157,15 +266,23 @@ export abstract class Grammar {
 
   protected compileColumn(column: ColumnDefinition): string {
     const parts = [this.wrap(column.name), this.columnType(column)]
+    if (column.unsigned && this.dialect === 'mysql')
+      parts.push('UNSIGNED')
     if (column.type !== 'id') {
       parts.push(column.nullable ? 'NULL' : 'NOT NULL')
-      if (column.default !== undefined)
+      if (column.useCurrent && column.default === undefined)
+        parts.push('DEFAULT CURRENT_TIMESTAMP')
+      else if (column.default !== undefined)
         parts.push(`DEFAULT ${this.literal(column.default)}`)
+      if (column.useCurrentOnUpdate && this.dialect === 'mysql')
+        parts.push('ON UPDATE CURRENT_TIMESTAMP')
     }
     if (column.enumValues?.length) {
       const list = column.enumValues.map(v => this.literal(v)).join(', ')
       parts.push(`CHECK (${this.wrap(column.name)} IN (${list}))`)
     }
+    if (column.comment !== undefined && this.dialect === 'mysql')
+      parts.push(`COMMENT ${this.literal(column.comment)}`)
     return parts.join(' ')
   }
 
@@ -190,10 +307,13 @@ class SqliteGrammar extends Grammar {
     switch (c.type) {
       case 'id':
         return 'INTEGER PRIMARY KEY AUTOINCREMENT'
+      case 'tinyInteger':
       case 'smallInteger':
+      case 'mediumInteger':
       case 'integer':
       case 'bigInteger':
       case 'boolean':
+      case 'year':
         return 'INTEGER'
       case 'float':
       case 'double':
@@ -219,8 +339,12 @@ class PostgresGrammar extends Grammar {
     switch (c.type) {
       case 'id':
         return 'SERIAL PRIMARY KEY'
+      case 'tinyInteger':
+      case 'year':
+        return 'SMALLINT'
       case 'smallInteger':
         return 'SMALLINT'
+      case 'mediumInteger':
       case 'integer':
         return 'INTEGER'
       case 'bigInteger':
@@ -239,6 +363,7 @@ class PostgresGrammar extends Grammar {
       case 'enum':
         return `VARCHAR(${c.length ?? 255})`
       case 'text':
+      case 'tinyText':
       case 'mediumText':
       case 'longText':
         return 'TEXT'
@@ -258,12 +383,17 @@ class PostgresGrammar extends Grammar {
         return 'BYTEA'
       case 'time':
         return 'TIME'
+      case 'timeTz':
+        return 'TIMETZ'
       case 'timestampTz':
+      case 'dateTimeTz':
         return 'TIMESTAMPTZ'
+      case 'ipAddress':
       case 'inet':
         return 'INET'
       case 'cidr':
         return 'CIDR'
+      case 'macAddress':
       case 'macaddr':
         return 'MACADDR'
       case 'interval':
@@ -298,12 +428,18 @@ class MysqlGrammar extends Grammar {
     switch (c.type) {
       case 'id':
         return 'BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY'
+      case 'tinyInteger':
+        return 'TINYINT'
       case 'smallInteger':
         return 'SMALLINT'
+      case 'mediumInteger':
+        return 'MEDIUMINT'
       case 'integer':
         return 'INT'
       case 'bigInteger':
         return 'BIGINT'
+      case 'year':
+        return 'YEAR'
       case 'float':
         return 'FLOAT'
       case 'double':
@@ -321,6 +457,8 @@ class MysqlGrammar extends Grammar {
         return 'CHAR(36)'
       case 'text':
         return 'TEXT'
+      case 'tinyText':
+        return 'TINYTEXT'
       case 'mediumText':
         return 'MEDIUMTEXT'
       case 'longText':
@@ -328,9 +466,15 @@ class MysqlGrammar extends Grammar {
       case 'binary':
         return 'BLOB'
       case 'time':
+      case 'timeTz':
         return 'TIME'
-      // json/date/timestamp/datetime stay TEXT so values are ISO strings and
-      // identical across dialects (model casts handle them), mirroring Postgres.
+      case 'ipAddress':
+        return 'VARCHAR(45)'
+      case 'macAddress':
+        return 'VARCHAR(17)'
+      // json/date/timestamp/datetime/dateTimeTz stay TEXT so values are ISO
+      // strings and identical across dialects (model casts handle them),
+      // mirroring Postgres — MySQL has no tz-aware datetime type anyway.
       // jsonb maps to MySQL's native JSON; timestampTz to UTC-normalized TIMESTAMP.
       case 'jsonb':
         return 'JSON'

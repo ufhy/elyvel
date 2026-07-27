@@ -1,5 +1,13 @@
 import type { Connection } from './connection'
-import type { ColumnDefinition, ColumnType, IndexDefinition } from './grammar'
+import type {
+  ColumnDefinition,
+  ColumnType,
+  ForeignKeyDefinition,
+  IndexDefinition,
+  PrimaryKeyDefinition,
+  RefAction,
+} from './grammar'
+import { Str } from '@elyvel/support'
 
 /** Fluent modifiers returned by each column method. */
 class ColumnBuilder {
@@ -19,28 +27,153 @@ class ColumnBuilder {
     return this
   }
 
+  /** `UNSIGNED` on MariaDB/MySQL (ignored elsewhere, like Laravel). */
+  unsigned(): this {
+    this.def.unsigned = true
+    return this
+  }
+
+  /** Column comment (MariaDB/MySQL/PostgreSQL — ignored on SQLite). */
+  comment(text: string): this {
+    this.def.comment = text
+    return this
+  }
+
+  /**
+   * `DEFAULT CURRENT_TIMESTAMP`. Use with `timestampTz()`/`dateTimeTz()` on
+   * MySQL — plain `timestamp()`/`datetime()` stay `TEXT` there for
+   * cross-dialect ISO-string consistency, and MySQL rejects a
+   * `CURRENT_TIMESTAMP` default on a `TEXT` column.
+   */
+  useCurrent(): this {
+    this.def.useCurrent = true
+    return this
+  }
+
+  /** `ON UPDATE CURRENT_TIMESTAMP` (MariaDB/MySQL only). */
+  useCurrentOnUpdate(): this {
+    this.def.useCurrentOnUpdate = true
+    return this
+  }
+
   /** `foreignId('user_id').constrained('users')` → FK to users(id). */
   constrained(table: string, column = 'id'): this {
     this.def.references = { table, column }
     return this
   }
 
-  cascadeOnDelete(): this {
+  onDelete(action: RefAction): this {
     if (this.def.references)
-      this.def.references.onDelete = 'cascade'
+      this.def.references.onDelete = action
     return this
   }
 
-  nullOnDelete(): this {
+  onUpdate(action: RefAction): this {
     if (this.def.references)
-      this.def.references.onDelete = 'set null'
+      this.def.references.onUpdate = action
     return this
+  }
+
+  cascadeOnDelete(): this {
+    return this.onDelete('cascade')
+  }
+
+  restrictOnDelete(): this {
+    return this.onDelete('restrict')
+  }
+
+  nullOnDelete(): this {
+    return this.onDelete('set null')
+  }
+
+  noActionOnDelete(): this {
+    return this.onDelete('no action')
+  }
+
+  cascadeOnUpdate(): this {
+    return this.onUpdate('cascade')
+  }
+
+  restrictOnUpdate(): this {
+    return this.onUpdate('restrict')
+  }
+
+  nullOnUpdate(): this {
+    return this.onUpdate('set null')
+  }
+
+  noActionOnUpdate(): this {
+    return this.onUpdate('no action')
   }
 
   /** Mark this column as a modification of an existing one (Postgres only). */
   change(): this {
     this.def.change = true
     return this
+  }
+}
+
+/** `foreign('user_id').references('id').on('users')` — a standalone FK constraint. */
+class ForeignKeyBuilder {
+  constructor(private readonly def: ForeignKeyDefinition) {}
+  references(column: string): this {
+    this.def.references = { table: this.def.references?.table ?? '', column }
+    return this
+  }
+
+  on(table: string): this {
+    if (this.def.references)
+      this.def.references.table = table
+    else
+      this.def.references = { table, column: 'id' }
+    return this
+  }
+
+  name(name: string): this {
+    this.def.name = name
+    return this
+  }
+
+  onDelete(action: RefAction): this {
+    this.def.onDelete = action
+    return this
+  }
+
+  onUpdate(action: RefAction): this {
+    this.def.onUpdate = action
+    return this
+  }
+
+  cascadeOnDelete(): this {
+    return this.onDelete('cascade')
+  }
+
+  restrictOnDelete(): this {
+    return this.onDelete('restrict')
+  }
+
+  nullOnDelete(): this {
+    return this.onDelete('set null')
+  }
+
+  noActionOnDelete(): this {
+    return this.onDelete('no action')
+  }
+
+  cascadeOnUpdate(): this {
+    return this.onUpdate('cascade')
+  }
+
+  restrictOnUpdate(): this {
+    return this.onUpdate('restrict')
+  }
+
+  nullOnUpdate(): this {
+    return this.onUpdate('set null')
+  }
+
+  noActionOnUpdate(): this {
+    return this.onUpdate('no action')
   }
 }
 
@@ -55,6 +188,10 @@ export class Blueprint {
   readonly renameColumns: { from: string, to: string }[] = []
   readonly dropIndexes: string[] = []
   readonly dropForeigns: string[] = []
+  readonly primaryKeys: PrimaryKeyDefinition[] = []
+  readonly dropPrimaries: (string | undefined)[] = []
+  readonly foreignKeys: ForeignKeyDefinition[] = []
+  readonly renameIndexes: { from: string, to: string }[] = []
 
   private push(def: ColumnDefinition): ColumnBuilder {
     this.columns.push(def)
@@ -85,8 +222,16 @@ export class Blueprint {
     return this.push({ name, type: 'longText' })
   }
 
+  tinyInteger(name: string): ColumnBuilder {
+    return this.push({ name, type: 'tinyInteger' })
+  }
+
   smallInteger(name: string): ColumnBuilder {
     return this.push({ name, type: 'smallInteger' })
+  }
+
+  mediumInteger(name: string): ColumnBuilder {
+    return this.push({ name, type: 'mediumInteger' })
   }
 
   integer(name: string): ColumnBuilder {
@@ -95,6 +240,31 @@ export class Blueprint {
 
   bigInteger(name: string): ColumnBuilder {
     return this.push({ name, type: 'bigInteger' })
+  }
+
+  /** `UNSIGNED TINYINT` (MariaDB/MySQL — plain `TINYINT` elsewhere). */
+  unsignedTinyInteger(name: string): ColumnBuilder {
+    return this.tinyInteger(name).unsigned()
+  }
+
+  /** `UNSIGNED SMALLINT` (MariaDB/MySQL — plain `SMALLINT` elsewhere). */
+  unsignedSmallInteger(name: string): ColumnBuilder {
+    return this.smallInteger(name).unsigned()
+  }
+
+  /** `UNSIGNED MEDIUMINT` (MariaDB/MySQL — plain `MEDIUMINT`/`INTEGER` elsewhere). */
+  unsignedMediumInteger(name: string): ColumnBuilder {
+    return this.mediumInteger(name).unsigned()
+  }
+
+  /** `UNSIGNED INT` (MariaDB/MySQL — plain `INTEGER` elsewhere). */
+  unsignedInteger(name: string): ColumnBuilder {
+    return this.integer(name).unsigned()
+  }
+
+  /** `UNSIGNED BIGINT` (MariaDB/MySQL — plain `BIGINT` elsewhere). */
+  unsignedBigInteger(name: string): ColumnBuilder {
+    return this.bigInteger(name).unsigned()
   }
 
   float(name: string): ColumnBuilder {
@@ -120,6 +290,40 @@ export class Blueprint {
 
   time(name: string): ColumnBuilder {
     return this.push({ name, type: 'time' })
+  }
+
+  /** Timezone-aware time (native `TIMETZ` on Postgres). */
+  timeTz(name: string): ColumnBuilder {
+    return this.push({ name, type: 'timeTz' })
+  }
+
+  /** Timezone-aware `DATETIME` (native `TIMESTAMPTZ` on Postgres). */
+  dateTimeTz(name: string): ColumnBuilder {
+    return this.push({ name, type: 'dateTimeTz' })
+  }
+
+  /** `YEAR` (MariaDB/MySQL — plain integer elsewhere). */
+  year(name: string): ColumnBuilder {
+    return this.push({ name, type: 'year' })
+  }
+
+  tinyText(name: string): ColumnBuilder {
+    return this.push({ name, type: 'tinyText' })
+  }
+
+  /** `INET` on Postgres, `VARCHAR` elsewhere — the cross-dialect convenience (see also `inet()`). */
+  ipAddress(name: string): ColumnBuilder {
+    return this.push({ name, type: 'ipAddress' })
+  }
+
+  /** `MACADDR` on Postgres, `VARCHAR` elsewhere — the cross-dialect convenience (see also `macaddr()`). */
+  macAddress(name: string): ColumnBuilder {
+    return this.push({ name, type: 'macAddress' })
+  }
+
+  /** Nullable `VARCHAR(100)` intended for a "remember me" token. */
+  rememberToken(): ColumnBuilder {
+    return this.string('remember_token', 100).nullable()
   }
 
   json(name: string): ColumnBuilder {
@@ -162,12 +366,40 @@ export class Blueprint {
     return this.push({ name, type: 'array', arrayOf: of })
   }
 
+  /**
+   * `UNSIGNED BIGINT` (MariaDB/MySQL — plain `BIGINT` elsewhere), matching
+   * `id()`'s type exactly so `constrained()` FKs type-check on MySQL, which
+   * rejects a foreign key between mismatched signedness.
+   */
   foreignId(name: string): ColumnBuilder {
-    return this.push({ name, type: 'bigInteger' })
+    return this.bigInteger(name).unsigned()
   }
 
   uuid(name: string): ColumnBuilder {
     return this.push({ name, type: 'uuid' })
+  }
+
+  /** `CHAR(26)` ULID column (no dedicated DB type — stored as a fixed-length string). */
+  ulid(name = 'id'): ColumnBuilder {
+    return this.char(name, 26)
+  }
+
+  /** `UNSIGNED BIGINT`-equivalent FK column meant for a UUID-keyed parent. */
+  foreignUuid(name: string): ColumnBuilder {
+    return this.uuid(name)
+  }
+
+  /** FK column meant for a ULID-keyed parent. */
+  foreignUlid(name: string): ColumnBuilder {
+    return this.char(name, 26)
+  }
+
+  /**
+   * `foreignIdFor('User')` → a `user_id` bigInteger column (name derived by
+   * convention, TS has no `Model::class` to reflect on like Laravel's PHP).
+   */
+  foreignIdFor(modelName: string, columnName?: string): ColumnBuilder {
+    return this.foreignId(columnName ?? `${Str.snake(modelName)}_id`)
   }
 
   decimal(name: string, precision = 10, scale = 2): ColumnBuilder {
@@ -188,10 +420,59 @@ export class Blueprint {
     this.push({ name: `${name}_type`, type: 'string' })
   }
 
+  /** Like {@link morphs}, but both columns are nullable. */
+  nullableMorphs(name: string): void {
+    this.push({ name: `${name}_id`, type: 'bigInteger', nullable: true })
+    this.push({ name: `${name}_type`, type: 'string', nullable: true })
+  }
+
+  /** Polymorphic columns for a UUID-keyed parent: `<name>_id` (uuid) + `<name>_type`. */
+  uuidMorphs(name: string): void {
+    this.push({ name: `${name}_id`, type: 'uuid' })
+    this.push({ name: `${name}_type`, type: 'string' })
+  }
+
+  /** Like {@link uuidMorphs}, but both columns are nullable. */
+  nullableUuidMorphs(name: string): void {
+    this.push({ name: `${name}_id`, type: 'uuid', nullable: true })
+    this.push({ name: `${name}_type`, type: 'string', nullable: true })
+  }
+
+  /** Polymorphic columns for a ULID-keyed parent: `<name>_id` (char(26)) + `<name>_type`. */
+  ulidMorphs(name: string): void {
+    this.push({ name: `${name}_id`, type: 'char', length: 26 })
+    this.push({ name: `${name}_type`, type: 'string' })
+  }
+
+  /** Like {@link ulidMorphs}, but both columns are nullable. */
+  nullableUlidMorphs(name: string): void {
+    this.push({ name: `${name}_id`, type: 'char', length: 26, nullable: true })
+    this.push({ name: `${name}_type`, type: 'string', nullable: true })
+  }
+
   /** A standalone (optionally composite) index. */
   index(columns: string | string[], name?: string): void {
     const cols = Array.isArray(columns) ? columns : [columns]
     this.indexes.push({ columns: cols, unique: false, name: name ?? `idx_${cols.join('_')}` })
+  }
+
+  /** A standalone (optionally composite) unique index. */
+  unique(columns: string | string[], name?: string): void {
+    const cols = Array.isArray(columns) ? columns : [columns]
+    this.indexes.push({ columns: cols, unique: true, name: name ?? `${cols.join('_')}_unique` })
+  }
+
+  /** A single or composite primary key. */
+  primary(columns: string | string[], name?: string): void {
+    const cols = Array.isArray(columns) ? columns : [columns]
+    this.primaryKeys.push({ columns: cols, name })
+  }
+
+  /** `foreign('user_id').references('id').on('users')` — a standalone FK on existing columns. */
+  foreign(columns: string | string[]): ForeignKeyBuilder {
+    const def: ForeignKeyDefinition = { columns: Array.isArray(columns) ? columns : [columns] }
+    this.foreignKeys.push(def)
+    return new ForeignKeyBuilder(def)
   }
 
   /** Drop one or more columns. */
@@ -209,6 +490,21 @@ export class Blueprint {
     this.dropIndexes.push(name)
   }
 
+  /** Drop a unique index by name (same mechanism as `dropIndex`). */
+  dropUnique(name: string): void {
+    this.dropIndexes.push(name)
+  }
+
+  /** Drop the table's primary key (or a named one on Postgres). */
+  dropPrimary(name?: string): void {
+    this.dropPrimaries.push(name)
+  }
+
+  /** Rename an index (not supported on SQLite — drop and recreate instead). */
+  renameIndex(from: string, to: string): void {
+    this.renameIndexes.push({ from, to })
+  }
+
   /** Drop a foreign-key constraint by name (Postgres only). */
   dropForeign(name: string): void {
     this.dropForeigns.push(name)
@@ -220,35 +516,105 @@ export class Blueprint {
     this.push({ name: 'updated_at', type: 'timestamp', nullable: true })
   }
 
+  /** Timezone-aware `timestamps()` (native `TIMESTAMPTZ` on Postgres). */
+  timestampsTz(): void {
+    this.push({ name: 'created_at', type: 'timestampTz', nullable: true })
+    this.push({ name: 'updated_at', type: 'timestampTz', nullable: true })
+  }
+
+  /** Drop `created_at` + `updated_at`. */
+  dropTimestamps(): void {
+    this.dropColumn('created_at', 'updated_at')
+  }
+
+  /** Alias of {@link dropTimestamps}. */
+  dropTimestampsTz(): void {
+    this.dropTimestamps()
+  }
+
   /** `deleted_at` nullable timestamp for soft deletes. */
-  softDeletes(): ColumnBuilder {
-    return this.push({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  softDeletes(name = 'deleted_at'): ColumnBuilder {
+    return this.push({ name, type: 'timestamp', nullable: true })
+  }
+
+  /** Timezone-aware `softDeletes()` (native `TIMESTAMPTZ` on Postgres). */
+  softDeletesTz(name = 'deleted_at'): ColumnBuilder {
+    return this.push({ name, type: 'timestampTz', nullable: true })
+  }
+
+  /** Drop the soft-delete column. */
+  dropSoftDeletes(name = 'deleted_at'): void {
+    this.dropColumn(name)
+  }
+
+  /** Alias of {@link dropSoftDeletes}. */
+  dropSoftDeletesTz(name = 'deleted_at'): void {
+    this.dropSoftDeletes(name)
+  }
+
+  /** Drop the `<name>_type` + `<name>_id` columns created by `morphs()` (and its variants). */
+  dropMorphs(name: string): void {
+    this.dropColumn(`${name}_type`, `${name}_id`)
+  }
+
+  /** Drop the `remember_token` column. */
+  dropRememberToken(): void {
+    this.dropColumn('remember_token')
   }
 }
 
 /** Dialect-agnostic schema builder used inside migrations. */
+/**
+ * Collects SQL into `sink` instead of running it — used for `migrate --pretend`
+ * so a dry run can show exactly what would execute with no side effects.
+ */
+export interface SchemaBuilderOptions {
+  dryRun?: string[]
+}
+
 export class SchemaBuilder {
-  constructor(private readonly connection: Connection) {}
+  private readonly dryRun?: string[]
+  /** The underlying connection — public so callers can also run raw introspection (`hasTable`/`hasColumn`/...) alongside migrations. */
+  constructor(readonly connection: Connection, options: SchemaBuilderOptions = {}) {
+    this.dryRun = options.dryRun
+  }
+
+  private async run(sql: string): Promise<void> {
+    if (this.dryRun) {
+      this.dryRun.push(sql)
+      return
+    }
+    await this.connection.statement(sql)
+  }
 
   async create(table: string, build: (table: Blueprint) => void): Promise<void> {
     const blueprint = new Blueprint()
     build(blueprint)
     const g = this.connection.grammar
-    await this.connection.statement(g.compileCreateTable(table, blueprint.columns))
+    const run = (sql: string) => this.run(sql)
+    await run(g.compileCreateTable(table, blueprint.columns, blueprint.primaryKeys))
     for (const index of blueprint.indexes) {
-      await this.connection.statement(g.compileCreateIndex(table, index))
+      await run(g.compileCreateIndex(table, index))
+    }
+    for (const column of blueprint.columns) {
+      if (column.comment === undefined)
+        continue
+      const stmt = g.compileColumnComment(table, column.name, column.comment)
+      if (stmt)
+        await run(stmt)
     }
   }
 
   /**
    * Alter a table: add / change / rename / drop columns, add / drop indexes,
-   * drop foreign keys. `change()` and `dropForeign()` are Postgres-only.
+   * primary keys, and foreign keys. `change()`, `dropForeign()`, `primary()`,
+   * `dropPrimary()`, and standalone `foreign()` are unsupported on SQLite.
    */
   async table(table: string, build: (table: Blueprint) => void): Promise<void> {
     const blueprint = new Blueprint()
     build(blueprint)
     const g = this.connection.grammar
-    const run = (sql: string) => this.connection.statement(sql)
+    const run = (sql: string) => this.run(sql)
 
     for (const column of blueprint.columns) {
       if (column.change) {
@@ -256,6 +622,23 @@ export class SchemaBuilder {
       }
       else {
         await run(g.compileAddColumn(table, column))
+        // A new column's FK/unique isn't part of ADD COLUMN's DDL — each needs
+        // its own statement, unlike create() where compileCreateTable folds
+        // both into the CREATE TABLE's constraints.
+        if (column.references)
+          await run(g.compileAddForeignKeyForColumn(table, column))
+        if (column.unique) {
+          await run(g.compileCreateIndex(table, {
+            columns: [column.name],
+            unique: true,
+            name: `${table}_${column.name}_unique`,
+          }))
+        }
+        if (column.comment !== undefined) {
+          const stmt = g.compileColumnComment(table, column.name, column.comment)
+          if (stmt)
+            await run(stmt)
+        }
       }
     }
     for (const { from, to } of blueprint.renameColumns)
@@ -264,14 +647,45 @@ export class SchemaBuilder {
     for (const index of blueprint.indexes) await run(g.compileCreateIndex(table, index))
     for (const name of blueprint.dropIndexes) await run(g.compileDropIndex(name, table))
     for (const name of blueprint.dropForeigns) await run(g.compileDropForeign(table, name))
+    for (const pk of blueprint.primaryKeys) await run(g.compileAddPrimaryKey(table, pk))
+    for (const name of blueprint.dropPrimaries) await run(g.compileDropPrimary(table, name))
+    for (const fk of blueprint.foreignKeys) await run(g.compileAddForeignKey(table, fk))
+    for (const { from, to } of blueprint.renameIndexes) await run(g.compileRenameIndex(table, from, to))
   }
 
   /** Rename a table. */
   async rename(from: string, to: string): Promise<void> {
-    await this.connection.statement(this.connection.grammar.compileRenameTable(from, to))
+    await this.run(this.connection.grammar.compileRenameTable(from, to))
   }
 
   async dropIfExists(table: string): Promise<void> {
-    await this.connection.statement(this.connection.grammar.compileDropTableIfExists(table))
+    await this.run(this.connection.grammar.compileDropTableIfExists(table))
+  }
+
+  /** Re-enable FK enforcement (no session-wide equivalent on Postgres — a no-op there). */
+  async enableForeignKeyConstraints(): Promise<void> {
+    if (this.connection.dialect === 'sqlite')
+      await this.run('PRAGMA foreign_keys = ON;')
+    else if (this.connection.dialect === 'mysql')
+      await this.run('SET FOREIGN_KEY_CHECKS = 1;')
+  }
+
+  /** Disable FK enforcement (no session-wide equivalent on Postgres — a no-op there). */
+  async disableForeignKeyConstraints(): Promise<void> {
+    if (this.connection.dialect === 'sqlite')
+      await this.run('PRAGMA foreign_keys = OFF;')
+    else if (this.connection.dialect === 'mysql')
+      await this.run('SET FOREIGN_KEY_CHECKS = 0;')
+  }
+
+  /** Run `fn` with FK enforcement disabled, then always restore it. */
+  async withoutForeignKeyConstraints<T>(fn: () => Promise<T> | T): Promise<T> {
+    await this.disableForeignKeyConstraints()
+    try {
+      return await fn()
+    }
+    finally {
+      await this.enableForeignKeyConstraints()
+    }
   }
 }

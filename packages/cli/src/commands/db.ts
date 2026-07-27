@@ -12,12 +12,23 @@ import {
 
   migrate,
   openConnectionCount,
+  refresh,
+  reset,
   rollback,
   runSeeders,
 
   status,
   tableColumns,
 } from '@elyvel/database'
+
+/** Shared by every command that loads `database/seeders/DatabaseSeeder.ts` for `--seed`. */
+async function loadSeeder(app: Awaited<ReturnType<typeof boot>>['app']): Promise<SeederClass | null> {
+  const seederPath = app.path('database/seeders/DatabaseSeeder.ts')
+  if (!existsSync(seederPath))
+    return null
+  const module = (await import(seederPath)) as { default?: SeederClass }
+  return module.default ?? null
+}
 
 /** A model constructor with the static pruning API. */
 type PrunableClass = typeof Model & { prune(chunkSize?: number): Promise<number> }
@@ -28,12 +39,26 @@ export async function boot() {
   return { app, conn: app.make(DatabaseToken) }
 }
 
-/** `elyvel migrate` / `elyvel migrate:fresh`. */
-export async function migrateCommand(fresh: boolean): Promise<number> {
+interface MigrateFlags {
+  step?: string | boolean
+  pretend?: string | boolean
+  seed?: string | boolean
+}
+
+/** `elyvel migrate` / `elyvel migrate:fresh` — `--step` batches each migration separately, `--pretend` only prints the SQL, `--seed` (fresh only) re-runs the DatabaseSeeder after. */
+export async function migrateCommand(fresh: boolean, flags: MigrateFlags = {}): Promise<number> {
   const { app, conn } = await boot()
   const dir = app.path('database/migrations')
+  const pretend = flags.pretend ? [] : undefined
 
-  const applied = fresh ? await freshMigrate(conn, dir) : await migrate(conn, dir)
+  const applied = fresh
+    ? await freshMigrate(conn, dir)
+    : await migrate(conn, dir, { step: Boolean(flags.step), pretend })
+
+  if (pretend) {
+    printPretend(pretend)
+    return 0
+  }
   if (applied.length === 0) {
     console.log('Nothing to migrate.')
   }
@@ -42,13 +67,40 @@ export async function migrateCommand(fresh: boolean): Promise<number> {
       console.log('Dropped all tables, re-running migrations:')
     for (const name of applied) console.log(`✓ ${name}`)
   }
+  if (fresh && flags.seed) {
+    const seeder = await loadSeeder(app)
+    if (!seeder) {
+      console.error(
+        'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
+      )
+      return 1
+    }
+    await runSeeders([seeder])
+    console.log('✓ Database seeded.')
+  }
   return 0
 }
 
-/** `elyvel migrate:rollback` — roll back the most recent batch. */
-export async function rollbackCommand(): Promise<number> {
+interface RollbackFlags {
+  step?: string | boolean
+  batch?: string | boolean
+  pretend?: string | boolean
+}
+
+/** `elyvel migrate:rollback` — the last batch by default; `--step=N` / `--batch=N` narrow it, `--pretend` only prints the SQL. */
+export async function rollbackCommand(flags: RollbackFlags = {}): Promise<number> {
   const { app, conn } = await boot()
-  const rolledBack = await rollback(conn, app.path('database/migrations'))
+  const pretend = flags.pretend ? [] : undefined
+  const rolledBack = await rollback(conn, app.path('database/migrations'), {
+    step: flags.step !== undefined ? Number(flags.step) : undefined,
+    batch: flags.batch !== undefined ? Number(flags.batch) : undefined,
+    pretend,
+  })
+
+  if (pretend) {
+    printPretend(pretend)
+    return 0
+  }
   if (rolledBack.length === 0) {
     console.log('Nothing to roll back.')
   }
@@ -56,6 +108,62 @@ export async function rollbackCommand(): Promise<number> {
     for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
   }
   return 0
+}
+
+/** `elyvel migrate:reset` — roll back every applied migration. */
+export async function resetCommand(): Promise<number> {
+  const { app, conn } = await boot()
+  const rolledBack = await reset(conn, app.path('database/migrations'))
+  if (rolledBack.length === 0) {
+    console.log('Nothing to roll back.')
+  }
+  else {
+    for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+  }
+  return 0
+}
+
+interface RefreshFlags {
+  step?: string | boolean
+  seed?: string | boolean
+}
+
+/** `elyvel migrate:refresh` — roll back (all, or the last `--step=N`) then re-migrate; `--seed` re-runs the DatabaseSeeder after. */
+export async function refreshCommand(flags: RefreshFlags = {}): Promise<number> {
+  const { app, conn } = await boot()
+  const dir = app.path('database/migrations')
+
+  const { rolledBack, applied } = await refresh(conn, dir, {
+    step: flags.step !== undefined ? Number(flags.step) : undefined,
+    seed: flags.seed
+      ? async () => {
+        const seeder = await loadSeeder(app)
+        if (!seeder) {
+          console.error(
+            'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
+          )
+          return
+        }
+        await runSeeders([seeder])
+      }
+      : undefined,
+  })
+
+  for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+  for (const name of applied) console.log(`✓ ${name}`)
+  if (rolledBack.length === 0 && applied.length === 0)
+    console.log('Nothing to refresh.')
+  if (flags.seed)
+    console.log('✓ Database seeded.')
+  return 0
+}
+
+function printPretend(sql: string[]): void {
+  if (sql.length === 0) {
+    console.log('Nothing to migrate.')
+    return
+  }
+  for (const stmt of sql) console.log(stmt)
 }
 
 /**
@@ -87,22 +195,15 @@ export async function statusCommand(): Promise<number> {
 /** `elyvel db:seed` — runs `database/seeders/DatabaseSeeder.ts`. */
 export async function seedCommand(): Promise<number> {
   const { app } = await boot()
-  const seederPath = app.path('database/seeders/DatabaseSeeder.ts')
-
-  if (!existsSync(seederPath)) {
+  const seeder = await loadSeeder(app)
+  if (!seeder) {
     console.error(
       'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
     )
     return 1
   }
 
-  const module = (await import(seederPath)) as { default?: SeederClass }
-  if (!module.default) {
-    console.error('DatabaseSeeder.ts must default-export a Seeder class.')
-    return 1
-  }
-
-  await runSeeders([module.default])
+  await runSeeders([seeder])
   console.log('✓ Database seeded.')
   return 0
 }

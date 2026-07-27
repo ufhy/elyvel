@@ -31,6 +31,30 @@ export default defineAuthConfig({
 })
 ```
 
+### Adding a plugin after you've already migrated
+
+Enabling a new plugin (e.g. `username()`) on an app that has already run its
+first migration is safe: `migrateBetterAuth` (used by the migration that
+creates Better Auth's tables) is **idempotent and incremental** — an
+already-existing table is left alone except for any columns the new plugin
+adds, and a wholly new plugin table (e.g. `twoFactor()`'s own `twoFactor`
+table) gets created.
+
+1. Add the plugin to `config/auth.ts` by hand (import it from
+   `better-auth/plugins`, add it to `plugins: [...]`).
+2. Run `elyvel auth:generate-migration-plugin` — no name to invent, it
+   generates a migration that re-runs `migrateBetterAuth`.
+3. `elyvel migrate`.
+
+```ts
+// config/auth.ts
+import { twoFactor, username } from 'better-auth/plugins'
+
+export default defineAuthConfig({
+  plugins: [twoFactor(), username()], // username() added later
+})
+```
+
 ## Mounting
 
 Better Auth is mounted once, as global middleware, in `config/middleware.ts`:
@@ -94,6 +118,62 @@ webRoute().get('/posts/:id/edit', (ctx) => {
 ```
 
 `ctx.can(ability, …)`, `ctx.cannot(…)`, and `ctx.authorize(…)` are available too.
+
+### Eloquent models for the auth tables
+
+Better Auth's own tables are exposed as real Eloquent models — so you can
+query and relate to them like any other table in the framework, not just poke
+a bare `user_id` column:
+
+```ts
+import { AuthUser } from '@elyvel/auth'
+
+const user = await AuthUser.find(id)
+const accounts = await user.accounts().get() // hasMany(AuthAccount, 'user_id')
+const sessions = await user.sessions().get() // hasMany(AuthSession, 'user_id')
+```
+
+| Model | Table | Notes |
+| --- | --- | --- |
+| `AuthUser` | `users` | `accounts()`, `sessions()` relations. |
+| `AuthAccount` | `accounts` | One row per linked sign-in method (password, each OAuth provider). `user()` belongs to `AuthUser`. Hides `access_token`/`refresh_token`/`id_token`/`password`. |
+| `AuthSession` | `sessions` | One row per active login session. `user()` belongs to `AuthUser`. Hides `token`. |
+| `AuthVerification` | `verifications` | Email verification / password reset tokens, keyed by `identifier` (e.g. an email) — no FK to `users`. |
+
+Only the fields Better Auth always has are declared/typed. A plugin's own
+extra field on `users` (e.g. `twoFactor()`'s `twoFactorEnabled`) is still a
+real attribute on the row — `declare` it yourself in a subclass if you want it
+typed:
+
+```ts
+// app/models/User.ts
+import { AuthUser } from '@elyvel/auth'
+import { Post } from './Post'
+
+export class User extends AuthUser {
+  declare twoFactorEnabled: boolean
+
+  posts() {
+    return this.hasMany(Post, 'user_id')
+  }
+}
+```
+
+::: tip Subclassing limitation
+A relation defined on the base class — `AuthAccount.user()` →
+`belongsTo(AuthUser, ...)` — still hydrates as the base `AuthUser`, not your
+`User` subclass, even though the row is identical. If you need that upgraded,
+subclass `AuthAccount`/`AuthSession` too and override `user()` to point at
+your own `User` class.
+:::
+
+Better Auth's own fields are camelCase (`emailVerified`, `userId`, …); elyvel
+remaps every core field to its snake_case column name (`email_verified`,
+`user_id`, …) to match every other table in the framework. This only changes
+the stored column name — Better Auth's own JS-level API (`ctx.user.emailVerified`,
+`session.userId`) is completely unaffected. A plugin's own additional field on
+a core table (e.g. `twoFactor()`'s `twoFactorEnabled`) is **not** remapped and
+stays camelCase.
 
 ## Validating & customizing each flow
 

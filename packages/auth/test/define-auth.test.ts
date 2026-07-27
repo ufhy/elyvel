@@ -1,4 +1,4 @@
-import { createConnection, SchemaBuilder, setConnection } from '@elyvel/database'
+import { createConnection, hasColumn, SchemaBuilder, setConnection } from '@elyvel/database'
 import { twoFactor } from 'better-auth/plugins'
 import { afterEach, describe, expect, test } from 'bun:test'
 import { migrateBetterAuth } from '../src/better-auth-schema'
@@ -56,5 +56,39 @@ describe('defineAuth', () => {
     const created = await migrateBetterAuth(new SchemaBuilder(conn), auth.options)
     expect(created).toContain('users')
     expect(created).toContain('twoFactor')
+  })
+
+  test('core columns are snake_case, matching every other Eloquent table', async () => {
+    const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
+    setConnection(conn)
+    await migrateBetterAuth(new SchemaBuilder(conn), defineAuth({}).options)
+
+    expect(await hasColumn(conn, 'users', 'email_verified')).toBe(true)
+    expect(await hasColumn(conn, 'users', 'created_at')).toBe(true)
+    expect(await hasColumn(conn, 'users', 'updated_at')).toBe(true)
+    expect(await hasColumn(conn, 'users', 'emailVerified')).toBe(false)
+
+    expect(await hasColumn(conn, 'accounts', 'account_id')).toBe(true)
+    expect(await hasColumn(conn, 'accounts', 'provider_id')).toBe(true)
+    expect(await hasColumn(conn, 'accounts', 'user_id')).toBe(true)
+    expect(await hasColumn(conn, 'accounts', 'access_token')).toBe(true)
+    expect(await hasColumn(conn, 'accounts', 'userId')).toBe(false)
+
+    expect(await hasColumn(conn, 'sessions', 'user_id')).toBe(true)
+    expect(await hasColumn(conn, 'sessions', 'ip_address')).toBe(true)
+    expect(await hasColumn(conn, 'sessions', 'user_agent')).toBe(true)
+
+    expect(await hasColumn(conn, 'verifications', 'created_at')).toBe(true)
+  })
+
+  test('an explicit fields override on a core model still wins over the snake_case default', async () => {
+    const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
+    setConnection(conn)
+    const auth = defineAuth({ user: { modelName: 'users', fields: { email: 'email_address' } } } as any)
+    await migrateBetterAuth(new SchemaBuilder(conn), auth.options)
+    expect(await hasColumn(conn, 'users', 'email_address')).toBe(true)
+    expect(await hasColumn(conn, 'users', 'email')).toBe(false)
+    // Untouched core fields still get the snake_case default alongside the override.
+    expect(await hasColumn(conn, 'users', 'email_verified')).toBe(true)
   })
 })
