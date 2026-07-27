@@ -1,0 +1,105 @@
+# HTTP Session
+
+Session menyimpan data lintas request untuk satu pengunjung — login, flash
+message, dan token CSRF semuanya numpang di sini. Tersedia sebagai
+`ctx.session` di route atau middleware mana pun begitu `config/session.ts`
+ada.
+
+## Konfigurasi
+
+```ts
+// config/session.ts
+import { defineSessionConfig } from '@elyvel/core'
+
+export default defineSessionConfig({
+  driver: 'cookie',
+  cookie: 'elyvel_session',
+  lifetime: 60 * 120, // 2 jam
+})
+```
+
+| Driver | Tempat data disimpan |
+| --- | --- |
+| `cookie` (default) | Terenkripsi di dalam cookie itu sendiri (AES-256-GCM) — stateless, tanpa server-side store, tanpa perlu cleanup. |
+| `memory` | Di dalam proses — reset saat restart. Cocok untuk dev/test. |
+| `file` | `storage/framework/sessions` (atau opsi `files`). |
+| `database` | Butuh `configureDatabaseSession(adapter)` saat boot (otomatis disambungkan `EloquentServiceProvider` jika tabel `sessions` ada). |
+| `redis` | `RedisClient` bawaan Bun. TTL native `EX` — tidak butuh GC. |
+
+Setiap driver kecuali `cookie`/`redis` membersihkan entri yang sudah expired
+lewat "lottery" GC — pada persentase kecil request (`lottery: [chance,
+outOf]`, default 2%), bukan setiap request, karena sweep penuh menyentuh
+seluruh session yang tersimpan.
+
+Opsi lain: `secret` (default ke `app.key`), `path`/`domain`/`secure`/
+`httpOnly`/`sameSite` (atribut cookie), `expireOnClose` (hilangkan `maxAge`
+supaya cookie mati bersama tab browser).
+
+## Membaca & menulis
+
+```ts
+route().get('/cart', ({ session }) => {
+  const items = session.get('cart', [])
+  return { items }
+})
+
+route().post('/cart', ({ session, body }) => {
+  session.put('cart', body.items)
+})
+```
+
+API lengkap: `get(key, fallback?)`, `put(key, value)`, `has(key)` (ada dan
+bukan null), `exists(key)` (ada, meski null), `missing(key)`, `forget(key)`,
+`pull(key, fallback?)` (get + forget sekaligus), `push(key, value)` (tambah
+ke value array), `increment`/`decrement`, `remember(key, factory)`, `all()`.
+
+## Flash data
+
+Flash sebuah value yang bertahan tepat satu request lagi — pola klasik
+"redirect back dengan pesan sukses":
+
+```ts
+route().post('/posts', ({ session, body }) => {
+  const post = Post.create(body)
+  session.flash('success', 'Post created.')
+  return back()
+})
+```
+
+`reflash()` mempertahankan setiap key yang sedang di-flash untuk satu
+request lagi; `keep(['success'])` mempertahankan key tertentu saja, bukan
+semuanya.
+
+## Meregenerasi session
+
+Rotasi id session (dan token CSRF) tepat setelah perubahan privilege —
+panduan anti session-fixation Laravel berlaku sama di sini:
+
+```ts
+route().post('/login', async ({ session, request }) => {
+  // ... verifikasi kredensial ...
+  session.regenerate() // id baru + token CSRF baru, data tetap
+})
+```
+
+`invalidate()` melakukan rotasi yang sama tapi juga menghapus semua data
+session (biasanya untuk `logout`). Keduanya hanya berpengaruh pada driver
+yang didukung store (`memory`/`file`/`database`/`redis`) — driver `cookie`
+tidak punya id server-side terpisah yang bisa fixated.
+
+## Proteksi CSRF
+
+Setiap session membawa token CSRF (`session.token()`), bisa dibaca dari sisi
+client lewat cookie `XSRF-TOKEN` (untuk double-submit SPA, mirip Axios).
+Terapkan alias bawaan `csrf` ke route yang mengubah state — atau pakai grup
+`web`, yang sudah membundelnya:
+
+```ts
+route().use(group('web')).post('/profile', updateProfile) // terproteksi csrf
+```
+
+Token dari request diambil dari field body `_token` atau header
+`X-CSRF-Token`/`X-XSRF-Token`; ketidakcocokan merespons `419`. Perbandingan
+dilakukan constant-time (`timingSafeEqual`) untuk menghindari timing
+side-channel. Lihat [Middleware](/id/basics/middleware) untuk referensi
+lengkap alias/grup.

@@ -58,6 +58,13 @@ export default defineConfig({
             ],
           },
           {
+            text: 'Digging Deeper',
+            items: [
+              { text: 'HTTP Session', link: '/digging-deeper/session' },
+              { text: 'Cache', link: '/digging-deeper/cache' },
+            ],
+          },
+          {
             text: 'Security',
             items: [
               { text: 'Authentication', link: '/security/authentication' },
@@ -103,6 +110,13 @@ export default defineConfig({
             items: [
               { text: 'Migrasi', link: '/id/database/migrations' },
               { text: 'Eloquent: Memulai', link: '/id/database/eloquent' },
+            ],
+          },
+          {
+            text: 'Pendalaman',
+            items: [
+              { text: 'HTTP Session', link: '/id/digging-deeper/session' },
+              { text: 'Cache', link: '/id/digging-deeper/cache' },
             ],
           },
           {
