@@ -1,6 +1,6 @@
 import type { EagerConstraint } from './eloquent-builder'
 import type { Relation } from './relations'
-import { date } from '@elyvel/core'
+import { currentActorId, date } from '@elyvel/core'
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
@@ -383,6 +383,18 @@ export class Model {
   /** Timestamp column names (override for non-default schemas). */
   static createdAtColumn = 'created_at'
   static updatedAtColumn = 'updated_at'
+
+  /**
+   * Auto-populate `created_by`/`updated_by`/`deleted_by` from whoever's making
+   * the current request (`currentActorId()` from `@elyvel/core`) — off by
+   * default, since not every table has an owner (unlike timestamps, which
+   * every table effectively does). Needs `Blueprint.userstamps()` (or
+   * equivalent columns) on the table.
+   */
+  static userstamps = false
+  static createdByColumn = 'created_by'
+  static updatedByColumn = 'updated_by'
+  static deletedByColumn = 'deleted_by'
 
   /** Relation method names to `touch()` (bump `updated_at`) whenever this model is saved or deleted. */
   static touches: string[] = []
@@ -1028,6 +1040,11 @@ export class Model {
       await this.fireEvent('updating')
       if (self.timestamps)
         this.attributes[self.updatedAtColumn] = now
+      if (self.userstamps) {
+        const actor = currentActorId()
+        if (actor !== undefined)
+          this.attributes[self.updatedByColumn] = actor
+      }
       const dirty = this.getDirty()
       this.changes = { ...dirty }
       if (Object.keys(dirty).length > 0) {
@@ -1043,6 +1060,13 @@ export class Model {
       if (self.timestamps) {
         this.attributes[self.createdAtColumn] ??= now
         this.attributes[self.updatedAtColumn] ??= now
+      }
+      if (self.userstamps) {
+        const actor = currentActorId()
+        if (actor !== undefined) {
+          this.attributes[self.createdByColumn] ??= actor
+          this.attributes[self.updatedByColumn] ??= actor
+        }
       }
       const row = await qb().insert(this.toStorage(this.attributes), self.primaryKey)
       this.attributes = { ...this.attributes, ...row } // pick up generated id/defaults
@@ -1125,6 +1149,11 @@ export class Model {
     const self = this.self()
     if (self.softDeletes) {
       this.setAttribute(self.deletedAtColumn, new Date().toISOString())
+      if (self.userstamps) {
+        const actor = currentActorId()
+        if (actor !== undefined)
+          this.setAttribute(self.deletedByColumn, actor)
+      }
       await this.save()
       await this.fireEvent('trashed')
     }
@@ -1155,7 +1184,10 @@ export class Model {
   /** Restore a soft-deleted row. */
   async restore(): Promise<void> {
     await this.fireEvent('restoring')
-    this.setAttribute(this.self().deletedAtColumn, null)
+    const self = this.self()
+    this.setAttribute(self.deletedAtColumn, null)
+    if (self.userstamps)
+      this.setAttribute(self.deletedByColumn, null)
     await this.save()
     await this.fireEvent('restored')
   }

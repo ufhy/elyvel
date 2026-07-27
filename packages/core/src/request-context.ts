@@ -1,5 +1,6 @@
 import type { Logger } from './logger'
 import { Elysia } from 'elysia'
+import { beginActorScope } from './actor'
 import { shouldReportError } from './exception-handling'
 import { createLogger } from './logger'
 
@@ -46,6 +47,9 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
   return new Elysia({ name: 'elyvel-request-context' })
     .onRequest(({ request }) => {
       meta.set(request, { start: performance.now(), id: crypto.randomUUID() })
+      // Opened here (synchronous, before any await in the request) so a later
+      // async auth derive can fill in the actor id — see actor.ts.
+      beginActorScope()
     })
     .derive({ as: 'global' }, ({ request }) => {
       const id = meta.get(request)?.id

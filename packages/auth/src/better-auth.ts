@@ -1,4 +1,4 @@
-import { app, config, expectsJson, route } from '@elyvel/core'
+import { app, config, expectsJson, route, setCurrentActor } from '@elyvel/core'
 import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { normalizeAuthError } from './error-normalizer'
@@ -104,6 +104,10 @@ export function betterAuthPlugin(options: BetterAuthPluginOptions = {}) {
           user = result?.user ?? null
           authSession = result?.session ?? null
         }
+        // Feeds `@elyvel/database`'s `userstamps` (created_by/updated_by/
+        // deleted_by) — see core's actor.ts for why this, not a plain value,
+        // is what makes it through this async derive on Bun.
+        setCurrentActor(user?.id)
         const g = gate().forUser(user)
         return {
           user,

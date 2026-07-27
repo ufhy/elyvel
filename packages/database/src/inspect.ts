@@ -151,6 +151,31 @@ export async function hasIndex(
   })
 }
 
+/**
+ * The name of the foreign-key constraint on this column, if any — MySQL
+ * auto-generates one (e.g. `posts_ibfk_1`) with no fixed, reproducible
+ * pattern, so dropping a FK'd column there means looking its real name up
+ * first (`ALTER TABLE ... DROP COLUMN` alone fails with `ER_FK_COLUMN_CANNOT_DROP`).
+ * Postgres/SQLite don't need this: Postgres cascades the constraint away when
+ * the column is dropped, and SQLite can't drop a FK'd column at all (see
+ * `dropUserstamps()`).
+ */
+export async function foreignKeyConstraintName(
+  conn: Connection,
+  table: string,
+  column: string,
+): Promise<string | null> {
+  if (conn.dialect !== 'mysql')
+    return null
+  const rows = await conn.select<{ constraint_name: string }>(
+    `SELECT constraint_name AS constraint_name FROM information_schema.key_column_usage
+     WHERE table_schema = DATABASE() AND table_name = :table AND column_name = :column
+       AND referenced_table_name IS NOT NULL`,
+    { table, column },
+  )
+  return rows[0]?.constraint_name ?? null
+}
+
 /** Number of open connections (Postgres/MySQL only; `null` for SQLite). */
 export async function openConnectionCount(conn: Connection): Promise<number | null> {
   if (conn.dialect === 'sqlite')

@@ -8,6 +8,7 @@ import type {
   RefAction,
 } from './grammar'
 import { Str } from '@elyvel/support'
+import { foreignKeyConstraintName } from './inspect'
 
 /** Fluent modifiers returned by each column method. */
 class ColumnBuilder {
@@ -192,6 +193,8 @@ export class Blueprint {
   readonly dropPrimaries: (string | undefined)[] = []
   readonly foreignKeys: ForeignKeyDefinition[] = []
   readonly renameIndexes: { from: string, to: string }[] = []
+  /** Set by `dropUserstamps()` — those columns carry FK constraints, which SQLite can't drop via `ALTER TABLE`. */
+  droppedUserstamps = false
 
   private push(def: ColumnDefinition): ColumnBuilder {
     this.columns.push(def)
@@ -552,6 +555,33 @@ export class Blueprint {
     this.dropSoftDeletes(name)
   }
 
+  /**
+   * `created_by`/`updated_by`/`deleted_by` — nullable string FKs to `usersTable`
+   * (Better Auth's `users.id` is a string, not an auto-increment integer),
+   * `nullOnDelete()` so removing the referenced user doesn't cascade-delete
+   * this row. Pairs with `Model.userstamps = true`, which auto-populates them
+   * from whoever's making the current request.
+   */
+  userstamps(usersTable = 'users'): void {
+    for (const column of ['created_by', 'updated_by', 'deleted_by']) {
+      this.push({ name: column, type: 'string' })
+        .nullable()
+        .constrained(usersTable, 'id')
+        .nullOnDelete()
+    }
+  }
+
+  /**
+   * Drop `created_by`/`updated_by`/`deleted_by`. Not supported on SQLite —
+   * these columns carry a FK constraint, and SQLite's `ALTER TABLE DROP
+   * COLUMN` refuses to drop a column referenced by one (rebuild the table
+   * instead), the same restriction as `dropForeign()`/`.change()`.
+   */
+  dropUserstamps(): void {
+    this.dropColumn('created_by', 'updated_by', 'deleted_by')
+    this.droppedUserstamps = true
+  }
+
   /** Drop the `<name>_type` + `<name>_id` columns created by `morphs()` (and its variants). */
   dropMorphs(name: string): void {
     this.dropColumn(`${name}_type`, `${name}_id`)
@@ -616,6 +646,12 @@ export class SchemaBuilder {
     const g = this.connection.grammar
     const run = (sql: string) => this.run(sql)
 
+    if (blueprint.droppedUserstamps && this.connection.dialect === 'sqlite') {
+      throw new Error(
+        '[eloquent] dropUserstamps() is not supported on SQLite (those columns carry a FK constraint — rebuild the table instead).',
+      )
+    }
+
     for (const column of blueprint.columns) {
       if (column.change) {
         for (const sql of g.compileChangeColumn(table, column)) await run(sql)
@@ -643,6 +679,16 @@ export class SchemaBuilder {
     }
     for (const { from, to } of blueprint.renameColumns)
       await run(g.compileRenameColumn(table, from, to))
+    // MySQL refuses to drop a column that's still needed by a FK constraint —
+    // unlike Postgres, which cascades the constraint away automatically. The
+    // constraint name is DB-auto-generated (no fixed pattern), so look it up.
+    if (blueprint.droppedUserstamps && this.connection.dialect === 'mysql') {
+      for (const name of blueprint.dropColumns) {
+        const constraint = await foreignKeyConstraintName(this.connection, table, name)
+        if (constraint)
+          await run(g.compileDropForeign(table, constraint))
+      }
+    }
     for (const name of blueprint.dropColumns) await run(g.compileDropColumn(table, name))
     for (const index of blueprint.indexes) await run(g.compileCreateIndex(table, index))
     for (const name of blueprint.dropIndexes) await run(g.compileDropIndex(name, table))

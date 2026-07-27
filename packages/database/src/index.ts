@@ -51,6 +51,7 @@ export type {
 export {
   type ColumnInfo,
   countRows,
+  foreignKeyConstraintName,
   hasColumn,
   hasIndex,
   hasTable,

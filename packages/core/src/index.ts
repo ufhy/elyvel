@@ -1,3 +1,4 @@
+export { currentActorId, runWithActor, setCurrentActor } from './actor'
 export type { CreateAppOptions } from './application'
 export { app, Application, application, createApp } from './application'
 export type { ConfigData, ConfigSchema } from './config'
