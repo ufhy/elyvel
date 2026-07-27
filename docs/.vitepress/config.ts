@@ -51,6 +51,13 @@ export default defineConfig({
             ],
           },
           {
+            text: 'Database',
+            items: [
+              { text: 'Migrations', link: '/database/migrations' },
+              { text: 'Eloquent: Getting Started', link: '/database/eloquent' },
+            ],
+          },
+          {
             text: 'Security',
             items: [
               { text: 'Authentication', link: '/security/authentication' },
@@ -89,6 +96,13 @@ export default defineConfig({
               { text: 'Middleware', link: '/id/basics/middleware' },
               { text: 'Controller', link: '/id/basics/controllers' },
               { text: 'Validasi', link: '/id/basics/validation' },
+            ],
+          },
+          {
+            text: 'Database',
+            items: [
+              { text: 'Migrasi', link: '/id/database/migrations' },
+              { text: 'Eloquent: Memulai', link: '/id/database/eloquent' },
             ],
           },
           {

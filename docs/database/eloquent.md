@@ -1,29 +1,13 @@
-# @elyvel/database
+# Eloquent: Getting Started
 
-A Laravel Eloquent-style Active Record ORM for [Bun](https://bun.sh), built for the
-[elyvel](../../README.md) framework. Define your models and migrations once
-and run them unchanged on **SQLite**, **Postgres**, or **MySQL** — switching
-databases is a config change, not a rewrite.
-
-- **Active Record models** with dirty tracking, events, accessors, and casts
-- **Fluent query builder** (joins, subqueries, aggregates, unions, locking)
-- **Relationships** + eager loading (`hasMany`, `belongsTo`, `belongsToMany`,
-  `hasManyThrough`, polymorphic, morph-many-to-many)
-- **Schema builder migrations** — no raw SQL, all Postgres data types
-- **Casts** including `json`, `boolean`, `date`, and `encrypted` (AES-256-GCM)
-- **Pagination** (length-aware, simple, cursor), **soft deletes**, **global scopes**
-- **Read/write connection split** and **model pruning** for production
-
-Drivers: `bun:sqlite` (built in), `@electric-sql/pglite` (embedded Postgres, WASM),
-`postgres` (real Postgres server, optional peer dependency), and `mysql`
-(MySQL/MariaDB via `kysely` + `mysql2`, both optional peer dependencies).
-
----
+Eloquent is elyvel's Active Record ORM: each model maps to a table, and an
+instance maps to a row. It runs unchanged on SQLite, Postgres, or MySQL —
+switching databases is a config change, not a rewrite.
 
 ## Configuration
 
-In an elyvel app, register the service provider and describe your
-connections. Swapping the database is just changing `default`.
+Connections live in `config/database.ts`; swapping the active one is just
+changing `default`:
 
 ```ts
 // config/database.ts
@@ -39,17 +23,12 @@ export default defineDatabaseConfig({
 })
 ```
 
-```ts
-// config/app.ts
-import { EloquentServiceProvider } from '@elyvel/database'
+Drivers: `bun:sqlite` (built in), `@electric-sql/pglite` (embedded Postgres,
+WASM), `postgres` (real Postgres server, optional peer dependency), and
+`mysql` (MySQL/MariaDB via `kysely` + `mysql2`, both optional peer
+dependencies).
 
-export default defineAppConfig({
-  key: process.env.APP_KEY, // secret for `encrypted` casts (AES-256-GCM)
-  providers: [EloquentServiceProvider /* , ... */],
-})
-```
-
-### Standalone (no framework)
+Outside a framework app, connect directly without a service provider:
 
 ```ts
 import { createConnection, setConnection } from '@elyvel/database'
@@ -57,8 +36,6 @@ import { createConnection, setConnection } from '@elyvel/database'
 const conn = await createConnection({ driver: 'sqlite', database: ':memory:' })
 setConnection(conn) // becomes the default connection used by models
 ```
-
----
 
 ## Defining models
 
@@ -83,17 +60,15 @@ export class User extends Model {
 }
 ```
 
-Overridable statics: `table`, `primaryKey`, `timestamps`, `connection`, `hidden`,
-`visible`, `appends`, `casts`, `accessors`, `scopes`, `fillable`, `guarded`,
-`softDeletes`, `deletedAtColumn`, `usesUniqueIds`, `userstamps`,
+Overridable statics: `table`, `primaryKey`, `timestamps`, `connection`,
+`hidden`, `visible`, `appends`, `casts`, `accessors`, `scopes`, `fillable`,
+`guarded`, `softDeletes`, `deletedAtColumn`, `usesUniqueIds`, `userstamps`,
 `createdByColumn`, `updatedByColumn`, `deletedByColumn`.
 
-Conveniences: `Model.findMany(ids)`, `Model.whereKey(id)`, `Model.withoutTimestamps(fn)`,
-`query.sole()`, `instance.replicate()`, `instance.touch()`. Set
-`static usesUniqueIds = true` to auto-generate a UUID primary key on create
-(override `static newUniqueId()` for ULIDs).
-
----
+Conveniences: `Model.findMany(ids)`, `Model.whereKey(id)`,
+`Model.withoutTimestamps(fn)`, `query.sole()`, `instance.replicate()`,
+`instance.touch()`. Set `static usesUniqueIds = true` to auto-generate a UUID
+primary key on create (override `static newUniqueId()` for ULIDs).
 
 ## CRUD
 
@@ -115,13 +90,11 @@ await User.firstOrCreate({ email: 'a@b.c' }, { name: 'A' })
 await User.updateOrCreate({ email: 'a@b.c' }, { name: 'A2' })
 ```
 
----
-
 ## Query builder
 
 Use it through a model (`User.query()`) or standalone without a model, à la
-Laravel's `DB::table()` — the standalone form returns raw rows and can target any
-named connection:
+Laravel's `DB::table()` — the standalone form returns raw rows and can target
+any named connection:
 
 ```ts
 import { table } from '@elyvel/database'
@@ -138,11 +111,13 @@ for await (const row of table('users').cursor()) { /* ... */ }
 await table('users').chunkById(1000, (rows) => { /* ... */ })
 ```
 
-The full method set is available on both `table()` and `Model.query()`: `whereNot`,
-`orWhereNull`, `whereLike`, `whereDate`/`whereYear`/`whereMonth`/`whereDay`/`whereTime`,
-`whereBetweenColumns`, `whereJsonContains`, `rightJoin`/`crossJoin`/join-closures,
-`inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`, `unionAll`, `skip`/`take`,
-`addSelect`, `truncate`, `incrementEach`, `doesntExist`, `find`.
+The full method set is available on both `table()` and `Model.query()`:
+`whereNot`, `orWhereNull`, `whereLike`,
+`whereDate`/`whereYear`/`whereMonth`/`whereDay`/`whereTime`,
+`whereBetweenColumns`, `whereJsonContains`, `rightJoin`/`crossJoin`/join
+closures, `inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`,
+`unionAll`, `skip`/`take`, `addSelect`, `truncate`, `incrementEach`,
+`doesntExist`, `find`.
 
 **Subqueries** are supported throughout — select, from, join, and where:
 
@@ -164,7 +139,7 @@ const rows = await User.query()
   .where('active', true)
   .whereIn('role', ['admin', 'staff'])
   .whereNotNull('email_verified_at')
-  .orWhere((q) => q.where('vip', true).whereBetween('score', [90, 100]))
+  .orWhere(q => q.where('vip', true).whereBetween('score', [90, 100]))
   .join('teams', 'teams.id', '=', 'users.team_id')
   .groupBy('team_id')
   .having('count', '>', 1)
@@ -186,8 +161,8 @@ await User.query().upsert([{ email: 'a@b.c', name: 'A' }], ['email'], ['name'])
 .selectRaw('count(*) as n')
 ```
 
-Raw SQL against the connection — positional or named bindings, plus `unprepared`
-for multi-statement DDL:
+Raw SQL against the connection — positional or named bindings, plus
+`unprepared` for multi-statement DDL:
 
 ```ts
 import { raw, unprepared } from '@elyvel/database'
@@ -198,10 +173,8 @@ await unprepared('CREATE TABLE a (id INT); CREATE TABLE b (id INT);')
 ```
 
 Also available: `distinct`, `whereColumn`, `whereExists`, `leftJoin`,
-`orderByRaw`, `union`, `lockForUpdate`, `sharedLock`, `when`, `pluck`, `value`,
-`chunk`, `insertOrIgnore`, `updateOrInsert`, `decrement`.
-
----
+`orderByRaw`, `union`, `lockForUpdate`, `sharedLock`, `when`, `pluck`,
+`value`, `chunk`, `insertOrIgnore`, `updateOrInsert`, `decrement`.
 
 ## Relationships
 
@@ -229,7 +202,7 @@ const users = await User.query().with('posts').get()
 const posts = users.first()?.getRelation('posts') // no N+1
 
 await User.query().with('posts.comments').get()            // nested
-await User.query().with({ posts: (q) => q.where('published', true) }).get() // constrained
+await User.query().with({ posts: q => q.where('published', true) }).get() // constrained
 
 // Aggregates without loading rows
 await User.query().withCount('posts').get()   // → user.getAttribute('posts_count')
@@ -237,15 +210,13 @@ await User.query().withSum('posts', 'views').get()
 
 // Existence filters
 await User.query().has('posts').get()
-await User.query().whereHas('posts', (q) => q.where('published', true)).get()
+await User.query().whereHas('posts', q => q.where('published', true)).get()
 await User.query().doesntHave('posts').get()
 
 // Lazy load onto existing instances
 await user.load('posts')
 await user.loadMissing('profile')
 ```
-
----
 
 ## Casts
 
@@ -256,15 +227,14 @@ static override casts = {
   meta: 'json',
   published_at: 'datetime',
   phone: 'encrypted',              // AES-256-GCM, needs config('app.key')
-  slug: { get: (v) => String(v).toLowerCase() }, // custom accessor/mutator
+  slug: { get: v => String(v).toLowerCase() }, // custom accessor/mutator
 } as const
 ```
 
 Built-in types: `int`, `float`, `boolean`, `string`, `json`, `array`, `date`,
-`datetime`, `encrypted`. The `encrypted` cast stores ciphertext in the database
-(`iv:tag:ciphertext`, base64) and returns the decrypted value on read.
-
----
+`datetime`, `encrypted`. The `encrypted` cast stores ciphertext in the
+database (`iv:tag:ciphertext`, base64) and returns the decrypted value on
+read.
 
 ## Pagination
 
@@ -275,8 +245,6 @@ const page = await User.query().orderBy('id').paginate(15, 1)
 await User.query().simplePaginate(15) // no COUNT — { data, hasMore }
 await User.query().cursorPaginate(15, cursor) // keyset pagination
 ```
-
----
 
 ## Soft deletes & scopes
 
@@ -296,10 +264,8 @@ await Post.query().onlyTrashed().get()
 Global scopes apply to every query for a model:
 
 ```ts
-Post.addGlobalScope('published', (qb) => qb.where('published', true))
+Post.addGlobalScope('published', qb => qb.where('published', true))
 ```
-
----
 
 ## Userstamps
 
@@ -324,10 +290,10 @@ await schema.create('posts', (t) => {
 })
 ```
 
-`created_by`/`updated_by` are set on create, `updated_by` is refreshed on every
-update, and `deleted_by` is set on soft delete and cleared on restore. Outside
-any authenticated request (a queued job, a seeder, a script), stamp the actor
-manually with `runWithActor`:
+`created_by`/`updated_by` are set on create, `updated_by` is refreshed on
+every update, and `deleted_by` is set on soft delete and cleared on restore.
+Outside any authenticated request (a queued job, a seeder, a script), stamp
+the actor manually with `runWithActor`:
 
 ```ts
 import { runWithActor } from '@elyvel/core'
@@ -335,83 +301,11 @@ import { runWithActor } from '@elyvel/core'
 await runWithActor(userId, () => Post.create({ title: 'From a job' }))
 ```
 
-`t.userstamps(usersTable?)` defaults to the `users` table; pass a different
-table name if your app's user table is named differently. Column names are
-customizable per-model via `createdByColumn`/`updatedByColumn`/`deletedByColumn`
-(default `created_by`/`updated_by`/`deleted_by`).
-
-`t.dropUserstamps()` drops the columns in a later migration. Not supported on
-SQLite (a column referenced by a foreign key can't be dropped there — rebuild
-the table instead); on MySQL the FK constraint is dropped automatically before
-the column.
-
----
-
-## Migrations & schema
-
-Migrations use the schema builder — never raw SQL — so they run on any driver.
-
-```ts
-// database/migrations/20260101000000_create_posts_table.ts
-import type { Migration } from '@elyvel/database'
-
-export default {
-  up: (schema) =>
-    schema.create('posts', (t) => {
-      t.id()
-      t.foreignId('user_id').constrained('users').cascadeOnDelete()
-      t.string('title')
-      t.text('body').nullable()
-      t.jsonb('meta')
-      t.timestampTz('published_at').nullable()
-      t.softDeletes()
-      t.timestamps()
-    }),
-  down: (schema) => schema.dropIfExists('posts'),
-} satisfies Migration
-```
-
-All Postgres types are supported: `smallInteger`/`integer`/`bigInteger`,
-`float`/`double`/`decimal`, `char`/`string`/`text`/`mediumText`/`longText`,
-`boolean`, `uuid`, `json`/`jsonb`, `binary`, `date`/`time`/`timestamp`/
-`timestampTz`/`datetime`, `inet`/`cidr`/`macaddr`/`interval`, `enum`, plus
-array columns (`t.array('tags', 'text')`) and `t.morphs()`.
-
-Alter existing tables (add / change / rename / drop). `change()` and
-`dropForeign()` are Postgres-only (SQLite can't ALTER a column type in place):
-
-```ts
-export default {
-  up: (schema) =>
-    schema.table('posts', (t) => {
-      t.string('slug').nullable()      // add
-      t.text('body').nullable().change() // modify type (pg)
-      t.renameColumn('title', 'headline')
-      t.dropColumn('legacy')
-      t.dropIndex('idx_posts_title')
-    }),
-  down: (schema) => schema.table('posts', (t) => t.dropColumn('slug')),
-} satisfies Migration
-
-// also: schema.rename('old_table', 'new_table')
-```
-
-Run them with the CLI:
-
-```bash
-elyvel migrate            # run pending migrations
-elyvel migrate:fresh      # drop everything and re-migrate
-elyvel migrate:rollback   # roll back the last batch
-elyvel migrate:status
-elyvel db:seed
-
-elyvel db                 # open the native shell (sqlite3 / psql)
-elyvel db:show            # list tables with row counts
-elyvel db:table users     # describe a table's columns
-elyvel db:monitor --max=100   # open-connection count (Postgres)
-```
-
----
+`t.userstamps(usersTable?)` (see [Migrations](/database/migrations#timestamps-soft-deletes-userstamps))
+defaults to the `users` table; pass a different table name if your app's user
+table is named differently. Column names are customizable per-model via
+`createdByColumn`/`updatedByColumn`/`deletedByColumn` (default
+`created_by`/`updated_by`/`deleted_by`).
 
 ## Transactions
 
@@ -441,13 +335,12 @@ await beginTransaction()
 try {
   // ...
   await commit()
-} catch (e) {
+}
+catch (e) {
   await rollBack()
   throw e
 }
 ```
-
----
 
 ## Model pruning
 
@@ -468,16 +361,15 @@ elyvel model:prune                       # prune every prunable model
 elyvel model:prune PersonalAccessToken   # prune one model
 ```
 
-`prune(chunkSize = 1000)` fires a `pruning` event per record (a hook to clean up
-related resources) and permanently removes matched rows, including soft-deleted ones.
-
----
+`prune(chunkSize = 1000)` fires a `pruning` event per record (a hook to clean
+up related resources) and permanently removes matched rows, including
+soft-deleted ones.
 
 ## Read/write connection split
 
-Route reads to a replica and writes (and everything inside a transaction) to the
-primary. Reads inside a transaction go to the primary too, so a query sees its own
-uncommitted writes.
+Route reads to a replica and writes (and everything inside a transaction) to
+the primary. Reads inside a transaction go to the primary too, so a query
+sees its own uncommitted writes.
 
 ```ts
 // config/database.ts
@@ -493,10 +385,9 @@ pgSplit: {
 }
 ```
 
-`sticky` gives read-your-writes per HTTP request (scoped with `AsyncLocalStorage`);
-reads inside a transaction always use the primary regardless.
-
----
+`sticky` gives read-your-writes per HTTP request (scoped with
+`AsyncLocalStorage`); reads inside a transaction always use the primary
+regardless.
 
 ## Query logging & monitoring
 
@@ -509,7 +400,8 @@ await User.all()
 conn.getQueryLog() // [{ sql, bindings, ms }]
 ```
 
-Event hooks (à la Laravel `DB::listen`), usable standalone or wired to the logger:
+Event hooks (à la Laravel `DB::listen`), usable standalone or wired to the
+logger:
 
 ```ts
 const off = conn.onQuery(({ sql, bindings, ms }) => { /* ... */ })
@@ -517,15 +409,15 @@ conn.onQueryError(({ sql, bindings, error }) => { /* ... */ })
 conn.whenQueryingForLongerThan(500, ({ ms }) => { /* slow request */ })
 ```
 
-In a framework app the `EloquentServiceProvider` bridges these to the logger's
-`sql` channel automatically:
+In a framework app the `EloquentServiceProvider` bridges these to the
+logger's `sql` channel automatically:
 
-- **Query errors** are always logged (`sql`, `bindings`, `error`, `stack`) — the
-  context you need to trace a failure.
+- **Query errors** are always logged (`sql`, `bindings`, `error`, `stack`) —
+  the context you need to trace a failure.
 - Set `log: true` in `config/database.ts` to also log every query at `debug`.
-- Set `slowMs: <ms>` to warn when cumulative per-request query time is exceeded.
+- Set `slowMs: <ms>` to warn when cumulative per-request query time is
+  exceeded.
 
----
-
-See [`examples/basic-app`](../../examples/basic-app) for a working application that
-uses models, migrations, seeders, encrypted casts, and pruning end to end.
+See [`examples/basic-app`](https://github.com/ufhy/elyvel/tree/main/examples/basic-app)
+for a working application that uses models, migrations, seeders, encrypted
+casts, and pruning end to end.
