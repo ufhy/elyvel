@@ -62,6 +62,7 @@ export default defineConfig({
             items: [
               { text: 'HTTP Session', link: '/digging-deeper/session' },
               { text: 'Cache', link: '/digging-deeper/cache' },
+              { text: 'Queues', link: '/digging-deeper/queues' },
             ],
           },
           {
@@ -117,6 +118,7 @@ export default defineConfig({
             items: [
               { text: 'HTTP Session', link: '/id/digging-deeper/session' },
               { text: 'Cache', link: '/id/digging-deeper/cache' },
+              { text: 'Queue', link: '/id/digging-deeper/queues' },
             ],
           },
           {
