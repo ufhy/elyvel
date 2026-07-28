@@ -90,7 +90,8 @@ hand when it needs them.
 
 The `providers` array in `config/app.ts` lists the providers to boot. Each
 provider's `register()` binds services into the container; its `boot()` runs
-startup logic once everything is registered.
+startup logic once everything is registered. See [Service Container](/digging-deeper/container)
+for the full binding API.
 
 ### Package auto-discovery
 

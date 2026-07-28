@@ -90,7 +90,8 @@ menambahkannya secara manual saat membutuhkannya.
 
 Array `providers` di `config/app.ts` mendaftar provider yang akan di-boot. Method
 `register()` setiap provider mengikat service ke dalam container; `boot()`-nya menjalankan
-logika startup setelah semuanya terdaftar.
+logika startup setelah semuanya terdaftar. Lihat [Service Container](/id/digging-deeper/container)
+untuk API binding lengkapnya.
 
 ### Package auto-discovery
 

@@ -32,9 +32,12 @@ interface Binding<T> {
   singleton: boolean
 }
 
+type Extender<T> = (value: T, container: Container) => T
+
 export class Container {
   private readonly bindings = new Map<string, Binding<unknown>>()
   private readonly instances = new Map<string, unknown>()
+  private readonly extenders = new Map<string, Extender<unknown>[]>()
 
   /** Register a factory. A new value is produced on every {@link make}. */
   bind<T>(token: Token<T>, factory: Factory<T>): this {
@@ -89,6 +92,25 @@ export class Container {
   flush(): this {
     this.bindings.clear()
     this.instances.clear()
+    this.extenders.clear()
+    return this
+  }
+
+  /**
+   * Wrap an already-bound value after it's resolved (Laravel's `extend`) —
+   * e.g. decorate a logger, wrap a connection. For a `singleton`/`instance`
+   * binding the decorator runs once (immediately if already resolved,
+   * otherwise the next time it's built) and the wrapped value is cached; for
+   * a plain `bind`, it runs fresh on every {@link make} since a fresh value
+   * is produced every time anyway.
+   */
+  extend<T>(token: Token<T>, decorator: Extender<T>): this {
+    const list = this.extenders.get(token.key) ?? []
+    list.push(decorator as Extender<unknown>)
+    this.extenders.set(token.key, list)
+    if (this.instances.has(token.key)) {
+      this.instances.set(token.key, decorator(this.instances.get(token.key) as T, this))
+    }
     return this
   }
 
@@ -106,7 +128,8 @@ export class Container {
       )
     }
 
-    const value = binding.factory(this)
+    let value = binding.factory(this)
+    for (const decorate of this.extenders.get(token.key) ?? []) value = decorate(value, this)
     if (binding.singleton) {
       this.instances.set(token.key, value)
     }
