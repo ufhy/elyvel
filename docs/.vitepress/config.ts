@@ -39,6 +39,7 @@ export default defineConfig({
               { text: 'Installation', link: '/guide/installation' },
               { text: 'Directory Structure', link: '/guide/directory-structure' },
               { text: 'Configuration', link: '/guide/configuration' },
+              { text: 'CLI Reference', link: '/guide/cli-reference' },
             ],
           },
           {
@@ -48,6 +49,7 @@ export default defineConfig({
               { text: 'Middleware', link: '/basics/middleware' },
               { text: 'Controllers', link: '/basics/controllers' },
               { text: 'Validation', link: '/basics/validation' },
+              { text: 'Inertia & Vue', link: '/basics/inertia' },
             ],
           },
           {
@@ -74,6 +76,7 @@ export default defineConfig({
               { text: 'Views', link: '/digging-deeper/views' },
               { text: 'HTTP Tests', link: '/digging-deeper/testing' },
               { text: 'File Storage', link: '/digging-deeper/storage' },
+              { text: 'Telegram', link: '/digging-deeper/telegram' },
             ],
           },
           {
@@ -106,6 +109,7 @@ export default defineConfig({
               { text: 'Instalasi', link: '/id/guide/installation' },
               { text: 'Struktur Direktori', link: '/id/guide/directory-structure' },
               { text: 'Konfigurasi', link: '/id/guide/configuration' },
+              { text: 'Referensi CLI', link: '/id/guide/cli-reference' },
             ],
           },
           {
@@ -115,6 +119,7 @@ export default defineConfig({
               { text: 'Middleware', link: '/id/basics/middleware' },
               { text: 'Controller', link: '/id/basics/controllers' },
               { text: 'Validasi', link: '/id/basics/validation' },
+              { text: 'Inertia & Vue', link: '/id/basics/inertia' },
             ],
           },
           {
@@ -141,6 +146,7 @@ export default defineConfig({
               { text: 'View', link: '/id/digging-deeper/views' },
               { text: 'HTTP Test', link: '/id/digging-deeper/testing' },
               { text: 'File Storage', link: '/id/digging-deeper/storage' },
+              { text: 'Telegram', link: '/id/digging-deeper/telegram' },
             ],
           },
           {
