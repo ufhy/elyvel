@@ -26,6 +26,10 @@ Four drivers: `sync` (no queue at all — runs immediately in-process),
 
 ## Creating jobs
 
+```bash
+elyvel make:job SendWelcomeEmail
+```
+
 A job is a plain class extending `Job` with a `handle()` method. Public
 constructor fields become the job's serialized payload:
 

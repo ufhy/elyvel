@@ -1,0 +1,25 @@
+/**
+ * {{class}} — a queue job. Put your work in `handle()`; public constructor
+ * fields become the job's serialized payload.
+ *
+ *   import { dispatch } from '@elyvel/queue'
+ *   await dispatch(new {{class}}(...))
+ *
+ * Register it once at boot so the worker can reconstruct it by class name:
+ *
+ *   import { registerJob } from '@elyvel/queue'
+ *   registerJob({{class}})
+ */
+import { Job } from '@elyvel/queue'
+
+export class {{class}} extends Job {
+  constructor(
+    // public readonly postId: number,
+  ) {
+    super()
+  }
+
+  async handle(): Promise<void> {}
+}
+
+export default {{class}}

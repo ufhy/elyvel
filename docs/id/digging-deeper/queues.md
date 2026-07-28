@@ -28,6 +28,10 @@ tidak ada apa pun yang bisa di-poll.
 
 ## Membuat job
 
+```bash
+elyvel make:job SendWelcomeEmail
+```
+
 Job adalah class biasa yang meng-extend `Job` dengan method `handle()`.
 Field constructor publik menjadi payload job yang diserialisasi:
 

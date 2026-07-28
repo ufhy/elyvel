@@ -149,6 +149,15 @@ describe('make:notification', () => {
   })
 })
 
+describe('make:job', () => {
+  test('generates a Job subclass (no forced suffix)', async () => {
+    expect(await make('job', 'SendWelcomeEmail')).toBe(0)
+    const src = read('app/jobs/SendWelcomeEmail.ts')
+    expect(src).toContain('export class SendWelcomeEmail extends Job')
+    expect(src).toContain('async handle(')
+  })
+})
+
 describe('make:provider', () => {
   test('generates a ServiceProvider subclass', async () => {
     expect(await make('provider', 'Blog')).toBe(0)

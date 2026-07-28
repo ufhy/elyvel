@@ -42,6 +42,7 @@ sudah ada.
 | `make:event <Name>` | Class event | — |
 | `make:listener <Name>` | Event listener | — |
 | `make:notification <Name>` | Class notifikasi | — |
+| `make:job <Name>` | Job queue | — |
 | `make:provider <Name>` | Service provider | — |
 | `make:seeder <Name>` | Seeder | — |
 | `make:factory <Name>` | Model factory | — |

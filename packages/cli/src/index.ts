@@ -101,6 +101,7 @@ Usage:
   elyvel make:event <Name>                     Generate an event class
   elyvel make:listener <Name>                  Generate an event listener
   elyvel make:notification <Name>              Generate a notification
+  elyvel make:job <Name>                       Generate a queue job
   elyvel make:provider <Name>                  Generate a service provider
 
   elyvel config:publish [name...] [--force]    Publish default config files to config/
