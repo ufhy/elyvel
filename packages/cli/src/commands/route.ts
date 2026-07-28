@@ -1,4 +1,5 @@
 import { createApp, routeMetaEntries } from '@elyvel/core'
+import { comment, line, table } from '../io'
 
 interface ElysiaRoute {
   method: string
@@ -16,7 +17,7 @@ export async function routeListCommand(): Promise<number> {
     .sort((a, b) => a.path.localeCompare(b.path) || methodRank(a.method) - methodRank(b.method))
 
   if (routes.length === 0) {
-    console.log('No routes registered.')
+    comment('No routes registered.')
     return 0
   }
 
@@ -24,18 +25,17 @@ export async function routeListCommand(): Promise<number> {
   // routes (route.ts, group()-based ad-hoc routes aren't tracked this way) —
   // matched by method + path, so a plain route just shows blank extra columns.
   const meta = new Map(routeMetaEntries().map(m => [`${m.method} ${m.path}`, m]))
-
-  const width = Math.max(...routes.map(r => r.method.length), 'Method'.length)
-  const pathWidth = Math.max(...routes.map(r => r.path.length), 'Path'.length)
   const hasMeta = meta.size > 0
-  console.log(`${'Method'.padEnd(width)}  ${'Path'.padEnd(pathWidth)}${hasMeta ? '  Middleware              Authorize' : ''}`)
-  for (const r of routes) {
+
+  const headers = hasMeta ? ['Method', 'Path', 'Middleware', 'Authorize'] : ['Method', 'Path']
+  const rows = routes.map((r) => {
+    if (!hasMeta)
+      return [r.method, r.path]
     const m = meta.get(`${r.method} ${r.path}`)
-    const mwCol = hasMeta ? `  ${(m?.middleware.join(', ') ?? '').padEnd(23)}` : ''
-    const authCol = hasMeta ? `  ${m?.authorize ?? ''}` : ''
-    console.log(`${r.method.padEnd(width)}  ${r.path.padEnd(pathWidth)}${mwCol}${authCol}`)
-  }
-  console.log(`\n${routes.length} routes.`)
+    return [r.method, r.path, m?.middleware.join(', ') ?? '', m?.authorize ?? '']
+  })
+  table(headers, rows)
+  line(`\n${routes.length} routes.`)
   return 0
 }
 

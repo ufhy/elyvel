@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { ERROR_LANG_DEFAULTS } from '@elyvel/core'
 import { DEFAULT_MESSAGES } from '@elyvel/validation'
+import { comment, error, info, line } from '../io'
 
 /** Serialize a (nested string) object as an idiomatic TS object literal. */
 function toTsLiteral(value: unknown, indent = 0): string {
@@ -23,14 +24,14 @@ function writeGroup(dir: string, name: string, data: unknown, force: boolean): b
   const file = join(dir, `${name}.ts`)
   const rel = relative(process.cwd(), file)
   if (existsSync(file) && !force) {
-    console.log(`  • skipped ${rel} (exists — use --force)`)
+    comment(`  • skipped ${rel} (exists — use --force)`)
     return false
   }
   mkdirSync(dir, { recursive: true })
   const banner = `// Published by \`elyvel lang:publish\`. Edit freely — restyle the wording or\n`
     + `// translate the values; keys are matched by the framework.\n\n`
   writeFileSync(file, `${banner}export default ${toTsLiteral(data)}\n`, 'utf8')
-  console.log(`  ✓ ${rel}`)
+  info(`  ✓ ${rel}`)
   return true
 }
 
@@ -44,17 +45,17 @@ function writeGroup(dir: string, name: string, data: unknown, force: boolean): b
 function publishPackageLang(pkgName: string, force: boolean): number {
   const src = join(process.cwd(), 'node_modules', '@elyvel', pkgName, 'lang')
   if (!existsSync(src)) {
-    console.error(`✗ No lang/ directory found for @elyvel/${pkgName} (node_modules/@elyvel/${pkgName}/lang).`)
+    error(`✗ No lang/ directory found for @elyvel/${pkgName} (node_modules/@elyvel/${pkgName}/lang).`)
     return 1
   }
   const dest = join(process.cwd(), 'lang', 'vendor', pkgName)
   if (existsSync(dest) && !force) {
-    console.log(`  • skipped ${relative(process.cwd(), dest)}/ (exists — use --force)`)
+    comment(`  • skipped ${relative(process.cwd(), dest)}/ (exists — use --force)`)
     return 0
   }
   mkdirSync(join(process.cwd(), 'lang', 'vendor'), { recursive: true })
   cpSync(src, dest, { recursive: true, force: true })
-  console.log(`✓ Published @elyvel/${pkgName}'s lang/ to ${relative(process.cwd(), dest)}/`)
+  info(`✓ Published @elyvel/${pkgName}'s lang/ to ${relative(process.cwd(), dest)}/`)
   return 0
 }
 
@@ -73,7 +74,7 @@ export function langPublish(
 
   const force = flags.force === true
 
-  console.log(`Publishing default messages to lang/vendor/`)
+  line(`Publishing default messages to lang/vendor/`)
   // Both validation::* and core::errors.* are namespaced (auto-loaded from
   // their own packages' lang/ — see I18nServiceProvider) — override location
   // is lang/vendor/<namespace>/..., not a plain lang/<locale>/ file. Every
@@ -81,6 +82,6 @@ export function langPublish(
   // there's no more app-level "default" translation group.
   writeGroup(join(process.cwd(), 'lang', 'vendor', 'validation'), locale, DEFAULT_MESSAGES, force)
   writeGroup(join(process.cwd(), 'lang', 'vendor', 'core', locale), 'errors', ERROR_LANG_DEFAULTS, force)
-  console.log(`\nDone. Edit the published files to change the wording; add the locale to config/i18n.ts \`locales\`.`)
+  line(`\nDone. Edit the published files to change the wording; add the locale to config/i18n.ts \`locales\`.`)
   return 0
 }

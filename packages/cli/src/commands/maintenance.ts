@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import { createApp, FileMaintenanceStore, maintenanceStore } from '@elyvel/core'
+import { comment, info } from '../io'
 
 function downFile(): string {
   return join(process.cwd(), 'storage/framework/down')
@@ -34,9 +35,9 @@ export async function down(flags: Record<string, string | boolean> = {}): Promis
   const status = typeof flags.status === 'string' ? Number(flags.status) : undefined
 
   await (await resolveStore()).write({ secret, retryAfter, message, status })
-  console.log('✓ Application is now in maintenance mode.')
+  info('✓ Application is now in maintenance mode.')
   if (secret)
-    console.log(`  Bypass: visit /?secret=${secret}`)
+    comment(`  Bypass: visit /?secret=${secret}`)
   return 0
 }
 
@@ -44,10 +45,10 @@ export async function down(flags: Record<string, string | boolean> = {}): Promis
 export async function up(): Promise<number> {
   const store = await resolveStore()
   if (!(await store.read())) {
-    console.log('  Application is already up.')
+    comment('  Application is already up.')
     return 0
   }
   await store.clear()
-  console.log('✓ Application is now live.')
+  info('✓ Application is now live.')
   return 0
 }

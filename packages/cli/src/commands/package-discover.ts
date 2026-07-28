@@ -2,6 +2,7 @@ import type { ConsoleCommand, ServiceProviderClass } from '@elyvel/core'
 import { existsSync, readdirSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { error, line } from '../io'
 
 interface Discoverable {
   elyvelProviders?: ServiceProviderClass[]
@@ -126,7 +127,7 @@ export async function packageDiscoverCommand(): Promise<number> {
   const cwd = process.cwd()
   const scopeDir = join(cwd, 'node_modules', '@elyvel')
   if (!existsSync(scopeDir)) {
-    console.log('No @elyvel/* packages installed — nothing to discover.')
+    line('No @elyvel/* packages installed — nothing to discover.')
     return 0
   }
 
@@ -146,8 +147,8 @@ export async function packageDiscoverCommand(): Promise<number> {
       const resolved = Bun.resolveSync(name, cwd)
       module = (await import(resolved)) as Discoverable
     }
-    catch (error) {
-      console.error(`✗ Failed to import "${name}" during discovery: ${error instanceof Error ? error.message : String(error)}`)
+    catch (err) {
+      error(`✗ Failed to import "${name}" during discovery: ${err instanceof Error ? err.message : String(err)}`)
       return 1
     }
     const providerNames = module.elyvelProviders?.map(p => p.name) ?? []
@@ -163,12 +164,12 @@ export async function packageDiscoverCommand(): Promise<number> {
       const cliModule = (await import(resolvedCli)) as CommandsModule
       hasCommands = Boolean(cliModule.elyvelCommands && cliModule.elyvelCommands.length > 0)
     }
-    catch (error) {
-      if (isModuleNotFoundError(error)) {
+    catch (err) {
+      if (isModuleNotFoundError(err)) {
         hasCommands = false
       }
       else {
-        console.error(`✗ Failed to import "${name}/cli" during discovery: ${error instanceof Error ? error.message : String(error)}`)
+        error(`✗ Failed to import "${name}/cli" during discovery: ${err instanceof Error ? err.message : String(err)}`)
         return 1
       }
     }
@@ -183,20 +184,20 @@ export async function packageDiscoverCommand(): Promise<number> {
   await writeCommandsManifest(cwd, discovered)
 
   if (discovered.length === 0) {
-    console.log('No discoverable providers or commands found.')
+    line('No discoverable providers or commands found.')
     return 0
   }
 
-  console.log(`Discovered ${discovered.length} package(s):`)
+  line(`Discovered ${discovered.length} package(s):`)
   for (const pkg of discovered) {
     const bits = [
       pkg.providerNames.length > 0 ? pkg.providerNames.join(', ') : null,
       pkg.hasCommands ? 'commands' : null,
     ].filter(Boolean)
-    console.log(`  ${pkg.name} → ${bits.join(' + ')}`)
+    line(`  ${pkg.name} → ${bits.join(' + ')}`)
   }
   if (dontDiscover.size > 0)
-    console.log(`Excluded (dontDiscover): ${[...dontDiscover].join(', ')}`)
+    line(`Excluded (dontDiscover): ${[...dontDiscover].join(', ')}`)
 
   return 0
 }

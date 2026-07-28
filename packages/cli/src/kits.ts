@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { comment, error, info, line } from './io'
 
 const templatesRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates')
 const DOTFILES: Record<string, string> = { gitignore: '.gitignore', env: '.env.example' }
@@ -137,7 +138,7 @@ export async function scaffoldKit(
   quiet = false,
 ): Promise<number> {
   if (!existsSync(join(cwd, 'config', 'app.ts'))) {
-    console.error(
+    error(
       '✗ Not an elyvel app (no config/app.ts). Run this inside your app directory.',
     )
     return 1
@@ -158,7 +159,7 @@ export async function scaffoldKit(
     // The full-stack kit's web routes supersede the base health-only stub, so
     // web.ts is overwritten; every other file is left untouched if it exists.
     if (existsSync(dest) && !kit.overrides.has(rel)) {
-      console.log(`  skip (exists) ${relative(cwd, dest)}`)
+      comment(`  skip (exists) ${relative(cwd, dest)}`)
       skipped++
       continue
     }
@@ -169,11 +170,11 @@ export async function scaffoldKit(
 
   await mergePackageJson(cwd, kit)
 
-  console.log(`\n✓ Installed ${kit.label} kit (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
-  console.log('  Auth/Mail providers are auto-registered by `elyvel package:discover` (runs on `bun install`).')
+  info(`\n✓ Installed ${kit.label} kit (${written} files${skipped ? `, ${skipped} skipped` : ''})`)
+  comment('  Auth/Mail providers are auto-registered by `elyvel package:discover` (runs on `bun install`).')
   if (!quiet) {
-    console.log('\nNext steps:')
-    for (const line of kit.nextSteps) console.log(`  ${line}`)
+    line('\nNext steps:')
+    for (const step of kit.nextSteps) line(`  ${step}`)
   }
   return 0
 }

@@ -5,6 +5,7 @@ import type { Cast, Model } from './model'
 import type { SeederClass } from './seeder'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { comment, error, info, table, warn } from '@elyvel/cli'
 import { createApp } from '@elyvel/core'
 import {
   countRows,
@@ -63,23 +64,23 @@ export async function migrateCommand(fresh: boolean, flags: MigrateFlags = {}): 
     return 0
   }
   if (applied.length === 0) {
-    console.log('Nothing to migrate.')
+    comment('Nothing to migrate.')
   }
   else {
     if (fresh)
-      console.log('Dropped all tables, re-running migrations:')
-    for (const name of applied) console.log(`✓ ${name}`)
+      info('Dropped all tables, re-running migrations:')
+    for (const name of applied) info(`✓ ${name}`)
   }
   if (fresh && flags.seed) {
     const seeder = await loadSeeder(app)
     if (!seeder) {
-      console.error(
+      error(
         'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
       )
       return 1
     }
     await runSeeders([seeder])
-    console.log('✓ Database seeded.')
+    info('✓ Database seeded.')
   }
   return 0
 }
@@ -105,10 +106,10 @@ export async function rollbackCommand(flags: RollbackFlags = {}): Promise<number
     return 0
   }
   if (rolledBack.length === 0) {
-    console.log('Nothing to roll back.')
+    comment('Nothing to roll back.')
   }
   else {
-    for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+    for (const name of rolledBack) info(`✓ rolled back ${name}`)
   }
   return 0
 }
@@ -118,10 +119,10 @@ export async function resetCommand(): Promise<number> {
   const { app, conn } = await boot()
   const rolledBack = await reset(conn, app.path('database/migrations'))
   if (rolledBack.length === 0) {
-    console.log('Nothing to roll back.')
+    comment('Nothing to roll back.')
   }
   else {
-    for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
+    for (const name of rolledBack) info(`✓ rolled back ${name}`)
   }
   return 0
 }
@@ -142,7 +143,7 @@ export async function refreshCommand(flags: RefreshFlags = {}): Promise<number> 
       ? async () => {
         const seeder = await loadSeeder(app)
         if (!seeder) {
-          console.error(
+          error(
             'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
           )
           return
@@ -152,21 +153,21 @@ export async function refreshCommand(flags: RefreshFlags = {}): Promise<number> 
       : undefined,
   })
 
-  for (const name of rolledBack) console.log(`✓ rolled back ${name}`)
-  for (const name of applied) console.log(`✓ ${name}`)
+  for (const name of rolledBack) info(`✓ rolled back ${name}`)
+  for (const name of applied) info(`✓ ${name}`)
   if (rolledBack.length === 0 && applied.length === 0)
-    console.log('Nothing to refresh.')
+    comment('Nothing to refresh.')
   if (flags.seed)
-    console.log('✓ Database seeded.')
+    info('✓ Database seeded.')
   return 0
 }
 
 function printPretend(sql: string[]): void {
   if (sql.length === 0) {
-    console.log('Nothing to migrate.')
+    comment('Nothing to migrate.')
     return
   }
-  for (const stmt of sql) console.log(stmt)
+  for (const stmt of sql) info(stmt)
 }
 
 /**
@@ -178,7 +179,7 @@ function printPretend(sql: string[]): void {
 export async function unlockCommand(): Promise<number> {
   const { conn } = await boot()
   const existed = await forceUnlock(conn)
-  console.log(existed ? 'Migration lock cleared.' : 'No migration lock was held.')
+  info(existed ? 'Migration lock cleared.' : 'No migration lock was held.')
   return 0
 }
 
@@ -187,10 +188,10 @@ export async function statusCommand(): Promise<number> {
   const { app, conn } = await boot()
   const rows = await status(conn, app.path('database/migrations'))
   if (rows.length === 0) {
-    console.log('No migrations found.')
+    comment('No migrations found.')
   }
   else {
-    for (const r of rows) console.log(`${r.ran ? '✓ ran    ' : '· pending'}  ${r.name}`)
+    for (const r of rows) info(`${r.ran ? '✓ ran    ' : '· pending'}  ${r.name}`)
   }
   return 0
 }
@@ -200,14 +201,14 @@ export async function seedCommand(): Promise<number> {
   const { app } = await boot()
   const seeder = await loadSeeder(app)
   if (!seeder) {
-    console.error(
+    error(
       'No database/seeders/DatabaseSeeder.ts found. Create one with: elyvel make:seeder Database',
     )
     return 1
   }
 
   await runSeeders([seeder])
-  console.log('✓ Database seeded.')
+  info('✓ Database seeded.')
   return 0
 }
 
@@ -224,14 +225,14 @@ export async function pruneCommand(name?: string): Promise<number> {
   if (name) {
     const file = join(dir, `${name}.ts`)
     if (!existsSync(file)) {
-      console.error(`No model found at app/models/${name}.ts`)
+      error(`No model found at app/models/${name}.ts`)
       return 1
     }
     files = [file]
   }
   else {
     if (!existsSync(dir)) {
-      console.error('No app/models directory found.')
+      error('No app/models directory found.')
       return 1
     }
     files = readdirSync(dir)
@@ -245,16 +246,16 @@ export async function pruneCommand(name?: string): Promise<number> {
     const cls = module.default as PrunableClass | undefined
     if (typeof cls?.prune !== 'function' || cls.prunable() === null) {
       if (name)
-        console.log(`${name} is not prunable (override static prunable()).`)
+        comment(`${name} is not prunable (override static prunable()).`)
       continue
     }
     const count = await cls.prune()
-    console.log(`✓ pruned ${count} ${cls.name} record${count === 1 ? '' : 's'}`)
+    info(`✓ pruned ${count} ${cls.name} record${count === 1 ? '' : 's'}`)
     anyPruned = true
   }
 
   if (!anyPruned && !name)
-    console.log('Nothing to prune.')
+    comment('Nothing to prune.')
   return 0
 }
 
@@ -263,45 +264,39 @@ export async function dbShowCommand(): Promise<number> {
   const { app, conn } = await boot()
   const connection = conn as Connection
   const name = app.config.get<string>('database.default', 'sqlite')
-  console.log(`Connection: ${name} (${connection.dialect})`)
+  info(`Connection: ${name} (${connection.dialect})`)
 
   const tables = await listTables(connection)
   if (tables.length === 0) {
-    console.log('No tables.')
+    comment('No tables.')
     return 0
   }
   const rows = await Promise.all(
     tables.map(async t => ({ table: t, rows: await countRows(connection, t) })),
   )
-  const width = Math.max(...rows.map(r => r.table.length), 'Table'.length)
-  console.log(`${'Table'.padEnd(width)}  Rows`)
-  for (const r of rows) console.log(`${r.table.padEnd(width)}  ${r.rows}`)
+  table(['Table', 'Rows'], rows.map(r => [r.table, String(r.rows)]))
   return 0
 }
 
 /** `elyvel db:table <name>` — describe a table's columns. */
-export async function dbTableCommand(table?: string): Promise<number> {
-  if (!table) {
-    console.error('Usage: elyvel db:table <name>')
+export async function dbTableCommand(tableName?: string): Promise<number> {
+  if (!tableName) {
+    error('Usage: elyvel db:table <name>')
     return 1
   }
   const { conn } = await boot()
   const connection = conn as Connection
 
   const tables = await listTables(connection)
-  if (!tables.includes(table)) {
-    console.error(`Table "${table}" not found.`)
+  if (!tables.includes(tableName)) {
+    error(`Table "${tableName}" not found.`)
     return 1
   }
-  const columns = await tableColumns(connection, table)
-  const w = Math.max(...columns.map(c => c.name.length), 'Column'.length)
-  const tw = Math.max(...columns.map(c => c.type.length), 'Type'.length)
-  console.log(`${'Column'.padEnd(w)}  ${'Type'.padEnd(tw)}  Nullable  Default`)
-  for (const c of columns) {
-    console.log(
-      `${c.name.padEnd(w)}  ${c.type.padEnd(tw)}  ${(c.nullable ? 'yes' : 'no').padEnd(8)}  ${c.default ?? ''}`,
-    )
-  }
+  const columns = await tableColumns(connection, tableName)
+  table(
+    ['Column', 'Type', 'Nullable', 'Default'],
+    columns.map(c => [c.name, c.type, c.nullable ? 'yes' : 'no', c.default ?? '']),
+  )
   return 0
 }
 
@@ -311,14 +306,14 @@ export async function dbMonitorCommand(max = 100): Promise<number> {
   const connection = conn as Connection
   const count = await openConnectionCount(connection)
   if (count === null) {
-    console.log(
+    comment(
       `Connection monitoring is only supported on Postgres (dialect: ${connection.dialect}).`,
     )
     return 0
   }
-  console.log(`Open connections: ${count} / ${max}`)
+  info(`Open connections: ${count} / ${max}`)
   if (count > max) {
-    console.error(`⚠ Open connections (${count}) exceed the max (${max}).`)
+    warn(`⚠ Open connections (${count}) exceed the max (${max}).`)
     return 1
   }
   return 0
@@ -338,7 +333,7 @@ export async function dbShellCommand(): Promise<number> {
     cmd = ['psql', String(config.url)]
   }
   else {
-    console.error(`No interactive shell for driver "${String(config.driver)}".`)
+    error(`No interactive shell for driver "${String(config.driver)}".`)
     return 1
   }
 
@@ -347,7 +342,7 @@ export async function dbShellCommand(): Promise<number> {
     return await proc.exited
   }
   catch {
-    console.error(`Could not launch "${cmd[0]}". Is it installed and on your PATH?`)
+    error(`Could not launch "${cmd[0]}". Is it installed and on your PATH?`)
     return 1
   }
 }
@@ -517,21 +512,21 @@ export async function modelSyncCommand(
   flags: Record<string, string | boolean> = {},
 ): Promise<number> {
   if (!name) {
-    console.error('Usage: elyvel model:sync <Name> [--write]')
+    error('Usage: elyvel model:sync <Name> [--write]')
     return 1
   }
 
   const { app, conn } = await boot()
   const file = app.path(`app/models/${name}.ts`)
   if (!existsSync(file)) {
-    console.error(`No model found at app/models/${name}.ts`)
+    error(`No model found at app/models/${name}.ts`)
     return 1
   }
 
   const module = (await import(file)) as { default?: typeof Model }
   const cls = module.default
   if (!cls) {
-    console.error(`${name}.ts must default-export a Model class.`)
+    error(`${name}.ts must default-export a Model class.`)
     return 1
   }
 
@@ -548,26 +543,26 @@ export async function modelSyncCommand(
   const { missing, lines, stale } = planModelSync(source, columns, meta, conn.dialect)
 
   if (stale.length > 0)
-    console.log(`⚠ declared in ${name}.ts but not in "${table}": ${stale.join(', ')}`)
+    warn(`⚠ declared in ${name}.ts but not in "${table}": ${stale.join(', ')}`)
 
   if (missing.length === 0) {
-    console.log(`✓ ${name} is already in sync with "${table}".`)
+    info(`✓ ${name} is already in sync with "${table}".`)
     return 0
   }
 
   if (!flags.write) {
-    console.log(`Missing from ${name} (table "${table}"):\n${lines.join('\n')}\n\nRun with --write to add them.`)
+    comment(`Missing from ${name} (table "${table}"):\n${lines.join('\n')}\n\nRun with --write to add them.`)
     return 0
   }
 
   const updated = applyModelSync(source, lines)
   if (updated === null) {
-    console.error(`Could not locate the class body in ${name}.ts — add manually:\n${lines.join('\n')}`)
+    error(`Could not locate the class body in ${name}.ts — add manually:\n${lines.join('\n')}`)
     return 1
   }
 
   writeFileSync(file, updated)
-  console.log(`✓ Added ${missing.length} field${missing.length === 1 ? '' : 's'} to ${name}.ts:\n${lines.join('\n')}`)
+  info(`✓ Added ${missing.length} field${missing.length === 1 ? '' : 's'} to ${name}.ts:\n${lines.join('\n')}`)
   return 0
 }
 

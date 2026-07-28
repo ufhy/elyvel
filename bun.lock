@@ -214,6 +214,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@electric-sql/pglite": "^0.5.4",
+        "@elyvel/cli": "workspace:*",
         "@elyvel/support": "workspace:*",
         "@elyvel/validation": "workspace:*",
       },
@@ -286,6 +287,7 @@
       "name": "@elyvel/queue",
       "version": "0.0.0",
       "dependencies": {
+        "@elyvel/cli": "workspace:*",
         "@elyvel/events": "workspace:*",
       },
       "peerDependencies": {
@@ -295,6 +297,9 @@
     "packages/scheduler": {
       "name": "@elyvel/scheduler",
       "version": "0.0.0",
+      "dependencies": {
+        "@elyvel/cli": "workspace:*",
+      },
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
       },

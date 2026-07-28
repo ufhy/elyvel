@@ -17,6 +17,7 @@
     "@elyvel/core": "workspace:*"
   },
   "dependencies": {
+    "@elyvel/cli": "workspace:*",
     "@elyvel/events": "workspace:*"
   }
 }

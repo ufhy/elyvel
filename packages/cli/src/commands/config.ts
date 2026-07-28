@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { comment, error, info, line } from '../io'
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'config')
 
@@ -45,7 +46,7 @@ export async function configPublish(
   const targets = names.length > 0 ? names : [...PUBLISHABLE_CONFIGS]
   const unknown = targets.filter(n => !(PUBLISHABLE_CONFIGS as readonly string[]).includes(n))
   if (unknown.length > 0) {
-    console.error(
+    error(
       `Unknown config(s): ${unknown.join(', ')}. Available: ${PUBLISHABLE_CONFIGS.join(', ')}`,
     )
     return 1
@@ -53,21 +54,21 @@ export async function configPublish(
 
   const dir = join(process.cwd(), 'config')
   await mkdir(dir, { recursive: true })
-  console.log(`Publishing config files to config/`)
+  line(`Publishing config files to config/`)
 
   const appName = guessAppName()
   for (const name of targets) {
     const dest = join(dir, `${name}.ts`)
     const rel = relative(process.cwd(), dest)
     if (existsSync(dest) && !force) {
-      console.log(`  • skipped ${rel} (exists — use --force)`)
+      comment(`  • skipped ${rel} (exists — use --force)`)
       continue
     }
     const template = await Bun.file(join(templatesDir, `${name}.ts.tmpl`)).text()
     const rendered = template.replace(/\{\{appName\}\}/g, appName)
     await Bun.write(dest, rendered)
-    console.log(`  ✓ ${rel}`)
+    info(`  ✓ ${rel}`)
   }
-  console.log(`\nDone. Edit config/*.ts to change defaults — register any new provider in config/app.ts.`)
+  line(`\nDone. Edit config/*.ts to change defaults — register any new provider in config/app.ts.`)
   return 0
 }

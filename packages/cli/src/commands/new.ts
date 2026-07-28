@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { error, info, line } from '../io'
 import { isKitName, kitNames, kitNextSteps, scaffoldKit } from '../kits'
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'base')
@@ -40,24 +41,24 @@ export async function newApp(
   flags: Record<string, string | boolean> = {},
 ): Promise<number> {
   if (!rawName) {
-    console.error('Missing name. Usage: elyvel new <name> [--kit=vue|spa|none]')
+    error('Missing name. Usage: elyvel new <name> [--kit=vue|spa|none]')
     return 1
   }
 
   const kit: KitName = typeof flags.kit === 'string' ? (flags.kit as KitName) : 'vue'
   if (typeof flags.kit === 'string' && !isKitName(flags.kit)) {
-    console.error(`✗ Unknown kit "${flags.kit}". Available: ${kitNames.join(', ')}`)
+    error(`✗ Unknown kit "${flags.kit}". Available: ${kitNames.join(', ')}`)
     return 1
   }
   if (!existsSync(templatesDir)) {
-    console.error(`Template not found: ${templatesDir}`)
+    error(`Template not found: ${templatesDir}`)
     return 1
   }
 
   const vars = names(rawName)
   const target = join(process.cwd(), rawName)
   if (existsSync(target)) {
-    console.error(`✗ Directory already exists: ${relative(process.cwd(), target)}`)
+    error(`✗ Directory already exists: ${relative(process.cwd(), target)}`)
     return 1
   }
 
@@ -88,7 +89,7 @@ export async function newApp(
     await Bun.write(join(target, '.env'), content)
   }
 
-  console.log(`✓ Created ${vars.appName} in ${rawName}/ (${count} files, .env + APP_KEY set)`)
+  info(`✓ Created ${vars.appName} in ${rawName}/ (${count} files, .env + APP_KEY set)`)
 
   // Full-stack by default: apply the selected starter kit (Better Auth + a Vue
   // frontend). Everything comes from the installer — no manual package/file edits.
@@ -96,8 +97,8 @@ export async function newApp(
   if (kit !== 'none')
     await scaffoldKit(kit, target, true)
 
-  console.log('\nNext steps:')
-  console.log(`  cd ${rawName}`)
-  for (const line of kitNextSteps(kit)) console.log(`  ${line}`)
+  line('\nNext steps:')
+  line(`  cd ${rawName}`)
+  for (const step of kitNextSteps(kit)) line(`  ${step}`)
   return 0
 }

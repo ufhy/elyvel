@@ -12,6 +12,7 @@ import { newApp } from './commands/new'
 import { packageDiscoverCommand } from './commands/package-discover'
 import { routeListCommand } from './commands/route'
 import { serve } from './commands/serve'
+import { error, line } from './io'
 
 /**
  * Commands contributed by installed `@elyvel/*` packages (queue, database,
@@ -108,8 +109,8 @@ async function main(): Promise<number> {
   const [command, ...rest] = positionals
 
   if (!command || command === 'help' || flags.help) {
-    console.log(BANNER)
-    console.log(formatDiscoveredCommands(await loadDiscoveredCommands()))
+    line(BANNER)
+    line(formatDiscoveredCommands(await loadDiscoveredCommands()))
     return command ? 0 : 1
   }
 
@@ -169,15 +170,15 @@ async function main(): Promise<number> {
   if (match)
     return match.run(flags, rest)
 
-  console.error(`Unknown command "${command}".`)
+  error(`Unknown command "${command}".`)
   if (discovered.length === 0) {
-    console.error(
+    error(
       'No package commands were discovered — if you expected one (e.g. queue:work), '
       + 'run `elyvel package:discover` first.',
     )
   }
-  console.log(BANNER)
-  console.log(formatDiscoveredCommands(discovered))
+  line(BANNER)
+  line(formatDiscoveredCommands(discovered))
   return 1
 }
 

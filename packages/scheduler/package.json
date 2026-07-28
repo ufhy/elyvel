@@ -15,5 +15,8 @@
   },
   "peerDependencies": {
     "@elyvel/core": "workspace:*"
+  },
+  "dependencies": {
+    "@elyvel/cli": "workspace:*"
   }
 }

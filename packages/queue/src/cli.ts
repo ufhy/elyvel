@@ -1,4 +1,5 @@
 import type { ConsoleCommand } from '@elyvel/core'
+import { error, info } from '@elyvel/cli'
 import { createApp } from '@elyvel/core'
 import { failedJobs } from './failed'
 import { QueueToken } from './provider'
@@ -23,7 +24,7 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
   const connection = typeof flags.connection === 'string' ? flags.connection : undefined
   const store = manager.store(connection)
   if (store === 'sync') {
-    console.error(
+    error(
       'The "sync" connection runs jobs inline and has no queue to work.\n'
       + 'Set a queued connection (memory/database/redis) as default, or pass --connection=<name>.',
     )
@@ -38,9 +39,9 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
     connection: connection ?? 'default',
     queues,
     failed: failedJobs(),
-    onError: (name, error, willRetry) => {
-      const detail = error instanceof Error ? error.message : String(error)
-      console.error(`✗ ${name} failed: ${detail}${willRetry ? ' (will retry)' : ' (giving up)'}`)
+    onError: (name, err, willRetry) => {
+      const detail = err instanceof Error ? err.message : String(err)
+      error(`✗ ${name} failed: ${detail}${willRetry ? ' (will retry)' : ' (giving up)'}`)
     },
   })
 
@@ -49,12 +50,12 @@ export async function queueWorkCommand(flags: Record<string, string | boolean>):
   const max = flags.max ? Number(flags.max) : undefined
   const sleepMs = flags.sleep ? Number(flags.sleep) * 1000 : 1000
 
-  console.log(
+  info(
     `Processing jobs on "${connection ?? 'default'}"${once ? ' (once)' : stopWhenEmpty ? ' until empty' : '...'}`,
   )
   const processed = await worker.work({ once, stopWhenEmpty, max, sleepMs })
   if (once || stopWhenEmpty || max)
-    console.log(`Done. Processed ${processed} job(s).`)
+    info(`Done. Processed ${processed} job(s).`)
   return 0
 }
 
@@ -65,7 +66,7 @@ async function bootFailed() {
 }
 
 function notConfigured(): number {
-  console.error(
+  error(
     'Failed-job storage is not configured. Wire it with configureFailedJobs(...) in a service provider\n'
     + '(the example uses the `failed_jobs` table).',
   )
@@ -79,13 +80,13 @@ export async function queueFailedCommand(): Promise<number> {
     return notConfigured()
   const rows = await repo.all()
   if (rows.length === 0) {
-    console.log('No failed jobs.')
+    info('No failed jobs.')
     return 0
   }
   for (const r of rows) {
     const when = new Date(r.failedAt).toISOString()
     const first = r.exception.split('\n')[0]
-    console.log(`${r.id}  [${r.connection}]  ${when}\n    ${first}`)
+    info(`${r.id}  [${r.connection}]  ${when}\n    ${first}`)
   }
   return 0
 }
@@ -102,7 +103,7 @@ export async function queueRetryCommand(
 
   const targets = flags.all === true ? await repo.all() : id ? [await repo.find(id)] : []
   if (targets.length === 0 || targets[0] == null) {
-    console.error('Provide a failed-job id or --all.')
+    error('Provide a failed-job id or --all.')
     return 1
   }
 
@@ -112,15 +113,15 @@ export async function queueRetryCommand(
       continue
     const store = manager.store(job.connection)
     if (store === 'sync') {
-      console.error(`✗ ${job.id}: connection "${job.connection}" is sync — nothing to re-queue.`)
+      error(`✗ ${job.id}: connection "${job.connection}" is sync — nothing to re-queue.`)
       continue
     }
     await store.push(job.body, { queue: job.queue })
     await repo.forget(job.id)
-    console.log(`✓ re-queued ${job.id}`)
+    info(`✓ re-queued ${job.id}`)
     retried++
   }
-  console.log(`Re-queued ${retried} job(s).`)
+  info(`Re-queued ${retried} job(s).`)
   return 0
 }
 
@@ -130,11 +131,11 @@ export async function queueForgetCommand(id: string | undefined): Promise<number
   if (!repo)
     return notConfigured()
   if (!id) {
-    console.error('Provide a failed-job id.')
+    error('Provide a failed-job id.')
     return 1
   }
   const removed = await repo.forget(id)
-  console.log(removed ? `Deleted ${id}.` : `No failed job with id ${id}.`)
+  info(removed ? `Deleted ${id}.` : `No failed job with id ${id}.`)
   return removed ? 0 : 1
 }
 
@@ -144,7 +145,7 @@ export async function queueFlushCommand(): Promise<number> {
   if (!repo)
     return notConfigured()
   await repo.flush()
-  console.log('Flushed all failed jobs.')
+  info('Flushed all failed jobs.')
   return 0
 }
 
@@ -153,14 +154,14 @@ export async function queueRestartCommand(): Promise<number> {
   await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   const signal = restartSignal()
   if (!signal) {
-    console.error(
+    error(
       'Restart signalling is not configured. Wire it with configureRestartSignal(...) in a service provider\n'
       + '(back it with the cache/db so the signal is visible across processes).',
     )
     return 1
   }
   await signal.request()
-  console.log('Broadcasting queue restart signal. Workers will exit after their current job.')
+  info('Broadcasting queue restart signal. Workers will exit after their current job.')
   return 0
 }
 
@@ -173,7 +174,7 @@ export async function queuePruneFailedCommand(
     return notConfigured()
   const hours = flags.hours ? Number(flags.hours) : 24
   const pruned = await repo.prune(hours)
-  console.log(`Pruned ${pruned} failed job(s) older than ${hours}h.`)
+  info(`Pruned ${pruned} failed job(s) older than ${hours}h.`)
   return 0
 }
 

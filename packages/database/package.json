@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
+    "@elyvel/cli": "workspace:*",
     "@elyvel/support": "workspace:*",
     "@elyvel/validation": "workspace:*"
   },

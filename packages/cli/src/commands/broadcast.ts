@@ -1,4 +1,5 @@
 import { createApp } from '@elyvel/core'
+import { info } from '../io'
 
 /**
  * `elyvel broadcast:serve [--port=<n>]` — run just the broadcast/WebSocket
@@ -16,7 +17,7 @@ export async function broadcastServeCommand(flags: Record<string, string | boole
   const app = await createApp({ basePath: process.cwd(), autoloadRoutes: false })
   const port = flags.port ? Number(flags.port) : undefined
   await app.listen(port)
-  console.log('Broadcast server up — WebSocket connections only, no HTTP routes served.')
+  info('Broadcast server up — WebSocket connections only, no HTTP routes served.')
 
   // `app.listen()` resolves as soon as Bun.serve is up (there's no internal
   // work loop like queue:work's `while (true)`), so without this the CLI's

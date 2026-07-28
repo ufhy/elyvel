@@ -1,5 +1,6 @@
 import type { Names } from '../naming'
 import { relative } from 'node:path'
+import { error, info } from '../io'
 import { makeNames } from '../naming'
 import { join, renderStub, writeGenerated } from '../stub'
 
@@ -138,7 +139,7 @@ async function generate(
 ): Promise<number> {
   const blueprint = blueprints[type]
   if (!blueprint) {
-    console.error(
+    error(
       `Unknown generator "make:${type}". Available: ${Object.keys(blueprints).join(', ')}`,
     )
     return 1
@@ -194,11 +195,11 @@ async function generate(
   try {
     const contents = await renderStub(stub, vars)
     await writeGenerated(target, contents, Boolean(flags.force))
-    console.log(`✓ Created ${relative(process.cwd(), target)}`)
+    info(`✓ Created ${relative(process.cwd(), target)}`)
     return 0
   }
-  catch (error) {
-    console.error(`✗ ${(error as Error).message}`)
+  catch (err) {
+    error(`✗ ${(err as Error).message}`)
     return 1
   }
 }
@@ -259,14 +260,14 @@ export async function generateMigrationPluginCommand(): Promise<number> {
   try {
     const contents = await renderStub('migration-auth', {})
     await writeGenerated(target, contents, false)
-    console.log(`✓ Created ${relative(process.cwd(), target)}`)
-    console.log(
+    info(`✓ Created ${relative(process.cwd(), target)}`)
+    info(
       '  Add the plugin to config/auth.ts (import it from \'better-auth/plugins\', add it to `plugins: [...]`), then `elyvel migrate`.',
     )
     return 0
   }
-  catch (error) {
-    console.error(`✗ ${(error as Error).message}`)
+  catch (err) {
+    error(`✗ ${(err as Error).message}`)
     return 1
   }
 }
@@ -278,13 +279,13 @@ export async function make(
   flags: Record<string, string | boolean> = {},
 ): Promise<number> {
   if (!blueprints[type]) {
-    console.error(
+    error(
       `Unknown generator "make:${type}". Available: ${Object.keys(blueprints).join(', ')}`,
     )
     return 1
   }
   if (!rawName) {
-    console.error(`Missing name. Usage: elyvel make:${type} <Name>`)
+    error(`Missing name. Usage: elyvel make:${type} <Name>`)
     return 1
   }
 

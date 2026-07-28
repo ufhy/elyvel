@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { comment, error, info, line } from '../io'
 
 /** A fresh application key — `base64:` + 64 random bytes (Laravel's format). */
 function generateKey(): string {
@@ -17,7 +18,7 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
   const key = generateKey()
 
   if (flags.show) {
-    console.log(key)
+    line(key)
     return 0
   }
 
@@ -26,11 +27,11 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
     // Seed .env from .env.example if present, otherwise there's nothing to key.
     const example = join(process.cwd(), '.env.example')
     if (!existsSync(example)) {
-      console.error('✗ No .env or .env.example found. Run this inside your app directory.')
+      error('✗ No .env or .env.example found. Run this inside your app directory.')
       return 1
     }
     await Bun.write(envPath, await readFile(example, 'utf8'))
-    console.log('  created .env from .env.example')
+    comment('  created .env from .env.example')
   }
 
   const env = await readFile(envPath, 'utf8')
@@ -43,7 +44,7 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
     .trim()
     .replace(/^["']|["']$/g, '')
   if (currentKey.length > 0 && appEnv === 'production' && !flags.force) {
-    console.error(
+    error(
       '✗ APP_KEY is already set and APP_ENV=production.\n'
       + '  Rotating it invalidates all sessions and makes `encrypted` columns\n'
       + '  unreadable. Re-run with --force if you really mean to.',
@@ -57,6 +58,6 @@ export async function keyGenerate(flags: Record<string, string | boolean> = {}):
     : `${env.replace(/\n?$/, '\n')}APP_KEY=${key}\n`
   await Bun.write(envPath, next)
 
-  console.log('✓ Application key set in .env')
+  info('✓ Application key set in .env')
   return 0
 }

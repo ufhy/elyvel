@@ -1,6 +1,7 @@
 import type { Subprocess } from 'bun'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { error } from '../io'
 
 const DEFAULT_ENTRIES = ['server.ts', 'src/server.ts', 'bootstrap/server.ts']
 const VITE_CONFIGS = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs']
@@ -15,7 +16,7 @@ export async function serve(flags: Record<string, string | boolean>): Promise<nu
       : DEFAULT_ENTRIES.map(e => join(cwd, e)).find(existsSync)
 
   if (!entry || !existsSync(entry)) {
-    console.error(
+    error(
       `Could not find a server entry. Looked for: ${DEFAULT_ENTRIES.join(', ')}.\n`
       + 'Pass one explicitly with --entry <path>.',
     )
