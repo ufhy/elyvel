@@ -1,5 +1,9 @@
+import type { ConsoleCommand } from '@elyvel/core'
 import { createApp } from '@elyvel/core'
-import { failedJobs, QueueToken, restartSignal, Worker } from '@elyvel/queue'
+import { failedJobs } from './failed'
+import { QueueToken } from './provider'
+import { restartSignal } from './restart'
+import { Worker } from './worker'
 
 /**
  * `elyvel queue:work` — process jobs off a queue connection.
@@ -172,3 +176,46 @@ export async function queuePruneFailedCommand(
   console.log(`Pruned ${pruned} failed job(s) older than ${hours}h.`)
   return 0
 }
+
+/** Discovered by `elyvel package:discover` — see `@elyvel/core`'s `ConsoleCommand`. */
+export const elyvelCommands: ConsoleCommand[] = [
+  {
+    name: 'queue:work',
+    description: 'Process queued jobs',
+    usage: '[--connection=<name>] [--queue=high,default] [--once|--stop-when-empty|--max=N] [--sleep=N] [--retry-after=N]',
+    run: (flags: Record<string, string | boolean>) => queueWorkCommand(flags),
+  },
+  {
+    name: 'queue:failed',
+    description: 'List failed jobs',
+    run: () => queueFailedCommand(),
+  },
+  {
+    name: 'queue:retry',
+    description: 'Re-queue failed jobs',
+    usage: '<id> | --all',
+    run: (flags: Record<string, string | boolean>, args: string[]) => queueRetryCommand(args[0], flags),
+  },
+  {
+    name: 'queue:forget',
+    description: 'Delete a failed job',
+    usage: '<id>',
+    run: (_flags: Record<string, string | boolean>, args: string[]) => queueForgetCommand(args[0]),
+  },
+  {
+    name: 'queue:flush',
+    description: 'Delete all failed jobs',
+    run: () => queueFlushCommand(),
+  },
+  {
+    name: 'queue:prune-failed',
+    description: 'Delete failed jobs older than N hours',
+    usage: '[--hours=24]',
+    run: (flags: Record<string, string | boolean>) => queuePruneFailedCommand(flags),
+  },
+  {
+    name: 'queue:restart',
+    description: 'Gracefully restart running workers',
+    run: () => queueRestartCommand(),
+  },
+]

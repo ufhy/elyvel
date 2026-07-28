@@ -1,7 +1,7 @@
-import type { ColumnInfo } from '@elyvel/database'
-import type { ModelMeta } from '../src/commands/model-sync'
+import type { ModelMeta } from '../src/cli'
+import type { ColumnInfo } from '../src/inspect'
 import { describe, expect, test } from 'bun:test'
-import { applyModelSync, planModelSync, resolveType } from '../src/commands/model-sync'
+import { applyModelSync, planModelSync, resolveType } from '../src/cli'
 
 const META: ModelMeta = {
   primaryKey: 'id',

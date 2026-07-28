@@ -15,9 +15,6 @@
   },
   "dependencies": {
     "@elyvel/core": "workspace:*",
-    "@elyvel/database": "workspace:*",
-    "@elyvel/queue": "workspace:*",
-    "@elyvel/scheduler": "workspace:*",
     "@elyvel/validation": "workspace:*"
   }
 }

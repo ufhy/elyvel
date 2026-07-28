@@ -1,5 +1,12 @@
 import { ScheduleServiceProvider } from './provider'
 
+export {
+  elyvelCommands,
+  scheduleListCommand,
+  scheduleRunCommand,
+  scheduleTestCommand,
+  scheduleWorkCommand,
+} from './cli'
 export { cronMatches, parseCron, parseCronField, partsInZone } from './cron'
 export {
   configureScheduleFailureLogger,
@@ -16,7 +23,7 @@ export {
   scheduleMutex,
 } from './mutex'
 export { ScheduleServiceProvider, ScheduleToken } from './provider'
-export { Schedule, schedule, type ScheduleRunResult, setDefaultSchedule } from './schedule'
 
 /** Read by `elyvel package:discover` — see packages/core's discovery loader. */
 export const elyvelProviders = [ScheduleServiceProvider]
+export { Schedule, schedule, type ScheduleRunResult, setDefaultSchedule } from './schedule'

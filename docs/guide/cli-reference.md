@@ -4,6 +4,26 @@ Every `elyvel <command>` in one place. Flags follow a simple convention:
 `--foo=bar` sets a value, bare `--foo` sets it `true`, and `--no-foo` sets
 it `false` (used for opt-outs like `serve --no-vite`).
 
+## Where commands come from
+
+`@elyvel/cli` itself only ships the scaffolding commands (`make:*`, `new`,
+`serve`, `key:generate`, `down`/`up`, `config:publish`, `lang:publish`,
+`package:discover`) — it doesn't depend on `@elyvel/database`,
+`@elyvel/queue`, or `@elyvel/scheduler` at all. Runtime commands like
+`queue:work`, `migrate`, and `schedule:run` are contributed by those
+packages themselves: any package can export `elyvelCommands` from its main
+entry, and `elyvel package:discover` finds it and writes
+`bootstrap/commands.generated.ts` — the same mechanism already used for
+service providers (`elyvelProviders` → `bootstrap/providers.generated.ts`).
+This runs automatically on every `bun install` (wired into the base
+template's `postinstall` script), so a package's commands just appear once
+it's installed — including a third-party package's own, without ever
+touching `@elyvel/cli`'s source.
+
+If a command you expect (e.g. `queue:work`) isn't found, run
+`elyvel package:discover` — `elyvel help` also lists whatever it found
+under "Discovered package commands".
+
 ## Application & scaffolding
 
 | Command | Description | Flags |
@@ -15,7 +35,7 @@ it `false` (used for opt-outs like `serve --no-vite`).
 | `elyvel up` | Disable maintenance mode | none |
 | `elyvel config:publish [name...]` | Copy default config files into `config/` | zero or more of `app database i18n openapi session logging cache mail queue filesystems broadcasting telegram` (default: all); `--force` |
 | `elyvel lang:publish [locale]` | Publish default translation files | `[locale]` (default `en`); `--force`; `--package=<name>` copies an installed package's own `lang/` into `lang/vendor/<name>` instead |
-| `elyvel package:discover` | Auto-register installed `@elyvel/*` packages' providers | none — scans `node_modules/@elyvel/*` for `elyvelProviders`, writes `bootstrap/providers.generated.ts`; respects `dontDiscover` in `config/app.ts` |
+| `elyvel package:discover` | Auto-register installed `@elyvel/*` packages' providers and commands | none — scans `node_modules/@elyvel/*` for `elyvelProviders`/`elyvelCommands`, writes `bootstrap/providers.generated.ts` + `bootstrap/commands.generated.ts`; respects `dontDiscover` in `config/app.ts` |
 | `elyvel broadcast:serve` | Run the WebSocket/broadcast layer as its own process | `--port=<n>` |
 
 ::: tip `down`/`up` aren't in `elyvel help`
@@ -46,7 +66,7 @@ Every `make:*` generator accepts `--force` to overwrite an existing file.
 | `make:concern <Name>` | Model concern (trait-equivalent) | — |
 | `auth:generate-migration-plugin` | Migration re-running Better Auth schema sync (after manually enabling a plugin in `config/auth.ts`) | none — no name/flags, always writes `<timestamp>_sync_auth_schema.ts` |
 
-## Database
+## Database (from `@elyvel/database`)
 
 | Command | Description | Flags |
 | --- | --- | --- |
@@ -68,7 +88,7 @@ Every `make:*` generator accepts `--force` to overwrite an existing file.
 See [Migrations](/database/migrations) for the schema-builder side of
 these commands.
 
-## Queue
+## Queue (from `@elyvel/queue`)
 
 See [Queues](/digging-deeper/queues) for the full behavior of each.
 
@@ -82,7 +102,7 @@ See [Queues](/digging-deeper/queues) for the full behavior of each.
 | `elyvel queue:prune-failed` | `--hours=24` |
 | `elyvel queue:restart` | — |
 
-## Scheduler
+## Scheduler (from `@elyvel/scheduler`)
 
 See [Task Scheduling](/digging-deeper/scheduler) for details.
 

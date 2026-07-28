@@ -11,6 +11,7 @@ export {
   type LoggingConfig,
   type SessionConfig,
 } from './config-schema'
+export type { ConsoleCommand } from './console-command'
 export type { Token } from './container'
 export { Container, token } from './container'
 export { cors, type CorsOptions } from './cors'

@@ -12,6 +12,16 @@ export {
   PendingBatch,
   RedisBatchStore,
 } from './batch'
+export {
+  elyvelCommands,
+  queueFailedCommand,
+  queueFlushCommand,
+  queueForgetCommand,
+  queuePruneFailedCommand,
+  queueRestartCommand,
+  queueRetryCommand,
+  queueWorkCommand,
+} from './cli'
 export { defineQueueConfig, type QueueConfig, type QueueConnectionConfig } from './config-schema'
 export { configureJobEncryption } from './encryption'
 export { configureQueueEventDispatcher, Queue } from './events'
@@ -92,7 +102,7 @@ export {
   type UniqueLock,
   uniqueLock,
 } from './unique'
-export { Worker, type WorkerOptions } from './worker'
 
 /** Read by `elyvel package:discover` — see packages/core's discovery loader. */
 export const elyvelProviders = [QueueServiceProvider]
+export { Worker, type WorkerOptions } from './worker'

@@ -5,6 +5,27 @@ sederhana: `--foo=bar` mengatur value, `--foo` polos mengaturnya `true`,
 dan `--no-foo` mengaturnya `false` (dipakai untuk opt-out seperti
 `serve --no-vite`).
 
+## Dari mana command berasal
+
+`@elyvel/cli` sendiri hanya mengirimkan command scaffolding (`make:*`,
+`new`, `serve`, `key:generate`, `down`/`up`, `config:publish`,
+`lang:publish`, `package:discover`) — ia sama sekali tidak bergantung pada
+`@elyvel/database`, `@elyvel/queue`, atau `@elyvel/scheduler`. Command
+runtime seperti `queue:work`, `migrate`, dan `schedule:run` disumbangkan
+oleh package-package itu sendiri: package mana pun bisa meng-export
+`elyvelCommands` dari entry utamanya, dan `elyvel package:discover`
+menemukannya lalu menulis `bootstrap/commands.generated.ts` — mekanisme
+yang sama yang sudah dipakai untuk service provider (`elyvelProviders` →
+`bootstrap/providers.generated.ts`). Ini berjalan otomatis di setiap `bun
+install` (disambungkan ke script `postinstall` template dasar), jadi
+command sebuah package langsung muncul begitu terpasang — termasuk
+command milik package pihak ketiga, tanpa pernah menyentuh source
+`@elyvel/cli`.
+
+Jika command yang kamu harapkan (misalnya `queue:work`) tidak ditemukan,
+jalankan `elyvel package:discover` — `elyvel help` juga mendaftar apa pun
+yang ditemukan di bawah "Discovered package commands".
+
 ## Aplikasi & scaffolding
 
 | Command | Deskripsi | Flag |
@@ -16,7 +37,7 @@ dan `--no-foo` mengaturnya `false` (dipakai untuk opt-out seperti
 | `elyvel up` | Matikan maintenance mode | tidak ada |
 | `elyvel config:publish [name...]` | Salin file config default ke `config/` | nol atau lebih dari `app database i18n openapi session logging cache mail queue filesystems broadcasting telegram` (default: semua); `--force` |
 | `elyvel lang:publish [locale]` | Publish file terjemahan default | `[locale]` (default `en`); `--force`; `--package=<name>` menyalin `lang/` milik package terpasang ke `lang/vendor/<name>` sebagai gantinya |
-| `elyvel package:discover` | Otomatis mendaftarkan provider package `@elyvel/*` terpasang | tidak ada — memindai `node_modules/@elyvel/*` untuk `elyvelProviders`, menulis `bootstrap/providers.generated.ts`; menghormati `dontDiscover` di `config/app.ts` |
+| `elyvel package:discover` | Otomatis mendaftarkan provider dan command package `@elyvel/*` terpasang | tidak ada — memindai `node_modules/@elyvel/*` untuk `elyvelProviders`/`elyvelCommands`, menulis `bootstrap/providers.generated.ts` + `bootstrap/commands.generated.ts`; menghormati `dontDiscover` di `config/app.ts` |
 | `elyvel broadcast:serve` | Jalankan layer WebSocket/broadcast sebagai proses tersendiri | `--port=<n>` |
 
 ::: tip `down`/`up` tidak ada di `elyvel help`
@@ -49,7 +70,7 @@ sudah ada.
 | `make:concern <Name>` | Model concern (padanan trait) | — |
 | `auth:generate-migration-plugin` | Migrasi yang menjalankan ulang sync skema Better Auth (setelah mengaktifkan plugin manual di `config/auth.ts`) | tidak ada — tanpa nama/flag, selalu menulis `<timestamp>_sync_auth_schema.ts` |
 
-## Database
+## Database (dari `@elyvel/database`)
 
 | Command | Deskripsi | Flag |
 | --- | --- | --- |
@@ -71,7 +92,7 @@ sudah ada.
 Lihat [Migrasi](/id/database/migrations) untuk sisi schema-builder dari
 command-command ini.
 
-## Queue
+## Queue (dari `@elyvel/queue`)
 
 Lihat [Queue](/id/digging-deeper/queues) untuk perilaku lengkap
 masing-masing.
@@ -86,7 +107,7 @@ masing-masing.
 | `elyvel queue:prune-failed` | `--hours=24` |
 | `elyvel queue:restart` | — |
 
-## Scheduler
+## Scheduler (dari `@elyvel/scheduler`)
 
 Lihat [Task Scheduling](/id/digging-deeper/scheduler) untuk detailnya.
 

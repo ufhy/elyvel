@@ -1,5 +1,6 @@
+import type { ConsoleCommand } from '@elyvel/core'
 import { createApp } from '@elyvel/core'
-import { ScheduleToken } from '@elyvel/scheduler'
+import { ScheduleToken } from './provider'
 
 /**
  * `elyvel schedule:run` — run every task that is due right now. Point a single
@@ -101,3 +102,28 @@ export async function scheduleListCommand(): Promise<number> {
   }
   return 0
 }
+
+/** Discovered by `elyvel package:discover` — see `@elyvel/core`'s `ConsoleCommand`. */
+export const elyvelCommands: ConsoleCommand[] = [
+  {
+    name: 'schedule:run',
+    description: 'Run scheduled tasks that are due now',
+    run: () => scheduleRunCommand(),
+  },
+  {
+    name: 'schedule:work',
+    description: 'Run the scheduler in-process (dev; ticks each minute)',
+    run: () => scheduleWorkCommand(),
+  },
+  {
+    name: 'schedule:test',
+    description: 'Run scheduled tasks now regardless of cron',
+    usage: '[name]',
+    run: (_flags: Record<string, string | boolean>, args: string[]) => scheduleTestCommand(args[0]),
+  },
+  {
+    name: 'schedule:list',
+    description: 'List scheduled tasks and their cron',
+    run: () => scheduleListCommand(),
+  },
+]

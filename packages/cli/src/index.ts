@@ -1,44 +1,31 @@
 #!/usr/bin/env bun
+import type { ConsoleCommand } from '@elyvel/core'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { broadcastServeCommand } from './commands/broadcast'
 import { configPublish } from './commands/config'
-import {
-  dbMonitorCommand,
-  dbShellCommand,
-  dbShowCommand,
-  dbTableCommand,
-  migrateCommand,
-  pruneCommand,
-  refreshCommand,
-  resetCommand,
-  rollbackCommand,
-  seedCommand,
-  statusCommand,
-  unlockCommand,
-} from './commands/db'
 import { keyGenerate } from './commands/key'
 import { langPublish } from './commands/lang'
 import { down, up } from './commands/maintenance'
 import { generateMigrationPluginCommand, make } from './commands/make'
-import { modelSyncCommand } from './commands/model-sync'
 import { newApp } from './commands/new'
 import { packageDiscoverCommand } from './commands/package-discover'
-import {
-  queueFailedCommand,
-  queueFlushCommand,
-  queueForgetCommand,
-  queuePruneFailedCommand,
-  queueRestartCommand,
-  queueRetryCommand,
-  queueWorkCommand,
-} from './commands/queue'
 import { routeListCommand } from './commands/route'
-import {
-  scheduleListCommand,
-  scheduleRunCommand,
-  scheduleTestCommand,
-  scheduleWorkCommand,
-} from './commands/schedule'
 import { serve } from './commands/serve'
+
+/**
+ * Commands contributed by installed `@elyvel/*` packages (queue, database,
+ * scheduler, ...) via `elyvelCommands` — written by `elyvel package:discover`.
+ * Missing file (discovery never run, or nothing discoverable installed) is
+ * NOT an error: the CLI's own built-ins still work without it.
+ */
+async function loadDiscoveredCommands(): Promise<ConsoleCommand[]> {
+  const manifestPath = join(process.cwd(), 'bootstrap', 'commands.generated.ts')
+  if (!existsSync(manifestPath))
+    return []
+  const manifest = (await import(manifestPath)) as { discoveredCommands?: ConsoleCommand[] }
+  return manifest.discoveredCommands ?? []
+}
 
 const BANNER = `
 elyvel — the elyvel CLI
@@ -50,35 +37,7 @@ Usage:
   elyvel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
   elyvel lang:publish --package=<name> [--force]  Copy an installed package's lang/ to lang/vendor/<name>
 
-  elyvel migrate [--step] [--pretend]          Run pending migrations
-  elyvel migrate:fresh [--seed]                Drop all tables and re-migrate
-  elyvel migrate:rollback [--step=N] [--batch=N] [--pretend]  Roll back migrations (last batch by default)
-  elyvel migrate:reset                         Roll back every applied migration
-  elyvel migrate:refresh [--step=N] [--seed]   Roll back (all, or last N) then re-migrate
-  elyvel migrate:status                        Show applied/pending migrations
-  elyvel migrate:unlock                        Force-clear a stuck migration lock (crashed process)
-  elyvel db:seed                               Run database/seeders/DatabaseSeeder
-  elyvel model:prune [Name]                    Prune stale records (all prunable models, or one)
-  elyvel model:sync <Name> [--write]           Report (or add) declare fields missing vs. the DB table
-
-  elyvel db                                    Open the native database shell (sqlite3 / psql)
-  elyvel db:show                               List tables with row counts
-  elyvel db:table <name>                       Describe a table's columns
-  elyvel db:monitor [--max=N]                  Report open connections (Postgres)
   elyvel route:list                            List all registered HTTP routes
-  elyvel queue:work [--connection=<name>]      Process queued jobs
-                   [--queue=high,default] [--once|--stop-when-empty|--max=N]
-                   [--sleep=N] [--retry-after=N]
-  elyvel queue:failed                          List failed jobs
-  elyvel queue:retry <id> | --all              Re-queue failed jobs
-  elyvel queue:forget <id>                     Delete a failed job
-  elyvel queue:flush                           Delete all failed jobs
-  elyvel queue:prune-failed [--hours=24]       Delete failed jobs older than N hours
-  elyvel queue:restart                         Gracefully restart running workers
-  elyvel schedule:run                          Run scheduled tasks that are due now
-  elyvel schedule:work                         Run the scheduler in-process (dev; ticks each minute)
-  elyvel schedule:test [name]                  Run scheduled tasks now regardless of cron
-  elyvel schedule:list                         List scheduled tasks and their cron
   elyvel broadcast:serve [--port=<n>]           Run the WebSocket/broadcast layer as its own process
 
   elyvel make:controller <Name> [--resource] [--invokable] [--singleton [--creatable]]
@@ -105,8 +64,25 @@ Usage:
   elyvel make:provider <Name>                  Generate a service provider
 
   elyvel config:publish [name...] [--force]    Publish default config files to config/
-  elyvel package:discover                      Auto-register installed packages' providers (bootstrap/providers.generated.ts)
+  elyvel package:discover                      Auto-register installed packages' providers + commands
+                                                (bootstrap/providers.generated.ts, bootstrap/commands.generated.ts)
 `
+
+/**
+ * Package-contributed commands (queue:*, migrate*, db*, schedule:*, model:*,
+ * or a third-party package's own) aren't in the static BANNER above — they
+ * only exist once the corresponding package is installed. List whatever
+ * `package:discover` actually found instead.
+ */
+function formatDiscoveredCommands(commands: ConsoleCommand[]): string {
+  if (commands.length === 0)
+    return ''
+  const width = Math.max(...commands.map(c => `${c.name} ${c.usage ?? ''}`.trim().length))
+  const lines = commands
+    .map(c => `  elyvel ${`${c.name} ${c.usage ?? ''}`.trim().padEnd(width)}  ${c.description}`)
+    .join('\n')
+  return `\nDiscovered package commands (elyvel package:discover):\n${lines}\n`
+}
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
 export function parseArgs(argv: string[]) {
@@ -133,6 +109,7 @@ async function main(): Promise<number> {
 
   if (!command || command === 'help' || flags.help) {
     console.log(BANNER)
+    console.log(formatDiscoveredCommands(await loadDiscoveredCommands()))
     return command ? 0 : 1
   }
 
@@ -168,112 +145,12 @@ async function main(): Promise<number> {
     return packageDiscoverCommand()
   }
 
-  if (command === 'migrate') {
-    return migrateCommand(false, flags)
-  }
-
-  if (command === 'migrate:fresh') {
-    return migrateCommand(true, flags)
-  }
-
-  if (command === 'migrate:rollback') {
-    return rollbackCommand(flags)
-  }
-
-  if (command === 'migrate:reset') {
-    return resetCommand()
-  }
-
-  if (command === 'migrate:refresh') {
-    return refreshCommand(flags)
-  }
-
-  if (command === 'migrate:status') {
-    return statusCommand()
-  }
-
-  if (command === 'migrate:unlock') {
-    return unlockCommand()
-  }
-
   if (command === 'auth:generate-migration-plugin') {
     return generateMigrationPluginCommand()
   }
 
-  if (command === 'db:seed') {
-    return seedCommand()
-  }
-
-  if (command === 'model:prune') {
-    return pruneCommand(rest[0])
-  }
-
-  if (command === 'model:sync') {
-    return modelSyncCommand(rest[0], flags)
-  }
-
-  if (command === 'db') {
-    return dbShellCommand()
-  }
-
-  if (command === 'db:show') {
-    return dbShowCommand()
-  }
-
-  if (command === 'db:table') {
-    return dbTableCommand(rest[0])
-  }
-
-  if (command === 'db:monitor') {
-    return dbMonitorCommand(flags.max ? Number(flags.max) : undefined)
-  }
-
   if (command === 'route:list') {
     return routeListCommand()
-  }
-
-  if (command === 'queue:work') {
-    return queueWorkCommand(flags)
-  }
-
-  if (command === 'queue:failed') {
-    return queueFailedCommand()
-  }
-
-  if (command === 'queue:retry') {
-    return queueRetryCommand(rest[0], flags)
-  }
-
-  if (command === 'queue:forget') {
-    return queueForgetCommand(rest[0])
-  }
-
-  if (command === 'queue:flush') {
-    return queueFlushCommand()
-  }
-
-  if (command === 'queue:prune-failed') {
-    return queuePruneFailedCommand(flags)
-  }
-
-  if (command === 'queue:restart') {
-    return queueRestartCommand()
-  }
-
-  if (command === 'schedule:run') {
-    return scheduleRunCommand()
-  }
-
-  if (command === 'schedule:work') {
-    return scheduleWorkCommand()
-  }
-
-  if (command === 'schedule:test') {
-    return scheduleTestCommand(rest[0])
-  }
-
-  if (command === 'schedule:list') {
-    return scheduleListCommand()
   }
 
   if (command === 'broadcast:serve') {
@@ -284,8 +161,23 @@ async function main(): Promise<number> {
     return make(command.slice('make:'.length), rest[0], flags)
   }
 
+  // Anything else (queue:*, migrate*, db*, schedule:*, model:*, or a
+  // third-party package's own commands) is dispatched from whatever
+  // `elyvel package:discover` found — see `loadDiscoveredCommands`.
+  const discovered = await loadDiscoveredCommands()
+  const match = discovered.find(c => c.name === command)
+  if (match)
+    return match.run(flags, rest)
+
   console.error(`Unknown command "${command}".`)
+  if (discovered.length === 0) {
+    console.error(
+      'No package commands were discovered — if you expected one (e.g. queue:work), '
+      + 'run `elyvel package:discover` first.',
+    )
+  }
   console.log(BANNER)
+  console.log(formatDiscoveredCommands(discovered))
   return 1
 }
 

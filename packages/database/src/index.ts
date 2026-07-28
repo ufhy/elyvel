@@ -1,3 +1,27 @@
+export {
+  applyModelSync,
+  boot,
+  castToType,
+  dbMonitorCommand,
+  dbShellCommand,
+  dbShowCommand,
+  dbTableCommand,
+  elyvelCommands,
+  inferFromDbType,
+  migrateCommand,
+  type ModelMeta,
+  modelSyncCommand,
+  type ModelSyncPlan,
+  planModelSync,
+  pruneCommand,
+  refreshCommand,
+  resetCommand,
+  resolveType,
+  rollbackCommand,
+  seedCommand,
+  statusCommand,
+  unlockCommand,
+} from './cli'
 export { type Concern, withConcerns } from './concern'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export {
@@ -112,4 +136,5 @@ export { DatabaseToken } from './tokens'
 // Re-exported so model authors get the date type/helper alongside Model: `date`
 // casts (and created_at/updated_at) return a Dayjs — declare fields as `Dayjs`.
 export { date, type Dayjs, now } from '@elyvel/core'
+
 export { Collection, LazyCollection } from '@elyvel/support'
