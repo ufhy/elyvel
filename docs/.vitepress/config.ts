@@ -68,6 +68,7 @@ export default defineConfig({
               { text: 'Notifications', link: '/digging-deeper/notifications' },
               { text: 'Broadcasting', link: '/digging-deeper/broadcasting' },
               { text: 'Logging', link: '/digging-deeper/logging' },
+              { text: 'Rate Limiting', link: '/digging-deeper/rate-limiting' },
             ],
           },
           {
@@ -129,6 +130,7 @@ export default defineConfig({
               { text: 'Notifikasi', link: '/id/digging-deeper/notifications' },
               { text: 'Broadcasting', link: '/id/digging-deeper/broadcasting' },
               { text: 'Logging', link: '/id/digging-deeper/logging' },
+              { text: 'Rate Limiting', link: '/id/digging-deeper/rate-limiting' },
             ],
           },
           {
