@@ -138,9 +138,14 @@ correctly when a collection of them is JSON-stringified.
 
 ::: tip Eloquent query results
 `Model.query().get()` returns an `EloquentCollection`, which **extends**
-this same `Collection` class (adding `modelKeys()`/`find(id)`) — every
-method above already works on query results. See
-[Eloquent](/database/eloquent).
+this same `Collection` class — every method above already works on query
+results, plus model-aware additions: `modelKeys()`, `find(id)`,
+`load(...paths)` (eager-load relations onto every model already in hand),
+`loadCount(...names)`. It also **overrides** `diff`/`intersect`/`unique` to
+compare models by primary key (`getKey()`) instead of object reference —
+so `posts.diff(await Post.whereIn('id', ids).get())` works correctly even
+though the two collections hold distinct object instances for the same
+rows. See [Eloquent](/database/eloquent).
 :::
 
 ## Lazy Collections

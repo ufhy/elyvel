@@ -141,9 +141,15 @@ di-JSON-stringify.
 
 ::: tip Hasil query Eloquent
 `Model.query().get()` mengembalikan `EloquentCollection`, yang
-**meng-extend** `Collection` yang sama ini (menambah
-`modelKeys()`/`find(id)`) — setiap method di atas sudah bekerja di hasil
-query. Lihat [Eloquent](/id/database/eloquent).
+**meng-extend** `Collection` yang sama ini — setiap method di atas sudah
+bekerja di hasil query, ditambah method model-aware: `modelKeys()`,
+`find(id)`, `load(...paths)` (eager-load relasi ke setiap model yang sudah
+ada di tangan), `loadCount(...names)`. Ia juga **meng-override**
+`diff`/`intersect`/`unique` supaya membandingkan model berdasarkan primary
+key (`getKey()`), bukan object reference — jadi
+`posts.diff(await Post.whereIn('id', ids).get())` tetap benar meski kedua
+collection berisi instance object yang berbeda untuk row yang sama. Lihat
+[Eloquent](/id/database/eloquent).
 :::
 
 ## Lazy Collection
