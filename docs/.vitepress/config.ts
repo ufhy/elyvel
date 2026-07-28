@@ -64,6 +64,7 @@ export default defineConfig({
               { text: 'Cache', link: '/digging-deeper/cache' },
               { text: 'Queues', link: '/digging-deeper/queues' },
               { text: 'Events', link: '/digging-deeper/events' },
+              { text: 'Mail', link: '/digging-deeper/mail' },
             ],
           },
           {
@@ -121,6 +122,7 @@ export default defineConfig({
               { text: 'Cache', link: '/id/digging-deeper/cache' },
               { text: 'Queue', link: '/id/digging-deeper/queues' },
               { text: 'Event', link: '/id/digging-deeper/events' },
+              { text: 'Mail', link: '/id/digging-deeper/mail' },
             ],
           },
           {
