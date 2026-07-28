@@ -1,10 +1,14 @@
 /**
  * A CLI command a package contributes to `elyvel` — the command-side
  * counterpart to {@link ServiceProviderClass}/`elyvelProviders`. A package
- * opts in by exporting `elyvelCommands: ConsoleCommand[]` from its main
- * entry; `elyvel package:discover` picks it up the same way it already
- * picks up `elyvelProviders`, generating `bootstrap/commands.generated.ts`
- * so `@elyvel/cli` never needs to depend on the package itself.
+ * opts in by exporting `elyvelCommands: ConsoleCommand[]` from a SEPARATE
+ * `<pkg>/cli` subpath (e.g. `@elyvel/queue/cli`) — never from its main
+ * entry, so a running app importing the package for its normal runtime API
+ * never pulls command implementations (and their `node:fs`/`createApp`
+ * etc. imports) into its own process. `elyvel package:discover` picks it
+ * up the same way it already picks up `elyvelProviders`, generating
+ * `bootstrap/commands.generated.ts` so `@elyvel/cli` never needs to depend
+ * on the package itself.
  */
 export interface ConsoleCommand {
   /** e.g. `'queue:work'`. */

@@ -11,14 +11,19 @@ it `false` (used for opt-outs like `serve --no-vite`).
 `package:discover`) — it doesn't depend on `@elyvel/database`,
 `@elyvel/queue`, or `@elyvel/scheduler` at all. Runtime commands like
 `queue:work`, `migrate`, and `schedule:run` are contributed by those
-packages themselves: any package can export `elyvelCommands` from its main
-entry, and `elyvel package:discover` finds it and writes
+packages themselves: any package can export `elyvelCommands` from a
+**separate `<pkg>/cli` subpath** (e.g. `@elyvel/queue/cli`, not the
+package's main entry), and `elyvel package:discover` finds it and writes
 `bootstrap/commands.generated.ts` — the same mechanism already used for
 service providers (`elyvelProviders` → `bootstrap/providers.generated.ts`).
-This runs automatically on every `bun install` (wired into the base
-template's `postinstall` script), so a package's commands just appear once
-it's installed — including a third-party package's own, without ever
-touching `@elyvel/cli`'s source.
+Commands live behind that separate subpath specifically so a running app
+importing `@elyvel/queue` for `dispatch()`/`Job` never pulls
+`queueWorkCommand` and the rest into its own process — only `elyvel`
+itself (or the discovery step) ever imports `<pkg>/cli`. This runs
+automatically on every `bun install` (wired into the base template's
+`postinstall` script), so a package's commands just appear once it's
+installed — including a third-party package's own, without ever touching
+`@elyvel/cli`'s source.
 
 If a command you expect (e.g. `queue:work`) isn't found, run
 `elyvel package:discover` — `elyvel help` also lists whatever it found

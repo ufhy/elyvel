@@ -1,27 +1,3 @@
-export {
-  applyModelSync,
-  boot,
-  castToType,
-  dbMonitorCommand,
-  dbShellCommand,
-  dbShowCommand,
-  dbTableCommand,
-  elyvelCommands,
-  inferFromDbType,
-  migrateCommand,
-  type ModelMeta,
-  modelSyncCommand,
-  type ModelSyncPlan,
-  planModelSync,
-  pruneCommand,
-  refreshCommand,
-  resetCommand,
-  resolveType,
-  rollbackCommand,
-  seedCommand,
-  statusCommand,
-  unlockCommand,
-} from './cli'
 export { type Concern, withConcerns } from './concern'
 export { type DatabaseConfig, defineDatabaseConfig } from './config-schema'
 export {
@@ -138,3 +114,7 @@ export { DatabaseToken } from './tokens'
 export { date, type Dayjs, now } from '@elyvel/core'
 
 export { Collection, LazyCollection } from '@elyvel/support'
+
+// CLI commands (`elyvelCommands`, migrateCommand, dbShellCommand, etc.) live at
+// the `@elyvel/database/cli` subpath, not here — so a running app importing
+// this main entry never loads them.

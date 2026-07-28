@@ -12,16 +12,6 @@ export {
   PendingBatch,
   RedisBatchStore,
 } from './batch'
-export {
-  elyvelCommands,
-  queueFailedCommand,
-  queueFlushCommand,
-  queueForgetCommand,
-  queuePruneFailedCommand,
-  queueRestartCommand,
-  queueRetryCommand,
-  queueWorkCommand,
-} from './cli'
 export { defineQueueConfig, type QueueConfig, type QueueConnectionConfig } from './config-schema'
 export { configureJobEncryption } from './encryption'
 export { configureQueueEventDispatcher, Queue } from './events'
@@ -105,4 +95,6 @@ export {
 
 /** Read by `elyvel package:discover` — see packages/core's discovery loader. */
 export const elyvelProviders = [QueueServiceProvider]
+// CLI commands (`elyvelCommands`) live at the `@elyvel/queue/cli` subpath, not
+// here — so a running app importing this main entry never loads them.
 export { Worker, type WorkerOptions } from './worker'

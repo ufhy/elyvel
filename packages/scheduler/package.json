@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "description": "Laravel-style task scheduling for elyvel — cron expressions, fluent frequencies, schedule:run",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",

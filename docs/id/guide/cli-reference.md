@@ -13,10 +13,16 @@ dan `--no-foo` mengaturnya `false` (dipakai untuk opt-out seperti
 `@elyvel/database`, `@elyvel/queue`, atau `@elyvel/scheduler`. Command
 runtime seperti `queue:work`, `migrate`, dan `schedule:run` disumbangkan
 oleh package-package itu sendiri: package mana pun bisa meng-export
-`elyvelCommands` dari entry utamanya, dan `elyvel package:discover`
-menemukannya lalu menulis `bootstrap/commands.generated.ts` — mekanisme
-yang sama yang sudah dipakai untuk service provider (`elyvelProviders` →
-`bootstrap/providers.generated.ts`). Ini berjalan otomatis di setiap `bun
+`elyvelCommands` dari **subpath terpisah `<pkg>/cli`** (misalnya
+`@elyvel/queue/cli`, bukan entry utama package), dan `elyvel
+package:discover` menemukannya lalu menulis
+`bootstrap/commands.generated.ts` — mekanisme yang sama yang sudah dipakai
+untuk service provider (`elyvelProviders` → `bootstrap/providers.generated.ts`).
+Command sengaja berada di subpath terpisah itu supaya aplikasi yang
+sedang jalan dan meng-import `@elyvel/queue` untuk `dispatch()`/`Job`
+tidak pernah ikut memuat `queueWorkCommand` dan yang lainnya ke dalam
+prosesnya sendiri — hanya `elyvel` itu sendiri (atau langkah discovery)
+yang pernah meng-import `<pkg>/cli`. Ini berjalan otomatis di setiap `bun
 install` (disambungkan ke script `postinstall` template dasar), jadi
 command sebuah package langsung muncul begitu terpasang — termasuk
 command milik package pihak ketiga, tanpa pernah menyentuh source

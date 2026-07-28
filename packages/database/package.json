@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "description": "A Laravel Eloquent-style Active Record ORM for Bun (SQLite + Postgres + MySQL)",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",

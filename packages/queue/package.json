@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "description": "Laravel-style queues for elyvel — jobs, workers, sync/memory/database/redis drivers",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",

@@ -5,6 +5,9 @@ import { join } from 'node:path'
 
 interface Discoverable {
   elyvelProviders?: ServiceProviderClass[]
+}
+
+interface CommandsModule {
   elyvelCommands?: ConsoleCommand[]
 }
 
@@ -12,6 +15,12 @@ interface DiscoveredPackage {
   name: string
   providerNames: string[]
   hasCommands: boolean
+}
+
+/** Whether `error` is Bun's "no such module" resolution failure, as opposed to a real bug in a module that DID resolve. */
+function isModuleNotFoundError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error
+    && (error as { code?: unknown }).code === 'ERR_MODULE_NOT_FOUND'
 }
 
 async function readDontDiscover(cwd: string): Promise<string[]> {
@@ -72,7 +81,7 @@ async function writeCommandsManifest(cwd: string, discovered: DiscoveredPackage[
   }
 
   const imports = withCommands
-    .map((pkg, i) => `import { elyvelCommands as commands$${i} } from '${pkg.name}'`)
+    .map((pkg, i) => `import { elyvelCommands as commands$${i} } from '${pkg.name}/cli'`)
     .join('\n')
   const list = withCommands.map((_pkg, i) => `...commands$${i}`).join(', ')
 
@@ -97,10 +106,16 @@ async function writeCommandsManifest(cwd: string, discovered: DiscoveredPackage[
  * `bun install` keeps both fresh automatically.
  *
  * A package opts in by exporting `elyvelProviders: ServiceProviderClass[]`
- * and/or `elyvelCommands: ConsoleCommand[]` from its main entry (see e.g.
- * `@elyvel/auth`'s `src/index.ts` for providers, `@elyvel/queue`'s for
- * commands) — real code exports, not `package.json` metadata, so they can't
- * drift from what the package actually ships. This is also what keeps
+ * from its main entry (see e.g. `@elyvel/auth`'s `src/index.ts`) and/or
+ * `elyvelCommands: ConsoleCommand[]` from a SEPARATE `<pkg>/cli` subpath
+ * export (see e.g. `@elyvel/queue`'s `package.json` `exports` + its
+ * `src/cli.ts`) — real code exports, not `package.json` metadata alone, so
+ * they can't drift from what the package actually ships. Commands live
+ * behind their own subpath (not the main entry) specifically so a running
+ * app importing `@elyvel/queue` for `dispatch()`/`Job` etc. never pulls
+ * `queueWorkCommand` and friends into its own process — only this
+ * discovery step (and the separate `elyvel` CLI process dispatching a
+ * discovered command) ever imports `<pkg>/cli`. This is also what keeps
  * `@elyvel/cli` itself from needing to depend on `@elyvel/queue`,
  * `@elyvel/database`, etc. just to know their commands exist — any package,
  * including a third-party one, can add its own `elyvel <name>:<command>`
@@ -136,7 +151,28 @@ export async function packageDiscoverCommand(): Promise<number> {
       return 1
     }
     const providerNames = module.elyvelProviders?.map(p => p.name) ?? []
-    const hasCommands = Boolean(module.elyvelCommands && module.elyvelCommands.length > 0)
+
+    // Commands live behind a SEPARATE `<pkg>/cli` subpath (not the main
+    // entry above), so a running app never loads them — see the doc
+    // comment on `packageDiscoverCommand`. A package simply not declaring
+    // that subpath is the common case, not an error; only a subpath that
+    // resolves but then fails to import (a real bug in that file) is fatal.
+    let hasCommands = false
+    try {
+      const resolvedCli = Bun.resolveSync(`${name}/cli`, cwd)
+      const cliModule = (await import(resolvedCli)) as CommandsModule
+      hasCommands = Boolean(cliModule.elyvelCommands && cliModule.elyvelCommands.length > 0)
+    }
+    catch (error) {
+      if (isModuleNotFoundError(error)) {
+        hasCommands = false
+      }
+      else {
+        console.error(`✗ Failed to import "${name}/cli" during discovery: ${error instanceof Error ? error.message : String(error)}`)
+        return 1
+      }
+    }
+
     if (providerNames.length === 0 && !hasCommands)
       continue
     discovered.push({ name, providerNames, hasCommands })

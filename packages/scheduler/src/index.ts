@@ -1,12 +1,5 @@
 import { ScheduleServiceProvider } from './provider'
 
-export {
-  elyvelCommands,
-  scheduleListCommand,
-  scheduleRunCommand,
-  scheduleTestCommand,
-  scheduleWorkCommand,
-} from './cli'
 export { cronMatches, parseCron, parseCronField, partsInZone } from './cron'
 export {
   configureScheduleFailureLogger,
@@ -26,4 +19,6 @@ export { ScheduleServiceProvider, ScheduleToken } from './provider'
 
 /** Read by `elyvel package:discover` — see packages/core's discovery loader. */
 export const elyvelProviders = [ScheduleServiceProvider]
+// CLI commands (`elyvelCommands`) live at the `@elyvel/scheduler/cli` subpath,
+// not here — so a running app importing this main entry never loads them.
 export { Schedule, schedule, type ScheduleRunResult, setDefaultSchedule } from './schedule'
