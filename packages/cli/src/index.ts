@@ -2,6 +2,7 @@
 import type { ConsoleCommand } from '@elyvel/core'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { loadAppCommands } from './commands/app-commands'
 import { broadcastServeCommand } from './commands/broadcast'
 import { configPublish } from './commands/config'
 import { keyGenerate } from './commands/key'
@@ -26,6 +27,20 @@ async function loadDiscoveredCommands(): Promise<ConsoleCommand[]> {
     return []
   const manifest = (await import(manifestPath)) as { discoveredCommands?: ConsoleCommand[] }
   return manifest.discoveredCommands ?? []
+}
+
+/**
+ * Every non-built-in command available to this app: its own `app/commands/`
+ * (scaffolded by `elyvel make:command`) plus whatever `elyvel package:discover`
+ * found. An app command wins on a name collision — it's the app's explicit
+ * intent, unlike a package's default.
+ */
+async function loadAllCommands(): Promise<ConsoleCommand[]> {
+  const commandsDir = join(process.cwd(), 'app', 'commands')
+  const appCommands = existsSync(commandsDir) ? await loadAppCommands(commandsDir) : []
+  const discovered = await loadDiscoveredCommands()
+  const appNames = new Set(appCommands.map(c => c.name))
+  return [...appCommands, ...discovered.filter(c => !appNames.has(c.name))]
 }
 
 const BANNER = `
@@ -63,6 +78,7 @@ Usage:
   elyvel make:notification <Name>              Generate a notification
   elyvel make:job <Name>                       Generate a queue job
   elyvel make:provider <Name>                  Generate a service provider
+  elyvel make:command <Name>                   Generate a custom command (auto-discovered from app/commands/)
 
   elyvel config:publish [name...] [--force]    Publish default config files to config/
   elyvel package:discover                      Auto-register installed packages' providers + commands
@@ -71,9 +87,9 @@ Usage:
 
 /**
  * Package-contributed commands (queue:*, migrate*, db*, schedule:*, model:*,
- * or a third-party package's own) aren't in the static BANNER above — they
- * only exist once the corresponding package is installed. List whatever
- * `package:discover` actually found instead.
+ * or a third-party package's own) and an app's own `app/commands/` aren't in
+ * the static BANNER above — they only exist per-app. List whatever
+ * `loadAllCommands()` actually found instead.
  */
 function formatDiscoveredCommands(commands: ConsoleCommand[]): string {
   if (commands.length === 0)
@@ -82,7 +98,7 @@ function formatDiscoveredCommands(commands: ConsoleCommand[]): string {
   const lines = commands
     .map(c => `  elyvel ${`${c.name} ${c.usage ?? ''}`.trim().padEnd(width)}  ${c.description}`)
     .join('\n')
-  return `\nDiscovered package commands (elyvel package:discover):\n${lines}\n`
+  return `\nApp + package commands:\n${lines}\n`
 }
 
 /** Split argv into positionals and `--flag[=value]` pairs. */
@@ -110,7 +126,7 @@ async function main(): Promise<number> {
 
   if (!command || command === 'help' || flags.help) {
     line(BANNER)
-    line(formatDiscoveredCommands(await loadDiscoveredCommands()))
+    line(formatDiscoveredCommands(await loadAllCommands()))
     return command ? 0 : 1
   }
 
@@ -163,22 +179,22 @@ async function main(): Promise<number> {
   }
 
   // Anything else (queue:*, migrate*, db*, schedule:*, model:*, or a
-  // third-party package's own commands) is dispatched from whatever
-  // `elyvel package:discover` found — see `loadDiscoveredCommands`.
-  const discovered = await loadDiscoveredCommands()
-  const match = discovered.find(c => c.name === command)
+  // third-party package's own commands, or the app's own app/commands/) is
+  // dispatched from whatever `loadAllCommands()` found.
+  const commands = await loadAllCommands()
+  const match = commands.find(c => c.name === command)
   if (match)
     return match.run(flags, rest)
 
   error(`Unknown command "${command}".`)
-  if (discovered.length === 0) {
+  if (commands.length === 0) {
     error(
-      'No package commands were discovered — if you expected one (e.g. queue:work), '
-      + 'run `elyvel package:discover` first.',
+      'No app or package commands were found — if you expected one (e.g. queue:work), '
+      + 'run `elyvel package:discover` first, or add one to app/commands/.',
     )
   }
   line(BANNER)
-  line(formatDiscoveredCommands(discovered))
+  line(formatDiscoveredCommands(commands))
   return 1
 }
 

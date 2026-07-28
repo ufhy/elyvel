@@ -129,6 +129,12 @@ const blueprints: Record<string, Blueprint> = {
     dir: 'app/jobs',
     filename: n => `${n.class}.ts`,
   },
+  command: {
+    stub: 'command',
+    suffix: '',
+    dir: 'app/commands',
+    filename: n => `${n.class}.ts`,
+  },
 }
 
 /** Generate a single blueprint file, returning an exit code. */

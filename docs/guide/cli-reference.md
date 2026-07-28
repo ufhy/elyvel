@@ -26,8 +26,8 @@ installed — including a third-party package's own, without ever touching
 `@elyvel/cli`'s source.
 
 If a command you expect (e.g. `queue:work`) isn't found, run
-`elyvel package:discover` — `elyvel help` also lists whatever it found
-under "Discovered package commands".
+`elyvel package:discover` — `elyvel help` also lists whatever it found,
+alongside your app's own `app/commands/`, under "App + package commands".
 
 ## Application & scaffolding
 
@@ -69,7 +69,42 @@ Every `make:*` generator accepts `--force` to overwrite an existing file.
 | `make:seeder <Name>` | Seeder | — |
 | `make:factory <Name>` | Model factory | — |
 | `make:concern <Name>` | Model concern (trait-equivalent) | — |
+| `make:command <Name>` | Custom `elyvel` command (see [Custom commands](#custom-commands-app-commands) below) | — |
 | `auth:generate-migration-plugin` | Migration re-running Better Auth schema sync (after manually enabling a plugin in `config/auth.ts`) | none — no name/flags, always writes `<timestamp>_sync_auth_schema.ts` |
+
+## Custom commands (`app/commands/`)
+
+`elyvel make:command SendReminders` scaffolds `app/commands/SendReminders.ts`,
+default-exporting a `ConsoleCommand` (the same shape a package's own
+`elyvelCommands` use) — no registration step needed. Every `.ts`/`.js` file
+under `app/commands/` is loaded the same way `routes/` is: scanned
+recursively, imported, and checked for a conforming default export. A file
+that doesn't default-export a `ConsoleCommand` is skipped with a warning
+rather than crashing the CLI — so a stray helper file in that directory is
+harmless.
+
+```ts
+// app/commands/SendReminders.ts
+import type { ConsoleCommand } from '@elyvel/core'
+import { info } from '@elyvel/cli'
+
+const SendReminders: ConsoleCommand = {
+  name: 'send-reminders',
+  description: 'Email everyone with an upcoming renewal',
+  run: async (flags, args) => {
+    info('Reminders sent.')
+    return 0
+  },
+}
+
+export default SendReminders
+```
+
+Run it with `elyvel send-reminders`. If the name collides with a
+package-contributed command, the app's own command wins — it's more
+specific than a package default. Use the same console I/O helpers a
+package's own commands use, all imported from `@elyvel/cli`:
+`info`/`warn`/`error`/`comment`/`table`/`ask`/`confirm`/`choice`/`secret`/`progressBar`.
 
 ## Database (from `@elyvel/database`)
 

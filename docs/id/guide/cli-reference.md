@@ -30,7 +30,8 @@ command milik package pihak ketiga, tanpa pernah menyentuh source
 
 Jika command yang kamu harapkan (misalnya `queue:work`) tidak ditemukan,
 jalankan `elyvel package:discover` — `elyvel help` juga mendaftar apa pun
-yang ditemukan di bawah "Discovered package commands".
+yang ditemukan, bersama `app/commands/` milik aplikasimu sendiri, di bawah
+"App + package commands".
 
 ## Aplikasi & scaffolding
 
@@ -74,7 +75,43 @@ sudah ada.
 | `make:seeder <Name>` | Seeder | — |
 | `make:factory <Name>` | Model factory | — |
 | `make:concern <Name>` | Model concern (padanan trait) | — |
+| `make:command <Name>` | Command `elyvel` custom (lihat [Command custom](#command-custom-app-commands) di bawah) | — |
 | `auth:generate-migration-plugin` | Migrasi yang menjalankan ulang sync skema Better Auth (setelah mengaktifkan plugin manual di `config/auth.ts`) | tidak ada — tanpa nama/flag, selalu menulis `<timestamp>_sync_auth_schema.ts` |
+
+## Command custom (`app/commands/`)
+
+`elyvel make:command SendReminders` men-scaffold
+`app/commands/SendReminders.ts`, default-export sebuah `ConsoleCommand`
+(bentuk yang sama dipakai `elyvelCommands` milik sebuah package) — tanpa
+langkah registrasi. Setiap file `.ts`/`.js` di bawah `app/commands/` dimuat
+dengan cara yang sama seperti `routes/`: dipindai secara rekursif,
+di-import, lalu diperiksa apakah default export-nya sesuai. File yang tidak
+default-export sebuah `ConsoleCommand` dilewati dengan peringatan, bukan
+membuat CLI crash — jadi file bantuan yang nyasar di direktori itu tidak
+berbahaya.
+
+```ts
+// app/commands/SendReminders.ts
+import type { ConsoleCommand } from '@elyvel/core'
+import { info } from '@elyvel/cli'
+
+const SendReminders: ConsoleCommand = {
+  name: 'send-reminders',
+  description: 'Kirim email pengingat ke semua orang dengan perpanjangan mendatang',
+  run: async (flags, args) => {
+    info('Pengingat terkirim.')
+    return 0
+  },
+}
+
+export default SendReminders
+```
+
+Jalankan dengan `elyvel send-reminders`. Kalau namanya bentrok dengan
+command sumbangan sebuah package, command milik aplikasi yang menang — ia
+lebih spesifik daripada default package. Pakai helper I/O console yang sama
+dipakai command milik package, semuanya di-import dari `@elyvel/cli`:
+`info`/`warn`/`error`/`comment`/`table`/`ask`/`confirm`/`choice`/`secret`/`progressBar`.
 
 ## Database (dari `@elyvel/database`)
 

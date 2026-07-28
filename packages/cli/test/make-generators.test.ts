@@ -187,6 +187,16 @@ describe('make:concern', () => {
   })
 })
 
+describe('make:command', () => {
+  test('generates a ConsoleCommand default export, discoverable from app/commands/', async () => {
+    expect(await make('command', 'SendReminders')).toBe(0)
+    const src = read('app/commands/SendReminders.ts')
+    expect(src).toContain('const SendReminders: ConsoleCommand')
+    expect(src).toContain('name: \'send-reminders\'')
+    expect(src).toContain('export default SendReminders')
+  })
+})
+
 describe('make:model companions', () => {
   test('plain make:model generates only the model', async () => {
     expect(await make('model', 'Category')).toBe(0)

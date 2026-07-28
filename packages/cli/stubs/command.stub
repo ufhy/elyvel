@@ -1,0 +1,20 @@
+import type { ConsoleCommand } from '@elyvel/core'
+import { info } from '@elyvel/cli'
+
+/**
+ * {{class}} — a custom `elyvel` command. Discovered automatically from
+ * `app/commands/` (default export), no registration needed. Run it with:
+ *
+ *   elyvel {{kebab}}
+ */
+const {{class}}: ConsoleCommand = {
+  name: '{{kebab}}',
+  description: 'Describe what {{class}} does.',
+  // usage: '<arg> [--flag]',
+  run(flags, args) {
+    info('{{class}} ran.')
+    return 0
+  },
+}
+
+export default {{class}}
