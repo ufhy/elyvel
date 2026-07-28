@@ -73,6 +73,7 @@ export default defineConfig({
               { text: 'Localization', link: '/digging-deeper/localization' },
               { text: 'Views', link: '/digging-deeper/views' },
               { text: 'HTTP Tests', link: '/digging-deeper/testing' },
+              { text: 'File Storage', link: '/digging-deeper/storage' },
             ],
           },
           {
@@ -139,6 +140,7 @@ export default defineConfig({
               { text: 'Localization', link: '/id/digging-deeper/localization' },
               { text: 'View', link: '/id/digging-deeper/views' },
               { text: 'HTTP Test', link: '/id/digging-deeper/testing' },
+              { text: 'File Storage', link: '/id/digging-deeper/storage' },
             ],
           },
           {
