@@ -154,6 +154,28 @@ Karena mail dikirim di luar HTTP request, `shared` di sana tidak punya
 session sungguhan — `errors`/`old`/`flash`/`csrf` masuk sebagai default
 kosong.
 
+## Link pagination
+
+Render link prev/next + nomor halaman berjendela untuk
+[paginator Eloquent](/id/database/eloquent#pagination):
+
+```ts
+import { paginationLinks } from '@elyvel/view'
+
+const page = await Post.query().orderBy('id').paginate(15, currentPage)
+
+html`
+  <ul>${page.data.map(post => html`<li>${post.title}</li>`)}</ul>
+  ${paginationLinks(page, { path: '/posts', window: 2 })}
+`
+```
+
+`window` mengontrol berapa banyak nomor halaman yang tampil di tiap sisi
+halaman saat ini (default 2). Apa pun dengan field
+`currentPage`/`lastPage` bekerja — bukan cuma tipe `Paginator` yang
+persis — jadi bentuk pagination dari `simplePaginate()`/custom bisa
+disesuaikan.
+
 ## Halaman error custom
 
 Halaman error default framework (404, 500, halaman debug khusus dev)

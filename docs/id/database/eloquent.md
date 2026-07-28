@@ -246,6 +246,9 @@ await User.query().simplePaginate(15) // tanpa COUNT — { data, hasMore }
 await User.query().cursorPaginate(15, cursor) // keyset pagination
 ```
 
+Untuk me-render link prev/next/bernomor dari hasil `paginate()` di
+sebuah [view](/id/digging-deeper/views), lihat `paginationLinks()`.
+
 ## Soft delete & scope
 
 ```ts
@@ -265,6 +268,61 @@ Global scope berlaku untuk setiap query pada model tersebut:
 
 ```ts
 Post.addGlobalScope('published', qb => qb.where('published', true))
+```
+
+## Event model & observer
+
+Setiap save/delete melewati lifecycle penuh berisi event bernama:
+`saving`/`saved`, `creating`/`created`, `updating`/`updated`,
+`deleting`/`deleted`, `trashed`, `forceDeleting`/`forceDeleted`,
+`restoring`/`restored`, `retrieved`, `replicating`, `pruning`. Dengarkan
+satu secara langsung:
+
+```ts
+Post.on('created', (post) => {
+  console.log('post baru:', post.id)
+})
+```
+
+Kelompokkan handler terkait ke dalam sebuah **observer** alih-alih
+menyebar pemanggilan `.on()` — object (atau class) apa pun yang nama
+method-nya cocok dengan nama event:
+
+```ts
+// app/observers/PostObserver.ts
+export class PostObserver {
+  creating(post: Post) {
+    post.slug ??= Str.slug(post.title)
+  }
+
+  deleted(post: Post) {
+    logger.info(`post ${post.id} dihapus`)
+  }
+}
+```
+
+```ts
+Post.observe(PostObserver)
+```
+
+Atau pasang langsung di class dengan decorator `@ObservedBy` alih-alih
+pemanggilan `observe()` terpisah:
+
+```ts
+@ObservedBy(PostObserver)
+class Post extends Model { /* ... */ }
+```
+
+Event model tetap berada di dalam proses secara default — mereka tidak
+lewat [`@elyvel/events`](/id/digging-deeper/events) kecuali kamu
+menjembataninya secara eksplisit:
+
+```ts
+import { event } from '@elyvel/events'
+import { configureModelEventDispatcher } from '@elyvel/database'
+
+configureModelEventDispatcher((name, model) => event(name, model))
+// sekarang: listen('eloquent.created: Post', (post) => { ... })
 ```
 
 ## Userstamps

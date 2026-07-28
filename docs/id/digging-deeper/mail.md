@@ -125,6 +125,18 @@ bawaan sebagai default. Ini mirroring failed-job store milik
 `@elyvel/queue`, jadi kegagalan tidak diam-diam hilang meski tanpa setup
 monitoring mail yang lengkap.
 
+Baca kembali dengan `failedMail()`:
+
+```ts
+import { failedMail } from '@elyvel/mail'
+
+const records = await failedMail()?.all()
+await failedMail()?.find(id)
+await failedMail()?.forget(id)   // hapus satu
+await failedMail()?.flush()      // hapus semua
+await failedMail()?.prune(24)    // hapus record lebih tua dari 24 jam
+```
+
 ## Testing
 
 Tidak ada `Mail::fake()` — ganti dengan transport `array` sebagai gantinya

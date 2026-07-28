@@ -88,4 +88,14 @@ const client = new TelegramClient({ token: 'test', apiBase: `http://localhost:${
 await client.sendMessage({ chatId: 1, text: 'hi' })
 ```
 
+Supaya kode yang memanggil facade `Telegram`/`telegram()` (alih-alih
+menyimpan instance client-nya sendiri) memakai fake ini, tukar sebagai
+default proses:
+
+```ts
+import { setDefaultTelegram } from '@elyvel/telegram'
+
+setDefaultTelegram(client)
+```
+
 `apiBase` adalah opsi constructor kelas satu khusus untuk ini.

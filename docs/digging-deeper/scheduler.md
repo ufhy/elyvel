@@ -80,9 +80,9 @@ schedule.call(cleanup).daily().onOneServer()  // only one instance runs it
 schedule.call(pingHealthcheck).everyMinute().runInBackground() // don't block the rest of the schedule
 ```
 
-`withoutOverlapping()` and `onOneServer()` are per-process (in-memory) by
-default — fine for a single instance, but a no-op guarantee across
-multiple instances until you wire a shared mutex:
+`withoutOverlapping()` and `onOneServer()` are backed by `MemoryScheduleMutex`
+(per-process, in-memory) by default — fine for a single instance, but a
+no-op guarantee across multiple instances until you wire a shared mutex:
 
 ```ts
 import { configureScheduleMutex, RedisScheduleMutex } from '@elyvel/scheduler'
@@ -108,10 +108,22 @@ Also available: `before(fn)`/`after(fn)` (run regardless of outcome),
 capture (`sendOutputTo(path)`, `appendOutputTo(path)`,
 `emailOutputTo(address)`).
 
+`emailOutputTo` needs a mailer wired first — this package doesn't bundle
+one, so it stays decoupled from `@elyvel/mail`:
+
+```ts
+import { configureScheduleMailer } from '@elyvel/scheduler'
+import { Mail } from '@elyvel/mail'
+
+configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).text(body).send())
+```
+
 Independent of any `.onFailure()` you write, every task failure — including
 `runInBackground()` tasks whose errors never reach the CLI's own output —
-is logged to the `scheduler` channel automatically, so a silently-failing
-cron job still leaves a trace. See [Logging](/digging-deeper/logging).
+is logged to the `scheduler` channel automatically via
+`configureScheduleFailureLogger` (wired by `ScheduleServiceProvider` at
+boot), so a silently-failing cron job still leaves a trace. See
+[Logging](/digging-deeper/logging).
 
 ## Running the scheduler
 

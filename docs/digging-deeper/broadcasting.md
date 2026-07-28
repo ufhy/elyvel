@@ -28,6 +28,23 @@ hub, but relays broadcasts across processes/instances via Redis pub/sub —
 logger, the dev default), and `array` (collects in memory — see
 [Testing](#testing)).
 
+The `redis` driver is backed by an importable `RedisBroadcaster` class if
+you need to construct one manually (a custom Redis client, or listening
+for `RedisConnectionEvent`s like reconnects):
+
+```ts
+import { RedisBroadcaster } from '@elyvel/broadcasting'
+
+const broadcaster = new RedisBroadcaster(
+  publisherClient,   // a plain { send(command, args) } — the publish side
+  subscriberClient,  // a SEPARATE connection — Redis can't publish and subscribe on one
+  hub,
+  'elyvel-broadcast', // wire channel, default shown
+  event => console.log('redis:', event), // 'connected' | 'disconnected'
+)
+await broadcaster.listen() // start relaying — call once at boot
+```
+
 ## Channels & authorization
 
 Channel names follow Laravel's convention: a bare name (`posts.5`) is

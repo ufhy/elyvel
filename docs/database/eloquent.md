@@ -246,6 +246,9 @@ await User.query().simplePaginate(15) // no COUNT — { data, hasMore }
 await User.query().cursorPaginate(15, cursor) // keyset pagination
 ```
 
+To render prev/next/numbered links for a `paginate()` result in a
+[view](/digging-deeper/views), see `paginationLinks()`.
+
 ## Soft deletes & scopes
 
 ```ts
@@ -265,6 +268,61 @@ Global scopes apply to every query for a model:
 
 ```ts
 Post.addGlobalScope('published', qb => qb.where('published', true))
+```
+
+## Model events & observers
+
+Every save/delete goes through a full lifecycle of named events:
+`saving`/`saved`, `creating`/`created`, `updating`/`updated`,
+`deleting`/`deleted`, `trashed`, `forceDeleting`/`forceDeleted`,
+`restoring`/`restored`, `retrieved`, `replicating`, `pruning`. Listen to
+one directly:
+
+```ts
+Post.on('created', (post) => {
+  console.log('new post:', post.id)
+})
+```
+
+Group related handlers into an **observer** instead of scattering
+`.on()` calls — any object (or class) whose method names match event
+names:
+
+```ts
+// app/observers/PostObserver.ts
+export class PostObserver {
+  creating(post: Post) {
+    post.slug ??= Str.slug(post.title)
+  }
+
+  deleted(post: Post) {
+    logger.info(`post ${post.id} deleted`)
+  }
+}
+```
+
+```ts
+Post.observe(PostObserver)
+```
+
+Or attach it directly on the class with the `@ObservedBy` decorator
+instead of a separate `observe()` call:
+
+```ts
+@ObservedBy(PostObserver)
+class Post extends Model { /* ... */ }
+```
+
+Model events stay in-process by default — they don't flow through
+[`@elyvel/events`](/digging-deeper/events) unless you bridge them
+explicitly:
+
+```ts
+import { event } from '@elyvel/events'
+import { configureModelEventDispatcher } from '@elyvel/database'
+
+configureModelEventDispatcher((name, model) => event(name, model))
+// now: listen('eloquent.created: Post', (post) => { ... })
 ```
 
 ## Userstamps

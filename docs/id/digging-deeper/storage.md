@@ -29,7 +29,18 @@ Dua driver sungguhan: `local` (file di bawah `root` relatif terhadap
 aplikasi) dan `s3` (API kompatibel S3 mana pun lewat `S3Client` native
 Bun — tanpa dependency `aws-sdk`). Satu lagi, `scoped`, membungkus disk
 bernama lain dengan prefix path — tampilan terbatas atas disk yang sudah
-kamu definisikan, tanpa menduplikasi kredensialnya.
+kamu definisikan, tanpa menduplikasi kredensialnya:
+
+```ts
+disks: {
+  s3: { driver: 's3', bucket: 'app-uploads', /* ... */ },
+  tenantUploads: { driver: 'scoped', disk: 's3', prefix: `tenants/${tenantId}` },
+}
+```
+
+Setiap operasi pada `storage('tenantUploads')` terkurung di bawah prefix
+itu — path yang akan lolos darinya (misalnya lewat `../`) throw
+`PathEscapeError` alih-alih diam-diam mencapai file tenant lain.
 
 ## Membaca & menulis
 

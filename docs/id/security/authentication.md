@@ -457,3 +457,50 @@ Kegagalan tingkat-field (email duplikat, password lemah) dikembalikan sebagai
 `422` dengan bag `errors` yang di-key berdasarkan field — bentuk yang sama yang
 dihasilkan setiap request tervalidasi di elyvel, dan diterjemahkan melalui
 language namespace `auth::` dan `validation::`.
+
+## Testing
+
+Login sebagai user tertentu tanpa lewat alur Better Auth sungguhan —
+lihat [HTTP Test](/id/digging-deeper/testing#bertindak-sebagai-user)
+untuk seam testing lengkap
+`actingAs()`/`stopActingAs()`/`actingAsGuest()`.
+
+## Password hashing
+
+`Hash` membungkus `Bun.password` native milik Bun (argon2id secara
+default, verifikasi constant-time) — primitif yang sama yang dipakai
+Better Auth sendiri di baliknya, tersedia langsung jika kamu pernah butuh
+hash/verify password di luar alur auth:
+
+```ts
+import { Hash } from '@elyvel/auth'
+
+const hashed = await Hash.make('a-plaintext-password')
+await Hash.verify('a-plaintext-password', hashed) // boolean
+```
+
+## Auth token standalone (lanjutan)
+
+Untuk gate API-token minimal yang tidak butuh session/2FA/login sosial —
+API machine-to-machine atau mobile-client — `AuthManager` adalah
+alternatif yang lebih ringan dan independen dari `betterAuthPlugin()`.
+Keduanya tidak bisa digabung; pilih satu per aplikasi:
+
+```ts
+import { createAuth } from '@elyvel/auth'
+
+const auth = createAuth({
+  provider: myUserProvider,   // retrieveById / retrieveByCredentials / validateCredentials
+  tokens: myTokenStore,        // store / findUserId / revoke (hanya token yang di-hash)
+  maxAttempts: 5,               // lockout login gagal, di-key berdasarkan email
+  decayMinutes: 1,
+})
+
+const { user, token } = await auth.attempt({ email, password }) ?? {}
+// throw TooManyAttemptsError saat lockout; return null saat kredensial salah
+
+app.use(auth.guard()) // menurunkan `user`/`authToken`, menambah macro `auth`
+```
+
+Kamu mengimplementasikan `UserProvider`/`TokenStore` sendiri di atas
+model-mu sendiri — ini sengaja dibuat DB-agnostic.

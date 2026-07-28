@@ -157,7 +157,23 @@ notifications().channel('array', array)
 array.sent // [{ notifiable, notification, data }, ...]
 ```
 
+`setDefaultNotifications(manager)` swaps the process-wide default
+`NotificationManager` entirely — useful for building a fresh manager with
+only the channels a given test needs, rather than reconfiguring the real
+one in place.
+
 Failed sends (any channel's `send()` throwing) are recorded separately if
 you opt in with `configureFailedNotifications(adapter)` — a
 `MemoryFailedNotificationStore` ships by default, giving visibility into
-per-channel delivery failures without a full assertion API.
+per-channel delivery failures without a full assertion API. Read them
+back with `failedNotifications()`:
+
+```ts
+import { failedNotifications } from '@elyvel/notifications'
+
+await failedNotifications()?.all()
+await failedNotifications()?.find(id)
+await failedNotifications()?.forget(id)
+await failedNotifications()?.flush()
+await failedNotifications()?.prune(24) // older than 24 hours
+```

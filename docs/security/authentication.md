@@ -450,3 +450,49 @@ Field-level failures (a duplicate email, a weak password) come back as a `422`
 with an `errors` bag keyed by field — the same shape every validated request in
 elyvel produces, and translated through the `auth::` and `validation::` language
 namespaces.
+
+## Testing
+
+Sign in as a specific user without going through the real Better Auth flow —
+see [HTTP Tests](/digging-deeper/testing#acting-as-a-user) for the full
+`actingAs()`/`stopActingAs()`/`actingAsGuest()` testing seam.
+
+## Password hashing
+
+`Hash` wraps Bun's native `Bun.password` (argon2id by default, constant-time
+verification) — the same primitive Better Auth itself uses under the hood,
+available directly if you ever need to hash/verify a password outside the
+auth flow:
+
+```ts
+import { Hash } from '@elyvel/auth'
+
+const hashed = await Hash.make('a-plaintext-password')
+await Hash.verify('a-plaintext-password', hashed) // boolean
+```
+
+## Standalone token auth (advanced)
+
+For a minimal API-token guard that doesn't need sessions/2FA/social
+login — a machine-to-machine or mobile-client API — `AuthManager` is a
+lighter-weight, independent alternative to `betterAuthPlugin()`. The two
+don't compose; pick one per app:
+
+```ts
+import { createAuth } from '@elyvel/auth'
+
+const auth = createAuth({
+  provider: myUserProvider,   // retrieveById / retrieveByCredentials / validateCredentials
+  tokens: myTokenStore,        // store / findUserId / revoke (hashed tokens only)
+  maxAttempts: 5,               // failed-login lockout, keyed by email
+  decayMinutes: 1,
+})
+
+const { user, token } = await auth.attempt({ email, password }) ?? {}
+// throws TooManyAttemptsError on lockout; returns null on bad credentials
+
+app.use(auth.guard()) // derives `user`/`authToken`, adds the `auth` macro
+```
+
+You implement `UserProvider`/`TokenStore` yourself over your own model —
+this stays storage-agnostic by design.

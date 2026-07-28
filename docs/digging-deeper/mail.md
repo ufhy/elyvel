@@ -120,6 +120,18 @@ summary, and the error) before the error is rethrown — opt in with
 default. This mirrors `@elyvel/queue`'s failed-job store, so failures aren't
 silently lost even without a full mail-monitoring setup.
 
+Read them back with `failedMail()`:
+
+```ts
+import { failedMail } from '@elyvel/mail'
+
+const records = await failedMail()?.all()
+await failedMail()?.find(id)
+await failedMail()?.forget(id)   // delete one
+await failedMail()?.flush()      // delete all
+await failedMail()?.prune(24)    // delete records older than 24 hours
+```
+
 ## Testing
 
 There's no `Mail::fake()` — swap in the `array` transport instead and

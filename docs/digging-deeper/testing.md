@@ -88,6 +88,11 @@ one client, always pair it with `stopActingAs()` (typically in
 left authenticated as the wrong user. `actingAsGuest()` forces
 unauthenticated instead.
 
+`currentTestActor()` reads back whoever the override currently resolves
+to (`User | null | undefined`) — useful inside a shared test helper that
+needs to know whether `actingAs`/`actingAsGuest` is currently active
+without threading the user through as a parameter.
+
 ## Database isolation
 
 ```ts

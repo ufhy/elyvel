@@ -83,9 +83,10 @@ schedule.call(cleanup).daily().onOneServer()  // hanya satu instance yang menjal
 schedule.call(pingHealthcheck).everyMinute().runInBackground() // tidak memblokir sisa jadwal
 ```
 
-`withoutOverlapping()` dan `onOneServer()` per-proses (in-memory) secara
-default — cukup untuk satu instance, tapi hanya jaminan no-op lintas
-beberapa instance sampai kamu menyambungkan mutex bersama:
+`withoutOverlapping()` dan `onOneServer()` didukung `MemoryScheduleMutex`
+(per-proses, in-memory) secara default — cukup untuk satu instance, tapi
+hanya jaminan no-op lintas beberapa instance sampai kamu menyambungkan
+mutex bersama:
 
 ```ts
 import { configureScheduleMutex, RedisScheduleMutex } from '@elyvel/scheduler'
@@ -111,11 +112,22 @@ Tersedia juga: `before(fn)`/`after(fn)` (berjalan apa pun hasilnya),
 output (`sendOutputTo(path)`, `appendOutputTo(path)`,
 `emailOutputTo(address)`).
 
+`emailOutputTo` butuh mailer yang disambungkan dulu — package ini tidak
+membundel satu pun, jadi tetap decoupled dari `@elyvel/mail`:
+
+```ts
+import { configureScheduleMailer } from '@elyvel/scheduler'
+import { Mail } from '@elyvel/mail'
+
+configureScheduleMailer((to, subject, body) => Mail.to(to).subject(subject).text(body).send())
+```
+
 Terlepas dari `.onFailure()` apa pun yang kamu tulis, setiap kegagalan task
 — termasuk task `runInBackground()` yang error-nya tidak pernah sampai ke
-output CLI itu sendiri — otomatis dicatat ke channel `scheduler`, sehingga
-cron job yang gagal secara diam-diam tetap meninggalkan jejak. Lihat
-[Logging](/id/digging-deeper/logging).
+output CLI itu sendiri — otomatis dicatat ke channel `scheduler` lewat
+`configureScheduleFailureLogger` (disambungkan `ScheduleServiceProvider`
+saat boot), sehingga cron job yang gagal secara diam-diam tetap
+meninggalkan jejak. Lihat [Logging](/id/digging-deeper/logging).
 
 ## Menjalankan scheduler
 

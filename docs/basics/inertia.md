@@ -84,7 +84,27 @@ Inertia.render('Users/Index', {
 
 `Inertia.defer`/`.merge`/`.deepMerge`/`.always`/`.optional`/`.once` each
 solve a different "don't compute or send this until it's actually needed"
-problem — reach for whichever matches.
+problem — reach for whichever matches. Each factory wraps the callback in
+an underlying class (`DeferProp`/`MergeProp`/`AlwaysProp`/`OptionalProp`/
+`OnceProp`) if you ever need to inspect or `instanceof`-check a prop value
+rather than just produce one.
+
+## History encryption & redirects to another origin
+
+`Inertia.render()` returns a chainable `InertiaResponse` with a few more
+per-page controls:
+
+```ts
+Inertia.render('Settings/Billing', props)
+  .encryptHistory()   // encrypt this page's state in the browser history (e.g. a page showing sensitive data)
+  .clearHistory()      // drop all previous history entries (e.g. after logout)
+  .preserveFragment()  // keep the URL's #fragment across this visit
+```
+
+For a redirect that must leave elyvel's own request/response cycle
+entirely (an external URL, or a location Inertia's client can't just
+merge into its current page state), use `Inertia.location(url)` instead
+of `Inertia.render(...)` — it forces a full browser navigation.
 
 ## Asset versioning
 

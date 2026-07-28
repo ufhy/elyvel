@@ -28,6 +28,23 @@ pub/sub — opsi `url`/`channel` mengatur koneksinya), `log` (menulis ke
 logger, default untuk dev), dan `array` (dikumpulkan di memory — lihat
 [Testing](#testing)).
 
+Driver `redis` didukung class `RedisBroadcaster` yang bisa di-import
+jika kamu perlu membuatnya secara manual (client Redis custom, atau
+mendengarkan `RedisConnectionEvent` seperti reconnect):
+
+```ts
+import { RedisBroadcaster } from '@elyvel/broadcasting'
+
+const broadcaster = new RedisBroadcaster(
+  publisherClient,   // { send(command, args) } biasa — sisi publish
+  subscriberClient,  // koneksi TERPISAH — Redis tidak bisa publish dan subscribe di satu koneksi
+  hub,
+  'elyvel-broadcast', // wire channel, default ditampilkan
+  event => console.log('redis:', event), // 'connected' | 'disconnected'
+)
+await broadcaster.listen() // mulai merelay — panggil sekali saat boot
+```
+
 ## Channel & otorisasi
 
 Nama channel mengikuti konvensi Laravel: nama polos (`posts.5`) bersifat

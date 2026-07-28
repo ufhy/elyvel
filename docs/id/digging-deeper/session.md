@@ -35,6 +35,18 @@ Opsi lain: `secret` (default ke `app.key`), `path`/`domain`/`secure`/
 `httpOnly`/`sameSite` (atribut cookie), `expireOnClose` (hilangkan `maxAge`
 supaya cookie mati bersama tab browser).
 
+::: details Class di baliknya, untuk komposisi custom
+Setiap driver didukung implementasi `SessionStore` yang di-export —
+`MemorySessionStore`, `FileSessionStore`, `RedisSessionStore` (plus yang
+berbasis database secara internal di balik `configureDatabaseSession`).
+Kebanyakan aplikasi tidak pernah menyentuh ini langsung — cukup pilih
+string `driver` di config — tapi tersedia jika kamu perlu membuat satu
+sendiri (misalnya menyambungkan client Redis custom) atau
+mengimplementasikan `SessionStore` milikmu sendiri. `sessionPlugin(config)`
+adalah plugin Elysia yang dipasang framework secara internal untuk
+menyambungkan store ke `ctx.session`.
+:::
+
 ## Membaca & menulis
 
 ```ts

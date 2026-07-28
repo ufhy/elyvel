@@ -158,7 +158,23 @@ notifications().channel('array', array)
 array.sent // [{ notifiable, notification, data }, ...]
 ```
 
+`setDefaultNotifications(manager)` mengganti `NotificationManager`
+default untuk seluruh proses sepenuhnya — berguna untuk membangun
+manager baru dengan hanya channel yang dibutuhkan sebuah test, alih-alih
+mengkonfigurasi ulang yang sungguhan di tempat.
+
 Pengiriman yang gagal (channel mana pun yang `send()`-nya throw) dicatat
 terpisah jika kamu opt-in dengan `configureFailedNotifications(adapter)` —
 `MemoryFailedNotificationStore` tersedia bawaan sebagai default, memberi
 visibilitas ke kegagalan pengiriman per-channel tanpa API assertion penuh.
+Baca kembali dengan `failedNotifications()`:
+
+```ts
+import { failedNotifications } from '@elyvel/notifications'
+
+await failedNotifications()?.all()
+await failedNotifications()?.find(id)
+await failedNotifications()?.forget(id)
+await failedNotifications()?.flush()
+await failedNotifications()?.prune(24) // lebih tua dari 24 jam
+```

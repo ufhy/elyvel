@@ -86,7 +86,29 @@ Inertia.render('Users/Index', {
 
 `Inertia.defer`/`.merge`/`.deepMerge`/`.always`/`.optional`/`.once`
 masing-masing menyelesaikan masalah "jangan hitung atau kirim ini sampai
-benar-benar dibutuhkan" yang berbeda — pakai yang sesuai.
+benar-benar dibutuhkan" yang berbeda — pakai yang sesuai. Setiap factory
+membungkus callback-nya dalam class di baliknya
+(`DeferProp`/`MergeProp`/`AlwaysProp`/`OptionalProp`/`OnceProp`) jika
+kamu pernah perlu memeriksa atau `instanceof`-check sebuah nilai prop,
+bukan cuma menghasilkannya.
+
+## Enkripsi history & redirect ke origin lain
+
+`Inertia.render()` mengembalikan `InertiaResponse` yang chainable dengan
+beberapa kontrol per-halaman tambahan:
+
+```ts
+Inertia.render('Settings/Billing', props)
+  .encryptHistory()   // enkripsi state halaman ini di history browser (misal halaman yang menampilkan data sensitif)
+  .clearHistory()      // hapus semua entri history sebelumnya (misal setelah logout)
+  .preserveFragment()  // pertahankan #fragment URL sepanjang visit ini
+```
+
+Untuk redirect yang harus benar-benar keluar dari siklus request/response
+milik elyvel sendiri (URL eksternal, atau lokasi yang tidak bisa
+digabungkan client Inertia ke state halamannya saat ini), pakai
+`Inertia.location(url)` alih-alih `Inertia.render(...)` — ini memaksa
+navigasi browser penuh.
 
 ## Asset versioning
 

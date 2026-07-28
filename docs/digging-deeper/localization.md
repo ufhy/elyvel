@@ -136,6 +136,22 @@ key missing in both is returned as-is (the key string itself), matching
 Laravel's behavior — never a thrown error. Opt into logging every miss with
 `logMissing: true` in `config/i18n.ts`.
 
+## The lower-level translator API
+
+Most apps only need `config/i18n.ts` plus the `trans`/`__`/`transChoice`
+helpers above. For advanced cases — an isolated `Translator` per tenant, or
+loading a `lang/` directory outside the normal boot path — the underlying
+`Translator` instance is reachable directly:
+
+```ts
+import { configureTranslator, getTranslator, loadTranslations, setTranslator, Translator } from '@elyvel/i18n'
+
+getTranslator()                              // the process-wide default Translator
+configureTranslator({ locale: 'id', fallback: 'en' }) // reconfigure it in place
+await loadTranslations('lang')                // load a lang/ dir into the default translator
+setTranslator(new Translator({ locale: 'id' })) // replace it entirely
+```
+
 ## Testing
 
 ```ts

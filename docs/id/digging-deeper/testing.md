@@ -88,6 +88,11 @@ bukan di-scope ke satu client, selalu pasangkan dengan `stopActingAs()`
 test yang sama — tidak tertinggal terautentikasi sebagai user yang salah.
 `actingAsGuest()` memaksa tidak terautentikasi sebagai gantinya.
 
+`currentTestActor()` membaca kembali siapa pun yang di-resolve override
+saat ini (`User | null | undefined`) — berguna di dalam helper test
+bersama yang perlu tahu apakah `actingAs`/`actingAsGuest` sedang aktif
+tanpa melewatkan user-nya sebagai parameter.
+
 ## Isolasi database
 
 ```ts

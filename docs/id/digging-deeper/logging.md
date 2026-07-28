@@ -89,7 +89,29 @@ requestLog.info('processing') // requestId otomatis ikut
 | `file` + `buffered: true` | Mem-batch penulisan (`flushEvery`/`intervalMs`) jadi lebih sedikit syscall; flush saat exit/`SIGINT`/`SIGTERM`. |
 | `daily` | Satu file per hari kalender (`<path>-YYYY-MM-DD.log`), memangkas file lebih tua dari `maxDays`. |
 
+Masing-masing adalah class konkret yang bisa di-import
+(`ConsoleTransport`, `FileTransport`, `DailyFileTransport`,
+`BufferedFileTransport`) yang mengimplementasikan interface `Transport`
+kecil (`log(entry)`) — jalur berbasis config di atas membangun salah
+satunya untukmu, tapi membuat satu secara langsung berguna di luar
+aplikasi penuh (script standalone, setup multi-tujuan custom):
+
+```ts
+import { FileTransport, Logger } from '@elyvel/core'
+
+const log = new Logger({ transports: [new FileTransport('storage/logs/app.log', { compress: true })] })
+```
+
 ## Redaksi
+
+Daftar key redaksi dan pola value default juga di-export, jika kamu ingin
+memperluas alih-alih mengganti:
+
+```ts
+import { DEFAULT_REDACT, REDACT_PATTERNS } from '@elyvel/core'
+
+createLogger({ redact: [...DEFAULT_REDACT, 'ssn'], redactPatterns: [REDACT_PATTERNS.creditCard] })
+```
 
 Field sensitif otomatis dibersihkan sebelum entri sampai ke transport mana
 pun — tidak perlu opt-in per call site. Key yang cocok dengan `password`,

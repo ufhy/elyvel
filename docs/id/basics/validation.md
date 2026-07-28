@@ -106,6 +106,19 @@ rules(ctx: RequestLike): Rules {
 }
 ```
 
+`EloquentServiceProvider` menyambungkan ini otomatis lewat
+`configureDbRules(resolver, options)` — fungsi yang sama tersedia jika
+kamu butuh resolver custom (misalnya sumber data non-Eloquent) atau ingin
+mengatur berapa lama query `unique`/`exists` boleh menggantung sebelum
+dibatalkan dengan `DbRuleTimeoutError` (default 5 detik — koneksi yang
+macet kalau tidak akan menggantung request selamanya):
+
+```ts
+import { configureDbRules } from '@elyvel/validation'
+
+configureDbRules(myResolver, { timeoutMs: 2000 })
+```
+
 ## Rule kustom
 
 Campurkan closure atau rule object ke dalam **array** rule sebuah field.

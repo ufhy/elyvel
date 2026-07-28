@@ -140,6 +140,22 @@ mengikuti perilaku Laravel — tidak pernah melempar error. Opt-in untuk
 mencatat setiap key yang hilang dengan `logMissing: true` di
 `config/i18n.ts`.
 
+## API translator level rendah
+
+Kebanyakan aplikasi hanya butuh `config/i18n.ts` plus helper
+`trans`/`__`/`transChoice` di atas. Untuk kasus lanjutan — `Translator`
+terisolasi per tenant, atau memuat direktori `lang/` di luar jalur boot
+normal — instance `Translator` di baliknya bisa dijangkau langsung:
+
+```ts
+import { configureTranslator, getTranslator, loadTranslations, setTranslator, Translator } from '@elyvel/i18n'
+
+getTranslator()                              // Translator default untuk seluruh proses
+configureTranslator({ locale: 'id', fallback: 'en' }) // konfigurasi ulang di tempat
+await loadTranslations('lang')                // muat direktori lang/ ke translator default
+setTranslator(new Translator({ locale: 'id' })) // ganti sepenuhnya
+```
+
 ## Testing
 
 ```ts

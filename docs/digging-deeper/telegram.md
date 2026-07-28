@@ -85,4 +85,14 @@ const client = new TelegramClient({ token: 'test', apiBase: `http://localhost:${
 await client.sendMessage({ chatId: 1, text: 'hi' })
 ```
 
+To make code that calls the `Telegram`/`telegram()` facade (rather than
+holding its own client instance) use this fake, swap it in as the process
+default:
+
+```ts
+import { setDefaultTelegram } from '@elyvel/telegram'
+
+setDefaultTelegram(client)
+```
+
 `apiBase` is a first-class constructor option specifically for this.

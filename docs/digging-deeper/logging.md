@@ -89,7 +89,28 @@ requestLog.info('processing') // includes requestId automatically
 | `file` + `buffered: true` | Batches writes (`flushEvery`/`intervalMs`) into fewer syscalls; flushes on exit/`SIGINT`/`SIGTERM`. |
 | `daily` | One file per calendar day (`<path>-YYYY-MM-DD.log`), prunes files older than `maxDays`. |
 
+Each is a concrete, importable class (`ConsoleTransport`, `FileTransport`,
+`DailyFileTransport`, `BufferedFileTransport`) implementing a small
+`Transport` interface (`log(entry)`) — the config-driven path above builds
+one of these for you, but constructing one directly is useful outside a
+full app (a standalone script, a custom multi-destination setup):
+
+```ts
+import { FileTransport, Logger } from '@elyvel/core'
+
+const log = new Logger({ transports: [new FileTransport('storage/logs/app.log', { compress: true })] })
+```
+
 ## Redaction
+
+The default redacted key list and value patterns are also exported, if
+you want to extend rather than replace them:
+
+```ts
+import { DEFAULT_REDACT, REDACT_PATTERNS } from '@elyvel/core'
+
+createLogger({ redact: [...DEFAULT_REDACT, 'ssn'], redactPatterns: [REDACT_PATTERNS.creditCard] })
+```
 
 Sensitive fields are scrubbed automatically before an entry reaches any
 transport — no per-call-site opt-in needed. Keys matching `password`,

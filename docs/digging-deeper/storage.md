@@ -29,7 +29,18 @@ Two real drivers: `local` (files under an app-relative `root`) and `s3`
 (any S3-compatible API via Bun's native `S3Client` — no `aws-sdk`
 dependency). A third, `scoped`, wraps another named disk with a path
 prefix — a restricted view over a disk you've already defined, without
-duplicating its credentials.
+duplicating its credentials:
+
+```ts
+disks: {
+  s3: { driver: 's3', bucket: 'app-uploads', /* ... */ },
+  tenantUploads: { driver: 'scoped', disk: 's3', prefix: `tenants/${tenantId}` },
+}
+```
+
+Every operation on `storage('tenantUploads')` is confined under that
+prefix — a path that would escape it (e.g. via `../`) throws
+`PathEscapeError` instead of silently reaching a sibling tenant's files.
 
 ## Reading & writing
 

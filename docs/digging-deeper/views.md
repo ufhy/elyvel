@@ -149,6 +149,27 @@ message.html(view(welcomeEmailTemplate, { name: user.name }))
 Since mail sends outside an HTTP request, `shared` there has no real
 session — `errors`/`old`/`flash`/`csrf` come through as empty defaults.
 
+## Pagination links
+
+Render prev/next + windowed page-number links for an
+[Eloquent paginator](/database/eloquent#pagination):
+
+```ts
+import { paginationLinks } from '@elyvel/view'
+
+const page = await Post.query().orderBy('id').paginate(15, currentPage)
+
+html`
+  <ul>${page.data.map(post => html`<li>${post.title}</li>`)}</ul>
+  ${paginationLinks(page, { path: '/posts', window: 2 })}
+`
+```
+
+`window` controls how many page numbers show on each side of the current
+page (default 2). Anything with `currentPage`/`lastPage` fields works —
+not just the exact `Paginator` type — so a `simplePaginate()`/custom
+pagination shape can be adapted to fit.
+
 ## Custom error pages
 
 The framework's default error pages (404, 500, the dev-only debug page)

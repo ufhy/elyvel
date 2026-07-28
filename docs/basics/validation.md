@@ -105,6 +105,19 @@ rules(ctx: RequestLike): Rules {
 }
 ```
 
+`EloquentServiceProvider` wires this up automatically via
+`configureDbRules(resolver, options)` — the same function is there if you
+need a custom resolver (e.g. a non-Eloquent data source) or want to tune
+how long a `unique`/`exists` query is allowed to hang before it's aborted
+with a `DbRuleTimeoutError` (default 5 seconds — a stuck connection would
+otherwise hang the request forever):
+
+```ts
+import { configureDbRules } from '@elyvel/validation'
+
+configureDbRules(myResolver, { timeoutMs: 2000 })
+```
+
 ## Custom rules
 
 Mix a closure or a rule object into a field's rule **array**. A closure calls

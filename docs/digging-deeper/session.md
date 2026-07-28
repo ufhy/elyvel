@@ -33,6 +33,17 @@ Other options: `secret` (defaults to `app.key`), `path`/`domain`/`secure`/
 `httpOnly`/`sameSite` (cookie attributes), `expireOnClose` (drop `maxAge` so
 the cookie dies with the browser tab).
 
+::: details Backing classes, for custom composition
+Each driver is backed by an exported `SessionStore` implementation —
+`MemorySessionStore`, `FileSessionStore`, `RedisSessionStore` (plus the
+internal database-backed one behind `configureDatabaseSession`). Most
+apps never touch these directly — pick a `driver` string in config — but
+they're there if you need to construct one yourself (e.g. wiring a custom
+Redis client) or implement your own `SessionStore`. `sessionPlugin(config)`
+is the Elysia plugin the framework mounts internally to wire a store into
+`ctx.session`.
+:::
+
 ## Reading & writing
 
 ```ts
