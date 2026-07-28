@@ -39,7 +39,6 @@ Every `make:*` generator accepts `--force` to overwrite an existing file.
 | `make:event <Name>` | Event class | — |
 | `make:listener <Name>` | Event listener | — |
 | `make:notification <Name>` | Notification class | — |
-| `make:job <Name>` | Queue job | — |
 | `make:provider <Name>` | Service provider | — |
 | `make:seeder <Name>` | Seeder | — |
 | `make:factory <Name>` | Model factory | — |

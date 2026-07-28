@@ -50,6 +50,7 @@ export default defineConfig({
               { text: 'Controllers', link: '/basics/controllers' },
               { text: 'Validation', link: '/basics/validation' },
               { text: 'Inertia & Vue', link: '/basics/inertia' },
+              { text: 'Standalone SPA', link: '/basics/spa' },
             ],
           },
           {
@@ -57,6 +58,7 @@ export default defineConfig({
             items: [
               { text: 'Migrations', link: '/database/migrations' },
               { text: 'Eloquent: Getting Started', link: '/database/eloquent' },
+              { text: 'Seeding', link: '/database/seeding' },
             ],
           },
           {
@@ -70,6 +72,7 @@ export default defineConfig({
               { text: 'Notifications', link: '/digging-deeper/notifications' },
               { text: 'Broadcasting', link: '/digging-deeper/broadcasting' },
               { text: 'Logging', link: '/digging-deeper/logging' },
+              { text: 'Log Viewer', link: '/digging-deeper/log-viewer' },
               { text: 'Rate Limiting', link: '/digging-deeper/rate-limiting' },
               { text: 'Task Scheduling', link: '/digging-deeper/scheduler' },
               { text: 'Localization', link: '/digging-deeper/localization' },
@@ -77,6 +80,13 @@ export default defineConfig({
               { text: 'HTTP Tests', link: '/digging-deeper/testing' },
               { text: 'File Storage', link: '/digging-deeper/storage' },
               { text: 'Telegram', link: '/digging-deeper/telegram' },
+              { text: 'Helpers & Collections', link: '/digging-deeper/helpers' },
+              { text: 'HTTP Client', link: '/digging-deeper/http-client' },
+              { text: 'CORS', link: '/digging-deeper/cors' },
+              { text: 'Static Files', link: '/digging-deeper/static-files' },
+              { text: 'OpenAPI Docs', link: '/digging-deeper/openapi' },
+              { text: 'Maintenance Mode', link: '/digging-deeper/maintenance-mode' },
+              { text: 'Dates & Timezones', link: '/digging-deeper/dates-and-timezones' },
             ],
           },
           {
@@ -120,6 +130,7 @@ export default defineConfig({
               { text: 'Controller', link: '/id/basics/controllers' },
               { text: 'Validasi', link: '/id/basics/validation' },
               { text: 'Inertia & Vue', link: '/id/basics/inertia' },
+              { text: 'SPA Standalone', link: '/id/basics/spa' },
             ],
           },
           {
@@ -127,6 +138,7 @@ export default defineConfig({
             items: [
               { text: 'Migrasi', link: '/id/database/migrations' },
               { text: 'Eloquent: Memulai', link: '/id/database/eloquent' },
+              { text: 'Seeding', link: '/id/database/seeding' },
             ],
           },
           {
@@ -140,6 +152,7 @@ export default defineConfig({
               { text: 'Notifikasi', link: '/id/digging-deeper/notifications' },
               { text: 'Broadcasting', link: '/id/digging-deeper/broadcasting' },
               { text: 'Logging', link: '/id/digging-deeper/logging' },
+              { text: 'Log Viewer', link: '/id/digging-deeper/log-viewer' },
               { text: 'Rate Limiting', link: '/id/digging-deeper/rate-limiting' },
               { text: 'Task Scheduling', link: '/id/digging-deeper/scheduler' },
               { text: 'Localization', link: '/id/digging-deeper/localization' },
@@ -147,6 +160,13 @@ export default defineConfig({
               { text: 'HTTP Test', link: '/id/digging-deeper/testing' },
               { text: 'File Storage', link: '/id/digging-deeper/storage' },
               { text: 'Telegram', link: '/id/digging-deeper/telegram' },
+              { text: 'Helper & Collection', link: '/id/digging-deeper/helpers' },
+              { text: 'HTTP Client', link: '/id/digging-deeper/http-client' },
+              { text: 'CORS', link: '/id/digging-deeper/cors' },
+              { text: 'Static Files', link: '/id/digging-deeper/static-files' },
+              { text: 'Dokumentasi OpenAPI', link: '/id/digging-deeper/openapi' },
+              { text: 'Maintenance Mode', link: '/id/digging-deeper/maintenance-mode' },
+              { text: 'Tanggal & Timezone', link: '/id/digging-deeper/dates-and-timezones' },
             ],
           },
           {
