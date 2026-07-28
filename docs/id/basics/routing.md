@@ -110,6 +110,16 @@ Hanya aksi yang benar-benar didefinisikan controller Anda yang akan dihubungkan.
 Untuk API JSON saja gunakan `apiResource()`, yang menghilangkan route perender
 form `create`/`edit`.
 
+::: tip Form HTML dan PUT/PATCH/DELETE
+Sebuah `<form>` HTML hanya bisa `GET`/`POST`, jadi route `update`/`destroy`
+tidak terjangkau dari form post biasa — kecuali ia menyamar method-nya. Ini
+ditangani otomatis untuk setiap request (padanan directive `@method`
+Laravel): field hidden `_method`
+(`<input type="hidden" name="_method" value="PUT">`), query param
+`?_method=`, atau header `X-HTTP-Method-Override` semuanya bekerja pada
+request yang aslinya `POST`, tanpa perlu setup apa pun.
+:::
+
 Batasi aksi dengan `only` / `except`, dan terapkan middleware per aksi:
 
 ```ts

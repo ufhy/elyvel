@@ -139,6 +139,27 @@ Both need a store configured once at boot (`configureUniqueJobs`,
 `configureRateLimiter`) — in-memory (per-process) or Redis-backed (shared
 across workers) implementations ship out of the box.
 
+Write your own by implementing `JobMiddleware` — a single `handle(job, next)`
+method, called around the job's `handle()`:
+
+```ts
+import type { Job, JobMiddleware } from '@elyvel/queue'
+import { ReleaseJob } from '@elyvel/queue'
+
+class LogDuration implements JobMiddleware {
+  async handle(job: Job, next: () => Promise<void>): Promise<void> {
+    const start = Date.now()
+    await next()
+    console.log(`${job.constructor.name} took ${Date.now() - start}ms`)
+  }
+}
+```
+
+Throw `new ReleaseJob(delaySeconds)` inside `handle()` to put the job back
+on the queue without counting the attempt as a failure (what
+`WithoutOverlapping`/`RateLimited` do internally on contention) — the
+worker catches it and re-queues after `delaySeconds`.
+
 ### Unique jobs
 
 A separate, simpler mechanism for "don't enqueue this again if one's already
@@ -211,10 +232,35 @@ killing them mid-job:
 elyvel queue:restart
 ```
 
+This needs a shared store wired via `configureRestartSignal(...)` — unlike
+the rate limiter or scheduler mutex, there's no in-memory default, since an
+in-memory signal would only ever be visible to the worker process that
+called `configureRestartSignal`, not to the separate `queue:restart` CLI
+invocation trying to reach it:
+
+```ts
+import { configureRestartSignal, RedisRestartSignal } from '@elyvel/queue'
+
+configureRestartSignal(new RedisRestartSignal(redisClient))
+```
+
+Without this wired, `queue:restart` reports that restart signalling isn't configured.
+
 ## Handling failed jobs
 
 When a job exhausts its `tries`, it's recorded (connection, queue, the exact
-serialized payload, and the error) instead of silently vanishing:
+serialized payload, and the error) instead of silently vanishing — opt in
+with `configureFailedJobs(adapter)` at boot; a `MemoryFailedJobStore` ships
+by default (mirrors `@elyvel/mail`'s failed-send store):
+
+```ts
+import { configureFailedJobs, MemoryFailedJobStore } from '@elyvel/queue'
+
+configureFailedJobs(new MemoryFailedJobStore())
+```
+
+Without this wired, an exhausted job is only logged, not persisted, so the
+CLI below has nothing to list:
 
 ```bash
 elyvel queue:failed                # list failed jobs
@@ -238,8 +284,18 @@ Queue.failing((name, error) => console.log(`${name} failed`, error))
 ```
 
 If `@elyvel/events` is installed, these also fire as regular events
-(`queue.processing`, `queue.processed`, `queue.failed`) — `listen('queue.failed', ...)`
-works without `@elyvel/queue` depending on the events package directly.
+(`queue.processing`, `queue.processed`, `queue.failed`) once you bridge them at
+boot — `@elyvel/queue` stays decoupled from `@elyvel/events`, so this is one
+wiring call, not automatic:
+
+```ts
+import { configureQueueEventDispatcher } from '@elyvel/queue'
+import { event } from '@elyvel/events'
+
+configureQueueEventDispatcher((name, payload) => event(name, payload))
+```
+
+After that, `listen('queue.failed', ...)` works like any other event.
 
 ## Queueing event listeners
 
@@ -250,9 +306,24 @@ running it synchronously.
 
 ## Model serialization
 
-A job field holding an Eloquent model instance isn't serialized as a raw
-snapshot — it's dehydrated to a lightweight `{ model, id }` reference before
-being written to the queue, and re-fetched fresh from the database right
-before `handle()` runs. This means a job dispatched with a model attached
-always sees that model's *current* state on the worker, not a stale copy
-from the moment it was queued.
+Opt-in: a job field holding an Eloquent model instance can be dehydrated to
+a lightweight `{ model, id }` reference before being written to the queue,
+and re-fetched fresh from the database right before `handle()` runs — so a
+job dispatched with a model attached sees that model's *current* state on
+the worker, not a stale copy from the moment it was queued. This needs
+`configureModelSerializer(...)` wired at boot; without it, a model field is
+serialized as-is (a plain snapshot of its attributes at dispatch time):
+
+```ts
+import { Model } from '@elyvel/database'
+import { configureModelSerializer } from '@elyvel/queue'
+
+configureModelSerializer({
+  dehydrate: value => (value instanceof Model ? { model: value.constructor.name, id: value.getKey() } : undefined),
+  hydrate: ref => modelRegistry[ref.model]?.find(ref.id) ?? null,
+})
+```
+
+`modelRegistry` here is up to you — a small `Record<string, typeof Model>`
+mapping the class name back to the model class, since a job's payload only
+stores the name as a string.

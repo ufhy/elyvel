@@ -201,6 +201,8 @@ Whatever an action returns becomes the response:
 - `redirect(url)` / `back()` (from `@elyvel/core`) → a redirect.
 - `Resource` / `Resource.paginated(...)` (from `@elyvel/core`) → a shaped JSON
   transform for API responses.
+- `file(path)` / `download(path)` / `streamDownload(name, source)` (from
+  `@elyvel/core`) → a file/download response.
 
 ```ts
 import { redirect } from '@elyvel/core'
@@ -210,3 +212,30 @@ async destroy(ctx: MiddlewareContext) {
   return redirect('/posts')
 }
 ```
+
+### Files & downloads
+
+```ts
+import { download, file, streamDownload } from '@elyvel/core'
+
+async show() {
+  return file('storage/app/avatars/1.png')          // rendered inline in the browser
+}
+
+async export() {
+  return download('storage/app/reports/q1.pdf', 'Q1 Report.pdf')
+}
+
+async csv() {
+  const rows = await Order.all()
+  return streamDownload('orders.csv', rows.map(o => `${o.id},${o.total}\n`).join(''))
+}
+```
+
+`file()` sends a path inline (`Content-Disposition: inline`) so the browser
+renders it directly when it can (images, PDFs); `download()` sends the same
+kind of path but forces a save-as dialog, defaulting the filename to the
+path's basename. `streamDownload()` is for content you generate in memory or
+stream rather than read off disk — a `ReadableStream`, bytes, or a plain
+string all work as the source. All three infer `Content-Type` from the file
+extension unless you pass `contentType` explicitly.

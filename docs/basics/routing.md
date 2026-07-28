@@ -108,6 +108,15 @@ export default resource('/posts', PostController)
 Only the actions your controller actually defines are wired. For a JSON-only API
 use `apiResource()`, which drops the form-rendering `create`/`edit` routes.
 
+::: tip HTML forms and PUT/PATCH/DELETE
+An HTML `<form>` can only `GET`/`POST`, so `update`/`destroy` routes are
+unreachable from a plain form post — unless it spoofs the method. This is
+handled automatically for every request (Laravel's `@method` directive): a
+hidden `_method` field (`<input type="hidden" name="_method" value="PUT">`),
+a `?_method=` query param, or an `X-HTTP-Method-Override` header all work
+on an otherwise-`POST` request, with no setup needed.
+:::
+
 Scope actions with `only` / `except`, and apply middleware per action:
 
 ```ts

@@ -119,6 +119,22 @@ import { configureDbRules } from '@elyvel/validation'
 configureDbRules(myResolver, { timeoutMs: 2000 })
 ```
 
+### `file` / `image` / `mimes` / `dimensions`
+
+Rule-rule ini membaca byte asli upload-nya (sniffing magic-number), bukan
+nama file/ekstensi dari client atau header `Content-Type` — perlindungan
+anti-spoofing "image hijacking" yang sama seperti rule file Laravel.
+Sniffer di baliknya bisa langsung di-import kalau kamu menulis rule custom
+yang perlu memeriksa upload-nya sendiri:
+
+```ts
+import { readImageDimensions, sniffFileMime, sniffImageMime } from '@elyvel/validation'
+
+const mime = sniffFileMime(bytes)          // mis. 'application/pdf', atau undefined kalau tidak dikenali
+const imageMime = sniffImageMime(bytes)    // lebih sempit: hanya format gambar asli
+const dimensions = readImageDimensions(bytes) // { width, height } | undefined
+```
+
 ## Rule kustom
 
 Campurkan closure atau rule object ke dalam **array** rule sebuah field.
@@ -202,6 +218,24 @@ import { Validator } from '@elyvel/validation'
 await Validator.make(data, { name: 'required|string' })
   .sometimes('company', 'required|string', data => data.accountType === 'business')
   .validate()
+```
+
+`.validate()` melempar `ValidationException` saat gagal (sama seperti yang
+dilempar FormRequest, yang sudah otomatis di-render error handler framework
+sebagai 422 untuk request HTTP) — tangkap sendiri kalau kamu validasi di
+luar request, misalnya payload webhook atau data job yang di-queue:
+
+```ts
+import { ValidationException } from '@elyvel/validation'
+
+try {
+  await Validator.make(payload, { email: 'required|email' }).validate()
+}
+catch (e) {
+  if (e instanceof ValidationException) {
+    e.errors // ErrorBag — Record<string, string[]>, satu entry per field yang invalid
+  }
+}
 ```
 
 ## Field nested & wildcard

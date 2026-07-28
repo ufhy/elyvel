@@ -135,6 +135,33 @@ database transaction commits. Without `@elyvel/queue` installed and wired
 (it calls `configureListenerQueuer` at boot), a `QueuedListener` just runs
 inline — nothing breaks, it simply isn't deferred.
 
+## Deferring a plain event until commit
+
+`QueuedListenerAfterCommit` above defers the *listener*; a plain event (no
+queue involved at all) can defer its own dispatch the same way by setting
+`dispatchAfterCommit = true` — useful so listeners never see an event for a
+row that a rolled-back transaction ends up undoing:
+
+```ts
+export class OrderPlaced {
+  readonly dispatchAfterCommit = true
+  constructor(public order: Order) {}
+}
+```
+
+This needs one wiring call at boot, bridging to `@elyvel/database`'s own
+`afterCommit`:
+
+```ts
+import { afterCommit } from '@elyvel/database'
+import { configureEventAfterCommit } from '@elyvel/events'
+
+configureEventAfterCommit(callback => afterCommit(callback))
+```
+
+Without it, `dispatchAfterCommit` is silently ignored and the event
+dispatches immediately, same as any other event.
+
 ## Testing
 
 Swap in a recording dispatcher so dispatched events don't actually run their

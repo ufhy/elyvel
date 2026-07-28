@@ -203,6 +203,8 @@ Apa pun yang dikembalikan sebuah aksi menjadi response:
 - `redirect(url)` / `back()` (dari `@elyvel/core`) → sebuah redirect.
 - `Resource` / `Resource.paginated(...)` (dari `@elyvel/core`) → sebuah transformasi
   JSON berbentuk untuk response API.
+- `file(path)` / `download(path)` / `streamDownload(name, source)` (dari
+  `@elyvel/core`) → response file/download.
 
 ```ts
 import { redirect } from '@elyvel/core'
@@ -212,3 +214,31 @@ async destroy(ctx: MiddlewareContext) {
   return redirect('/posts')
 }
 ```
+
+### File & download
+
+```ts
+import { download, file, streamDownload } from '@elyvel/core'
+
+async show() {
+  return file('storage/app/avatars/1.png')          // dirender inline di browser
+}
+
+async export() {
+  return download('storage/app/reports/q1.pdf', 'Q1 Report.pdf')
+}
+
+async csv() {
+  const rows = await Order.all()
+  return streamDownload('orders.csv', rows.map(o => `${o.id},${o.total}\n`).join(''))
+}
+```
+
+`file()` mengirim path secara inline (`Content-Disposition: inline`)
+sehingga browser me-render-nya langsung kalau bisa (gambar, PDF);
+`download()` mengirim jenis path yang sama tapi memaksa dialog save-as,
+dengan filename default dari basename path-nya. `streamDownload()` untuk
+konten yang kamu generate di memory atau di-stream, bukan dibaca dari
+disk — `ReadableStream`, bytes, atau string biasa semuanya bisa jadi
+source. Ketiganya menebak `Content-Type` dari ekstensi file kecuali kamu
+mengoper `contentType` secara eksplisit.

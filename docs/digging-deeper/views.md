@@ -70,6 +70,22 @@ work (see below). This is plain function composition, not a templating
 feature — include a "partial" by calling the function that builds it and
 interpolating the result.
 
+The hand-rolled `<!doctype html>`/`<head>` boilerplate above is exactly what
+`document()` saves you from typing every time — same idea, built in:
+
+```ts
+import { document, html } from '@elyvel/view'
+
+function layout(title: string, body: Html): Html {
+  return document({ title, body })
+}
+```
+
+`document({ title?, head?, body, lang? })` escapes `title` automatically;
+`head` and `body` accept either a plain string (escaped) or `Html` (used
+as-is — e.g. a `<link>`/`<meta>` fragment for `head`, or a full `html`
+composition for `body`).
+
 ## Control flow
 
 No `@if`/`@foreach` — just TypeScript:

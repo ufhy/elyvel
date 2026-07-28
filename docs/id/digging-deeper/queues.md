@@ -142,6 +142,28 @@ berjalan. Keduanya butuh store yang dikonfigurasi sekali saat boot
 (`configureUniqueJobs`, `configureRateLimiter`) — implementasi in-memory
 (per-proses) atau berbasis Redis (dibagi antar worker) tersedia bawaan.
 
+Buat middleware sendiri dengan mengimplementasikan `JobMiddleware` — satu
+method `handle(job, next)`, dipanggil di sekeliling `handle()` job:
+
+```ts
+import type { Job, JobMiddleware } from '@elyvel/queue'
+import { ReleaseJob } from '@elyvel/queue'
+
+class LogDuration implements JobMiddleware {
+  async handle(job: Job, next: () => Promise<void>): Promise<void> {
+    const start = Date.now()
+    await next()
+    console.log(`${job.constructor.name} butuh ${Date.now() - start}ms`)
+  }
+}
+```
+
+Lempar `new ReleaseJob(delaySeconds)` di dalam `handle()` untuk melepas job
+kembali ke queue tanpa menghitung percobaan itu sebagai kegagalan (yang
+dilakukan `WithoutOverlapping`/`RateLimited` secara internal saat
+berebut) — worker menangkapnya dan meng-queue ulang setelah
+`delaySeconds`.
+
 ### Unique jobs
 
 Mekanisme terpisah yang lebih sederhana untuk "jangan enqueue lagi kalau
@@ -215,11 +237,38 @@ job yang sedang berjalan, bukan mematikannya di tengah job:
 elyvel queue:restart
 ```
 
+Ini butuh store bersama yang disambungkan lewat
+`configureRestartSignal(...)` — beda dari rate limiter atau scheduler
+mutex, tidak ada default in-memory di sini, karena sinyal in-memory hanya
+akan terlihat oleh proses worker yang memanggil `configureRestartSignal`,
+bukan oleh invocation CLI `queue:restart` yang terpisah yang mencoba
+menjangkaunya:
+
+```ts
+import { configureRestartSignal, RedisRestartSignal } from '@elyvel/queue'
+
+configureRestartSignal(new RedisRestartSignal(redisClient))
+```
+
+Tanpa ini disambungkan, `queue:restart` melaporkan bahwa signalling
+restart belum dikonfigurasi.
+
 ## Menangani job yang gagal
 
 Saat sebuah job menghabiskan `tries`-nya, ia dicatat (koneksi, queue,
 payload yang diserialisasi persis, dan error-nya) alih-alih hilang begitu
-saja:
+saja — aktifkan dengan `configureFailedJobs(adapter)` saat boot;
+`MemoryFailedJobStore` tersedia bawaan (mirip failed-send store
+`@elyvel/mail`):
+
+```ts
+import { configureFailedJobs, MemoryFailedJobStore } from '@elyvel/queue'
+
+configureFailedJobs(new MemoryFailedJobStore())
+```
+
+Tanpa ini disambungkan, job yang gagal habis hanya di-log, tidak
+disimpan, jadi perintah CLI di bawah ini tidak ada isinya:
 
 ```bash
 elyvel queue:failed                # daftar job yang gagal
@@ -243,9 +292,19 @@ Queue.after(name => console.log(`selesai ${name}`))
 Queue.failing((name, error) => console.log(`${name} gagal`, error))
 ```
 
-Jika `@elyvel/events` terpasang, ini juga terpicu sebagai event biasa
-(`queue.processing`, `queue.processed`, `queue.failed`) — `listen('queue.failed', ...)`
-bekerja tanpa `@elyvel/queue` bergantung langsung pada package events.
+Jika `@elyvel/events` terpasang, ini juga bisa terpicu sebagai event biasa
+(`queue.processing`, `queue.processed`, `queue.failed`) setelah kamu
+menyambungkannya saat boot — `@elyvel/queue` tetap tidak bergantung pada
+`@elyvel/events`, jadi ini satu panggilan wiring, bukan otomatis:
+
+```ts
+import { configureQueueEventDispatcher } from '@elyvel/queue'
+import { event } from '@elyvel/events'
+
+configureQueueEventDispatcher((name, payload) => event(name, payload))
+```
+
+Setelah itu, `listen('queue.failed', ...)` bekerja seperti event lainnya.
 
 ## Meng-queue event listener
 
@@ -256,9 +315,25 @@ menjalankannya secara sinkron.
 
 ## Serialisasi model
 
-Field job yang menyimpan instance model Eloquent tidak diserialisasi sebagai
-snapshot mentah — ia didehidrasi menjadi referensi ringan `{ model, id }`
-sebelum ditulis ke queue, lalu diambil ulang segar dari database tepat
-sebelum `handle()` berjalan. Artinya job yang di-dispatch dengan model
-terlampir selalu melihat state *terkini* model tersebut di worker, bukan
-salinan basi dari saat ia di-queue.
+Opsional: field job yang menyimpan instance model Eloquent bisa didehidrasi
+menjadi referensi ringan `{ model, id }` sebelum ditulis ke queue, lalu
+diambil ulang segar dari database tepat sebelum `handle()` berjalan —
+sehingga job yang di-dispatch dengan model terlampir melihat state
+*terkini* model tersebut di worker, bukan salinan basi dari saat ia
+di-queue. Ini butuh `configureModelSerializer(...)` disambungkan saat
+boot; tanpa itu, field model diserialisasi apa adanya (snapshot mentah
+dari attribute-nya saat dispatch):
+
+```ts
+import { Model } from '@elyvel/database'
+import { configureModelSerializer } from '@elyvel/queue'
+
+configureModelSerializer({
+  dehydrate: value => (value instanceof Model ? { model: value.constructor.name, id: value.getKey() } : undefined),
+  hydrate: ref => modelRegistry[ref.model]?.find(ref.id) ?? null,
+})
+```
+
+`modelRegistry` di sini terserah kamu — sebuah `Record<string, typeof Model>`
+kecil yang memetakan nama class kembali ke class model-nya, karena payload
+job hanya menyimpan namanya sebagai string.

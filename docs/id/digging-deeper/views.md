@@ -70,6 +70,22 @@ bekerja (lihat di bawah). Ini komposisi fungsi biasa, bukan fitur
 templating — sertakan sebuah "partial" dengan memanggil fungsi yang
 membuatnya dan menginterpolasi hasilnya.
 
+Boilerplate `<!doctype html>`/`<head>` yang ditulis manual di atas persis
+yang dihindarkan `document()` — ide yang sama, sudah built-in:
+
+```ts
+import { document, html } from '@elyvel/view'
+
+function layout(title: string, body: Html): Html {
+  return document({ title, body })
+}
+```
+
+`document({ title?, head?, body, lang? })` meng-escape `title` otomatis;
+`head` dan `body` menerima string biasa (di-escape) atau `Html` (dipakai
+apa adanya — misalnya fragment `<link>`/`<meta>` untuk `head`, atau
+komposisi `html` penuh untuk `body`).
+
 ## Alur kontrol
 
 Tidak ada `@if`/`@foreach` — cukup TypeScript biasa:

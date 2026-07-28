@@ -142,6 +142,34 @@ terpasang dan tersambung (yang memanggil `configureListenerQueuer` saat
 boot), `QueuedListener` cukup berjalan inline — tidak ada yang rusak,
 hanya saja tidak ditunda.
 
+## Menunda event biasa sampai commit
+
+`QueuedListenerAfterCommit` di atas menunda *listener*-nya; sebuah event
+biasa (tanpa queue sama sekali) bisa menunda dispatch-nya sendiri dengan
+cara yang sama, set `dispatchAfterCommit = true` — berguna supaya listener
+tidak pernah melihat event untuk row yang akhirnya dibatalkan oleh
+transaksi yang di-rollback:
+
+```ts
+export class OrderPlaced {
+  readonly dispatchAfterCommit = true
+  constructor(public order: Order) {}
+}
+```
+
+Ini butuh satu panggilan wiring saat boot, menjembatani ke `afterCommit`
+milik `@elyvel/database`:
+
+```ts
+import { afterCommit } from '@elyvel/database'
+import { configureEventAfterCommit } from '@elyvel/events'
+
+configureEventAfterCommit(callback => afterCommit(callback))
+```
+
+Tanpa ini, `dispatchAfterCommit` diam-diam diabaikan dan event tetap
+di-dispatch segera, sama seperti event lainnya.
+
 ## Testing
 
 Ganti dengan dispatcher perekam supaya event yang di-dispatch tidak benar-

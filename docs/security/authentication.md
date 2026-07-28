@@ -55,6 +55,26 @@ export default defineAuthConfig({
 })
 ```
 
+### The Eloquent adapter
+
+The "glue" `defineAuthConfig` fills in is `eloquentAdapter()` — a Better
+Auth database adapter that runs every Better Auth DB operation through
+elyvel's own `table()` query builder on the app's default connection, so
+there's no separate ORM/connection just for auth. You never call it
+directly through `defineAuthConfig`; it's only worth importing yourself if
+you're constructing a `betterAuth({...})` instance by hand outside that
+helper:
+
+```ts
+import { eloquentAdapter } from '@elyvel/auth'
+import { betterAuth } from 'better-auth'
+
+betterAuth({
+  database: eloquentAdapter(),
+  emailAndPassword: { enabled: true },
+})
+```
+
 ## Mounting
 
 Better Auth is mounted once, as global middleware, in `config/middleware.ts`:

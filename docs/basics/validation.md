@@ -118,6 +118,22 @@ import { configureDbRules } from '@elyvel/validation'
 configureDbRules(myResolver, { timeoutMs: 2000 })
 ```
 
+### `file` / `image` / `mimes` / `dimensions`
+
+These read the upload's actual bytes (magic-number sniffing), not its
+client-supplied filename/extension or `Content-Type` header — the same
+anti-spoofing "image hijacking" protection Laravel's file rules have. The
+sniffers behind them are directly importable if you're writing a custom
+rule that needs to inspect an upload itself:
+
+```ts
+import { readImageDimensions, sniffFileMime, sniffImageMime } from '@elyvel/validation'
+
+const mime = sniffFileMime(bytes)          // e.g. 'application/pdf', or undefined if unrecognized
+const imageMime = sniffImageMime(bytes)    // narrower: only real image formats
+const dimensions = readImageDimensions(bytes) // { width, height } | undefined
+```
+
 ## Custom rules
 
 Mix a closure or a rule object into a field's rule **array**. A closure calls
@@ -199,6 +215,24 @@ import { Validator } from '@elyvel/validation'
 await Validator.make(data, { name: 'required|string' })
   .sometimes('company', 'required|string', data => data.accountType === 'business')
   .validate()
+```
+
+`.validate()` throws `ValidationException` on failure (the same one a
+FormRequest throws, which the framework's error handler already renders as
+a 422 automatically for HTTP requests) — catch it yourself when validating
+outside a request, e.g. a webhook payload or a queued job's data:
+
+```ts
+import { ValidationException } from '@elyvel/validation'
+
+try {
+  await Validator.make(payload, { email: 'required|email' }).validate()
+}
+catch (e) {
+  if (e instanceof ValidationException) {
+    e.errors // ErrorBag — Record<string, string[]>, one entry per invalid field
+  }
+}
 ```
 
 ## Nested & wildcard fields
