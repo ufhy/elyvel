@@ -70,6 +70,7 @@ export default defineConfig({
               { text: 'Logging', link: '/digging-deeper/logging' },
               { text: 'Rate Limiting', link: '/digging-deeper/rate-limiting' },
               { text: 'Task Scheduling', link: '/digging-deeper/scheduler' },
+              { text: 'Localization', link: '/digging-deeper/localization' },
             ],
           },
           {
@@ -133,6 +134,7 @@ export default defineConfig({
               { text: 'Logging', link: '/id/digging-deeper/logging' },
               { text: 'Rate Limiting', link: '/id/digging-deeper/rate-limiting' },
               { text: 'Task Scheduling', link: '/id/digging-deeper/scheduler' },
+              { text: 'Localization', link: '/id/digging-deeper/localization' },
             ],
           },
           {
