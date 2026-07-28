@@ -70,6 +70,55 @@ Conveniences: `Model.findMany(ids)`, `Model.whereKey(id)`,
 `instance.touch()`. Set `static usesUniqueIds = true` to auto-generate a UUID
 primary key on create (override `static newUniqueId()` for ULIDs).
 
+### Model concerns (trait equivalent)
+
+Bundle a reusable `fillable`/`casts`/scope set — e.g. "every model with a
+status column" — instead of repeating the same statics on every model that
+needs it (Laravel's traits). `elyvel make:concern HasStatus` scaffolds one:
+
+```ts
+// app/concerns/HasStatus.ts
+import type { Concern } from '@elyvel/database'
+
+export interface HasStatusFields {
+  status: string
+}
+
+export const HasStatus: Concern = {
+  fillable: ['status'],
+  casts: { status: 'string' },
+  scopes: { active: q => q.where('status', 'active') },
+  globalScopes: { published: q => q.where('published', true) },
+  methods: {
+    isActive(this: Model & HasStatusFields) { return this.status === 'active' },
+  },
+}
+```
+
+Apply it right after the model's class declaration with `withConcerns` —
+merge the typed fields onto the model with a same-named `interface`
+declaration (TypeScript combines the two):
+
+```ts
+import { Model, withConcerns } from '@elyvel/database'
+import { HasStatus, type HasStatusFields } from '../concerns/HasStatus'
+
+export interface Post extends HasStatusFields {}
+export class Post extends Model {
+  static override table = 'posts'
+}
+withConcerns(Post, HasStatus)
+
+await Post.query().scope('active').get()   // local scope from the concern
+new Post().isActive()                       // method from the concern
+```
+
+`fillable`/`casts` from every applied concern merge into the model's own;
+`scopes` are opt-in (call `.scope('name')`), `globalScopes` auto-apply to
+every query on the model (note: global scopes see the raw `QueryBuilder`,
+not the Eloquent-aware builder local scopes get); `methods` are merged onto
+the model's prototype.
+
 ## CRUD
 
 ```ts
@@ -192,8 +241,26 @@ class Post extends Model {
 
 Full set: `hasOne`, `hasMany`, `belongsTo`, `belongsToMany`, `hasOneThrough`,
 `hasManyThrough`, `morphOne`, `morphMany`, `morphTo`, `morphToMany`,
-`morphedByMany`. Pivots support `withPivot`, `withTimestamps`, and
-`attach` / `detach` / `sync`.
+`morphedByMany`. Pivots support `withPivot`, `withTimestamps`, `as` (expose
+the pivot under a custom property instead of `.pivot`), `using` (a custom
+Pivot model class), and `attach` / `detach` / `sync` / `syncWithoutDetaching`
+/ `toggle` / `updateExistingPivot`.
+
+A `belongsToMany` relation's own query (not `attach`/`detach`) can also be
+scoped by pivot columns:
+
+```ts
+await user.roles()
+  .wherePivot('active', true)
+  .wherePivotIn('assigned_by', ['admin', 'system'])
+  .orderByPivot('created_at', 'desc')
+  .get()
+```
+
+`wherePivot(column, operatorOrValue, value?)`, `wherePivotIn`,
+`wherePivotNotIn`, `wherePivotBetween`, `wherePivotNull`, and `orderByPivot`
+all constrain/order the fetched related rows by a column on the pivot
+table, not the related table itself.
 
 ### Eager loading
 
@@ -217,6 +284,50 @@ await User.query().doesntHave('posts').get()
 await user.load('posts')
 await user.loadMissing('profile')
 ```
+
+A few sugar methods cover common `whereHas`/relation-constraint shapes
+without writing the callback out:
+
+```ts
+// Sugar for whereHas('posts', q => q.where('title', 'A1'))
+await User.query().whereRelation('posts', 'title', 'A1').get()
+await User.query().orWhereRelation('posts', 'title', 'A2').get()
+
+// Constrain to rows belonging to a specific model — infers the relation
+// method name from the model's class (Post → post()) unless given explicitly
+await Post.query().whereBelongsTo(user).get()
+await Post.query().whereBelongsTo(user, 'author').get()
+
+// For a morphTo relation, constrain to one specific model (type AND key)
+await Comment.query().whereMorphedTo('commentable', post).get()
+await Comment.query().whereNotMorphedTo('commentable', post).get()
+```
+
+### Collections
+
+`Model.query().get()` returns an `EloquentCollection` — every plain
+`Collection` method from [Helpers & Collections](/digging-deeper/helpers#collections)
+works on it, plus model-aware ones:
+
+```ts
+const users = await User.all()
+
+users.find(3)                    // a contained model by primary key, or undefined
+users.findOrFail(3)               // same, throws if not present
+users.contains(someUser)          // by model, by key, or by predicate
+users.only(1, 2)                  // just these primary keys
+users.except(1, 2)                // every OTHER primary key
+await users.fresh()               // re-fetch every model in the collection from the DB
+await users.toQuery().update({ active: true }) // bulk-update the fetched set
+users.makeHidden('email')         // hide an attribute on every model (chainable)
+users.makeVisible('email')
+```
+
+`diff`/`intersect`/`unique` are also overridden to compare models by
+primary key rather than object reference, so
+`users.diff(await User.whereIn('id', ids).get())` behaves correctly even
+though the two collections hold distinct object instances for the same
+rows.
 
 ## Casts
 

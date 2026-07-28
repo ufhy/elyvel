@@ -71,5 +71,57 @@ for (const d of dialects) {
       const result = all.diff([])
       expect(result.find(all.modelKeys()[0])).toBeDefined()
     })
+
+    test('findOrFail returns a contained model or throws', async () => {
+      const all = await Post.all()
+      const id = all.modelKeys()[0]
+      expect(all.findOrFail(id).getKey()).toBe(id)
+      expect(() => all.findOrFail(-1)).toThrow(/No model found in collection/)
+    })
+
+    test('contains matches by model, by key, or by predicate', async () => {
+      const all = await Post.all()
+      const post = all.first()!
+      expect(all.contains(post)).toBe(true)
+      expect(all.contains(post.getKey())).toBe(true)
+      expect(all.contains(-1)).toBe(false)
+      expect(all.contains(p => p.title === 'Two')).toBe(true)
+    })
+
+    test('only/except filter by primary key', async () => {
+      const all = await Post.all()
+      const [a, b, c] = all.modelKeys()
+      expect(all.only(a, b).modelKeys().sort()).toEqual([a, b].sort())
+      expect(all.except(a, b).modelKeys()).toEqual([c])
+    })
+
+    test('fresh re-fetches from the database', async () => {
+      const all = await Post.all()
+      await Post.query().where('id', all.modelKeys()[0] as number).update({ title: 'Updated' })
+      const refreshed = await all.fresh()
+      expect(refreshed.find(all.modelKeys()[0])?.title).toBe('Updated')
+    })
+
+    test('toQuery scopes a builder to this collection\'s models', async () => {
+      const subset = await Post.query().limit(2).get()
+      await subset.toQuery().update({ title: 'Bulk' })
+      const untouched = await Post.query().whereNotIn('id', subset.modelKeys()).get()
+      expect(untouched.all().every(p => p.title !== 'Bulk')).toBe(true)
+      const updated = await Post.query().whereIn('id', subset.modelKeys()).get()
+      expect(updated.all().every(p => p.title === 'Bulk')).toBe(true)
+    })
+
+    test('toQuery throws on an empty collection', () => {
+      const empty = new EloquentCollection<Post>([])
+      expect(() => empty.toQuery()).toThrow(/needs at least one model/)
+    })
+
+    test('makeVisible/makeHidden apply to every model in the collection', async () => {
+      const all = await Post.all()
+      all.makeHidden('title')
+      expect(all.first()!.toObject().title).toBeUndefined()
+      all.makeVisible('title')
+      expect(all.first()!.toObject().title).toBe('One')
+    })
   })
 }

@@ -3,7 +3,7 @@ import type { Model, ModelClass } from './model'
 import type { Operator, QueryBuilder } from './query-builder'
 import type { Relation } from './relations'
 import { LazyCollection } from '@elyvel/support'
-import { eagerLoad, MorphTo } from './relations'
+import { BelongsTo, eagerLoad, MorphTo } from './relations'
 
 type Row = Record<string, unknown>
 /** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */
@@ -189,6 +189,50 @@ export class EloquentBuilder<M extends Model> {
 
   whereDoesntHaveMorph(name: string, types: ModelClass<Model>[], constrain?: EagerConstraint): this {
     this.morphSpecs.push({ name, types, constrain, boolean: 'AND', negate: true })
+    return this
+  }
+
+  /**
+   * Sugar for `whereHas(name, q => q.where(column, ...))` — constrain by a
+   * column on the related model without writing the callback out.
+   */
+  whereRelation(name: string, column: string, operatorOrValue: unknown, value?: unknown): this {
+    return this.whereHas(name, (q: EloquentBuilder<Model>) => q.where(column, operatorOrValue as string, value))
+  }
+
+  /** `orWhereHas` counterpart of {@link whereRelation}. */
+  orWhereRelation(name: string, column: string, operatorOrValue: unknown, value?: unknown): this {
+    return this.orWhereHas(name, (q: EloquentBuilder<Model>) => q.where(column, operatorOrValue as string, value))
+  }
+
+  /**
+   * Constrain to rows that `belongsTo` a specific model instance — infers the
+   * relation method name from `model`'s class (e.g. `Post` → `post()`) unless
+   * `relationName` is given. Sugar for manually looking up the relation's
+   * foreign key and calling `.where(foreignKey, model.getKey())`.
+   */
+  whereBelongsTo(model: Model, relationName?: string): this {
+    const name = relationName ?? model.constructor.name[0]!.toLowerCase() + model.constructor.name.slice(1)
+    const instance = new this.model() as unknown as Record<string, () => unknown>
+    const relation = typeof instance[name] === 'function' ? instance[name]() : undefined
+    if (!(relation instanceof BelongsTo)) {
+      throw new TypeError(
+        `[eloquent] whereBelongsTo: "${name}" is not a belongsTo relation on ${this.model.name}.`,
+      )
+    }
+    this.qb.where(relation.getForeignKeyName(), model.getKey())
+    return this
+  }
+
+  /** Constrain a `morphTo` relation to a specific model instance (type AND key). */
+  whereMorphedTo(name: string, model: Model): this {
+    this.qb.where(`${name}_type`, model.constructor.name).where(`${name}_id`, model.getKey())
+    return this
+  }
+
+  /** The negation of {@link whereMorphedTo}. */
+  whereNotMorphedTo(name: string, model: Model): this {
+    this.qb.whereNot(q => q.where(`${name}_type`, model.constructor.name).where(`${name}_id`, model.getKey()))
     return this
   }
 

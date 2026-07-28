@@ -120,6 +120,30 @@ for (const d of dialects) {
       expect((comments.get(1)!.getRelation('commentable') as Video).title).toBe('V')
     })
 
+    test('whereMorphedTo constrains a morphTo relation to one specific model', async () => {
+      const post = await Post.create({ title: 'P' })
+      const video = await Video.create({ title: 'V' })
+      await Comment.create({ commentable_id: post.id, commentable_type: 'Post', body: 'a' })
+      await Comment.create({ commentable_id: video.id, commentable_type: 'Video', body: 'b' })
+      // Same numeric id, different type — proves both type AND id are checked.
+      await Comment.create({ commentable_id: post.id, commentable_type: 'Video', body: 'c' })
+
+      const matched = await Comment.query().whereMorphedTo('commentable', post).get()
+      expect(matched.count()).toBe(1)
+      expect(matched.first()?.body).toBe('a')
+    })
+
+    test('whereNotMorphedTo is the negation of whereMorphedTo', async () => {
+      const post = await Post.create({ title: 'P' })
+      const video = await Video.create({ title: 'V' })
+      await Comment.create({ commentable_id: post.id, commentable_type: 'Post', body: 'a' })
+      await Comment.create({ commentable_id: video.id, commentable_type: 'Video', body: 'b' })
+
+      const rest = await Comment.query().whereNotMorphedTo('commentable', post).get()
+      expect(rest.count()).toBe(1)
+      expect(rest.first()?.body).toBe('b')
+    })
+
     test('hasManyThrough', async () => {
       const country = await Country.create({ name: 'US' })
       const a1 = await Author.create({ country_id: country.id })

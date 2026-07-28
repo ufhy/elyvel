@@ -247,6 +247,11 @@ export class BelongsTo<R extends Model> extends Relation<R> {
     return this.first()
   }
 
+  /** The column on the PARENT (local) side holding the related row's key — used by `whereBelongsTo`. */
+  getForeignKeyName(): string {
+    return this.foreignKey
+  }
+
   async eager(parents: Model[], name: string, constrain?: RelationConstraint<R>): Promise<void> {
     const keys = parents.map(p => p.getAttribute(this.foreignKey))
     const query = this.related.query().whereIn(this.ownerKey, keys)
@@ -288,6 +293,9 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
   private pivotTimestamps = false
   private readonly extraPivotColumns: string[] = []
   private pivotClass?: typeof Model
+  private pivotAccessor = 'pivot'
+  private readonly pivotConstraints: Array<(q: QueryBuilder) => void> = []
+  private readonly pivotOrders: Array<[string, 'asc' | 'desc']> = []
   protected addConstraints(): void {}
   private pivot(): QueryBuilder {
     const q = new QueryBuilder(useConnection(), this.pivotTable)
@@ -314,6 +322,48 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     return this
   }
 
+  /** Expose the pivot under a custom property name instead of `.pivot` (Laravel's `as()`). */
+  as(accessor: string): this {
+    this.pivotAccessor = accessor
+    return this
+  }
+
+  /** Constrain the relation's query by a pivot table column — `where()`'s column/operator/value form. */
+  wherePivot(column: string, operatorOrValue: unknown, value?: unknown): this {
+    this.pivotConstraints.push(q => q.where(column, operatorOrValue as string, value))
+    return this
+  }
+
+  /** Constrain the relation's query to rows whose pivot column is one of `values`. */
+  wherePivotIn(column: string, values: unknown[]): this {
+    this.pivotConstraints.push(q => q.whereIn(column, values))
+    return this
+  }
+
+  /** Constrain the relation's query to rows whose pivot column is NOT one of `values`. */
+  wherePivotNotIn(column: string, values: unknown[]): this {
+    this.pivotConstraints.push(q => q.whereNotIn(column, values))
+    return this
+  }
+
+  /** Constrain the relation's query to rows whose pivot column falls within `range`. */
+  wherePivotBetween(column: string, range: [unknown, unknown]): this {
+    this.pivotConstraints.push(q => q.whereBetween(column, range))
+    return this
+  }
+
+  /** Constrain the relation's query to rows whose pivot column is NULL. */
+  wherePivotNull(column: string): this {
+    this.pivotConstraints.push(q => q.whereNull(column))
+    return this
+  }
+
+  /** Order the relation's query by a pivot table column. */
+  orderByPivot(column: string, direction: 'asc' | 'desc' = 'asc'): this {
+    this.pivotOrders.push([column, direction])
+    return this
+  }
+
   private attachPivot(models: R[], pivotRows: Record<string, unknown>[]): void {
     const exposed = new Set([
       this.foreignPivotKey,
@@ -326,23 +376,33 @@ export class BelongsToMany<R extends Model> extends Relation<R> {
     for (const model of models) {
       const row = byRelated.get(String(model.getAttribute(this.relatedKey)))
       if (!row) {
-        model.setRelation('pivot', undefined)
+        model.setRelation(this.pivotAccessor, undefined)
         continue
       }
       const projected = Object.fromEntries(Object.entries(row).filter(([k]) => exposed.has(k)))
-      model.setRelation('pivot', this.pivotClass ? this.pivotClass.hydrate(projected) : projected)
+      model.setRelation(this.pivotAccessor, this.pivotClass ? this.pivotClass.hydrate(projected) : projected)
     }
   }
 
   override async get(): Promise<EloquentCollection<R>> {
-    const rows = await this.pivot()
-      .where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
-      .get()
+    const q = this.pivot().where(this.foreignPivotKey, this.parent.getAttribute(this.parentKey))
+    for (const constrain of this.pivotConstraints) constrain(q)
+    for (const [column, direction] of this.pivotOrders) q.orderBy(column, direction)
+    const rows = await q.get()
     const ids = rows.map(r => r[this.relatedPivotKey])
     if (ids.length === 0)
       return this.related.newCollection([])
     const related = await this.related.query().whereIn(this.relatedKey, ids).get()
     this.attachPivot(related.all(), rows)
+    // `whereIn` doesn't preserve `ids`' order, so an `orderByPivot` would
+    // otherwise be silently lost — re-sort the fetched models to match it.
+    if (this.pivotOrders.length > 0) {
+      const order = new Map(ids.map((id, i) => [String(id), i]))
+      related.all().sort(
+        (a, b) => (order.get(String(a.getAttribute(this.relatedKey))) ?? 0)
+          - (order.get(String(b.getAttribute(this.relatedKey))) ?? 0),
+      )
+    }
     return related
   }
 

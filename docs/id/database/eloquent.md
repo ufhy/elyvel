@@ -71,6 +71,56 @@ Kemudahan lain: `Model.findMany(ids)`, `Model.whereKey(id)`,
 `instance.touch()`. Set `static usesUniqueIds = true` untuk otomatis membuat
 primary key UUID saat create (override `static newUniqueId()` untuk ULID).
 
+### Model concern (padanan trait)
+
+Bundel set `fillable`/`casts`/scope yang reusable — misalnya "setiap model
+dengan kolom status" — daripada mengulang static yang sama di setiap model
+yang membutuhkannya (padanan trait di Laravel). `elyvel make:concern HasStatus`
+men-scaffold satu:
+
+```ts
+// app/concerns/HasStatus.ts
+import type { Concern } from '@elyvel/database'
+
+export interface HasStatusFields {
+  status: string
+}
+
+export const HasStatus: Concern = {
+  fillable: ['status'],
+  casts: { status: 'string' },
+  scopes: { active: q => q.where('status', 'active') },
+  globalScopes: { published: q => q.where('published', true) },
+  methods: {
+    isActive(this: Model & HasStatusFields) { return this.status === 'active' },
+  },
+}
+```
+
+Terapkan tepat setelah deklarasi class model dengan `withConcerns` —
+gabungkan field bertipe ke model dengan deklarasi `interface` bernama sama
+(TypeScript menggabungkan keduanya):
+
+```ts
+import { Model, withConcerns } from '@elyvel/database'
+import { HasStatus, type HasStatusFields } from '../concerns/HasStatus'
+
+export interface Post extends HasStatusFields {}
+export class Post extends Model {
+  static override table = 'posts'
+}
+withConcerns(Post, HasStatus)
+
+await Post.query().scope('active').get()   // local scope dari concern
+new Post().isActive()                       // method dari concern
+```
+
+`fillable`/`casts` dari setiap concern yang diterapkan digabung ke milik
+model sendiri; `scopes` adalah opt-in (panggil `.scope('name')`),
+`globalScopes` otomatis berlaku ke setiap query pada model (catatan:
+global scope melihat `QueryBuilder` mentah, bukan builder Eloquent-aware
+yang dipakai local scope); `methods` digabung ke prototype model.
+
 ## CRUD
 
 ```ts
@@ -193,7 +243,25 @@ class Post extends Model {
 Kumpulan lengkap: `hasOne`, `hasMany`, `belongsTo`, `belongsToMany`,
 `hasOneThrough`, `hasManyThrough`, `morphOne`, `morphMany`, `morphTo`,
 `morphToMany`, `morphedByMany`. Pivot mendukung `withPivot`,
-`withTimestamps`, dan `attach` / `detach` / `sync`.
+`withTimestamps`, `as` (expose pivot lewat property custom, bukan
+`.pivot`), `using` (class Model Pivot custom), dan `attach` / `detach` /
+`sync` / `syncWithoutDetaching` / `toggle` / `updateExistingPivot`.
+
+Query relasi `belongsToMany` sendiri (bukan `attach`/`detach`) juga bisa
+di-scope lewat kolom pivot:
+
+```ts
+await user.roles()
+  .wherePivot('active', true)
+  .wherePivotIn('assigned_by', ['admin', 'system'])
+  .orderByPivot('created_at', 'desc')
+  .get()
+```
+
+`wherePivot(column, operatorOrValue, value?)`, `wherePivotIn`,
+`wherePivotNotIn`, `wherePivotBetween`, `wherePivotNull`, dan
+`orderByPivot` semuanya membatasi/mengurutkan row related yang diambil
+berdasarkan kolom di tabel pivot, bukan tabel related-nya sendiri.
 
 ### Eager loading
 
@@ -217,6 +285,49 @@ await User.query().doesntHave('posts').get()
 await user.load('posts')
 await user.loadMissing('profile')
 ```
+
+Beberapa method sugar meng-cover bentuk `whereHas`/constraint relasi yang
+umum tanpa menulis callback-nya:
+
+```ts
+// Sugar untuk whereHas('posts', q => q.where('title', 'A1'))
+await User.query().whereRelation('posts', 'title', 'A1').get()
+await User.query().orWhereRelation('posts', 'title', 'A2').get()
+
+// Batasi ke row yang milik model tertentu — infer nama method relasi dari
+// class model (Post → post()) kecuali diberikan eksplisit
+await Post.query().whereBelongsTo(user).get()
+await Post.query().whereBelongsTo(user, 'author').get()
+
+// Untuk relasi morphTo, batasi ke satu model tertentu (type DAN key)
+await Comment.query().whereMorphedTo('commentable', post).get()
+await Comment.query().whereNotMorphedTo('commentable', post).get()
+```
+
+### Collection
+
+`Model.query().get()` mengembalikan `EloquentCollection` — setiap method
+`Collection` biasa dari [Helper & Collection](/id/digging-deeper/helpers#collection)
+bekerja di atasnya, ditambah yang model-aware:
+
+```ts
+const users = await User.all()
+
+users.find(3)                    // model yang ada berdasarkan primary key, atau undefined
+users.findOrFail(3)               // sama, throw kalau tidak ada
+users.contains(someUser)          // berdasarkan model, key, atau predicate
+users.only(1, 2)                  // hanya primary key ini
+users.except(1, 2)                // semua primary key SELAIN ini
+await users.fresh()               // ambil ulang setiap model di collection dari DB
+await users.toQuery().update({ active: true }) // bulk-update set yang sudah di-fetch
+users.makeHidden('email')         // sembunyikan attribute di setiap model (chainable)
+users.makeVisible('email')
+```
+
+`diff`/`intersect`/`unique` juga di-override supaya membandingkan model
+berdasarkan primary key, bukan object reference, jadi
+`users.diff(await User.whereIn('id', ids).get())` tetap benar meski kedua
+collection berisi instance object yang berbeda untuk row yang sama.
 
 ## Casts
 

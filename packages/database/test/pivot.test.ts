@@ -43,6 +43,10 @@ class User extends Model {
   rolesWithCustomPivot() {
     return this.belongsToMany(Role).withPivot('assigned_by').using(RoleUserPivot)
   }
+
+  rolesAsMembership() {
+    return this.belongsToMany(Role).withPivot('assigned_by').as('membership')
+  }
 }
 
 for (const d of dialects) {
@@ -135,6 +139,61 @@ for (const d of dialects) {
       const pivot = roles.first()?.getRelation<RoleUserPivot>('pivot')
       expect(pivot).toBeInstanceOf(RoleUserPivot)
       expect(pivot?.describe()).toBe('assigned by root')
+    })
+
+    test('as() exposes the pivot under a custom property name', async () => {
+      const user = await User.create({ name: 'Ada' })
+      const admin = await Role.create({ name: 'admin' })
+      await user.rolesAsMembership().attach(admin.id, { assigned_by: 'root' })
+
+      const roles = await user.rolesAsMembership().get()
+      expect(roles.first()?.getRelation('pivot')).toBeUndefined()
+      const membership = roles.first()?.getRelation<Record<string, unknown>>('membership')
+      expect(membership?.assigned_by).toBe('root')
+    })
+
+    test('wherePivot/wherePivotIn/wherePivotNotIn/wherePivotBetween/wherePivotNull constrain the relation query', async () => {
+      const user = await User.create({ name: 'Ada' })
+      const admin = await Role.create({ name: 'admin' })
+      const editor = await Role.create({ name: 'editor' })
+      const guest = await Role.create({ name: 'guest' })
+      await user.rolesWithExtra().attach(admin.id, { assigned_by: 'root' })
+      await user.rolesWithExtra().attach(editor.id, { assigned_by: 'ada' })
+      await user.rolesWithExtra().attach(guest.id)
+
+      const rootOnly = await user.rolesWithExtra().wherePivot('assigned_by', 'root').get()
+      expect(rootOnly.all().map(r => r.name)).toEqual(['admin'])
+
+      const rootOrAda = await user.rolesWithExtra().wherePivotIn('assigned_by', ['root', 'ada']).get()
+      expect(rootOrAda.all().map(r => r.name).sort()).toEqual(['admin', 'editor'])
+
+      // SQL three-valued logic: `NULL NOT IN (...)` is neither true nor false,
+      // so guest (assigned_by IS NULL) is correctly excluded here too — same
+      // as Laravel/plain SQL, not a bug.
+      const notRoot = await user.rolesWithExtra().wherePivotNotIn('assigned_by', ['root']).get()
+      expect(notRoot.all().map(r => r.name).sort()).toEqual(['editor'])
+
+      const nullAssigned = await user.rolesWithExtra().wherePivotNull('assigned_by').get()
+      expect(nullAssigned.all().map(r => r.name)).toEqual(['guest'])
+
+      const between = await user.rolesWithExtra()
+        .wherePivotBetween('role_id', [admin.id, editor.id])
+        .get()
+      expect(between.all().map(r => r.name).sort()).toEqual(['admin', 'editor'])
+    })
+
+    test('orderByPivot orders the relation query by a pivot column', async () => {
+      const user = await User.create({ name: 'Ada' })
+      const admin = await Role.create({ name: 'admin' })
+      const editor = await Role.create({ name: 'editor' })
+      await user.rolesWithExtra().attach(admin.id, { assigned_by: 'zzz' })
+      await user.rolesWithExtra().attach(editor.id, { assigned_by: 'aaa' })
+
+      const ascending = await user.rolesWithExtra().orderByPivot('assigned_by', 'asc').get()
+      expect(ascending.all().map(r => r.name)).toEqual(['editor', 'admin'])
+
+      const descending = await user.rolesWithExtra().orderByPivot('assigned_by', 'desc').get()
+      expect(descending.all().map(r => r.name)).toEqual(['admin', 'editor'])
     })
   })
 }

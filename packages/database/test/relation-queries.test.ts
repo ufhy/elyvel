@@ -23,6 +23,10 @@ class Post extends Model {
   comments() {
     return this.hasMany(Comment)
   }
+
+  user() {
+    return this.belongsTo(User)
+  }
 }
 class User extends Model {
   static override guarded = []
@@ -99,6 +103,41 @@ for (const d of dialects) {
         .orderBy('id')
         .get()
       expect(users.first()?.getRelation<EloquentCollection<Post>>('posts').count()).toBe(1)
+    })
+
+    test('whereRelation is sugar for whereHas(name, q => q.where(...))', async () => {
+      const matched = await User.query().whereRelation('posts', 'title', 'A1').get()
+      expect(matched.count()).toBe(1)
+      expect(matched.first()?.name).toBe('Ada')
+
+      const none = await User.query().whereRelation('posts', 'title', 'nonexistent').get()
+      expect(none.count()).toBe(0)
+    })
+
+    test('orWhereRelation adds an OR whereHas condition', async () => {
+      const matched = await User.query()
+        .where('name', 'Alan') // has no posts
+        .orWhereRelation('posts', 'title', 'A2')
+        .get()
+      expect(matched.all().map(u => u.name).sort()).toEqual(['Ada', 'Alan'])
+    })
+
+    test('whereBelongsTo constrains by an inferred belongsTo relation\'s foreign key', async () => {
+      const ada = await User.query().where('name', 'Ada').first()
+      const posts = await Post.query().whereBelongsTo(ada!).get()
+      expect(posts.count()).toBe(2)
+      expect(posts.all().every(p => p.user_id === ada!.id)).toBe(true)
+    })
+
+    test('whereBelongsTo accepts an explicit relation name', async () => {
+      const ada = await User.query().where('name', 'Ada').first()
+      const posts = await Post.query().whereBelongsTo(ada!, 'user').get()
+      expect(posts.count()).toBe(2)
+    })
+
+    test('whereBelongsTo throws for a relation name that is not belongsTo', async () => {
+      const ada = await User.query().where('name', 'Ada').first()
+      expect(() => Post.query().whereBelongsTo(ada!, 'comments')).toThrow(/not a belongsTo relation/)
     })
   })
 }
