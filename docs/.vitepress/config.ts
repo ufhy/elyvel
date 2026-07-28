@@ -66,6 +66,7 @@ export default defineConfig({
               { text: 'Events', link: '/digging-deeper/events' },
               { text: 'Mail', link: '/digging-deeper/mail' },
               { text: 'Notifications', link: '/digging-deeper/notifications' },
+              { text: 'Broadcasting', link: '/digging-deeper/broadcasting' },
             ],
           },
           {
@@ -125,6 +126,7 @@ export default defineConfig({
               { text: 'Event', link: '/id/digging-deeper/events' },
               { text: 'Mail', link: '/id/digging-deeper/mail' },
               { text: 'Notifikasi', link: '/id/digging-deeper/notifications' },
+              { text: 'Broadcasting', link: '/id/digging-deeper/broadcasting' },
             ],
           },
           {
