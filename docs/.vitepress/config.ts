@@ -72,6 +72,7 @@ export default defineConfig({
               { text: 'Task Scheduling', link: '/digging-deeper/scheduler' },
               { text: 'Localization', link: '/digging-deeper/localization' },
               { text: 'Views', link: '/digging-deeper/views' },
+              { text: 'HTTP Tests', link: '/digging-deeper/testing' },
             ],
           },
           {
@@ -137,6 +138,7 @@ export default defineConfig({
               { text: 'Task Scheduling', link: '/id/digging-deeper/scheduler' },
               { text: 'Localization', link: '/id/digging-deeper/localization' },
               { text: 'View', link: '/id/digging-deeper/views' },
+              { text: 'HTTP Test', link: '/id/digging-deeper/testing' },
             ],
           },
           {
