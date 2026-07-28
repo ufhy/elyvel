@@ -1,0 +1,153 @@
+# Logging
+
+Structured, leveled logging with pluggable transports — console for dev,
+rotating files in production, all through the same small API. Every HTTP
+request is logged automatically with a correlation id, and sensitive fields
+are redacted before anything reaches a sink.
+
+## Configuration
+
+The simple form needs no `channels` at all — console plus one optional
+rotating file:
+
+```ts
+// config/logging.ts
+import { defineLoggingConfig } from '@elyvel/core'
+
+export default defineLoggingConfig({
+  level: process.env.LOG_LEVEL ?? 'info',
+  pretty: process.env.NODE_ENV !== 'production',
+  file: 'storage/logs/app.log',
+  maxBytes: 5 * 1024 * 1024,
+  maxFiles: 5,
+})
+```
+
+For more control, define named channels and combine them into a `stack`
+(Laravel's stacked-channel concept):
+
+```ts
+export default defineLoggingConfig({
+  default: 'stack',
+  channels: {
+    console: { driver: 'console' },
+    daily: { driver: 'daily', path: 'storage/logs/app', maxDays: 30 },
+    stack: { driver: 'stack', channels: ['console', 'daily'] },
+  },
+})
+```
+
+`app.logger` is the default channel (or stack); `app.channel('daily')`
+resolves a specific one. `http: false` disables the automatic
+per-request logging described below.
+
+## Log levels
+
+A deliberately small, pino-style 4-tier scale — `debug` < `info` < `warn` <
+`error` — plus `silent` as a config-only floor that suppresses everything.
+This is simpler than Monolog's 8 levels by design; there's no
+`emergency`/`alert`/`critical`/`notice` distinction to make.
+
+## Writing log messages
+
+```ts
+import { createLogger } from '@elyvel/core'
+
+const log = createLogger({ level: 'info' })
+
+log.debug('cache miss', { key })
+log.info('user signed up', { userId: user.id })
+log.warn('slow query', { ms: 480 })
+log.error('payment failed', { orderId, error })
+
+// runtime-chosen level
+log.log('info', 'checkout started', { cartId })
+```
+
+Scope a logger under a name — entries get tagged so you can filter by
+subsystem:
+
+```ts
+const sql = log.child('sql')
+sql.error('query failed', { sql: text, bindings, error })
+```
+
+Bind context that should ride along on every subsequent call, instead of
+repeating it at each call site:
+
+```ts
+const requestLog = log.withContext({ requestId })
+requestLog.info('processing') // includes requestId automatically
+```
+
+## Transports
+
+| Transport | Behavior |
+| --- | --- |
+| `console` | Pretty (colorized, human-readable) or JSON-per-line; `error`/`warn` go to `console.error`. |
+| `file` | Synchronous writes, size-based rotation (`maxBytes`/`maxFiles`), optional gzip. |
+| `file` + `buffered: true` | Batches writes (`flushEvery`/`intervalMs`) into fewer syscalls; flushes on exit/`SIGINT`/`SIGTERM`. |
+| `daily` | One file per calendar day (`<path>-YYYY-MM-DD.log`), prunes files older than `maxDays`. |
+
+## Redaction
+
+Sensitive fields are scrubbed automatically before an entry reaches any
+transport — no per-call-site opt-in needed. Keys matching `password`,
+`token`, `authorization`, `secret`, `cookie`, `accessToken`, `refreshToken`,
+`apiKey` (case-insensitive) are replaced with `[REDACTED]`, recursively
+through nested objects and arrays. Two opt-in value patterns catch secrets
+embedded in free text: a credit-card-like digit run, and `Bearer <token>`.
+
+```ts
+log.info('login attempt', { email, password: 'hunter2' })
+// → { email: '...', password: '[REDACTED]' }
+```
+
+Customize the key list or patterns per logger (`createLogger({ redact, redactPatterns })`)
+or app-wide (`logging.redact`/`redactPatterns`/`redactJson` in
+`config/logging.ts`). `Date`/`RegExp`/`Map`/`Set`/`Error`/typed-array values
+pass through untouched rather than being flattened.
+
+## Correlation id & automatic HTTP logging
+
+Every request gets a UUID the moment it arrives, and a `log` bound to it is
+available in any handler or middleware — every entry logged through it
+automatically carries that request's id:
+
+```ts
+route().post('/orders', ({ log, body }) => {
+  log.info('creating order', { total: body.total }) // requestId included automatically
+})
+```
+
+The response itself is logged on the way out — `debug` for a clean 2xx/3xx,
+`warn` for 4xx, `error` for 5xx — with `{ requestId, status, ms, userId? }`.
+Unhandled 5xx errors get their own entry with the stack trace. Set
+`http: false` in `config/logging.ts` to turn this off.
+
+## Cross-package logging
+
+Other packages log into their own named channel automatically when wired.
+Two examples: `@elyvel/database`'s `EloquentServiceProvider` logs every
+query error to the `sql` channel (and every query at `debug` if
+`database.log: true`); `@elyvel/scheduler` logs every scheduled task
+failure — including background tasks with no explicit `.onFailure()` — to
+the `scheduler` channel, so a silently-failing cron job still leaves a
+trace.
+
+## Testing
+
+Inject a fake transport to capture and assert on entries directly, instead
+of parsing console/file output:
+
+```ts
+import { Logger, type LogEntry } from '@elyvel/core'
+
+const entries: LogEntry[] = []
+const log = new Logger({ transports: [{ log: e => entries.push(e) }] })
+
+log.error('boom', { userId: 1 })
+
+expect(entries[0].message).toBe('boom')
+expect(entries[0].context).toEqual({ userId: 1 })
+```
