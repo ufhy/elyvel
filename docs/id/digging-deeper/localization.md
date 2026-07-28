@@ -156,6 +156,25 @@ await loadTranslations('lang')                // muat direktori lang/ ke transla
 setTranslator(new Translator({ locale: 'id' })) // ganti sepenuhnya
 ```
 
+### Seam `trans()` (`@elyvel/support`)
+
+`@elyvel/support` tidak punya dependency dan setiap package bergantung
+padanya — jadi internal framework yang butuh pesan translatable (teks
+default rule validasi, error auth) meng-import `trans()` dari
+`@elyvel/support`, bukan langsung dari `@elyvel/i18n`, untuk menghindari
+circular dependency. Ketika `@elyvel/i18n` terpasang, service provider-nya
+menyambungkan keduanya secara otomatis. Ini `trans()` yang sama dipakai di
+seluruh pesan error framework sendiri — pakai sendiri di konteks
+package/library di mana bergantung ke `@elyvel/i18n` tidak tepat:
+
+```ts
+import { trans } from '@elyvel/support'
+
+trans('validation::errors.required', { attribute: 'name' }, 'The :attribute field is required.')
+// fallback ke string Inggris yang diberikan (dengan `:attribute` diganti)
+// kalau @elyvel/i18n tidak terpasang, atau key-nya tidak ditemukan
+```
+
 ## Testing
 
 ```ts

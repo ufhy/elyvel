@@ -97,6 +97,22 @@ import { notifications } from '@elyvel/notifications'
 notifications().channel('slack', new SlackChannel())
 ```
 
+Inside a custom channel, `routeFor`/`notifiableKey` mirror what `mail`/`telegram`
+do internally to resolve where a notification goes and who it's for:
+
+```ts
+import type { Channel, Notifiable, Notification } from '@elyvel/notifications'
+import { notifiableKey, routeFor } from '@elyvel/notifications'
+
+class SlackChannel implements Channel {
+  async send(notifiable: Notifiable, notification: Notification): Promise<void> {
+    const webhookUrl = routeFor(notifiable, 'slack')     // notifiable.routeNotificationFor('slack')
+    const id = notifiableKey(notifiable)                  // notifiable.getKey?.() ?? notifiable.id
+    // ... post to webhookUrl, log against `id`, etc.
+  }
+}
+```
+
 There's no built-in `broadcast` channel — `toBroadcast()` is declared on
 `Notification` as a stub for an app to wire up its own.
 

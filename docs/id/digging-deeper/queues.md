@@ -253,6 +253,32 @@ configureRestartSignal(new RedisRestartSignal(redisClient))
 Tanpa ini disambungkan, `queue:restart` melaporkan bahwa signalling
 restart belum dikonfigurasi.
 
+### Meng-embed worker secara programatik
+
+`elyvel queue:work` adalah wrapper tipis di atas class `Worker` yang sama
+yang bisa kamu pakai langsung — untuk test harness, process manager
+custom, atau meng-embed loop worker di dalam program yang lebih besar:
+
+```ts
+import { Worker } from '@elyvel/queue'
+
+const worker = new Worker(store, {
+  connection: 'default',
+  queues: ['high', 'default'],
+  failed: failedJobs(),
+  onBeforeJob: name => console.log(`memulai ${name}`),
+  onAfterJob: name => console.log(`selesai ${name}`),
+  onError: (name, error, willRetry) => console.log(`${name} gagal`, error, { willRetry }),
+})
+
+const processed = await worker.work({ once: true }) // atau stopWhenEmpty/sleepMs/max
+```
+
+`store` adalah `QueueManager.store(connection)` yang sama yang di-resolve
+CLI — `app.make(QueueToken).store(connection)` di dalam app yang sudah
+di-boot. `worker.processNext()` juga tersedia langsung kalau kamu mau
+menjalankan loop-nya sendiri alih-alih memanggil `.work()`.
+
 ## Menangani job yang gagal
 
 Saat sebuah job menghabiskan `tries`-nya, ia dicatat (koneksi, queue,

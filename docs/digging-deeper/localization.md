@@ -152,6 +152,25 @@ await loadTranslations('lang')                // load a lang/ dir into the defau
 setTranslator(new Translator({ locale: 'id' })) // replace it entirely
 ```
 
+### The `trans()` seam (`@elyvel/support`)
+
+`@elyvel/support` has no dependencies and every package depends on it — so
+framework internals that need a translatable message (a validation rule's
+default text, an auth error) import `trans()` from `@elyvel/support`
+instead of `@elyvel/i18n` directly, avoiding a dependency cycle. When
+`@elyvel/i18n` is installed, its service provider wires the two together
+automatically. This is the same `trans()` used throughout the framework's
+own error messages — reach for it yourself in a package/library context
+where depending on `@elyvel/i18n` isn't appropriate:
+
+```ts
+import { trans } from '@elyvel/support'
+
+trans('validation::errors.required', { attribute: 'name' }, 'The :attribute field is required.')
+// falls back to the given English string (with `:attribute` replaced)
+// if @elyvel/i18n isn't installed, or the key isn't found
+```
+
 ## Testing
 
 ```ts

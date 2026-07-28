@@ -99,6 +99,23 @@ import { notifications } from '@elyvel/notifications'
 notifications().channel('slack', new SlackChannel())
 ```
 
+Di dalam channel custom, `routeFor`/`notifiableKey` mencerminkan apa yang
+dilakukan `mail`/`telegram` secara internal untuk menentukan tujuan
+notifikasi dan untuk siapa:
+
+```ts
+import type { Channel, Notifiable, Notification } from '@elyvel/notifications'
+import { notifiableKey, routeFor } from '@elyvel/notifications'
+
+class SlackChannel implements Channel {
+  async send(notifiable: Notifiable, notification: Notification): Promise<void> {
+    const webhookUrl = routeFor(notifiable, 'slack')     // notifiable.routeNotificationFor('slack')
+    const id = notifiableKey(notifiable)                  // notifiable.getKey?.() ?? notifiable.id
+    // ... post ke webhookUrl, log berdasarkan `id`, dst.
+  }
+}
+```
+
 Tidak ada channel `broadcast` bawaan — `toBroadcast()` dideklarasikan pada
 `Notification` sebagai stub untuk aplikasi menyambungkannya sendiri.
 

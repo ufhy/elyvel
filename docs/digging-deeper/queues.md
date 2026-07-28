@@ -246,6 +246,32 @@ configureRestartSignal(new RedisRestartSignal(redisClient))
 
 Without this wired, `queue:restart` reports that restart signalling isn't configured.
 
+### Embedding a worker programmatically
+
+`elyvel queue:work` is a thin wrapper around the same `Worker` class you can
+use directly — for a test harness, a custom process manager, or embedding a
+worker loop inside a bigger program:
+
+```ts
+import { Worker } from '@elyvel/queue'
+
+const worker = new Worker(store, {
+  connection: 'default',
+  queues: ['high', 'default'],
+  failed: failedJobs(),
+  onBeforeJob: name => console.log(`starting ${name}`),
+  onAfterJob: name => console.log(`finished ${name}`),
+  onError: (name, error, willRetry) => console.log(`${name} failed`, error, { willRetry }),
+})
+
+const processed = await worker.work({ once: true }) // or stopWhenEmpty/sleepMs/max
+```
+
+`store` is the same `QueueManager.store(connection)` the CLI resolves —
+`app.make(QueueToken).store(connection)` inside a booted app.
+`worker.processNext()` is also available directly if you want to drive the
+loop yourself instead of calling `.work()`.
+
 ## Handling failed jobs
 
 When a job exhausts its `tries`, it's recorded (connection, queue, the exact
