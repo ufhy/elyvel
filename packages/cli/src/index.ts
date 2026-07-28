@@ -185,6 +185,28 @@ async function main(): Promise<number> {
 // `bun create elyvel`) reuse the exact same logic and bundled templates.
 export { newApp } from './commands/new'
 
+// I/O helpers for writing your own commands (`elyvel make:command` — see
+// `app/commands/`): colored output, tables, progress bars, interactive
+// prompts. Safe to import here since `@elyvel/cli` is already a scaffolded
+// app's own devDependency and is never imported by the running server.
+export {
+  ask,
+  choice,
+  comment,
+  confirm,
+  error,
+  info,
+  line,
+  newLine,
+  progressBar,
+  type ProgressBar,
+  type PromptStreams,
+  secret,
+  table,
+  warn,
+  withProgressBar,
+} from './io'
+
 // Only run the CLI when executed as the entry point — importing this module
 // (for the exports above) must not run `main()` / exit the process.
 if (import.meta.main)
