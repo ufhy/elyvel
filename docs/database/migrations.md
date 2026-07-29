@@ -165,6 +165,33 @@ elyvel migrate:status     # show which migrations have run
 elyvel db:seed            # run database seeders
 ```
 
+### The migration lock
+
+Migrations hold a lock row in the database itself, so two processes can't
+migrate at once — the common case being several instances booting together
+in a rolling deploy. A process that finds the lock held throws
+`MigrationLockError` rather than returning "nothing to migrate", so a
+caller can tell the difference between *didn't need to run* and *wasn't
+allowed to run*:
+
+```ts
+import { migrate, MigrationLockError } from '@elyvel/database'
+
+try {
+  await migrate(conn, dir)
+}
+catch (e) {
+  if (e instanceof MigrationLockError) {
+    // another instance is migrating — safe to carry on booting
+  }
+}
+```
+
+A lock left behind by a process that died mid-migration is auto-stolen
+after 10 minutes; `elyvel migrate:unlock` force-clears it sooner (only do
+that once you're sure nothing is actually migrating — it steals a live
+lock too).
+
 ## Inspecting the database
 
 ```bash

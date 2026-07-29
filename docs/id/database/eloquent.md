@@ -229,11 +229,29 @@ SQL mentah langsung ke koneksi — binding posisional atau bernama, plus
 `unprepared` untuk DDL multi-statement:
 
 ```ts
-import { raw, unprepared } from '@elyvel/database'
+import { raw, rawStatement, unprepared } from '@elyvel/database'
 
 await raw('SELECT * FROM users WHERE id = :id', { id: 1 }) // :name → ? / $n
 await raw('SELECT * FROM users WHERE age > ?', [18])
+await rawStatement('UPDATE users SET score = score + ? WHERE id = ?', [10, 1])
 await unprepared('CREATE TABLE a (id INT); CREATE TABLE b (id INT);')
+```
+
+`raw()` mengembalikan row; `rawStatement()` untuk statement tanpa result
+set (UPDATE/DELETE/DDL) tapi tetap butuh binding; `unprepared()` sama
+sekali tanpa binding, untuk DDL multi-statement yang tidak bisa dibawa
+prepared statement.
+
+Untuk join dengan lebih dari satu kondisi, oper closure alih-alih triple
+`(first, operator, second)` — closure-nya menerima builder join-clause
+dengan `on`/`orOn` (kolom-ke-kolom) dan `where`/`orWhere` (kolom-ke-nilai):
+
+```ts
+await User.query()
+  .join('teams', (j) => {
+    j.on('teams.id', '=', 'users.team_id').where('teams.active', '=', true)
+  })
+  .get()
 ```
 
 Tersedia juga: `distinct`, `whereColumn`, `whereExists`, `leftJoin`,
@@ -360,6 +378,20 @@ Tipe bawaan: `int`, `float`, `boolean`, `string`, `json`, `array`, `date`,
 `datetime`, `encrypted`. Cast `encrypted` menyimpan ciphertext di database
 (`iv:tag:ciphertext`, base64) dan mengembalikan nilai yang sudah didekripsi
 saat dibaca.
+
+Kunci enkripsi di-set saat boot dari `config('app.key')` (di-hash ke 32
+byte, jadi string apa pun bisa). Pakai `setEncryptionKey()` langsung hanya
+kalau tidak ada app yang di-boot untuk membaca config — misalnya script
+mandiri, atau test yang menguji cast encrypted tanpa `createApp()`:
+
+```ts
+import { setEncryptionKey } from '@elyvel/database'
+
+setEncryptionKey(process.env.APP_KEY!)
+```
+
+Tanpa kunci yang di-set, membaca atau menulis kolom `encrypted` akan throw
+alih-alih diam-diam menyimpan plaintext.
 
 ## Pagination
 

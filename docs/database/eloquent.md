@@ -226,11 +226,28 @@ Raw SQL against the connection — positional or named bindings, plus
 `unprepared` for multi-statement DDL:
 
 ```ts
-import { raw, unprepared } from '@elyvel/database'
+import { raw, rawStatement, unprepared } from '@elyvel/database'
 
 await raw('SELECT * FROM users WHERE id = :id', { id: 1 }) // :name → ? / $n
 await raw('SELECT * FROM users WHERE age > ?', [18])
+await rawStatement('UPDATE users SET score = score + ? WHERE id = ?', [10, 1])
 await unprepared('CREATE TABLE a (id INT); CREATE TABLE b (id INT);')
+```
+
+`raw()` returns rows; `rawStatement()` is for statements with no result set
+(an UPDATE/DELETE/DDL) but that still need bindings; `unprepared()` skips
+bindings entirely, for multi-statement DDL a prepared statement can't carry.
+
+For a join with more than one condition, pass a closure instead of the
+`(first, operator, second)` triple — it receives a join-clause builder with
+`on`/`orOn` (column-to-column) and `where`/`orWhere` (column-to-value):
+
+```ts
+await User.query()
+  .join('teams', (j) => {
+    j.on('teams.id', '=', 'users.team_id').where('teams.active', '=', true)
+  })
+  .get()
 ```
 
 Also available: `distinct`, `whereColumn`, `whereExists`, `leftJoin`,
@@ -358,6 +375,20 @@ Built-in types: `int`, `float`, `boolean`, `string`, `json`, `array`, `date`,
 `datetime`, `encrypted`. The `encrypted` cast stores ciphertext in the
 database (`iv:tag:ciphertext`, base64) and returns the decrypted value on
 read.
+
+The encryption key is set at boot from `config('app.key')` (hashed to 32
+bytes, so any string works). Only reach for `setEncryptionKey()` directly
+when there's no booted app to read config from — a standalone script, or a
+test that exercises encrypted casts without `createApp()`:
+
+```ts
+import { setEncryptionKey } from '@elyvel/database'
+
+setEncryptionKey(process.env.APP_KEY!)
+```
+
+Without a key set, reading or writing an `encrypted` column throws rather
+than silently storing plaintext.
 
 ## Pagination
 

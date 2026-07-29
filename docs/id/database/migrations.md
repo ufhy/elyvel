@@ -166,6 +166,33 @@ elyvel migrate:status     # tampilkan migrasi mana saja yang sudah berjalan
 elyvel db:seed            # jalankan database seeder
 ```
 
+### Lock migrasi
+
+Migrasi memegang sebuah row lock di dalam database itu sendiri, jadi dua
+proses tidak bisa migrasi bersamaan — kasus paling umumnya beberapa
+instance yang boot bersamaan di rolling deploy. Proses yang menemukan lock
+sedang dipegang akan throw `MigrationLockError` alih-alih mengembalikan
+"tidak ada yang perlu dimigrasi", supaya pemanggil bisa membedakan antara
+*tidak perlu jalan* dan *tidak boleh jalan*:
+
+```ts
+import { migrate, MigrationLockError } from '@elyvel/database'
+
+try {
+  await migrate(conn, dir)
+}
+catch (e) {
+  if (e instanceof MigrationLockError) {
+    // instance lain sedang migrasi — aman untuk lanjut boot
+  }
+}
+```
+
+Lock yang ditinggalkan proses yang mati di tengah migrasi otomatis diambil
+alih setelah 10 menit; `elyvel migrate:unlock` membersihkannya lebih cepat
+(lakukan hanya kalau kamu yakin tidak ada migrasi yang sungguh berjalan —
+ia juga mengambil alih lock yang masih hidup).
+
 ## Memeriksa database
 
 ```bash
