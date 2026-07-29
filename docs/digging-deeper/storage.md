@@ -144,6 +144,18 @@ no signed-request mechanism for plain disk files. Use `s3`, or serve the
 file through your own signed route if you need this locally.
 :::
 
+The third `options` argument passes extra S3 params through (e.g.
+`ResponseContentDisposition`), but it **cannot** override the HTTP method or
+the expiry — those are fixed by whichever function you called. That matters
+if you ever forward client-supplied params into it: otherwise a request could
+turn a read-only `temporaryUrl` into a `PUT` (an arbitrary object write) or
+stretch its own expiry.
+
+Note that `temporaryUploadUrl` signs no `Content-Type` or `Content-Length`
+constraint, so whoever holds the URL can upload anything of any size until it
+expires. Keep the expiry short, and validate the object after upload rather
+than trusting what was sent.
+
 ## Testing
 
 ```ts

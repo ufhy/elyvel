@@ -285,8 +285,16 @@ export class LocalDisk implements FilesystemDisk {
   async append(path: string, data: string): Promise<boolean> {
     try {
       const full = this.full(path)
+      const isNew = !existsSync(full)
       await mkdir(dirname(full), { recursive: true })
       await appendFile(full, data)
+      // `appendFile` creates a missing file at the process umask (typically
+      // 0644), so appending to a not-yet-existing path on a `private` disk used
+      // to produce a world-readable file — every other write path chmods. Only
+      // on creation: chmod'ing an existing file would silently reset
+      // permissions a caller may have set deliberately.
+      if (isNew)
+        await chmod(full, this.perms.file[this.defaultVisibility])
       return true
     }
     catch (error) {
@@ -594,10 +602,14 @@ export class S3Disk implements FilesystemDisk {
     expiresIn: Date | number,
     options: TemporaryUrlOptions = {},
   ): Promise<string> {
+    // `options` is spread FIRST so it can add response params without being
+    // able to override `method`/`expiresIn`. The other order let a route that
+    // forwards client-supplied params turn this read-only URL into
+    // `method: 'PUT'` (an arbitrary object write) or stretch the expiry.
     return this.client.presign(path, {
+      ...options,
       expiresIn: secondsUntil(expiresIn),
       method: 'GET',
-      ...options,
     })
   }
 
@@ -607,9 +619,9 @@ export class S3Disk implements FilesystemDisk {
     options: TemporaryUrlOptions = {},
   ): Promise<{ url: string, headers: Record<string, string> }> {
     const url = this.client.presign(path, {
+      ...options,
       expiresIn: secondsUntil(expiresIn),
       method: 'PUT',
-      ...options,
     })
     return { url, headers: {} }
   }

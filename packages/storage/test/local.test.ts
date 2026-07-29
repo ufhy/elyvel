@@ -104,6 +104,21 @@ describe('LocalDisk — metadata + url', () => {
 })
 
 describe('LocalDisk — visibility', () => {
+  // Regression: `appendFile` creates a missing file at the process umask
+  // (0644), and `append` was the one write path that never chmod'd — so
+  // appending to a new path on a `private` disk produced a world-readable file.
+  test('append applies the disk visibility when it creates the file', async () => {
+    const root = freshRoot()
+    const disk = new LocalDisk({ driver: 'local', root, visibility: 'private' })
+    await disk.append('fresh.log', 'line\n')
+    expect(await disk.getVisibility('fresh.log')).toBe('private')
+
+    // Appending to an EXISTING file must not reset permissions a caller set.
+    await disk.setVisibility('fresh.log', 'public')
+    await disk.append('fresh.log', 'more\n')
+    expect(await disk.getVisibility('fresh.log')).toBe('public')
+  })
+
   test('put honors visibility and get/setVisibility round-trip', async () => {
     const disk = makeDisk()
     await disk.put('secret.txt', 'shh', 'private')

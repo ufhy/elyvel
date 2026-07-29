@@ -148,6 +148,19 @@ mekanisme signed-request untuk file disk biasa. Pakai `s3`, atau layani
 file lewat route signed-mu sendiri jika kamu butuh ini secara lokal.
 :::
 
+Argumen ketiga `options` meneruskan param S3 tambahan (misalnya
+`ResponseContentDisposition`), tapi ia **tidak bisa** meng-override HTTP
+method atau expiry — keduanya ditetapkan oleh fungsi yang kamu panggil. Ini
+penting kalau suatu saat kamu meneruskan param dari client ke sana: kalau
+tidak, sebuah request bisa mengubah `temporaryUrl` yang read-only menjadi
+`PUT` (penulisan object sembarang) atau memperpanjang expiry-nya sendiri.
+
+Perhatikan bahwa `temporaryUploadUrl` tidak menandatangani batasan
+`Content-Type` maupun `Content-Length`, jadi siapa pun yang memegang URL-nya
+bisa mengupload apa saja dengan ukuran berapa saja sampai expired. Buat
+expiry-nya pendek, dan validasi object setelah upload alih-alih mempercayai
+apa yang dikirim.
+
 ## Testing
 
 ```ts
