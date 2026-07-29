@@ -62,14 +62,22 @@ factory; sisanya menunggu hasilnya, alih-alih semuanya membebani sumber data
 asli (thundering herd saat key populer expired). View bertag
 (`cache().tags(...).remember(...)`) mendapat coalescing yang sama.
 
-::: warning `add` dan `pull` tidak atomik
-Keduanya adalah baca lalu tulis dengan `await` di antaranya, jadi dua
-pemanggil konkuren untuk key yang sama bisa sama-sama "menang": `add()` bisa
-mengembalikan `true` dua kali, dan `pull()` bisa menyerahkan nilai one-shot
-yang sama ke dua pemanggil. Jangan bangun guard sekali-jalan (kirim-email-ini-
-sekali, dispatch-job-ini-sekali) atau token sekali-pakai hanya di atasnya —
-pakai unique constraint database, atau dukungan unique-job milik queue, di
-tempat jaminannya memang harus dipegang.
+::: tip `add` dan `pull` atomik — dengan satu catatan
+`add()` adalah guard sekali-jalan (kirim-email-ini-sekali,
+dispatch-job-ini-sekali) dan `pull()` membaca nilai sekali-pakai, jadi
+keduanya lewat satu operasi store yang tak terbagi, bukan pasangan
+baca-lalu-tulis: tepat satu pemanggil konkuren mendapat `true` dari `add()`,
+dan tepat satu menerima nilainya dari `pull()`.
+
+Catatannya soal *cakupan*. `redis` atomik lintas proses (`SET NX` /
+`GETDEL`). `memory` dan `file` atomik di dalam satu proses — cukup untuk
+satu instance, tapi dua instance yang menunjuk direktori cache yang sama
+masih bisa sama-sama menang, limitasi yang sama seperti `increment` di
+driver file. `database` butuh adapter yang mengimplementasikan `add` (satu
+`INSERT … ON CONFLICT DO NOTHING`); tanpa itu ia turun jadi pasangan
+baca-lalu-tulis. Di tempat jaminannya memang harus dipegang lintas instance,
+pakai `redis`, unique constraint database, atau dukungan unique-job milik
+queue.
 
 `increment()` tidak membuat atau menyegarkan window: key yang masih hidup
 mempertahankan expiry yang sudah ada, dan increment pada key yang TTL-nya

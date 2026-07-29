@@ -10,6 +10,25 @@ export interface CacheStore {
   flush(): Promise<void>
   increment(key: string, by?: number): Promise<number>
   decrement(key: string, by?: number): Promise<number>
+  /**
+   * Store only if the key is absent, in ONE indivisible step, returning
+   * whether this caller was the one that stored it.
+   *
+   * `Repository.add()` is the once-only guard people reach for (send this
+   * email once, dispatch this job once), and composing it from
+   * `get()`-then-`put()` leaves an `await` between the check and the write —
+   * so concurrent callers all saw an absent key and all returned `true`.
+   * Implement it wherever the backend can do it in one operation (`SET NX`,
+   * `INSERT … ON CONFLICT DO NOTHING`, or just synchronously for an
+   * in-process store); otherwise the racy fallback is used.
+   */
+  add?(key: string, value: unknown, seconds?: number): Promise<boolean>
+  /**
+   * Read and delete in one indivisible step (Redis `GETDEL`). Same reasoning
+   * as {@link add}: `pull()` is used for single-use values, and a
+   * `get()`-then-`forget()` pair can hand the same value to two callers.
+   */
+  pull?<T = unknown>(key: string): Promise<T | undefined>
 }
 
 interface Entry {
@@ -67,6 +86,27 @@ export class MemoryStore implements CacheStore {
 
   async decrement(key: string, by = 1): Promise<number> {
     return this.increment(key, -by)
+  }
+
+  /** Atomic by construction: no `await` between the check and the set. */
+  async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+    const entry = this.entries.get(key)
+    if (entry !== undefined && !expired(entry, Date.now()))
+      return false
+    this.entries.set(key, {
+      value,
+      expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined,
+    })
+    return true
+  }
+
+  /** Atomic by construction: the read and delete happen in one synchronous step. */
+  async pull<T = unknown>(key: string): Promise<T | undefined> {
+    const entry = this.entries.get(key)
+    this.entries.delete(key)
+    if (entry === undefined || expired(entry, Date.now()))
+      return undefined
+    return entry.value as T
   }
 }
 
@@ -145,6 +185,26 @@ export class FileStore implements CacheStore {
   async decrement(key: string, by = 1): Promise<number> {
     return this.increment(key, -by)
   }
+
+  /** Single-process atomic, with the same cross-process caveat as `increment` (see the class doc). */
+  async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+    if (this.read(key) !== undefined)
+      return false
+    this.write(key, {
+      value,
+      expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined,
+    })
+    return true
+  }
+
+  /** Single-process atomic, same caveat as `add`. */
+  async pull<T = unknown>(key: string): Promise<T | undefined> {
+    const entry = this.read(key)
+    const file = this.path(key)
+    if (existsSync(file))
+      unlinkSync(file)
+    return entry?.value as T | undefined
+  }
 }
 
 /**
@@ -189,6 +249,16 @@ export interface CacheDbAdapter {
    * ```
    */
   increment?(key: string, by: number): Promise<number>
+  /**
+   * Store only if absent, in one statement, returning whether this call
+   * stored it — e.g. `INSERT INTO cache (key, value, expires_at) VALUES
+   * (?, ?, ?) ON CONFLICT (key) DO NOTHING` and reporting the affected row
+   * count. **An expired row must count as absent**, so a DO NOTHING alone
+   * isn't enough if stale rows can linger; either sweep them or use
+   * `DO UPDATE ... WHERE cache.expires_at IS NOT NULL AND cache.expires_at <= ?`.
+   * Without this, `add()` degrades to a racy read-then-write.
+   */
+  add?(key: string, value: string, expiresAt: number | null): Promise<boolean>
 }
 
 let dbAdapter: CacheDbAdapter | null = null
@@ -254,6 +324,22 @@ export class DatabaseStore implements CacheStore {
 
   async decrement(key: string, by = 1): Promise<number> {
     return this.increment(key, -by)
+  }
+
+  /**
+   * Atomic only when the adapter implements `add`. Without it this is the same
+   * racy read-then-write `Repository` would have done anyway, so nothing is
+   * lost — but it also isn't a guarantee. See the `CacheDbAdapter.add` doc.
+   */
+  async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+    const adapter = requireAdapter()
+    const expiresAt = seconds !== undefined ? Date.now() + seconds * 1000 : null
+    if (adapter.add)
+      return adapter.add(key, JSON.stringify(value), expiresAt)
+    if ((await this.get(key)) !== undefined)
+      return false
+    await adapter.write(key, JSON.stringify(value), expiresAt)
+    return true
   }
 }
 
@@ -325,6 +411,25 @@ export class RedisStore implements CacheStore {
 
   async increment(key: string, by = 1): Promise<number> {
     return Number(await this.client.send('INCRBY', [this.k(key), String(by)]))
+  }
+
+  /** `SET key value NX [EX s]` — genuinely atomic, and across processes too. */
+  async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+    // A zero/negative TTL means "already expired"; mirror `put`'s handling
+    // rather than storing something unreadable and reporting success.
+    if (seconds !== undefined && seconds <= 0)
+      return false
+    const args = [this.k(key), JSON.stringify(value), 'NX']
+    if (seconds !== undefined)
+      args.push('EX', String(Math.max(1, Math.ceil(seconds))))
+    // Redis replies OK on success and nil when NX prevented the write.
+    return (await this.client.send('SET', args)) !== null
+  }
+
+  /** `GETDEL` — read and delete in one round trip, so no two callers can both consume it. */
+  async pull<T = unknown>(key: string): Promise<T | undefined> {
+    const raw = (await this.client.send('GETDEL', [this.k(key)])) as string | null
+    return raw === null || raw === undefined ? undefined : (JSON.parse(raw) as T)
   }
 
   async decrement(key: string, by = 1): Promise<number> {

@@ -61,13 +61,22 @@ result, instead of every one of them hitting the origin (thundering herd on a
 popular key's expiry). Tagged views (`cache().tags(...).remember(...)`) get
 the same coalescing.
 
-::: warning `add` and `pull` are not atomic
-Both are a read followed by a write with an `await` in between, so two
-concurrent callers for the same key can both "win": `add()` can return `true`
-twice, and `pull()` can hand the same one-shot value to two callers. Don't
-build a once-only guard (send-this-email-once, dispatch-this-job-once) or a
-single-use token on them alone — use a database unique constraint, or the
-queue's own unique-job support, where the guarantee has to hold.
+::: tip `add` and `pull` are atomic — with one caveat
+`add()` is the once-only guard (send-this-email-once,
+dispatch-this-job-once) and `pull()` reads a single-use value, so both go
+through a single indivisible store operation rather than a
+read-then-write pair: exactly one concurrent caller gets `true` from
+`add()`, and exactly one receives the value from `pull()`.
+
+The caveat is *scope*. `redis` is atomic across processes (`SET NX` /
+`GETDEL`). `memory` and `file` are atomic within one process — enough for a
+single instance, but two instances pointing at the same cache directory can
+still both win, the same limitation the file driver's `increment` has.
+`database` needs an adapter that implements `add` (one
+`INSERT … ON CONFLICT DO NOTHING`); without it, it degrades to the
+read-then-write pair. Where the guarantee genuinely has to hold across
+instances, use `redis`, a database unique constraint, or the queue's own
+unique-job support.
 
 `increment()` doesn't create or refresh a window: a live key keeps whatever
 expiry it already had, and incrementing one whose TTL has elapsed starts a

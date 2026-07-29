@@ -50,8 +50,18 @@ export class Repository {
     return this.store.put(key, value)
   }
 
-  /** Store only if the key is absent. Returns whether it was stored. */
+  /**
+   * Store only if the key is absent. Returns whether it was stored.
+   *
+   * Uses the store's atomic `add` when it has one (memory, file, redis, and
+   * database with an adapter that supports it), so two concurrent callers
+   * can't both be told they won — which matters because this is the
+   * once-only guard people build on. Falls back to a racy read-then-write
+   * only on a store that can't do better.
+   */
   async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+    if (this.store.add)
+      return this.store.add(key, value, seconds)
     if (await this.has(key))
       return false
     await this.put(key, value, seconds)
@@ -86,8 +96,15 @@ export class Repository {
   async pull(key: string): Promise<unknown>
   async pull<T>(key: string, fallback: T): Promise<T>
   async pull(key: string, fallback?: unknown): Promise<unknown> {
-    const value = await this.store.get(key)
-    await this.forget(key)
+    // The store's atomic read-and-delete where available, so a single-use
+    // value can't be handed to two concurrent callers.
+    const value = this.store.pull
+      ? await this.store.pull(key)
+      : await (async () => {
+          const v = await this.store.get(key)
+          await this.forget(key)
+          return v
+        })()
     return value === undefined ? fallback : value
   }
 

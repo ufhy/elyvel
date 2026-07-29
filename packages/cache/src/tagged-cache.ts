@@ -79,9 +79,12 @@ export class TaggedCache {
   }
 
   async add(key: string, value: unknown, seconds?: number): Promise<boolean> {
+    const real = await this.k(key)
+    if (this.store.add)
+      return this.store.add(real, value, seconds)
     if (await this.has(key))
       return false
-    await this.put(key, value, seconds)
+    await this.store.put(real, value, seconds)
     return true
   }
 
@@ -107,8 +110,14 @@ export class TaggedCache {
 
   async pull<T = unknown>(key: string, fallback?: T): Promise<T | undefined> {
     const real = await this.k(key)
-    const value = await this.store.get<T>(real)
-    await this.store.forget(real)
+    let value: T | undefined
+    if (this.store.pull) {
+      value = await this.store.pull<T>(real)
+    }
+    else {
+      value = await this.store.get<T>(real)
+      await this.store.forget(real)
+    }
     return value === undefined ? fallback : value
   }
 

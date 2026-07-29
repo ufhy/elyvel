@@ -288,6 +288,62 @@ describe('cache concurrency + expiry regressions', () => {
     expect(await cache.tags('b').get('kb')).toBe(2)
   })
 
+  test('add is once-only under concurrency, on every store that can be', async () => {
+    // Was a has()-then-put() pair with an await between, so concurrent callers
+    // all saw an absent key and all returned true — every one believing it had
+    // won the once-only guard (duplicate emails, duplicate job dispatch).
+    for (const store of [new MemoryStore(), new FileStore(mkdtempSync(join(tmpdir(), 'elyvel-add-')))]) {
+      const cache = new Repository(store)
+      const results = await Promise.all([
+        cache.add('lock', 'a'),
+        cache.add('lock', 'b'),
+        cache.add('lock', 'c'),
+      ])
+      expect(results.filter(Boolean)).toHaveLength(1)
+      // and a tagged view goes through the same atomic path
+      const tagged = cache.tags('t')
+      expect((await Promise.all([tagged.add('k', 1), tagged.add('k', 2)])).filter(Boolean)).toHaveLength(1)
+    }
+  })
+
+  test('pull hands a single-use value to exactly one caller', async () => {
+    for (const store of [new MemoryStore(), new FileStore(mkdtempSync(join(tmpdir(), 'elyvel-pull-')))]) {
+      const cache = new Repository(store)
+      await cache.put('token', 'one-shot')
+      const results = await Promise.all([cache.pull('token'), cache.pull('token')])
+      expect(results.filter(v => v === 'one-shot')).toHaveLength(1)
+    }
+  })
+
+  test('RedisStore uses SET NX and GETDEL rather than composing them', async () => {
+    const kv = new Map<string, string>()
+    const commands: string[] = []
+    const client = {
+      async send(command: string, args: string[]) {
+        commands.push(command)
+        if (command === 'SET') {
+          if (args.includes('NX') && kv.has(args[0] as string))
+            return null // NX refused — key exists
+          kv.set(args[0] as string, args[1] as string)
+          return 'OK'
+        }
+        if (command === 'GETDEL') {
+          const v = kv.get(args[0] as string) ?? null
+          kv.delete(args[0] as string)
+          return v
+        }
+        return null
+      },
+    }
+    const cache = new Repository(new RedisStore(client))
+    expect(await cache.add('k', 1)).toBe(true)
+    expect(await cache.add('k', 2)).toBe(false) // NX refused
+    await cache.put('tok', 'once')
+    expect(await cache.pull('tok')).toBe('once')
+    expect(await cache.pull('tok')).toBeUndefined()
+    expect(commands).toContain('GETDEL')
+  })
+
   test('DatabaseStore.increment keeps a live window and resets an expired one', async () => {
     // The fallback path called `put(key, next)` with no seconds, writing
     // expiresAt: null — so a still-live TTL'd counter went immortal on its
