@@ -162,12 +162,26 @@ for await (const row of table('users').cursor()) { /* ... */ }
 await table('users').chunkById(1000, (rows) => { /* ... */ })
 ```
 
-Seluruh method tersedia di `table()` maupun `Model.query()`: `whereNot`,
-`orWhereNull`, `whereLike`,
+Sebagian besar method dipakai bersama antara `table()` dan `Model.query()`:
+`whereNot`, `orWhereNull`, `rightJoin`/`crossJoin`/closure join,
+`inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`, `unionAll`,
+`skip`/`take`, `addSelect`, `truncate`, `incrementEach`, `doesntExist`,
+`find`. Beberapa cuma ada di `table()` (`QueryBuilder` mentah), belum ada di
+builder Eloquent-aware `Model.query()`: `whereLike`,
 `whereDate`/`whereYear`/`whereMonth`/`whereDay`/`whereTime`,
-`whereBetweenColumns`, `whereJsonContains`, `rightJoin`/`crossJoin`/closure
-join, `inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`, `unionAll`,
-`skip`/`take`, `addSelect`, `truncate`, `incrementEach`, `doesntExist`, `find`.
+`whereBetweenColumns`, `whereJsonContains`, `whereFullText`, `chunkById`.
+
+```ts
+// Full-text match — MySQL MATCH/AGAINST, Postgres tsvector/tsquery, SQLite
+// fallback ke pendekatan LIKE (lihat index full-text di "Migrasi").
+await table('posts').whereFullText('body', 'elephants').get()
+await table('posts').whereFullText(['title', 'body'], 'bananas', { mode: 'boolean' }).get()
+
+// `lazyById` — alias eksplisit dari `cursor()`/`lazy()`, yang memang sudah
+// paging berbasis keyset (bukan OFFSET), jadi tidak ada implementasi
+// terpisah untuk ini.
+for await (const row of table('users').lazyById()) { /* ... */ }
+```
 
 **Subquery** didukung di mana pun — select, from, join, dan where:
 

@@ -160,13 +160,25 @@ for await (const row of table('users').cursor()) { /* ... */ }
 await table('users').chunkById(1000, (rows) => { /* ... */ })
 ```
 
-The full method set is available on both `table()` and `Model.query()`:
-`whereNot`, `orWhereNull`, `whereLike`,
+Most of the method set is shared between `table()` and `Model.query()` —
+`whereNot`, `orWhereNull`, `rightJoin`/`crossJoin`/join closures,
+`inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`, `unionAll`,
+`skip`/`take`, `addSelect`, `truncate`, `incrementEach`, `doesntExist`,
+`find`. A few are `table()`-only (raw `QueryBuilder`), not yet on
+`Model.query()`'s Eloquent-aware builder: `whereLike`,
 `whereDate`/`whereYear`/`whereMonth`/`whereDay`/`whereTime`,
-`whereBetweenColumns`, `whereJsonContains`, `rightJoin`/`crossJoin`/join
-closures, `inRandomOrder`, `reorder`, `groupByRaw`, `havingBetween`,
-`unionAll`, `skip`/`take`, `addSelect`, `truncate`, `incrementEach`,
-`doesntExist`, `find`.
+`whereBetweenColumns`, `whereJsonContains`, `whereFullText`, `chunkById`.
+
+```ts
+// Full-text match — MySQL MATCH/AGAINST, Postgres tsvector/tsquery, SQLite
+// falls back to a LIKE approximation (see the "Migrations" full-text index).
+await table('posts').whereFullText('body', 'elephants').get()
+await table('posts').whereFullText(['title', 'body'], 'bananas', { mode: 'boolean' }).get()
+
+// `lazyById` — an explicit alias of `cursor()`/`lazy()`, which already page
+// by keyset (not OFFSET), so there's no separate implementation to reach for.
+for await (const row of table('users').lazyById()) { /* ... */ }
+```
 
 **Subqueries** are supported throughout — select, from, join, and where:
 

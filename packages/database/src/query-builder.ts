@@ -56,11 +56,14 @@ interface WhereClause {
     | 'column'
     | 'datePart'
     | 'jsonContains'
+    | 'fullText'
   values?: unknown[]
   rawSql?: string
   sub?: QueryBuilder
   secondColumn?: string
   part?: DatePart
+  columns?: string[]
+  mode?: 'boolean' | 'natural'
 }
 
 type JoinTable = string | { sub: QueryBuilder, alias: string }
@@ -507,6 +510,42 @@ export class QueryBuilder {
     return this
   }
 
+  /**
+   * Full-text match against one or more columns (MySQL `MATCH ... AGAINST`,
+   * Postgres `tsvector`/`tsquery`). SQLite has no native full-text without an
+   * FTS5 virtual table, so it falls back to a best-effort `LIKE '%value%'`
+   * across every column — same "best-effort, dialect-specific" tradeoff as
+   * {@link whereJsonContains}. `mode: 'boolean'` opts into MySQL's boolean-mode
+   * operators (`+`/`-`/`"..."`) or Postgres's `websearch_to_tsquery`; the
+   * default ('natural') is MySQL's natural-language mode / Postgres's
+   * `plainto_tsquery`.
+   */
+  whereFullText(columns: string | string[], value: string, options: { mode?: 'boolean' | 'natural' } = {}): this {
+    return this.addFullText('AND', columns, value, options)
+  }
+
+  orWhereFullText(columns: string | string[], value: string, options: { mode?: 'boolean' | 'natural' } = {}): this {
+    return this.addFullText('OR', columns, value, options)
+  }
+
+  private addFullText(
+    boolean: Bool,
+    columns: string | string[],
+    value: string,
+    options: { mode?: 'boolean' | 'natural' },
+  ): this {
+    this.wheres.push({
+      boolean,
+      column: '',
+      operator: '',
+      value,
+      kind: 'fullText',
+      columns: Array.isArray(columns) ? columns : [columns],
+      mode: options.mode ?? 'natural',
+    })
+    return this
+  }
+
   /** Raw WHERE fragment with `?` placeholders. */
   whereRaw(sql: string, bindings: unknown[] = []): this {
     this.wheres.push({
@@ -853,6 +892,27 @@ export class QueryBuilder {
     return `EXISTS (SELECT 1 FROM json_each(${col}) WHERE json_each.value = ${ph})`
   }
 
+  private fullTextSql(w: WhereClause, bindings: unknown[]): string {
+    const g = this.connection.grammar
+    const cols = (w.columns ?? []).map(c => g.wrap(c))
+    if (this.connection.dialect === 'mysql') {
+      const ph = this.bind(w.value, bindings)
+      const mode = w.mode === 'boolean' ? 'IN BOOLEAN MODE' : 'IN NATURAL LANGUAGE MODE'
+      return `MATCH(${cols.join(', ')}) AGAINST(${ph} ${mode})`
+    }
+    if (this.connection.dialect === 'pg') {
+      const tsvector = `to_tsvector('english', ${cols.join(` || ' ' || `)})`
+      const fn = w.mode === 'boolean' ? 'websearch_to_tsquery' : 'plainto_tsquery'
+      const ph = this.bind(w.value, bindings)
+      return `${tsvector} @@ ${fn}('english', ${ph})`
+    }
+    // sqlite: no native full-text without an FTS5 virtual table — approximate
+    // with LIKE across every column. Each occurrence needs its own bind()
+    // call (placeholders are positional), not one placeholder reused N times.
+    const like = `%${w.value}%`
+    return `(${cols.map(c => `${c} LIKE ${this.bind(like, bindings)}`).join(' OR ')})`
+  }
+
   compileWhereConditions(bindings: unknown[]): string {
     const g = this.connection.grammar
     const between = (w: WhereClause, keyword: string) =>
@@ -901,6 +961,8 @@ export class QueryBuilder {
             return `${prefix}${this.datePartSql(w, bindings)}`
           case 'jsonContains':
             return `${prefix}${this.jsonContainsSql(w, bindings)}`
+          case 'fullText':
+            return `${prefix}${this.fullTextSql(w, bindings)}`
           case 'raw':
             return `${prefix}${this.applyRaw(w.rawSql as string, w.values ?? [], bindings)}`
           default:
@@ -1218,6 +1280,18 @@ export class QueryBuilder {
   }
 
   lazy(size = 1000, column = 'id'): LazyCollection<Row> {
+    return this.cursor(size, column)
+  }
+
+  /**
+   * Alias of {@link cursor} (Laravel naming) — `cursor()`/`lazy()` already
+   * page by keyset (`WHERE column > lastId ORDER BY column`), which is
+   * exactly what Laravel's `lazyById` is for (avoiding the skipped/duplicated
+   * rows OFFSET-based paging can produce when rows are inserted/deleted
+   * mid-iteration). There's no separate OFFSET-based `lazy()` here to
+   * distinguish this from, so it's a pure naming alias, not a different implementation.
+   */
+  lazyById(size = 1000, column = 'id'): LazyCollection<Row> {
     return this.cursor(size, column)
   }
 
