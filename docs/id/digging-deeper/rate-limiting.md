@@ -136,3 +136,16 @@ request *berikutnya* tiba lewat jaringan, hanya saja tidak pada saat
 persis objek response saat ini dikembalikan. Limit biasa (tanpa
 `.after()`) tidak punya catatan ini — mereka dihitung secara sinkron
 selama `handle()`.
+
+Dua request untuk **key yang sama** yang datang bersamaan di-serialize
+secara internal — pemeriksaan request kedua menunggu increment `.after()`
+request pertama benar-benar terjadi — jadi sekumpulan request konkuren
+(misalnya penyerang menembak beberapa percobaan login sekaligus) tidak
+bisa lolos dari limit dengan me-race pemeriksaan melawan increment yang
+tertunda. Serialisasi ini per-proses (antrian in-memory, terlepas dari
+`RateLimiterStore` yang dikonfigurasi): dengan `MemoryRateLimiterStore` ini
+perbaikan penuh; dengan `RedisRateLimiterStore` di belakang beberapa
+instance, request yang mengenai instance yang *sama* tetap di-serialize,
+tapi dua instance yang memproses key yang sama persis di saat yang sama
+tidak terkoordinasi satu sama lain — limitasi yang sama seperti lock
+per-proses mana pun di atas store eksternal yang dibagi.

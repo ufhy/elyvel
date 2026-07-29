@@ -311,6 +311,37 @@ function setRateHeaders(ctx: MiddlewareContext, max: number, count: number): voi
   ctx.set.headers['x-ratelimit-remaining'] = String(Math.max(0, max - count))
 }
 
+// ── `.after()` concurrency guard ────────────────────────────────────────────
+// A `.after()` limit can't count until the response status is known, so
+// `handle()` only peeks (tooManyAttempts) and the real increment happens
+// later, in `terminate()`. Without serialization, N concurrent requests for
+// the SAME key all peek before any of them increments, so all N pass even
+// past the configured limit (exactly the login/enumeration-throttling
+// scenario `.after()` exists for). This queues same-key requests so a
+// second request's peek in `handle()` waits for the first request's
+// increment in `terminate()` to actually land, closing that window.
+const keyLocks = new Map<string, Promise<void>>()
+
+/** Wait for any in-flight `.after()` operation on `key`, then hold a new one until the returned function is called. */
+async function acquireKeyLock(key: string): Promise<() => void> {
+  const prior = keyLocks.get(key) ?? Promise.resolve()
+  let release!: () => void
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const chained = prior.then(() => held)
+  keyLocks.set(key, chained)
+  await prior
+  return () => {
+    release()
+    if (keyLocks.get(key) === chained)
+      keyLocks.delete(key)
+  }
+}
+
+/** Release functions from `handle()`'s lock acquisitions, collected for `terminate()` to release — keyed by limit index since a named limiter can resolve to several `.after()` limits. */
+const pendingKeyLocks = new WeakMap<MiddlewareContext, Map<number, () => void>>()
+
 /**
  * `throttle:name` — evaluate a named limiter (see {@link RateLimiter.for}), or
  * `throttle:max,decayMinutes` — a simple per-client (IP) window. Sets
@@ -359,7 +390,18 @@ export class ThrottleMiddleware extends Middleware {
       const key = limitKey(name, i, ctx, limit)
 
       // `.after()` limits count based on the response — only check here.
+      // The lock acquired below is held until `terminate()` actually
+      // increments (or decides not to), so a concurrent request for the
+      // same key can't peek past it in the gap between them.
       if (limit.afterCallback) {
+        const release = await acquireKeyLock(key)
+        let releases = pendingKeyLocks.get(ctx)
+        if (!releases) {
+          releases = new Map()
+          pendingKeyLocks.set(ctx, releases)
+        }
+        releases.set(i, release)
+
         if (await RateLimiter.tooManyAttempts(key, limit.maxAttempts))
           return this.reject(ctx, limit, key)
         continue
@@ -394,13 +436,25 @@ export class ThrottleMiddleware extends Middleware {
       return
     const limits = Array.isArray(resolved) ? resolved : [resolved]
     const status = Number(ctx.set.status ?? 200)
+    const releases = pendingKeyLocks.get(ctx)
 
-    for (let i = 0; i < limits.length; i++) {
-      const limit = limits[i]
-      if (!limit || limit.unlimited || !limit.afterCallback)
-        continue
-      if (limit.afterCallback(status))
-        await store.increment(limitKey(name, i, ctx, limit), limit.decaySeconds, 1)
+    try {
+      for (let i = 0; i < limits.length; i++) {
+        const limit = limits[i]
+        if (!limit || limit.unlimited || !limit.afterCallback)
+          continue
+        if (limit.afterCallback(status))
+          await store.increment(limitKey(name, i, ctx, limit), limit.decaySeconds, 1)
+      }
+    }
+    finally {
+      // Release every lock `handle()` acquired for this request, whether or
+      // not this limit's afterCallback ended up incrementing — a concurrent
+      // request for the same key was waiting on this regardless.
+      if (releases) {
+        for (const release of releases.values()) release()
+        pendingKeyLocks.delete(ctx)
+      }
     }
   }
 }

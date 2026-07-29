@@ -184,6 +184,30 @@ describe('.after() response-based counting', () => {
     expect((await missing()).status).toBe(404)
     expect((await missing()).status).toBe(429)
   })
+
+  test('concurrent requests for the same key never exceed the limit (no check/increment race)', async () => {
+    registerMiddlewareRegistry({ aliases: { throttle: ThrottleMiddleware } })
+    RateLimiter.for('enum-concurrent', () => Limit.perMinute(2).after(status => status === 404))
+    const app = new Elysia().use(
+      route().get(
+        '/missing-concurrent',
+        ({ status }: { status(c: number, b: unknown): unknown }) => status(404, {}),
+        { middleware: 'throttle:enum-concurrent' },
+      ),
+    )
+
+    // Fired together — without serializing handle()'s peek against terminate()'s
+    // increment, every one of these would see count=0 and pass, all landing as
+    // 404 (5 counted, blowing past the limit of 2 with zero 429s).
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () => app.handle(new Request('http://localhost/missing-concurrent'))),
+    )
+    const statuses = responses.map(r => r.status)
+    const counted = statuses.filter(s => s === 404).length
+
+    expect(counted).toBeLessThanOrEqual(2)
+    expect(statuses.filter(s => s === 429).length).toBe(5 - counted)
+  })
 })
 
 // ── multiple / segmented limits ────────────────────────────────────────────

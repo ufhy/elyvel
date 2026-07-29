@@ -128,3 +128,15 @@ immediately after a request completes in-process may not yet reflect an
 request arrives over the wire, just not at the exact instant the current
 response object returns. Plain (non-`.after()`) limits don't have this
 caveat — they count synchronously during `handle()`.
+
+Two requests for the **same key** arriving concurrently are serialized
+internally — the second one's check waits for the first one's `.after()`
+increment to actually land — so a burst of concurrent requests (e.g. an
+attacker firing several login attempts at once) can't slip past the limit
+by racing the check against the deferred increment. This serialization is
+per-process (an in-memory queue, independent of which `RateLimiterStore` is
+configured): with `MemoryRateLimiterStore` it's a complete fix; with
+`RedisRateLimiterStore` behind multiple instances, requests hitting the
+*same* instance are still serialized, but two instances processing the
+same key at the exact same moment aren't coordinated with each other —
+same limitation as any per-process lock over a shared external store.
