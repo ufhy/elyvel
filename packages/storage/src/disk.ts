@@ -239,12 +239,26 @@ export class LocalDisk implements FilesystemDisk {
     return JSON.parse(await this.get(path)) as T
   }
 
+  /**
+   * Whether anything is at `path` — a file OR a directory.
+   *
+   * This used to be `Bun.file().exists()`, which is false for a directory: the
+   * same disk would list `adir` from `directories()` while `exists('adir')`
+   * said no and `missing('adir')` said yes. Reporting something absent that
+   * the disk itself just listed is simply a wrong answer, and Laravel's
+   * `Storage::exists()` covers directories too (Flysystem's `has()`).
+   */
   async exists(path: string): Promise<boolean> {
-    return await Bun.file(this.full(path)).exists()
+    return existsSync(this.full(path))
   }
 
   async missing(path: string): Promise<boolean> {
     return !(await this.exists(path))
+  }
+
+  /** A readable FILE at `path` — what content-reading callers actually need. */
+  private async fileExists(path: string): Promise<boolean> {
+    return await Bun.file(this.full(path)).exists()
   }
 
   async put(path: string, contents: Contents, visibility?: Visibility): Promise<boolean> {
@@ -285,7 +299,9 @@ export class LocalDisk implements FilesystemDisk {
    * yourself (e.g. a lock keyed on `path`).
    */
   async prepend(path: string, data: string): Promise<boolean> {
-    const existing = (await this.exists(path)) ? await this.get(path) : ''
+    // `fileExists`, not `exists`: the latter is now true for a directory too,
+    // and `get()` on one would throw rather than yield content to prepend to.
+    const existing = (await this.fileExists(path)) ? await this.get(path) : ''
     return this.put(path, data + existing)
   }
 

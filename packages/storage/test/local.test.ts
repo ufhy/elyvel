@@ -80,6 +80,39 @@ describe('LocalDisk — copy/move/delete', () => {
   })
 })
 
+describe('LocalDisk — exists covers directories', () => {
+  // Regression: `exists()` was `Bun.file().exists()`, false for a directory —
+  // so the same disk listed `adir` from `directories()` while `exists('adir')`
+  // said no and `missing('adir')` said YES. Laravel's Storage::exists covers
+  // directories too.
+  test('a directory that directories() lists also exists()', async () => {
+    const disk = makeDisk()
+    await disk.put('adir/f.txt', '1')
+    expect(await disk.directories()).toContain('adir')
+    expect(await disk.exists('adir')).toBe(true)
+    expect(await disk.missing('adir')).toBe(false)
+  })
+
+  test('files and absent paths are unaffected', async () => {
+    const disk = makeDisk()
+    await disk.put('adir/f.txt', '1')
+    expect(await disk.exists('adir/f.txt')).toBe(true)
+    expect(await disk.exists('nope')).toBe(false)
+    expect(await disk.missing('nope')).toBe(true)
+  })
+
+  test('prepend still reads existing content, and creates a missing file', async () => {
+    // prepend uses a file-specific check, so `exists` covering directories
+    // must not make it try to `get()` one.
+    const disk = makeDisk()
+    await disk.put('log.txt', 'B')
+    await disk.prepend('log.txt', 'A')
+    expect(await disk.get('log.txt')).toBe('AB')
+    await disk.prepend('brand-new.txt', 'X')
+    expect(await disk.get('brand-new.txt')).toBe('X')
+  })
+})
+
 describe('LocalDisk — metadata + url', () => {
   test('size, lastModified, mimeType, path', async () => {
     const disk = makeDisk()

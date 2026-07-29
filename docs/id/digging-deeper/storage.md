@@ -52,7 +52,7 @@ await storage().get('greeting.txt')       // 'hello'
 await storage().getBytes('avatar.png')    // Uint8Array
 await storage().json('config.json')       // JSON yang sudah di-parse
 
-await storage().exists('greeting.txt')
+await storage().exists('greeting.txt')  // true juga untuk direktori, di `local`
 await storage().missing('greeting.txt')
 
 storage().url('avatar.png')                       // URL publik
@@ -126,6 +126,12 @@ sisi mana pun.
 `deleteDirectory('')` membersihkan **isi** disk-nya, bukan menghapus root
 disk itu sendiri, karena path kosong hampir selalu berarti variabel kosong
 di call site, bukan niat menghapus semuanya.
+
+Di `local`, `exists()`/`missing()` juga menjawab untuk direktori, bukan cuma
+file (seperti punya Laravel), jadi direktori yang didaftar `directories()`
+tidak sekaligus dilaporkan hilang. `s3` tidak punya direktori sungguhan,
+jadi `exists()` di sana adalah pemeriksaan key literal — `exists('covers')`
+bernilai false meski `directories()` menurunkan `covers` dari prefix key.
 
 ## Visibility
 

@@ -52,7 +52,7 @@ await storage().get('greeting.txt')       // 'hello'
 await storage().getBytes('avatar.png')    // Uint8Array
 await storage().json('config.json')       // parsed JSON
 
-await storage().exists('greeting.txt')
+await storage().exists('greeting.txt')  // true for a directory too, on `local`
 await storage().missing('greeting.txt')
 
 storage().url('avatar.png')                       // public URL
@@ -123,6 +123,12 @@ prefixes — but the API reads identically to the local driver either way.
 `deleteDirectory('')` clears the disk's **contents** rather than removing
 the disk root itself, since an empty path is almost always an empty variable
 at the call site rather than an intent to wipe everything.
+
+On `local`, `exists()`/`missing()` answer for directories as well as files
+(as Laravel's do), so a directory `directories()` lists isn't also reported
+missing. `s3` has no real directories, so `exists()` there is a literal key
+check — `exists('covers')` is false even when `directories()` derives
+`covers` from key prefixes.
 
 ## Visibility
 
