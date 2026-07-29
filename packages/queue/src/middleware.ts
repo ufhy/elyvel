@@ -74,15 +74,43 @@ export interface RateLimiter {
 /** In-memory rate limiter (per-process; dev/tests). */
 export class MemoryRateLimiter implements RateLimiter {
   private hits = new Map<string, number[]>() // key → hit timestamps (ms)
+  private decay = new Map<string, number>() // key → window length (seconds)
+
+  /**
+   * Prunes before counting. It used to read the raw length, and pruning
+   * happened only inside `hit()` — which is skipped once the limit is
+   * reached. So a key that hit its limit stayed over it FOREVER: `RateLimited`
+   * threw `ReleaseJob` on every attempt, and because a release doesn't burn an
+   * attempt the job never ran and never failed either. An endless release
+   * loop, from a limiter that was supposed to delay the job briefly.
+   */
   async tooManyAttempts(key: string, maxAttempts: number): Promise<boolean> {
-    return (this.hits.get(key)?.length ?? 0) >= maxAttempts
+    return this.alive(key).length >= maxAttempts
+  }
+
+  /** Hits still inside the key's window, dropping (and forgetting) stale ones. */
+  private alive(key: string): number[] {
+    const decaySeconds = this.decay.get(key)
+    const recorded = this.hits.get(key) ?? []
+    if (decaySeconds === undefined || recorded.length === 0)
+      return recorded
+    const cutoff = Date.now() - decaySeconds * 1000
+    const kept = recorded.filter(t => t > cutoff)
+    if (kept.length === 0) {
+      this.hits.delete(key)
+      this.decay.delete(key)
+    }
+    else if (kept.length !== recorded.length) {
+      this.hits.set(key, kept)
+    }
+    return kept
   }
 
   async hit(key: string, decaySeconds: number): Promise<void> {
-    const now = Date.now()
-    const cutoff = now - decaySeconds * 1000
-    const kept = (this.hits.get(key) ?? []).filter(t => t > cutoff)
-    kept.push(now)
+    // Remember the window so `tooManyAttempts` can prune with it too.
+    this.decay.set(key, decaySeconds)
+    const kept = this.alive(key)
+    kept.push(Date.now())
     this.hits.set(key, kept)
   }
 }

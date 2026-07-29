@@ -106,7 +106,12 @@ export class Worker {
       else {
         await job.failed?.(error)
         const connection = this.options.connection ?? 'default'
-        await this.options.failed?.log(connection, connection, record.body, error)
+        // `record.queue`, not the connection name: `log(connection, queue, …)`
+        // was being handed `connection` twice, so a job that failed on `high`
+        // was recorded under a queue named after its CONNECTION. `queue:retry`
+        // then re-pushed it there — a queue no worker reads — and forgot the
+        // failed row, reporting success while the job was silently lost.
+        await this.options.failed?.log(connection, record.queue, record.body, error)
         await willReleaseLock() // released on final failure, held across retries
         if (job.batchId)
           await recordBatchedJob(job.batchId, false, error)
