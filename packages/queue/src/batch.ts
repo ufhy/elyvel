@@ -31,8 +31,23 @@ export interface BatchAdapter {
   find(id: string): Promise<BatchRecord | null>
   /** Atomically `pending--` (and `failed++` when `success` is false); return the updated record. */
   recordJobResult(id: string, success: boolean): Promise<BatchRecord | null>
-  cancel(id: string): Promise<void>
-  markFinished(id: string): Promise<void>
+  /**
+   * Mark the batch cancelled, returning whether THIS call performed the
+   * transition (false if it was already cancelled).
+   *
+   * The boolean is what makes "run the catch callback once" safe. Deciding it
+   * from a previously-read record can't work: several workers failing at the
+   * same moment all read a record that already counts every failure, so a
+   * "was this the first?" test is false for all of them and the batch is never
+   * cancelled at all.
+   */
+  cancel(id: string): Promise<boolean>
+  /**
+   * Mark the batch finished, returning whether THIS call performed the
+   * transition — the gate for running `then`/`finally` exactly once when
+   * concurrent workers both observe `pending` reaching zero.
+   */
+  markFinished(id: string): Promise<boolean>
 }
 
 /** In-memory batch store (per-process; dev/tests). */
@@ -57,16 +72,20 @@ export class MemoryBatchStore implements BatchAdapter {
     return { ...r }
   }
 
-  async cancel(id: string): Promise<void> {
+  async cancel(id: string): Promise<boolean> {
     const r = this.records.get(id)
-    if (r)
-      r.cancelledAt = Date.now()
+    if (!r || r.cancelledAt !== null)
+      return false
+    r.cancelledAt = Date.now()
+    return true
   }
 
-  async markFinished(id: string): Promise<void> {
+  async markFinished(id: string): Promise<boolean> {
     const r = this.records.get(id)
-    if (r)
-      r.finishedAt = Date.now()
+    if (!r || r.finishedAt !== null)
+      return false
+    r.finishedAt = Date.now()
+    return true
   }
 }
 
@@ -131,18 +150,35 @@ export class RedisBatchStore implements BatchAdapter {
     const exists = await this.client.send('GET', [this.key(id, 'meta')])
     if (!exists)
       return null
-    await this.client.send('DECRBY', [this.key(id, 'pending'), '1'])
-    if (!success)
-      await this.client.send('INCR', [this.key(id, 'failed')])
-    return this.find(id)
+    // Take the counters from DECRBY/INCR's own replies. Re-reading them with a
+    // separate `find()` meant two workers finishing at once both saw
+    // `pending: 0` (and, on the failure path, both saw `failed` already past
+    // 1) — so `then`/`finally` ran twice while `catch` ran not at all.
+    const pending = Number(await this.client.send('DECRBY', [this.key(id, 'pending'), '1']))
+    const failed = success
+      ? Number((await this.client.send('GET', [this.key(id, 'failed')])) ?? 0)
+      : Number(await this.client.send('INCR', [this.key(id, 'failed')]))
+    const record = await this.find(id)
+    return record ? { ...record, pending, failed } : null
   }
 
-  async cancel(id: string): Promise<void> {
-    await this.client.send('SET', [this.key(id, 'cancelledAt'), String(Date.now())])
+  async cancel(id: string): Promise<boolean> {
+    // NX: only the first caller transitions, so `catch` runs once.
+    const reply = await this.client.send('SET', [
+      this.key(id, 'cancelledAt'),
+      String(Date.now()),
+      'NX',
+    ])
+    return reply !== null && reply !== undefined
   }
 
-  async markFinished(id: string): Promise<void> {
-    await this.client.send('SET', [this.key(id, 'finishedAt'), String(Date.now())])
+  async markFinished(id: string): Promise<boolean> {
+    const reply = await this.client.send('SET', [
+      this.key(id, 'finishedAt'),
+      String(Date.now()),
+      'NX',
+    ])
+    return reply !== null && reply !== undefined
   }
 }
 
@@ -328,16 +364,23 @@ export async function recordBatchedJob(
   const batch = new Batch(record)
 
   // First failure with allowFailures off → cancel the batch and run catch.
-  if (!success && !record.allowFailures && record.failed === 1 && record.cancelledAt == null) {
-    await adapter.cancel(id)
-    await runCallback(record.onCatch, batch, error)
+  // `cancel()` reporting that IT performed the transition is the gate, rather
+  // than a `failed === 1` test on an already-read record: concurrent failures
+  // all read a count past 1, so that test was false for every one of them and
+  // the batch was never cancelled.
+  if (!success && !record.allowFailures && record.cancelledAt == null) {
+    if (await adapter.cancel(id))
+      await runCallback(record.onCatch, batch, error)
   }
 
-  // All jobs accounted for → run then (if clean) + finally, once.
+  // All jobs accounted for → run then (if clean) + finally, exactly once.
   if (record.pending <= 0 && record.finishedAt == null) {
-    await adapter.markFinished(id)
-    if (record.failed === 0)
-      await runCallback(record.onThen, batch)
-    await runCallback(record.onFinally, batch)
+    if (await adapter.markFinished(id)) {
+      // A cancelled batch never counts as "all succeeded", even when nothing
+      // actually failed (an explicit `batch.cancel()` leaves `failed` at 0).
+      if (record.failed === 0 && record.cancelledAt == null)
+        await runCallback(record.onThen, batch)
+      await runCallback(record.onFinally, batch)
+    }
   }
 }

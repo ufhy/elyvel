@@ -66,9 +66,15 @@ export class Worker {
         await uniqueLock()?.release(key)
     }
 
-    // A cancelled batch's remaining jobs are dropped without running.
+    // A cancelled batch's remaining jobs are dropped without running — but
+    // they must still be ACCOUNTED for, or `pending` never reaches zero, the
+    // batch never gets marked finished, and `finally` never runs (Laravel runs
+    // it for a cancelled batch too). Recorded as a non-failure: the job didn't
+    // fail, it simply never ran, and `then` is gated on the batch not being
+    // cancelled rather than on this count.
     if (job.batchId && (await isBatchCancelled(job.batchId))) {
       await willReleaseLock()
+      await recordBatchedJob(job.batchId, true)
       return true
     }
 
