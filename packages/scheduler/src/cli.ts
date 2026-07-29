@@ -48,14 +48,26 @@ export async function scheduleWorkCommand(): Promise<number> {
   info('Scheduler running. Ticks every second (sub-minute aware) — press Ctrl+C to stop.')
   // Tick once per second; Schedule.tick runs minute tasks on the boundary and
   // sub-minute tasks at their aligned second.
+  let lastSecond: number | null = null
   for (;;) {
-    const results = await schedule.tick()
-    for (const r of results) {
-      if (r.error)
-        error(`✗ ${r.name}`)
-      else if (r.ran)
-        info(`✓ ${r.name}`)
+    const currentSecond = Math.floor(Date.now() / 1000)
+    // Process every second since the previous tick, not just the current one.
+    // The loop sleeps to the next second boundary, so a tick whose work ran
+    // longer than a second woke at S+2 — and if S+1 was the `seconds === 0`
+    // boundary, EVERY minute-granular task for that minute was silently
+    // skipped. Catch-up is capped at a minute so a long pause (laptop sleep,
+    // a debugger breakpoint) replays a bounded window instead of hours.
+    const from = lastSecond === null ? currentSecond : Math.max(lastSecond + 1, currentSecond - 59)
+    for (let second = from; second <= currentSecond; second++) {
+      const results = await schedule.tick(new Date(second * 1000))
+      for (const r of results) {
+        if (r.error)
+          error(`✗ ${r.name}`)
+        else if (r.ran)
+          info(`✓ ${r.name}`)
+      }
     }
+    lastSecond = currentSecond
     await new Promise(r => setTimeout(r, 1000 - (Date.now() % 1000)))
   }
 }
@@ -75,8 +87,16 @@ export async function scheduleTestCommand(name?: string): Promise<number> {
   let failed = 0
   for (const event of events) {
     try {
-      await event.run()
-      info(`✓ ${event.name}`)
+      // Ignore withoutOverlapping/onOneServer here. `run()` defaults `date` to
+      // the epoch, so every invocation shared one onOneServer bucket — the
+      // first `schedule:test` claimed it for 60s and never released it (by
+      // design), and the return value was discarded, so a second run within
+      // the minute printed ✓ for a task that hadn't executed at all.
+      const ran = await event.run(new Date(), { ignoreLocks: true })
+      if (ran)
+        info(`✓ ${event.name}`)
+      else
+        info(`- ${event.name} (skipped)`)
     }
     catch (err) {
       failed++

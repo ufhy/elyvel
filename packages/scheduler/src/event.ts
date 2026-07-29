@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { cronMatches, partsInZone } from './cron'
 import { scheduleMutex } from './mutex'
 
@@ -6,6 +7,57 @@ type Task = () => void | Promise<void>
 
 /** Process-wide set of currently-running event names (for withoutOverlapping). */
 const runningLocks = new Set<string>()
+
+/** Distinguishes one lock acquisition from the next within this process. */
+let overlapSequence = 0
+
+/**
+ * Output capture for `sendOutputTo`/`emailOutputTo`, scoped to the running
+ * task's async context.
+ *
+ * This used to swap the four `console` methods on the GLOBAL console around an
+ * `await`, which broke two ways. With two capturing tasks overlapping, B saved
+ * A's tee as "the original", A's `finally` restored the real console, and then
+ * B's `finally` restored A's tee — permanently corrupting `console` for the
+ * whole process, appending every later log to a dead buffer. And even with one
+ * task, any unrelated concurrent work in the same process (HTTP handlers under
+ * `schedule:work`) had its output silently written into the task's output file
+ * or emailed out.
+ *
+ * Patching once and routing through an AsyncLocalStorage lookup fixes both: a
+ * write with no task context passes straight through, and nested/overlapping
+ * tasks each see only their own buffer.
+ */
+const outputCapture = new AsyncLocalStorage<string[]>()
+type ConsoleMethod = 'log' | 'info' | 'warn' | 'error'
+const CAPTURED_METHODS: ConsoleMethod[] = ['log', 'info', 'warn', 'error']
+let captureDepth = 0
+let originalConsole: Pick<Console, ConsoleMethod> | null = null
+
+function installOutputCapture(): void {
+  if (originalConsole)
+    return
+  const original = { log: console.log, info: console.info, warn: console.warn, error: console.error }
+  originalConsole = original
+  for (const method of CAPTURED_METHODS) {
+    const passthrough = original[method].bind(console) as (...a: unknown[]) => void
+    console[method] = (...args: unknown[]) => {
+      outputCapture
+        .getStore()
+        ?.push(args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+      passthrough(...args)
+    }
+  }
+}
+
+function restoreOutputCapture(): void {
+  // Only once the LAST capturing task is done, and always back to the real
+  // console we saved on the way in — never to another task's tee.
+  if (captureDepth > 0 || !originalConsole)
+    return
+  Object.assign(console, originalConsole)
+  originalConsole = null
+}
 
 /** The app environment scheduled events are compared against (set by the provider). */
 let schedulerEnvironment: string | undefined
@@ -388,27 +440,17 @@ export class ScheduledEvent {
       return
     }
     const buffer: string[] = []
-    const original = {
-      log: console.log,
-      info: console.info,
-      warn: console.warn,
-      error: console.error,
-    }
-    const tee
-      = (fn: (...a: unknown[]) => void) =>
-        (...args: unknown[]) => {
-          buffer.push(args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
-          fn(...args)
-        }
-    console.log = tee(original.log)
-    console.info = tee(original.info)
-    console.warn = tee(original.warn)
-    console.error = tee(original.error)
+    installOutputCapture()
+    captureDepth++
     try {
-      await this.task()
+      // Run the task inside its OWN async context so only ITS console output
+      // lands in this buffer. (`.run()`, not `enterWith()` — on Bun,
+      // `enterWith` after an internal await doesn't propagate to the caller.)
+      await outputCapture.run(buffer, () => this.task())
     }
     finally {
-      Object.assign(console, original)
+      captureDepth--
+      restoreOutputCapture()
       const output = buffer.join('\n')
       if (this.outputPath) {
         const existing = this.outputAppend
@@ -461,23 +503,46 @@ export class ScheduledEvent {
    * (after firing onFailure) so the caller can record them. `date` scopes the
    * onOneServer lock to the current due tick.
    */
-  async run(date = new Date(0)): Promise<boolean> {
+  async run(date = new Date(0), options: { ignoreLocks?: boolean } = {}): Promise<boolean> {
     const mutex = scheduleMutex()
+    const useLocks = !options.ignoreLocks
+
+    // Both locks key off `this.name`, and an un-named event falls back to
+    // `event(<expression>)` — so two unnamed `.everyMinute()` callbacks shared
+    // ONE lock identity: with withoutOverlapping the second was skipped for as
+    // long as the first ran, and with onOneServer only one of them ever ran per
+    // tick while the other silently never did. Laravel guards this the same way.
+    if (useLocks && (this.noOverlap || this.oneServer) && this.label == null) {
+      throw new Error(
+        `[elyvel] A scheduled event using withoutOverlapping()/onOneServer() `
+        + `needs a name to lock on — "${this.expression}" has none, so it would `
+        + `share its lock with every other unnamed event on the same schedule. `
+        + `Add .named('some-unique-name').`,
+      )
+    }
 
     // onOneServer: first server to claim this tick wins; the lock is not
     // released (it must outlive the tick so peers skip it).
-    if (this.oneServer && mutex) {
-      const bucket = Math.floor(date.getTime() / 60000)
-      const claimed = await mutex.create(`oneserver:${this.name}:${bucket}`, 60)
+    if (useLocks && this.oneServer && mutex) {
+      // Bucket by the event's own period, not always by the minute. A fixed
+      // 60s bucket meant `.everyTenSeconds().onOneServer()` — due 6× a minute —
+      // only ever claimed once per minute, silently dropping 5 of 6 runs.
+      const period = this.repeatSeconds ?? 60
+      const bucket = Math.floor(date.getTime() / (period * 1000))
+      const claimed = await mutex.create(`oneserver:${this.name}:${bucket}`, period)
       if (!claimed)
         return false
     }
 
     // withoutOverlapping: cross-process via mutex, else per-process set.
     const overlapKey = `overlap:${this.name}`
-    if (this.noOverlap) {
+    // Identifies THIS acquisition, so we only ever release our own lock — see
+    // the release in `finally` below.
+    const overlapToken = `${process.pid}:${++overlapSequence}`
+    let heldOverlap = false
+    if (useLocks && this.noOverlap) {
       if (mutex) {
-        const acquired = await mutex.create(overlapKey, this.overlapTtl)
+        const acquired = await mutex.create(overlapKey, this.overlapTtl, overlapToken)
         if (!acquired)
           return false
       }
@@ -486,6 +551,7 @@ export class ScheduledEvent {
           return false
         runningLocks.add(this.name)
       }
+      heldOverlap = true
     }
 
     for (const hook of this.beforeHooks) await hook()
@@ -501,9 +567,14 @@ export class ScheduledEvent {
     }
     finally {
       for (const hook of this.afterHooks) await hook()
-      if (this.noOverlap) {
+      if (heldOverlap) {
+        // Release only OUR acquisition. Deleting unconditionally broke the
+        // guarantee it exists for: a task outliving its TTL let a peer acquire
+        // the freed key, and this `finally` then deleted the PEER's lock — so a
+        // third process could start alongside the peer, which is exactly what
+        // withoutOverlapping promises cannot happen.
         if (mutex)
-          await mutex.forget(overlapKey)
+          await mutex.forget(overlapKey, overlapToken)
         else runningLocks.delete(this.name)
       }
     }

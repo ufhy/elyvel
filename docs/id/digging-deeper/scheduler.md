@@ -78,10 +78,20 @@ pun.
 ## Mencegah tumpang tindih
 
 ```ts
-schedule.call(longRunningReport).hourly().withoutOverlapping(120) // lock kedaluwarsa setelah 120 menit
-schedule.call(cleanup).daily().onOneServer()  // hanya satu instance yang menjalankannya
+schedule.call(longRunningReport).named('report').hourly().withoutOverlapping(120) // lock kedaluwarsa setelah 120 menit
+schedule.call(cleanup).named('cleanup').daily().onOneServer()  // hanya satu instance yang menjalankannya
 schedule.call(pingHealthcheck).everyMinute().runInBackground() // tidak memblokir sisa jadwal
 ```
+
+::: warning Kedua lock butuh nama
+Key lock-nya adalah nama event, dan event tanpa nama jatuh ke
+`event(<ekspresi cron>)` — jadi dua callback `.everyMinute()` tanpa nama akan
+berbagi **satu** lock. Dengan `withoutOverlapping`, yang kedua dilewati selama
+yang pertama masih jalan; dengan `onOneServer`, hanya satu di antaranya yang
+pernah jalan per tick dan yang lain diam-diam tidak pernah jalan. Karena itu
+memanggil salah satunya tanpa `.named('...')` akan throw, bukan mengunci pada
+identitas yang dibagi bersama.
+:::
 
 `withoutOverlapping()` dan `onOneServer()` didukung `MemoryScheduleMutex`
 (per-proses, in-memory) secara default — cukup untuk satu instance, tapi
@@ -94,9 +104,18 @@ import { configureScheduleMutex, RedisScheduleMutex } from '@elyvel/scheduler'
 configureScheduleMutex(new RedisScheduleMutex(redisClient))
 ```
 
-`runInBackground()` menjalankan task tanpa menunggunya, jadi task yang
-lambat tidak menunda sisa jadwal tick tersebut — hook `onFailure`-nya (dan
-failure logger di bawah) tetap terpicu jika ia throw.
+`runInBackground()` memulai task tanpa menunggunya, jadi task yang lambat tidak
+menunda sisa jadwal tick tersebut. `schedule:run` tetap menunggu semua task
+background sebelum ia selesai — kalau tidak, exit CLI-nya akan memotong task
+yang masih menunggu HTTP call atau query, dan error-nya tidak sampai ke mana
+pun. Paralelismenya tetap ada (mereka jalan bersamaan dengan satu sama lain dan
+dengan task foreground); yang ditambahkan hanya penungguan di akhir, dan hasil
+yang dilaporkan mencerminkan apa yang benar-benar terjadi, bukan ✓ yang
+optimistis.
+
+Untuk loop `schedule:work` yang berjalan lama, panggil
+`schedule.drainBackground()` saat shutdown agar task yang sedang jalan bisa
+selesai.
 
 ## Hook sukses & gagal
 

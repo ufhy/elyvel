@@ -21,6 +21,8 @@ export interface ScheduleRunResult {
  */
 export class Schedule {
   readonly events: ScheduledEvent[] = []
+  /** Background runs started but not yet settled — see `drainBackground()`. */
+  private readonly backgroundRuns: Promise<void>[] = []
 
   private add(event: ScheduledEvent): ScheduledEvent {
     this.events.push(event)
@@ -65,7 +67,24 @@ export class Schedule {
         continue
       await this.execute(event, date, results)
     }
+    // `schedule:run` is one-shot and its caller exits straight after, so wait
+    // for the background tasks rather than letting `process.exit` kill them.
+    // They still ran concurrently with each other and with the foreground
+    // tasks — we only join at the end.
+    await this.drainBackground()
     return results
+  }
+
+  /**
+   * Await every background task started but not yet finished. `run()` does this
+   * for you; `tick()` deliberately doesn't (it's a long-lived loop), so
+   * `schedule:work` should call this on shutdown to avoid cutting tasks short.
+   */
+  async drainBackground(): Promise<void> {
+    while (this.backgroundRuns.length > 0) {
+      const pending = this.backgroundRuns.splice(0, this.backgroundRuns.length)
+      await Promise.allSettled(pending)
+    }
   }
 
   /**
@@ -93,9 +112,24 @@ export class Schedule {
     results: ScheduleRunResult[],
   ): Promise<void> {
     if (event.runsInBackground) {
-      // fire-and-forget; the event's own onFailure hooks handle errors
-      void event.run(date).catch(() => {})
-      results.push({ name: event.name, expression: event.expression, ran: true })
+      // Start it without blocking the rest of the tick, but KEEP the promise.
+      // Fire-and-forget meant `schedule:run` resolved, the CLI called
+      // `process.exit`, and any background task still awaiting (an HTTP call, a
+      // DB query) was truncated mid-flight — with `.catch(() => {})` and the
+      // failure logger both gone with the process. It also reported `ran: true`
+      // before the task had done anything, so a run a mutex DECLINED printed ✓.
+      const record: ScheduleRunResult = { name: event.name, expression: event.expression, ran: false }
+      results.push(record)
+      this.backgroundRuns.push(
+        event
+          .run(date)
+          .then((ran) => {
+            record.ran = ran
+          })
+          .catch((error: unknown) => {
+            record.error = error
+          }),
+      )
       return
     }
     try {

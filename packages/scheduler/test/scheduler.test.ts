@@ -200,20 +200,57 @@ describe('between / unlessBetween / environments / background', () => {
     expect(await local.shouldRun(monday0800)).toBe(false)
   })
 
-  test('runInBackground does not block the run', async () => {
-    let done = false
+  test('runInBackground does not block the other events, but run() still waits for it', async () => {
+    const order: string[] = []
     const s = new Schedule()
     s.call(async () => {
       await new Promise(r => setTimeout(r, 20))
-      done = true
+      order.push('background')
     })
       .everyMinute()
       .runInBackground()
+    s.call(() => void order.push('foreground')).everyMinute()
+
     const results = await s.run(monday0800)
-    expect(results[0]?.ran).toBe(true)
-    expect(done).toBe(false) // not awaited
-    await new Promise(r => setTimeout(r, 40))
-    expect(done).toBe(true)
+
+    // The foreground event ran while the background one was still sleeping —
+    // that's the point of runInBackground. But `run()` joins at the end, so by
+    // the time it resolves the background task has actually FINISHED. It used
+    // to be fire-and-forget, which meant `schedule:run`'s `process.exit`
+    // truncated any background task still awaiting, with the error swallowed.
+    expect(order).toEqual(['foreground', 'background'])
+    expect(results.find(r => r.name.includes('event'))?.ran).toBe(true)
+    expect(results.every(r => r.ran)).toBe(true)
+  })
+
+  test('a background run declined by a lock is reported as not-ran, not as ✓', async () => {
+    configureScheduleMutex(new MemoryScheduleMutex())
+    try {
+      const s = new Schedule()
+      // Hold the overlap lock so the event below cannot acquire it.
+      const blocker = new ScheduledEvent(async () => {
+        await new Promise(r => setTimeout(r, 50))
+      })
+        .named('contended')
+        .everyMinute()
+        .withoutOverlapping()
+      const held = blocker.run(monday0800)
+
+      s.call(() => {})
+        .named('contended')
+        .everyMinute()
+        .withoutOverlapping()
+        .runInBackground()
+
+      const results = await s.run(monday0800)
+      // Previously this pushed `ran: true` before the task had done anything,
+      // so a run the mutex DECLINED still printed ✓.
+      expect(results[0]?.ran).toBe(false)
+      await held
+    }
+    finally {
+      configureScheduleMutex(new MemoryScheduleMutex())
+    }
   })
 
   test('a runInBackground() failure with no onFailure hook is still logged via configureScheduleFailureLogger', async () => {
@@ -229,10 +266,11 @@ describe('between / unlessBetween / environments / background', () => {
         .everyMinute()
         .runInBackground()
       const results = await s.run(monday0800)
-      // schedule.ts's fire-and-forget path reports `ran: true` immediately —
-      // the failure surfaces asynchronously via the logger, not in `results`.
-      expect(results[0]?.ran).toBe(true)
-      await new Promise(r => setTimeout(r, 20))
+      // `run()` joins background tasks, so the failure is visible in `results`
+      // as well as through the logger — it used to report `ran: true` before
+      // the task had even started.
+      expect(results[0]?.ran).toBe(false)
+      expect((results[0]?.error as Error).message).toBe('background boom')
       expect(logged).toHaveLength(1)
       expect(logged[0]?.name).toBe('my-bg-task')
       expect((logged[0]?.error as Error).message).toBe('background boom')
