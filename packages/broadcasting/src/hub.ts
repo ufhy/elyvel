@@ -113,7 +113,19 @@ export class BroadcastHub implements Broadcaster {
         return // ignore malformed frames
       }
       if (msg.channel && msg.event === 'subscribe') {
-        if (await this.isAuthorized(msg.channel, ws.data?.identity)) {
+        // An authorizer that throws (a failed DB lookup, a bug) used to reject
+        // inside this async handler with nothing catching it: the client got
+        // neither a subscription nor a `subscription_error` and simply hung,
+        // while the process logged an unhandled rejection. Fail CLOSED and tell
+        // the client.
+        let allowed: boolean
+        try {
+          allowed = await this.isAuthorized(msg.channel, ws.data?.identity)
+        }
+        catch {
+          allowed = false
+        }
+        if (allowed) {
           ws.subscribe(msg.channel)
         }
         else {

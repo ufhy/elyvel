@@ -517,7 +517,15 @@ function buildResource(
           + 'decorator — it must never be skipped silently.',
         )
       }
-      await authorize(ability, ctx.model)
+      // Collection actions (index/create/store) have no bound instance, so pass
+      // the MODEL CLASS as the target — Gate resolves a policy from
+      // `args[0].constructor` or from the class itself. Passing `undefined` meant
+      // no policy matched, the check fell through to the named-ability map,
+      // missed, and denied: `authorizeResource(PostController)` made `index`,
+      // `create` and `store` permanently 403, which is the exact flow the docs
+      // recommend. Worse, an unrelated global `define('create', ...)` would be
+      // consulted instead of the model's policy.
+      await authorize(ability, ctx.model ?? options.bind)
       return handler(ctx)
     }
   }

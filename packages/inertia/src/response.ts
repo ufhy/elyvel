@@ -225,7 +225,13 @@ export async function buildProps(
   if (scoped) {
     for (const [key, value] of scoped) merged[key] = value // this request's own shares win
   }
-  merged.errors = (session?.get('errors') as Record<string, unknown>) ?? {}
+  // Flashed validation errors take precedence when present — that's the redirect
+  // contract. But this used to run AFTER both shared maps were copied and
+  // assigned unconditionally, so `Inertia.share('errors', ...)` was discarded
+  // even when the session had no errors at all.
+  const sessionErrors = session?.get('errors') as Record<string, unknown> | undefined
+  if (sessionErrors !== undefined || merged.errors === undefined)
+    merged.errors = sessionErrors ?? {}
   Object.assign(merged, response.props)
 
   const isPartial = request.headers.get('x-inertia-partial-component') === response.component
@@ -290,7 +296,12 @@ export async function buildProps(
 
   // Always present — validation errors must survive partial-reload filtering
   // (an `only` list that omits it shouldn't hide the current page's errors).
-  out.errors = merged.errors
+  // Only fill it in when the filtering above dropped it: re-assigning
+  // unconditionally overwrote the value the loop had already resolved with the
+  // RAW one, so a lazy `share('errors', () => …)` reached the client as the
+  // function itself rather than its result.
+  if (!('errors' in out))
+    out.errors = await evaluate(merged.errors)
 
   const result: BuiltProps = { props: out as BuiltProps['props'], rescuedProps }
   if (Object.keys(deferred).length)

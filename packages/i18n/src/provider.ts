@@ -86,7 +86,14 @@ export class I18nServiceProvider extends ServiceProvider {
     // detection — the app sets the request locale (e.g. from a user preference)
     // via `setRequestLocale`; until then `currentLocale()` is the configured default.
     this.app.elysia.derive({ as: 'global' }, () => ({
-      locale: currentLocale(),
+      // A getter, not a snapshot. `derive` runs before `beforeHandle` — the
+      // documented place to call `setRequestLocale()` — so reading the value
+      // here froze it at the default: `ctx.locale` said `en` while `ctx.__()`
+      // returned Indonesian, desyncing `<html lang>` and date formatting from
+      // the actual translations.
+      get locale() {
+        return currentLocale()
+      },
       __: (key: string, replace?: Replacements) => __(key, replace),
       trans: (key: string, replace?: Replacements) => trans(key, replace),
       transChoice: (key: string, n: number, replace?: Replacements) => transChoice(key, n, replace),
