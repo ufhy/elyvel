@@ -111,9 +111,19 @@ function splitRules(fieldRules: string | RuleEntry[]): {
       if (!token)
         continue
       const idx = token.indexOf(':')
-      if (idx === -1)
+      if (idx === -1) {
         parsed.push({ name: token, args: [] })
-      else parsed.push({ name: token.slice(0, idx), args: token.slice(idx + 1).split(',') })
+      }
+      else {
+        const name = token.slice(0, idx)
+        const rest = token.slice(idx + 1)
+        // A regex pattern is ONE argument — splitting on commas mangles any
+        // quantifier or character class containing one, so `regex:^\d{3,5}$`
+        // compiled as `^\d{3` and rejected valid input (and `^[a-z,]+$` threw
+        // out of errors()). Laravel special-cases these two rules the same way.
+        const args = name === 'regex' || name === 'not_regex' ? [rest] : rest.split(',')
+        parsed.push({ name, args })
+      }
     }
   }
   return { parsed, customs }

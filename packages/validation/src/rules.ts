@@ -22,7 +22,10 @@ export function isEmpty(value: unknown): boolean {
   return (
     value === undefined
     || value === null
-    || value === ''
+    // Whitespace-only counts as empty, matching Laravel — otherwise `'   '`
+    // satisfies `required`. (The TrimStrings middleware hides this on HTTP
+    // paths, but not for a Validator called directly.)
+    || (typeof value === 'string' && value.trim() === '')
     || (Array.isArray(value) && value.length === 0)
   )
 }
@@ -40,6 +43,13 @@ const IPV4 = /^(?:\d{1,3}\.){3}\d{1,3}$/
 const IPV6 = /^(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i
 const MAC = /^(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
+/** IPv4 with real octet ranges — the shape regex alone accepts `999.999.999.999`. */
+function isIpv4(value: string): boolean {
+  if (!IPV4.test(value))
+    return false
+  return value.split('.').every(octet => Number(octet) <= 255)
+}
 
 function isFile(value: unknown): value is Blob {
   return typeof Blob !== 'undefined' && value instanceof Blob
@@ -95,13 +105,27 @@ function parseDimensionArgs(args: string[]): DimensionConstraints {
   return out
 }
 
+/**
+ * The magnitude `min`/`max`/`size`/`between` compare against.
+ *
+ * A file or an array carries its own notion of size, so the VALUE decides for
+ * those — `kind` is inferred from rule NAMES only, so `max:1024` without an
+ * explicit `file`/`image` fell through to `String(value).length`, which is 13
+ * for any Blob (`'[object Blob]'`). Every upload passed every size limit.
+ * `numeric` still needs the rule, since only the caller can say whether `'5'`
+ * means the number 5 or a 1-character string.
+ */
 function size(value: unknown, kind: SizeKind): number {
+  if (isFile(value))
+    return value.size / 1024 // KB
+  if (Array.isArray(value))
+    return value.length
   if (kind === 'numeric')
     return Number(value)
-  if (kind === 'array')
-    return Array.isArray(value) ? value.length : 0
-  if (kind === 'file')
-    return isFile(value) ? value.size / 1024 : 0 // KB
+  // Declared as a file/array but isn't one — 0 rather than a string length, so
+  // the accompanying type rule reports the real problem.
+  if (kind === 'file' || kind === 'array')
+    return 0
   return String(value).length
 }
 
@@ -312,11 +336,22 @@ export const RULES: Record<string, Rule> = {
   // formats
   email: { validate: v => EMAIL.test(String(v)) },
   url: {
-    validate: v => URL.canParse(String(v)),
+    // http(s) only. `URL.canParse` happily accepts `javascript:alert(1)` and
+    // `data:` URLs — exactly what must not reach an href/src after passing
+    // "validation". Laravel restricts the scheme for the same reason.
+    validate: (v) => {
+      try {
+        const { protocol } = new URL(String(v))
+        return protocol === 'http:' || protocol === 'https:'
+      }
+      catch {
+        return false
+      }
+    },
   },
   uuid: { validate: v => UUID.test(String(v)) },
   ulid: { validate: v => ULID.test(String(v)) },
-  ip: { validate: v => IPV4.test(String(v)) || IPV6.test(String(v)) },
+  ip: { validate: v => isIpv4(String(v)) || IPV6.test(String(v)) },
   mac_address: { validate: v => MAC.test(String(v)) },
   hex_color: { validate: v => HEX_COLOR.test(String(v)) },
   json: {

@@ -251,3 +251,54 @@ describe('rules resolve dotted other-field names', () => {
     expect(await fails({ v: 'x' }, { v: 'different:no.such.field' })).toBe(true)
   })
 })
+
+// Second batch from the 2026-07-29 audit: rules that silently PASSED invalid
+// input, or rejected valid input. Each was reproduced before being fixed.
+describe('size, emptiness, regex and scheme rules', () => {
+  const passes = (data: Record<string, unknown>, rules: Record<string, string>) =>
+    Validator.make(data, rules).validate().then(() => true, () => false)
+
+  test('a size limit measures a file by its bytes, not String(blob).length', async () => {
+    // `kind` comes from rule NAMES, so `max:1024` with no `file`/`image` fell
+    // through to `String(value).length` — 13 for any Blob. Every upload passed
+    // every size limit, and `mimes:png|max:1024` is a very natural thing to write.
+    const big = new Blob([new Uint8Array(5 * 1024 * 1024)])
+    const small = new Blob([new Uint8Array(100)])
+    expect(await passes({ a: big }, { a: 'max:1024' })).toBe(false)
+    expect(await passes({ a: small }, { a: 'max:1024' })).toBe(true)
+    expect(await passes({ a: big }, { a: 'file|max:1024' })).toBe(false)
+  })
+
+  test('the other size kinds are unchanged', async () => {
+    expect(await passes({ s: 'abcdef' }, { s: 'max:3' })).toBe(false) // string length
+    expect(await passes({ a: [1, 2, 3, 4] }, { a: 'array|max:3' })).toBe(false) // array count
+    expect(await passes({ n: '9' }, { n: 'numeric|max:3' })).toBe(false) // numeric value
+  })
+
+  test('a whitespace-only string is empty', async () => {
+    expect(await passes({ n: '   ' }, { n: 'required' })).toBe(false)
+    expect(await passes({ n: 'ok' }, { n: 'required' })).toBe(true)
+  })
+
+  test('a regex pattern is one argument, commas and all', async () => {
+    // Args were comma-split, so `^\d{3,5}$` compiled as `^\d{3` and rejected
+    // valid input; a pattern containing a comma class threw out of errors().
+    expect(await passes({ p: '1234' }, { p: 'regex:^\\d{3,5}$' })).toBe(true)
+    expect(await passes({ p: '12' }, { p: 'regex:^\\d{3,5}$' })).toBe(false)
+    expect(await passes({ p: 'a,b' }, { p: 'regex:^[a-z,]+$' })).toBe(true)
+  })
+
+  test('url accepts only http(s)', async () => {
+    // URL.canParse accepts `javascript:` and `data:` — precisely the schemes
+    // that must not survive validation and reach an href.
+    expect(await passes({ u: 'javascript:alert(1)' }, { u: 'url' })).toBe(false)
+    expect(await passes({ u: 'data:text/html,<script>' }, { u: 'url' })).toBe(false)
+    expect(await passes({ u: 'https://ok.test/x' }, { u: 'url' })).toBe(true)
+    expect(await passes({ u: 'not a url' }, { u: 'url' })).toBe(false)
+  })
+
+  test('ip checks octet ranges, not just the shape', async () => {
+    expect(await passes({ i: '999.999.999.999' }, { i: 'ip' })).toBe(false)
+    expect(await passes({ i: '10.0.0.1' }, { i: 'ip' })).toBe(true)
+  })
+})

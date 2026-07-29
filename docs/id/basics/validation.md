@@ -58,7 +58,7 @@ mencampur string dengan rule kustom — lihat di bawah).
 | Kehadiran | `required`, `nullable`, `sometimes`, `present`, `filled`, `required_if`, `required_unless`, `required_with`, `required_with_all`, `required_without`, `required_without_all`, `prohibited`, `prohibited_if`, `prohibited_unless`, `missing`, `missing_if`, `missing_with`, `accepted`, `accepted_if`, `declined`, `declined_if` |
 | Tipe | `string`, `integer`, `numeric`, `boolean`, `array`, `date` |
 | Format | `email`, `url`, `uuid`, `ulid`, `ip`, `mac_address`, `hex_color`, `json`, `timezone`, `alpha`, `alpha_num`, `alpha_dash`, `ascii`, `uppercase`, `lowercase`, `in`, `not_in`, `in_array`, `regex`, `starts_with`, `ends_with`, `doesnt_start_with`, `doesnt_end_with`, `digits`, `digits_between`, `decimal`, `multiple_of` |
-| Ukuran | `min`, `max`, `size`, `between` (panjang string, nilai angka, atau jumlah item array/file — ditentukan dari tipe field) |
+| Ukuran | `min`, `max`, `size`, `between` — file diukur dalam kilobyte dan array dari jumlah elemennya (keduanya dideteksi dari nilainya sendiri); tambahkan `numeric` untuk membandingkan angka berdasarkan nilainya, bukan jumlah digitnya |
 | Perbandingan | `same`, `different`, `confirmed`, `gt`, `gte`, `lt`, `lte`, `date_format`, `before`, `before_or_equal`, `after`, `after_or_equal`, `date_equals` |
 | File | `file`, `image`, `mimes`, `mimetypes`, `dimensions`, `max` (kilobita) |
 | Database | `unique`, `exists` |
