@@ -71,6 +71,16 @@ export function registerMiddlewareRegistry(config: MiddlewareConfig): void {
   groups.clear()
   for (const [name, cls] of Object.entries(config.aliases ?? {})) aliases.set(name, cls)
   for (const [name, items] of Object.entries(config.groups ?? {})) groups.set(name, items)
+  // `web` must always carry CSRF protection. The Application used to build the
+  // group as `{ web: ['csrf'], ...config.groups }`, so an app defining its own
+  // `web` group REPLACED the built-in one and silently stopped applying
+  // `CsrfMiddleware` to every session route — a security control vanishing on an
+  // unrelated config edit, with nothing warning about it. Enforced here so it
+  // holds for every caller, not just the Application's boot path. An app that
+  // genuinely wants no CSRF should name the group something other than `web`.
+  const web = groups.get('web')
+  if (web && !web.includes('csrf'))
+    groups.set('web', ['csrf', ...web])
 }
 
 function isElysia(value: unknown): value is Elysia {

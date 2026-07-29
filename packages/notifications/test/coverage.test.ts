@@ -16,7 +16,14 @@ import { Notification } from '../src/notification'
 
 class Ping extends Notification {
   via(): string[] {
-    return ['array', 'unregistered'] // second name has no channel → skipped
+    return ['array']
+  }
+}
+
+/** Names a channel nobody registered — must be reported, not skipped. */
+class PingWithUnknownChannel extends Notification {
+  via(): string[] {
+    return ['array', 'unregistered']
   }
 }
 
@@ -31,12 +38,31 @@ function capturingChannel(): { channel: Channel, got: Notifiable[] } {
 afterEach(() => setDefaultNotifications(new NotificationManager()))
 
 describe('NotificationManager', () => {
-  test('send routes only to registered channels named by via()', async () => {
+  test('send routes to every registered channel named by via()', async () => {
     const { channel, got } = capturingChannel()
     const manager = new NotificationManager().channel('array', channel)
     const user: Notifiable = { id: 1 }
     await manager.send(user, new Ping())
-    expect(got).toEqual([user]) // 'unregistered' silently skipped
+    expect(got).toEqual([user])
+  })
+
+  /**
+   * Regression: an unregistered channel name used to `continue`, so `send()`
+   * resolved having delivered nothing through it. `toBroadcast()` exists on
+   * Notification but the default provider registers only array/mail/telegram/
+   * database, so `via: () => ['broadcast']` in a stock app was a TOTAL silent
+   * drop. Laravel throws for an unknown channel; so do we.
+   */
+  test('an unregistered channel is reported, not silently skipped', async () => {
+    const { channel, got } = capturingChannel()
+    const manager = new NotificationManager().channel('array', channel)
+    const user: Notifiable = { id: 1 }
+
+    await expect(manager.send(user, new PingWithUnknownChannel())).rejects.toThrow(
+      /No notification channel registered under "unregistered"/,
+    )
+    // The channels that DO exist still delivered — one bad name doesn't lose them.
+    expect(got).toEqual([user])
   })
 
   test('sendMany fans out to every notifiable', async () => {

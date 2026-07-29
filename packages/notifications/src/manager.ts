@@ -27,8 +27,29 @@ export class NotificationManager {
     const errors: unknown[] = []
     for (const name of notification.via(notifiable)) {
       const channel = this.channels.get(name)
-      if (!channel)
+      if (!channel) {
+        // A `via()` naming a channel nobody registered used to `continue`, so
+        // `send()` resolved having delivered NOTHING. This is not theoretical:
+        // `toBroadcast()` exists on Notification, but the default
+        // NotificationServiceProvider registers only array/mail/telegram/
+        // database — so `via: () => ['broadcast']` in a stock app was a total
+        // silent drop. Treat it like any other channel failure: record it, keep
+        // the other channels going, and reject at the end.
+        const error = new Error(
+          `[elyvel] No notification channel registered under "${name}". `
+          + `Register it (e.g. notifications().channel('${name}', ...)) or remove `
+          + `it from via().`,
+        )
+        errors.push(error)
+        await failedNotifications()?.log(
+          notifiable.constructor?.name ?? 'unknown',
+          String(notifiableKey(notifiable) ?? ''),
+          name,
+          notification.constructor.name,
+          error,
+        )
         continue
+      }
       try {
         await channel.send(notifiable, notification)
       }

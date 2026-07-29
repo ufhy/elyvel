@@ -37,6 +37,16 @@ export class InvoicePaid extends Notification {
 Only implement the `to*` methods for channels you actually return from
 `via()` — an unimplemented one is simply skipped for that channel.
 
+::: warning A channel named in `via()` must be registered
+Naming a channel nobody registered is an error, not a no-op — it used to be
+skipped, which meant `via: () => ['broadcast']` in a stock app (where the
+default provider registers only `array`/`mail`/`telegram`/`database`) delivered
+**nothing** while `notify()` resolved successfully. The other channels still
+deliver; the run rejects at the end and the failure is recorded like any other.
+Register the channel with `notifications().channel('broadcast', ...)` — for the
+broadcast channel, see [Broadcasting](/digging-deeper/broadcasting).
+:::
+
 ## The `Notifiable` shape
 
 Anything can receive a notification — there's no base model class to
@@ -83,7 +93,7 @@ recipient failing doesn't stop the others from being notified.
 
 | Channel | Delivers via | Notes |
 | --- | --- | --- |
-| `mail` | `@elyvel/mail`'s `mailManager()` | Falls back to `routeNotificationFor('mail')` if `toMail()`'s `Message` has no `to` set. |
+| `mail` | `@elyvel/mail`'s `mailManager()` | If `toMail()`'s `Message` has no `to`, falls back to `routeNotificationFor('mail')` and then to the notifiable's own `email` — so an ordinary model with an `email` column needs no routing method. With no recipient from any of the three, it **throws** rather than reporting a mail nobody received as sent. |
 | `telegram` | `@elyvel/telegram`'s `telegram()` | `toTelegram()` returns a string or a structured message; chat id resolved the same fallback way. |
 | `database` | an app-supplied adapter | See below — needs `configureDatabaseNotifications(...)`. |
 | `array` | in-memory | Test double — see [Testing](#testing). |

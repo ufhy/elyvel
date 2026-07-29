@@ -38,6 +38,17 @@ Implementasikan hanya method `to*` untuk channel yang benar-benar
 di-return dari `via()` — yang tidak diimplementasikan cukup dilewati
 untuk channel tersebut.
 
+::: warning Channel yang disebut di `via()` harus terdaftar
+Menyebut channel yang tidak didaftarkan siapa pun adalah error, bukan no-op —
+sebelumnya ia dilewati, yang berarti `via: () => ['broadcast']` di aplikasi
+standar (yang default provider-nya hanya mendaftarkan
+`array`/`mail`/`telegram`/`database`) tidak mengirim **apa pun** padahal
+`notify()` selesai dengan sukses. Channel lainnya tetap terkirim; run-nya
+reject di akhir dan kegagalannya dicatat seperti kegagalan lain. Daftarkan
+channel-nya dengan `notifications().channel('broadcast', ...)` — untuk channel
+broadcast, lihat [Broadcasting](/id/digging-deeper/broadcasting).
+:::
+
 ## Bentuk `Notifiable`
 
 Apa pun bisa menerima notifikasi — tidak ada base model class yang perlu
@@ -85,7 +96,7 @@ dinotifikasi.
 
 | Channel | Dikirim lewat | Catatan |
 | --- | --- | --- |
-| `mail` | `mailManager()` milik `@elyvel/mail` | Fallback ke `routeNotificationFor('mail')` jika `Message` dari `toMail()` tidak mengatur `to`. |
+| `mail` | `mailManager()` milik `@elyvel/mail` | Kalau `Message` dari `toMail()` tidak mengatur `to`, ia fallback ke `routeNotificationFor('mail')` lalu ke atribut `email` milik notifiable-nya — jadi model biasa dengan kolom `email` tidak butuh method routing. Kalau ketiganya tidak memberi penerima, ia **throw**, bukan melaporkan mail yang tidak diterima siapa pun sebagai terkirim. |
 | `telegram` | `telegram()` milik `@elyvel/telegram` | `toTelegram()` mengembalikan string atau structured message; chat id di-resolve dengan fallback yang sama. |
 | `database` | adapter yang disediakan aplikasi | Lihat di bawah — butuh `configureDatabaseNotifications(...)`. |
 | `array` | in-memory | Test double — lihat [Testing](#testing). |

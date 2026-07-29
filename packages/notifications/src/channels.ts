@@ -30,9 +30,25 @@ export class MailChannel implements Channel {
       return
     const message = notification.toMail(notifiable)
     if (message.toAddresses.length === 0) {
-      const to = routeFor(notifiable, 'mail')
-      if (to !== undefined)
+      // `routeNotificationFor('mail')` first, then the notifiable's own `email`
+      // — the same default Laravel's `routeNotificationForMail` provides. Only
+      // consulting `routeNotificationFor` meant an ordinary User model with an
+      // `email` column was never routed at all, which is precisely how a
+      // notification ended up with no recipient in the first place.
+      const to = routeFor(notifiable, 'mail') ?? (notifiable as { email?: unknown }).email
+      if (to !== undefined && to !== null && to !== '')
         message.to(String(to))
+    }
+    // Refuse to "send" a mail with nowhere to go. The log/array transports
+    // accept a zero-recipient message that real SMTP rejects, so a notifiable
+    // with no `email` and no `routeNotificationFor('mail')` resolved as
+    // delivered — tests passed on a mail that would never send in production.
+    if (message.toAddresses.length === 0) {
+      throw new Error(
+        `[elyvel] Cannot send the mail notification: ${notifiable.constructor?.name ?? 'the notifiable'} `
+        + 'has no mail recipient. Give it an `email` attribute, return one from '
+        + '`routeNotificationFor(\'mail\')`, or set the recipient in `toMail()`.',
+      )
     }
     await mailManager().deliver(message)
   }
