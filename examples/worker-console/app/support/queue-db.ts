@@ -15,10 +15,18 @@ export const eloquentQueueAdapter: QueueDbAdapter = {
 
   async takeReady(now, queues) {
     return transaction(async () => {
+      // `lockForUpdate()` is what makes this a real claim rather than a
+      // read-then-delete: without it two workers polling the same table both
+      // SELECT the same row, one DELETE removes nothing, and BOTH return the
+      // row — so the job runs twice. The row lock makes the second worker wait
+      // for this transaction, after which the row is gone and it gets null and
+      // polls again. (Postgres/MySQL take the lock; SQLite serializes writers
+      // anyway, so it's a no-op there.)
       const row = await table('jobs')
         .whereIn('queue', queues)
         .where('available_at', '<=', now)
         .orderBy('available_at')
+        .lockForUpdate()
         .first()
       if (!row)
         return null

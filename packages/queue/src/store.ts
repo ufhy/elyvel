@@ -116,24 +116,35 @@ export class RedisQueueStore implements QueueStore {
 
   async pop(queues: string[] = [DEFAULT_QUEUE]): Promise<QueuedRecord | null> {
     for (const queue of queues) {
-      const found = (await this.client.send('ZRANGEBYSCORE', [
-        this.key(queue),
-        '-inf',
-        String(now()),
-        'LIMIT',
-        '0',
-        '1',
-      ])) as string[] | null
-      const member = found?.[0]
-      if (!member)
-        continue
-      await this.client.send('ZREM', [this.key(queue), member])
-      const parsed = JSON.parse(member)
-      return {
-        id: parsed.id,
-        body: parsed.body,
-        attempts: parsed.attempts + 1,
-        queue: parsed.queue ?? queue,
+      // Reading the next member and removing it are two separate commands, so
+      // another worker can take it in between — and workers polling the same
+      // Redis queue from separate processes is the normal deployment. Claiming
+      // the job regardless meant BOTH workers ran it (verified: two pops
+      // returned the same id). `ZREM` reports how many members it actually
+      // removed, so only the worker that removed it owns the job; a loser
+      // retries this queue rather than running someone else's job.
+      while (true) {
+        const found = (await this.client.send('ZRANGEBYSCORE', [
+          this.key(queue),
+          '-inf',
+          String(now()),
+          'LIMIT',
+          '0',
+          '1',
+        ])) as string[] | null
+        const member = found?.[0]
+        if (!member)
+          break // nothing ready on this queue — try the next one
+        const removed = Number(await this.client.send('ZREM', [this.key(queue), member]))
+        if (removed === 0)
+          continue // lost the race; the set shrank, so this terminates
+        const parsed = JSON.parse(member)
+        return {
+          id: parsed.id,
+          body: parsed.body,
+          attempts: parsed.attempts + 1,
+          queue: parsed.queue ?? queue,
+        }
       }
     }
     return null
@@ -167,7 +178,14 @@ export interface QueueDbAdapter {
     availableAt: number,
     queue: string,
   ): Promise<void>
-  /** Atomically take the earliest ready job among `queues` (in priority order) and remove it. */
+  /**
+   * Atomically take the earliest ready job among `queues` (in priority order)
+   * and remove it — in ONE statement, e.g. `DELETE FROM jobs WHERE id = (
+   * SELECT id ... ORDER BY available_at LIMIT 1 FOR UPDATE SKIP LOCKED)
+   * RETURNING *`. A `SELECT` followed by a separate `DELETE` is not enough:
+   * two workers polling the same table both see the same row and both run the
+   * job, so anything non-idempotent happens twice.
+   */
   takeReady(
     now: number,
     queues: string[],
