@@ -1,6 +1,6 @@
 import type { FileResponse } from '@elyvel/core'
 import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, realpathSync, statSync } from 'node:fs'
 import { appendFile, chmod, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
 // biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
 import { dirname, extname, posix, resolve, sep } from 'node:path'
@@ -77,6 +77,27 @@ export interface FilesystemDisk {
 export class PathEscapeError extends Error {}
 
 // ── shared helpers ─────────────────────────────────────────────────────────
+/**
+ * Reject a `putFileAs` name that isn't a plain filename. `name` is the one
+ * argument that's routinely attacker-supplied verbatim
+ * (`putFileAs(dir, file, upload.name)`), and it gets `posix.join`ed onto the
+ * directory — which NORMALIZES `..`, so `'../../other/x'` silently walks out
+ * of the intended directory. A disk's own root check doesn't catch that: the
+ * result is still inside the root, just not where the caller asked. It's also
+ * how a `ScopedDisk`'s tenant prefix was escapable, since the scope is a
+ * prefix *below* the root the inner disk validates against.
+ *
+ * A filename has no business containing a separator, so this rejects rather
+ * than sanitizing — silently rewriting an upload's name would be a surprise.
+ */
+function assertPlainFilename(name: string): void {
+  if (name === '' || name === '.' || name === '..' || /[/\\]/.test(name)) {
+    throw new PathEscapeError(
+      `[elyvel] "${name}" is not a valid file name — it must not contain a path separator.`,
+    )
+  }
+}
+
 function secondsUntil(expiresIn: Date | number): number {
   return typeof expiresIn === 'number'
     ? expiresIn
@@ -152,12 +173,44 @@ export class LocalDisk implements FilesystemDisk {
   private full(path: string): string {
     // Resolve and confirm the result stays inside the disk root — a `../`
     // traversal (e.g. `../../etc/passwd`) must never escape the sandbox.
-    const rootAbs = resolve(this.root)
+    const rootAbs = this.realRoot()
     const full = resolve(rootAbs, path)
     if (full !== rootAbs && !full.startsWith(rootAbs + sep)) {
       throw new PathEscapeError(`[elyvel] Path "${path}" escapes the disk root.`)
     }
+    // `resolve` is purely LEXICAL, so the check above is blind to symlinks: a
+    // link inside the root pointing out of it (from an extracted archive,
+    // an rsync, a user-writable dir) reads/writes wherever it points while
+    // still looking contained. Re-check against real, link-resolved paths.
+    // Writes target something that doesn't exist yet, so resolve the deepest
+    // ancestor that DOES exist — that's the first place a link could divert us.
+    let probe = full
+    while (probe !== rootAbs && !existsSync(probe)) probe = dirname(probe)
+    // Walked all the way up without finding anything on disk (the root itself
+    // isn't created until the first write) — there's no link to divert
+    // through, so the lexical check above is the whole story.
+    if (!existsSync(probe))
+      return full
+    const real = realpathSync(probe)
+    if (real !== rootAbs && !real.startsWith(rootAbs + sep)) {
+      throw new PathEscapeError(
+        `[elyvel] Path "${path}" escapes the disk root via a symlink.`,
+      )
+    }
     return full
+  }
+
+  /** The root with symlinks resolved (the root itself may legitimately be one). */
+  private realRoot(): string {
+    const rootAbs = resolve(this.root)
+    try {
+      return realpathSync(rootAbs)
+    }
+    catch {
+      // Root not created yet — nothing exists to divert through, so the
+      // lexical check is the whole story until it does.
+      return rootAbs
+    }
   }
 
   private fail(error: unknown): false {
@@ -210,6 +263,7 @@ export class LocalDisk implements FilesystemDisk {
     name: string,
     visibility?: Visibility,
   ): Promise<string> {
+    assertPlainFilename(name)
     const target = posix.join(directory, name)
     await this.put(target, await toBytes(file), visibility)
     return target
@@ -475,6 +529,7 @@ export class S3Disk implements FilesystemDisk {
     name: string,
     visibility?: Visibility,
   ): Promise<string> {
+    assertPlainFilename(name)
     const target = posix.join(directory, name)
     await this.put(target, await toBytes(file), visibility)
     return target

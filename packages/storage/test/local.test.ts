@@ -1,8 +1,8 @@
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
-import { fakeStorage, FilesystemManager, LocalDisk, storage } from '../src/index'
+import { fakeStorage, FilesystemManager, LocalDisk, ScopedDisk, storage } from '../src/index'
 
 const roots: string[] = []
 function freshRoot(): string {
@@ -182,6 +182,53 @@ describe('path traversal is blocked', () => {
     // a `..` that resolves back inside the root is fine
     await disk.put('a/b/c.txt', 'ok')
     expect(await disk.get('a/b/../b/c.txt')).toBe('ok')
+  })
+
+  // Regression: the root check used `resolve()`, which is purely lexical and
+  // therefore blind to symlinks — a link INSIDE the root pointing out of it
+  // (extracted archive, rsync, user-writable dir) read/wrote wherever it
+  // pointed while still looking contained. Verified reading /etc/hosts.
+  test('LocalDisk rejects a symlink that points outside the root', async () => {
+    const root = freshRoot()
+    const disk = new LocalDisk({ driver: 'local', root })
+    mkdirSync(join(root, 'links'), { recursive: true })
+    symlinkSync('/etc', join(root, 'links', 'etc'))
+
+    await expect(disk.get('links/etc/hosts')).rejects.toThrow(/escapes the disk root/)
+    await expect(disk.put('links/etc/evil.txt', 'x')).rejects.toThrow(/escapes the disk root/)
+  })
+
+  test('LocalDisk still writes into directories that do not exist yet', async () => {
+    // The symlink check resolves the deepest EXISTING ancestor, so a brand-new
+    // nested path must not be mistaken for an escape.
+    const disk = makeDisk()
+    await disk.put('brand/new/deep/file.txt', 'v')
+    expect(await disk.get('brand/new/deep/file.txt')).toBe('v')
+  })
+
+  // Regression: `name` is the attacker-controlled part of an upload
+  // (`putFileAs(dir, file, upload.name)`) and was joined unguarded, so `..`
+  // in it walked out of the target directory — and out of a ScopedDisk's
+  // tenant prefix, since that prefix sits below the root the disk validates.
+  test('putFileAs rejects a name containing a path separator', async () => {
+    const disk = makeDisk()
+    await expect(disk.putFileAs('uploads', new Blob(['x']), '../../escaped.txt'))
+      .rejects
+      .toThrow(/not a valid file name/)
+    await expect(disk.putFileAs('uploads', new Blob(['x']), 'nested/name.txt'))
+      .rejects
+      .toThrow(/not a valid file name/)
+    // a plain name still works
+    expect(await disk.putFileAs('uploads', new Blob(['ok']), 'photo.png')).toBe('uploads/photo.png')
+  })
+
+  test('ScopedDisk cannot be escaped through the putFileAs name', async () => {
+    const base = makeDisk()
+    const scoped = new ScopedDisk(base, 'tenants/acme')
+    await expect(scoped.putFileAs('uploads', new Blob(['PWNED']), '../../beta/secret.txt'))
+      .rejects
+      .toThrow(/not a valid file name/)
+    expect(await base.exists('tenants/beta/secret.txt')).toBe(false)
   })
 })
 

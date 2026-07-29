@@ -80,6 +80,22 @@ Other operations: `prepend(path, data)`/`append(path, data)` (local's
 read-then-write and can race under concurrent writers), `copy(from, to)`,
 `move(from, to)`, `delete(paths)` (accepts one path or an array).
 
+::: warning `putFileAs` names, and what `mimeType` actually tells you
+`putFileAs`'s `name` must be a plain filename — one containing `/`, `\`, or
+`..` is rejected with a `PathEscapeError` rather than silently rewritten.
+That matters because `name` is usually the client-supplied upload name, and
+it gets joined onto the directory: without the check, `'../../other/x'`
+walked out of the target directory (and out of a scoped disk's prefix).
+Sanitize or replace the name yourself if you'd rather not surface the error —
+or use `putFile`, which generates a random name and ignores the client's.
+
+`mimeType()` is derived from the **file extension**, not sniffed from the
+bytes, so `payload.php` renamed to `photo.png` reports `image/png`. Never
+use it to decide whether an upload is safe — validate the content instead
+with the `image`/`mimes` rules (they read the actual bytes, see
+[Validation](/basics/validation#file-image-mimes-dimensions)).
+:::
+
 ## Directories
 
 ```ts

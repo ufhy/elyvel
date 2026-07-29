@@ -81,6 +81,22 @@ kedua driver adalah read-then-write dan bisa race di bawah penulis
 konkuren), `copy(from, to)`, `move(from, to)`, `delete(paths)` (menerima
 satu path atau array).
 
+::: warning Nama di `putFileAs`, dan apa yang sebenarnya diberitahu `mimeType`
+`name` di `putFileAs` harus berupa nama file biasa — yang mengandung `/`,
+`\`, atau `..` akan ditolak dengan `PathEscapeError`, bukan diam-diam
+ditulis ulang. Ini penting karena `name` biasanya nama upload dari client,
+dan ia di-join ke direktorinya: tanpa pemeriksaan itu, `'../../other/x'`
+keluar dari direktori tujuan (dan keluar dari prefix scoped disk).
+Sanitasi atau ganti sendiri nama-nya kalau kamu tidak mau error-nya muncul
+— atau pakai `putFile`, yang membuat nama acak dan mengabaikan nama client.
+
+`mimeType()` diturunkan dari **ekstensi file**, bukan disniff dari byte-nya,
+jadi `payload.php` yang diganti nama jadi `photo.png` akan melaporkan
+`image/png`. Jangan pernah memakainya untuk memutuskan apakah sebuah upload
+aman — validasi kontennya dengan rule `image`/`mimes` (yang membaca byte
+sesungguhnya, lihat [Validasi](/id/basics/validation#file-image-mimes-dimensions)).
+:::
+
 ## Direktori
 
 ```ts
