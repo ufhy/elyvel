@@ -1,7 +1,7 @@
 import type { SizeKind } from './messages'
 import type { ErrorBag } from './validation-exception'
 import { formatMessage } from './messages'
-import { isEmpty, RULES } from './rules'
+import { getValue, hasPath, isEmpty, RULES } from './rules'
 import { ValidationException } from './validation-exception'
 
 export type Data = Record<string, unknown>
@@ -37,27 +37,6 @@ interface ParsedRule {
 }
 
 // ── path helpers (dot + wildcard `*`) ───────────────────────────────────────
-function getValue(data: unknown, path: string): unknown {
-  if (path === '')
-    return data
-  return path.split('.').reduce<unknown>((acc, key) => {
-    if (acc === null || acc === undefined)
-      return undefined
-    return (acc as Record<string, unknown>)[key]
-  }, data)
-}
-
-function hasPath(data: unknown, path: string): boolean {
-  const segments = path.split('.')
-  let acc: unknown = data
-  for (const key of segments) {
-    if (acc === null || typeof acc !== 'object' || !(key in (acc as object)))
-      return false
-    acc = (acc as Record<string, unknown>)[key]
-  }
-  return true
-}
-
 /** Expand a rule key with `*` into concrete paths present in the data. */
 function expandKey(key: string, data: Data): string[] {
   if (!key.includes('*'))
@@ -84,6 +63,25 @@ function expandKey(key: string, data: Data): string[] {
     paths = next
   }
   return paths
+}
+
+/**
+ * Write `value` at a dot-path, creating intermediate containers. An array is
+ * created (rather than an object) when the next segment is a numeric index, so
+ * a wildcard rule on `tags.*` rebuilds `tags` as an array — not `{0: …}`.
+ */
+function setPath(out: Data, path: string, value: unknown): void {
+  const segments = path.split('.')
+  let node: Record<string, unknown> = out
+  for (let i = 0; i < segments.length - 1; i++) {
+    const key = segments[i] as string
+    const existing = node[key]
+    if (existing === null || typeof existing !== 'object') {
+      node[key] = /^\d+$/.test(segments[i + 1] as string) ? [] : {}
+    }
+    node = node[key] as Record<string, unknown>
+  }
+  node[segments[segments.length - 1] as string] = value
 }
 
 function isRuleObject(entry: unknown): entry is RuleObject {
@@ -136,13 +134,16 @@ function isExcluded(parsed: ParsedRule[], data: Data): boolean {
   for (const { name, args } of parsed) {
     if (name === 'exclude')
       return true
-    if (name === 'exclude_if' && String(data[args[0] as string]) === args[1])
+    // Dotted other-field names must resolve too — a flat lookup made
+    // `exclude_if:addr.country,ID` compare `undefined`, so `exclude_if` never
+    // fired and `exclude_unless` fired ALWAYS (silently dropping the field).
+    if (name === 'exclude_if' && String(getValue(data, args[0] as string)) === args[1])
       return true
-    if (name === 'exclude_unless' && String(data[args[0] as string]) !== args[1])
+    if (name === 'exclude_unless' && String(getValue(data, args[0] as string)) !== args[1])
       return true
-    if (name === 'exclude_with' && (args[0] as string) in data)
+    if (name === 'exclude_with' && hasPath(data, args[0] as string))
       return true
-    if (name === 'exclude_without' && !((args[0] as string) in data))
+    if (name === 'exclude_without' && !hasPath(data, args[0] as string))
       return true
   }
   return false
@@ -211,7 +212,10 @@ export class Validator {
       const { parsed, customs } = splitRules(fieldRules)
 
       if (isExcluded(parsed, this.data)) {
-        this.excluded.add(ruleKey.split('.')[0] as string)
+        // Record the EXPANDED paths, not the top-level segment: excluding
+        // `items.*.q` must drop only those leaves, not the whole `items`
+        // array along with its validated siblings.
+        for (const path of expandKey(ruleKey, this.data)) this.excluded.add(path)
         continue
       }
 
@@ -320,15 +324,27 @@ export class Validator {
     return this.validated()
   }
 
-  /** The subset of data covered by the rules (top-level, present, non-excluded). */
+  /**
+   * The subset of data the rules actually cover — built from the validated
+   * LEAF paths, not their top-level parents.
+   *
+   * This used to return `data[key.split('.')[0]]`, i.e. the whole parent
+   * object for any nested rule: a rule set of `{'user.name': 'required'}`
+   * handed back all of `user`, so `{name, is_admin}` sailed through into
+   * `validated()` with `is_admin` never validated at all — mass assignment
+   * straight past the validator. A wildcard rule whose data wasn't an array
+   * (so it expanded to zero paths, validating nothing) leaked the raw value
+   * the same way.
+   */
   validated(): Data {
     const out: Data = {}
     for (const key of Object.keys(this.rules)) {
-      const top = key.split('.')[0] as string
-      if (this.excluded.has(top))
-        continue
-      if (top in this.data)
-        out[top] = this.data[top]
+      for (const path of expandKey(key, this.data)) {
+        if (this.excluded.has(path))
+          continue
+        if (hasPath(this.data, path))
+          setPath(out, path, getValue(this.data, path))
+      }
     }
     return out
   }

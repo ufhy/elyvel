@@ -260,6 +260,18 @@ rules(): Rules {
 }
 ```
 
+Path bertitik juga bekerja di mana pun sebuah rule menyebut field **lain** —
+`required_if:address.country,ID`, `same:user.password`, `lte:limits.max`,
+`exclude_unless:address.country,ID`, dan seterusnya.
+
+::: tip Hanya leaf yang tervalidasi yang dikembalikan
+Data tervalidasi berisi tepat path yang dicakup rule-mu — bukan parent-nya.
+Dengan `{'user.name': 'required'}` dan body `{user: {name: 'Ada', is_admin: true}}`,
+kamu dapat `{user: {name: 'Ada'}}`: `is_admin` tidak pernah divalidasi, jadi ia
+tidak sampai ke output yang akan kamu serahkan ke `create()`. Tambahkan rule
+untuk sebuah field kalau kamu memang mau ia lolos.
+:::
+
 ## Mengontrol alur validasi
 
 Beberapa pseudo-rule mengubah *bagaimana* validasi berjalan, bukan mengecek

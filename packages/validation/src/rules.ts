@@ -106,11 +106,42 @@ function size(value: unknown, kind: SizeKind): number {
 }
 
 /**
+ * Read a (possibly dotted) path out of the data. Every rule that names ANOTHER
+ * field — `required_if:addr.country,ID`, `same:user.password`, `lte:limits.max`
+ * — must resolve it this way. A flat `data[arg]` lookup returns `undefined` for
+ * any dotted name, which silently made those rules no-ops: the condition never
+ * matched, so the requirement never fired and invalid input passed. `attribute`
+ * is itself an expanded path (`user.role`, `items.0.q`), so self-referencing
+ * rules need this too.
+ */
+export function getValue(data: unknown, path: string): unknown {
+  if (path === '')
+    return data
+  return path.split('.').reduce<unknown>((acc, key) => {
+    if (acc === null || acc === undefined)
+      return undefined
+    return (acc as Record<string, unknown>)[key]
+  }, data)
+}
+
+/** Whether a (possibly dotted) path is actually present, distinguishing "absent" from "set to undefined". */
+export function hasPath(data: unknown, path: string): boolean {
+  const segments = path.split('.')
+  let acc: unknown = data
+  for (const key of segments) {
+    if (acc === null || typeof acc !== 'object' || !(key in (acc as object)))
+      return false
+    acc = (acc as Record<string, unknown>)[key]
+  }
+  return true
+}
+
+/**
  * `field,val1,val2,…` conditional rules match when the other field equals ANY
  * listed value (Laravel semantics) — the buggy original only tested the first.
  */
 function otherFieldMatches(args: string[], data: Data): boolean {
-  const other = String(data[args[0] as string])
+  const other = String(getValue(data, args[0] as string))
   return args.slice(1).includes(other)
 }
 
@@ -129,15 +160,15 @@ function isNumeric(value: unknown): boolean {
 }
 
 function compareTo(arg: string | undefined, data: Data): number {
-  if (arg !== undefined && arg in data)
-    return Number(data[arg])
+  if (arg !== undefined && hasPath(data, arg))
+    return Number(getValue(data, arg))
   return Number(arg)
 }
 
 /** Value of another field for date comparisons (a field name resolves to its value). */
 function dateArg(arg: string | undefined, data: Data): number {
-  if (arg !== undefined && arg in data)
-    return Date.parse(String(data[arg]))
+  if (arg !== undefined && hasPath(data, arg))
+    return Date.parse(String(getValue(data, arg)))
   return Date.parse(String(arg))
 }
 
@@ -204,8 +235,8 @@ function matchesDateFormat(value: string, format: string): boolean {
 export const RULES: Record<string, Rule> = {
   // presence
   required: { implicit: true, validate: v => !isEmpty(v) },
-  present: { implicit: true, validate: (_v, _a, data, attr) => attr in data },
-  filled: { implicit: true, validate: (v, _a, data, attr) => !(attr in data) || !isEmpty(v) },
+  present: { implicit: true, validate: (_v, _a, data, attr) => hasPath(data, attr) },
+  filled: { implicit: true, validate: (v, _a, data, attr) => !hasPath(data, attr) || !isEmpty(v) },
   nullable: { implicit: true, validate: () => true },
   sometimes: { implicit: true, validate: () => true },
 
@@ -220,19 +251,19 @@ export const RULES: Record<string, Rule> = {
   },
   required_with: {
     implicit: true,
-    validate: (v, args, data) => (args.some(f => !isEmpty(data[f])) ? !isEmpty(v) : true),
+    validate: (v, args, data) => (args.some(f => !isEmpty(getValue(data, f))) ? !isEmpty(v) : true),
   },
   required_with_all: {
     implicit: true,
-    validate: (v, args, data) => (args.every(f => !isEmpty(data[f])) ? !isEmpty(v) : true),
+    validate: (v, args, data) => (args.every(f => !isEmpty(getValue(data, f))) ? !isEmpty(v) : true),
   },
   required_without: {
     implicit: true,
-    validate: (v, args, data) => (args.some(f => isEmpty(data[f])) ? !isEmpty(v) : true),
+    validate: (v, args, data) => (args.some(f => isEmpty(getValue(data, f))) ? !isEmpty(v) : true),
   },
   required_without_all: {
     implicit: true,
-    validate: (v, args, data) => (args.every(f => isEmpty(data[f])) ? !isEmpty(v) : true),
+    validate: (v, args, data) => (args.every(f => isEmpty(getValue(data, f))) ? !isEmpty(v) : true),
   },
   prohibited: { implicit: true, validate: v => isEmpty(v) },
   prohibited_if: {
@@ -243,14 +274,14 @@ export const RULES: Record<string, Rule> = {
     implicit: true,
     validate: (v, args, data) => (otherFieldMatches(args, data) ? true : isEmpty(v)),
   },
-  missing: { implicit: true, validate: (_v, _a, data, attr) => !(attr in data) },
+  missing: { implicit: true, validate: (_v, _a, data, attr) => !hasPath(data, attr) },
   missing_if: {
     implicit: true,
-    validate: (_v, args, data, attr) => (otherFieldMatches(args, data) ? !(attr in data) : true),
+    validate: (_v, args, data, attr) => (otherFieldMatches(args, data) ? !hasPath(data, attr) : true),
   },
   missing_with: {
     implicit: true,
-    validate: (_v, args, data, attr) => (args.some(f => f in data) ? !(attr in data) : true),
+    validate: (_v, args, data, attr) => (args.some(f => hasPath(data, f)) ? !hasPath(data, attr) : true),
   },
   accepted: { implicit: true, validate: v => TRUTHY.has(v as never) },
   accepted_if: {
@@ -327,7 +358,7 @@ export const RULES: Record<string, Rule> = {
   not_in: { validate: (v, args) => !args.includes(String(v)) },
   in_array: {
     validate: (v, args, data) => {
-      const other = data[(args[0] ?? '').replace(/\.\*$/, '')]
+      const other = getValue(data, (args[0] ?? '').replace(/\.\*$/, ''))
       return Array.isArray(other) && other.map(String).includes(String(v))
     },
   },
@@ -373,9 +404,11 @@ export const RULES: Record<string, Rule> = {
   lte: { validate: (v, args, data) => Number(v) <= compareTo(args[0], data) },
 
   // cross-field equality
-  confirmed: { validate: (v, _a, data, attr) => data[`${attr}_confirmation`] === v },
-  same: { validate: (v, args, data) => data[args[0] as string] === v },
-  different: { validate: (v, args, data) => data[args[0] as string] !== v },
+  confirmed: { validate: (v, _a, data, attr) => getValue(data, `${attr}_confirmation`) === v },
+  same: { validate: (v, args, data) => getValue(data, args[0] as string) === v },
+  // `different` must not pass merely because the other field is unresolvable —
+  // a dotted name used to yield `undefined !== value`, i.e. always "different".
+  different: { validate: (v, args, data) => hasPath(data, args[0] as string) && getValue(data, args[0] as string) !== v },
 
   // dates
   date: { validate: v => !Number.isNaN(Date.parse(String(v))) },

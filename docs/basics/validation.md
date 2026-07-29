@@ -257,6 +257,18 @@ rules(): Rules {
 }
 ```
 
+A dotted path also works wherever a rule names **another** field —
+`required_if:address.country,ID`, `same:user.password`, `lte:limits.max`,
+`exclude_unless:address.country,ID`, and so on.
+
+::: tip Only validated leaves come back
+The validated data contains exactly the paths your rules covered — not their
+parents. Given `{'user.name': 'required'}` and a body of
+`{user: {name: 'Ada', is_admin: true}}`, you get `{user: {name: 'Ada'}}`:
+`is_admin` was never validated, so it never reaches the output you'd hand to
+`create()`. Add a rule for a field if you want it through.
+:::
+
 ## Controlling validation flow
 
 A few pseudo-rules change *how* validation runs rather than checking a value:

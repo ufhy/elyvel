@@ -183,3 +183,71 @@ describe('FormRequest', () => {
     expect(seen).toEqual(['ok'])
   })
 })
+
+// Regression suite for two bug classes found in a 2026-07-29 correctness audit:
+// (a) `validated()` returned the whole top-level PARENT for a nested rule, so
+//     unvalidated siblings rode along into the "validated" output;
+// (b) every rule naming ANOTHER field looked it up flat (`data[arg]`), so any
+//     dotted name silently resolved to `undefined` — the condition never
+//     matched and the rule became a no-op that looked active.
+describe('validated() returns only what was actually validated', () => {
+  test('a nested rule yields the leaf, not its whole parent', async () => {
+    const out = await Validator.make(
+      { user: { name: 'x', is_admin: true } },
+      { 'user.name': 'required|string' },
+    ).validate()
+    expect(out).toEqual({ user: { name: 'x' } }) // is_admin never validated
+  })
+
+  test('a wildcard rule rebuilds an array (not an index-keyed object)', async () => {
+    const out = await Validator.make(
+      { tags: ['a', 'b'], secret: 1 },
+      { 'tags.*': 'string' },
+    ).validate()
+    expect(out).toEqual({ tags: ['a', 'b'] })
+  })
+
+  test('a wildcard over a non-array leaks nothing', async () => {
+    // Expands to zero paths, so nothing is validated — and nothing escapes.
+    expect(await Validator.make({ tags: 'notanarray' }, { 'tags.*': 'string' }).validate())
+      .toEqual({})
+  })
+
+  test('excluding a nested path keeps its validated siblings', async () => {
+    const out = await Validator.make(
+      { t: 'g', items: [{ q: 5, n: 'x' }] },
+      { 'items.*.q': 'exclude_if:t,g', 'items.*.n': 'required' },
+    ).validate()
+    expect(out).toEqual({ items: [{ n: 'x' }] })
+  })
+})
+
+describe('rules resolve dotted other-field names', () => {
+  const fails = (data: Record<string, unknown>, rules: Record<string, string>) =>
+    Validator.make(data, rules).validate().then(() => false, () => true)
+
+  test('required_if / required_with fire on a nested other-field', async () => {
+    expect(await fails({ addr: { country: 'ID' }, prov: '' }, { prov: 'required_if:addr.country,ID' })).toBe(true)
+    expect(await fails({ addr: { country: 'US' }, prov: '' }, { prov: 'required_if:addr.country,ID' })).toBe(false)
+    expect(await fails({ user: { a: 1 }, b: '' }, { b: 'required_with:user.a' })).toBe(true)
+  })
+
+  test('missing / filled / present work on a nested path', async () => {
+    expect(await fails({ user: { role: 'admin' } }, { 'user.role': 'missing' })).toBe(true)
+    expect(await fails({ user: {} }, { 'user.role': 'missing' })).toBe(false)
+    expect(await fails({ user: { name: '' } }, { 'user.name': 'filled' })).toBe(true)
+    expect(await fails({ user: { name: 'a' } }, { 'user.name': 'present' })).toBe(false)
+  })
+
+  test('same / different / lte compare against the nested value', async () => {
+    expect(await fails({ user: { pw: 'x' }, c: 'x' }, { c: 'same:user.pw' })).toBe(false)
+    expect(await fails({ a: { b: 'y' }, v: 'x' }, { v: 'different:a.b' })).toBe(false)
+    expect(await fails({ limits: { max: 5 }, n: 9 }, { n: 'numeric|lte:limits.max' })).toBe(true)
+  })
+
+  test('different does not pass just because the other field is unresolvable', async () => {
+    // Used to be `undefined !== value`, i.e. always "different" — so the rule
+    // silently approved everything when the name was mistyped or dotted.
+    expect(await fails({ v: 'x' }, { v: 'different:no.such.field' })).toBe(true)
+  })
+})
