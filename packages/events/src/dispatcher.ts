@@ -86,7 +86,14 @@ export class Dispatcher {
     // ShouldDispatchAfterCommit: defer until the DB transaction commits.
     if (afterCommitHook && shouldDispatchAfterCommit(value)) {
       afterCommitHook(() => {
-        void this.run(name, value)
+        // Nothing awaits this: the DB layer calls the callback and the callback
+        // returns void, and `dispatch()` has already returned `[]`. A throwing
+        // listener therefore became a bare unhandled rejection — no logger, no
+        // failure hook, and no way for the caller to find out. Route it to the
+        // reporter instead of losing it.
+        void this.run(name, value).catch((error: unknown) => {
+          reportEventFailure(name, error)
+        })
       })
       return []
     }
@@ -143,7 +150,7 @@ export class Dispatcher {
 type AfterCommitHook = (callback: () => void) => void
 let afterCommitHook: AfterCommitHook | null = null
 /** Wire transaction-aware event dispatch (e.g. to `@elyvel/database`'s `afterCommit`). */
-export function configureEventAfterCommit(hook: AfterCommitHook): void {
+export function configureEventAfterCommit(hook: AfterCommitHook | null): void {
   afterCommitHook = hook
 }
 /** An event opts into after-commit dispatch by setting `dispatchAfterCommit = true`. */
@@ -222,4 +229,25 @@ export function event(event: object | string, payload?: AnyEvent): Promise<unkno
 /** Register a listener on the default dispatcher. */
 export function listen<E>(evt: EventKey<E>, listener: Listener<E>): void {
   dispatcher().listen(evt, listener)
+}
+
+/** Reports a failure from a dispatch nobody can await (see `dispatchAfterCommit`). */
+type EventFailureLogger = (name: string, error: unknown) => void
+let eventFailureLogger: EventFailureLogger | null = null
+
+/**
+ * Where after-commit listener failures are reported. Wire this to the app logger
+ * at boot; without it they go to `console.error`, which is still far better than
+ * the unhandled rejection they used to become.
+ */
+export function configureEventFailureLogger(logger: EventFailureLogger | null): void {
+  eventFailureLogger = logger
+}
+
+function reportEventFailure(name: string, error: unknown): void {
+  if (eventFailureLogger) {
+    eventFailureLogger(name, error)
+    return
+  }
+  console.error(`[elyvel] after-commit listener for "${name}" failed:`, error)
 }

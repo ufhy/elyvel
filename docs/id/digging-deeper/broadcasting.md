@@ -107,6 +107,24 @@ await broadcast(new CommentBroadcast(comment, post))
 client); `broadcastWith()` defaultnya semua property milik instance
 tersebut jika tidak di-override.
 
+::: warning Override `broadcastWith()` untuk apa pun yang memegang model
+Default-nya adalah kemudahan, bukan filter — ia menyebar **setiap own
+enumerable property**, dan `private` milik TypeScript hilang saat runtime, jadi
+field `private` pun tetap ter-broadcast. Event yang dibangun dengan objek `User`
+atau row order utuh karena itu mengirim seluruh attribute bag model tersebut
+(hash password, flag internal, data orang lain di relasi bersarang) ke setiap
+subscriber di channel itu.
+
+Setiap kali event-nya memegang model atau apa pun yang tidak kamu pilih dengan
+sengaja, override `broadcastWith()` dan sebutkan field-nya:
+
+```ts
+override broadcastWith(): Record<string, unknown> {
+  return { id: this.comment.id, body: this.comment.body, author: this.comment.author_name }
+}
+```
+:::
+
 ## Sisi client
 
 Belum ada client helper bawaan (belum ada padanan Echo) — subscribe dengan

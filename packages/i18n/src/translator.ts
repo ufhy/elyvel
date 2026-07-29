@@ -76,8 +76,13 @@ export class Translator {
     // deleted the sibling keys under `404` (e.g. `message`) instead of layering
     // on top of them — exactly what `lang/vendor/<pkg>/...` overrides do, and
     // core's own `errors` lines are nested per status.
+    // A group may be dotted (`lang/en/admin/users.ts` → `admin.users`). Nest the
+    // segments: storing it as the literal key `'admin.users'` made the file
+    // unreachable, because `resolve()` splits the lookup key on `.` and walks
+    // the tree — it looked for `admin` → `users` → `title` and found nothing, so
+    // `trans('admin.users.title')` silently returned the key.
     const merged = group
-      ? deepMerge(existing, { [group]: lines } as LinesTree)
+      ? deepMerge(existing, nest(group.split('.'), lines))
       : deepMerge(existing, lines)
     store.set(locale, merged)
     if (namespace)
@@ -237,6 +242,11 @@ function applyReplacements(line: string, replace: Replacements): string {
   //    whoever controlled the other input.
   // A single pass with a function replacer is inert on both counts.
   return line.replace(pattern, (matched, name: string) => lookup.get(name) ?? matched)
+}
+
+/** `(['admin','users'], lines)` → `{ admin: { users: lines } }`. */
+function nest(segments: string[], lines: LinesTree): LinesTree {
+  return segments.reduceRight<LinesTree>((inner, segment) => ({ [segment]: inner }), lines)
 }
 
 function deepMerge(a: LinesTree, b: LinesTree): LinesTree {

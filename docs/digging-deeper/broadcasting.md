@@ -107,6 +107,24 @@ await broadcast(new CommentBroadcast(comment, post))
 receive); `broadcastWith()` defaults to every own property on the instance
 if you don't override it.
 
+::: warning Override `broadcastWith()` for anything holding a model
+The default is a convenience, not a filter — it spreads **every own enumerable
+property**, and TypeScript's `private` is erased at runtime, so a `private`
+field is broadcast just the same. An event constructed with a whole `User` or
+order row therefore ships that model's entire attribute bag (password hashes,
+internal flags, other people's data on a nested relation) to every subscriber on
+the channel.
+
+Whenever the event holds a model or anything you didn't pick deliberately,
+override `broadcastWith()` and list the fields:
+
+```ts
+override broadcastWith(): Record<string, unknown> {
+  return { id: this.comment.id, body: this.comment.body, author: this.comment.author_name }
+}
+```
+:::
+
 ## Client-side
 
 There's no shipped client helper yet (no Echo equivalent) — subscribe with

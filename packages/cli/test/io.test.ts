@@ -113,4 +113,50 @@ describe('interactive prompts (fake streams, no real TTY)', () => {
     const result = await choice('Pick one', ['a', 'b'], undefined, { input, output })
     expect(result).toBe('a')
   })
+
+  test('choice() gives up after a bounded number of invalid answers', async () => {
+    // Without a bound, an input that never produces a valid index printed
+    // "Invalid selection, try again." forever.
+    const { input, output } = fakeInput('x', 'y', 'z', 'still-bad')
+    await expect(
+      choice('Pick one', ['a', 'b'], undefined, { input, output }),
+    ).rejects.toThrow(/after 3 attempts/)
+  })
+})
+
+/**
+ * Regression: `rl.question()` never settles once the input stream has ended, so
+ * a prompt on a closed or non-interactive stdin — CI, a piped command, `elyvel`
+ * invoked from a script — hung the entire command forever with no output and no
+ * error. It now fails with an actionable message.
+ */
+describe('prompts on a closed stdin fail instead of hanging', () => {
+  function closedInput(): { input: PassThrough, output: PassThrough } {
+    const input = new PassThrough()
+    const output = new PassThrough()
+    output.on('data', () => {})
+    input.end() // real EOF, as a non-interactive stdin gives
+    return { input, output }
+  }
+
+  test('ask() rejects with guidance rather than waiting forever', async () => {
+    const { input, output } = closedInput()
+    await expect(ask('Name?', undefined, { input, output }))
+      .rejects
+      .toThrow(/stdin is closed or not interactive/)
+  })
+
+  test('confirm() rejects too', async () => {
+    const { input, output } = closedInput()
+    await expect(confirm('Sure?', false, { input, output }))
+      .rejects
+      .toThrow(/stdin is closed or not interactive/)
+  })
+
+  test('choice() rejects too', async () => {
+    const { input, output } = closedInput()
+    await expect(choice('Pick one', ['a', 'b'], undefined, { input, output }))
+      .rejects
+      .toThrow(/stdin is closed or not interactive/)
+  })
 })

@@ -116,15 +116,57 @@ export interface PromptStreams {
   output?: Writable
 }
 
+/** How many invalid answers `choice()` tolerates before giving up. */
+const MAX_CHOICE_ATTEMPTS = 3
+
 async function prompt(question: string, streams: PromptStreams = {}): Promise<string> {
-  const rl = createInterface({
-    input: streams.input ?? process.stdin,
-    output: streams.output ?? process.stdout,
-  })
+  const input = streams.input ?? process.stdin
+  const output = streams.output ?? process.stdout
+  const rl = createInterface({ input, output })
+  let settled = false
+  let onClosed: (() => void) | undefined
+
   try {
-    return await rl.question(question)
+    // `rl.question()` NEVER settles once the input stream has ended — verified
+    // against Bun's readline, not assumed. So on a non-interactive stdin (CI, a
+    // piped command, `elyvel` invoked from a script) the whole command hung
+    // forever with no output and no error. Watch for the stream ending and
+    // surface it as an actionable error instead of waiting for input that can
+    // never arrive.
+    return await new Promise<string>((resolve, reject) => {
+      const settle = (fn: () => void): void => {
+        if (settled)
+          return
+        settled = true
+        fn()
+      }
+      onClosed = () => settle(() => reject(new Error(
+        `[elyvel] Cannot prompt "${question.trim()}": stdin is closed or not `
+        + 'interactive. Pass the value as a flag instead of relying on a prompt.',
+      )))
+
+      if ((input as { readableEnded?: boolean }).readableEnded) {
+        queueMicrotask(onClosed)
+      }
+      else {
+        input.once('end', onClosed)
+        input.once('close', onClosed)
+      }
+      void rl.question(question).then(
+        answer => settle(() => resolve(answer)),
+        (error: unknown) => settle(() => reject(
+          error instanceof Error ? error : new Error(String(error)),
+        )),
+      )
+    })
   }
   finally {
+    settled = true
+    if (onClosed) {
+      // Don't accumulate one listener pair per prompt on a long-lived stdin.
+      input.off('end', onClosed)
+      input.off('close', onClosed)
+    }
     rl.close()
   }
 }
@@ -156,13 +198,24 @@ export async function choice(
   options.forEach((option, i) => line(`  [${i}] ${option}`))
   const defaultLabel = defaultIndex !== undefined ? ` [${defaultIndex}]` : ''
 
-  for (;;) {
+  for (let attempt = 1; ; attempt++) {
     const answer = (await prompt(`Your choice${defaultLabel}: `, streams)).trim()
     if (!answer && defaultIndex !== undefined)
       return options[defaultIndex]!
     const index = Number(answer)
     if (Number.isInteger(index) && index >= 0 && index < options.length)
       return options[index]!
+    // Never spin forever. On a closed or non-interactive stdin — CI, a piped
+    // command, `elyvel` invoked from a script — `rl.question()` resolves empty
+    // every single time, so an unbounded retry loop printed "Invalid selection"
+    // endlessly and the command never returned.
+    if (attempt >= MAX_CHOICE_ATTEMPTS) {
+      throw new Error(
+        `[elyvel] No valid selection for "${question}" after ${MAX_CHOICE_ATTEMPTS} attempts`
+        + `${defaultIndex === undefined ? ' (and this prompt has no default)' : ''}. `
+        + 'If you are running non-interactively, pass the value as a flag instead.',
+      )
+    }
     error('Invalid selection, try again.')
   }
 }

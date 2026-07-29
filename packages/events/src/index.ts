@@ -1,5 +1,6 @@
 export {
   configureEventAfterCommit,
+  configureEventFailureLogger,
   Dispatcher,
   dispatcher,
   event,
