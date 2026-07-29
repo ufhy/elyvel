@@ -1,5 +1,5 @@
 import type { Authenticatable } from './types'
-import { trans } from '@elyvel/support'
+import { HttpException, trans } from '@elyvel/support'
 
 /**
  * The outcome of an authorization check (Laravel's `Access\Response`). Carries
@@ -52,12 +52,17 @@ export class Response {
   }
 }
 
-export class AuthorizationError extends Error {
-  readonly status: number
+/**
+ * Extends {@link HttpException} so the error renderer will actually honour this
+ * status and message. Without that marker an exception is treated as an internal
+ * fault and rendered as a generic 500 — deliberately, so that a third-party
+ * error which merely happens to carry a numeric `status` can't choose its own
+ * response code or have its message echoed to the client.
+ */
+export class AuthorizationError extends HttpException {
   constructor(message = trans('auth::errors.unauthorized', {}, 'This action is unauthorized.'), status = 403) {
-    super(message)
+    super(status, message)
     this.name = 'AuthorizationError'
-    this.status = status
   }
 }
 

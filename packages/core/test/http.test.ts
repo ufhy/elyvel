@@ -1,4 +1,5 @@
 import type { ResolvedSessionConfig } from '../src/session'
+import { HttpException } from '@elyvel/support'
 import { describe, expect, test } from 'bun:test'
 import { Elysia } from 'elysia'
 import { errorPages } from '../src/http/error-pages'
@@ -216,11 +217,22 @@ function buildApp() {
     .use(errorPages())
     .post('/save', () => redirect('/done').with('status', 'saved'))
     .post('/save-back', () => back().withErrors({ email: ['taken'] }))
+    // A real client-facing exception. This used to be a bare `Error` with
+    // `status`/`errors` slapped on, which the renderer trusted — that loophole is
+    // closed, so the test now throws what an app is supposed to throw.
     .post('/validate', () => {
-      const e = new Error('invalid') as Error & { status: number, errors: Record<string, unknown> }
-      e.status = 422
-      e.errors = { name: ['required'], email: ['must be valid', 'is required'] }
-      throw e
+      throw new HttpException(422, 'invalid', {
+        name: ['required'],
+        email: ['must be valid', 'is required'],
+      })
+    })
+    // A foreign error that merely LOOKS like a validation failure. Must not be
+    // able to drive the redirect-back-and-flash path.
+    .post('/fake-validate', () => {
+      throw Object.assign(new Error('ECONNREFUSED 10.0.0.5 postgres://u:pw@db'), {
+        status: 422,
+        errors: { internal: ['secret detail'] },
+      })
     })
     .get('/flashed-errors', (ctx: any) => ctx.session?.get('errors') ?? null)
 }
@@ -280,6 +292,29 @@ describe('validation negotiation', () => {
       new Request('http://localhost/flashed-errors', { headers: { cookie } }),
     )
     expect(await follow.json()).toEqual({ name: 'required', email: 'must be valid' })
+  })
+
+  /**
+   * Regression: this path matched on a bare `status === 422 && errors !== undefined`,
+   * so a foreign error carrying both — an outbound HTTP client rejection, say —
+   * redirected the user back with its internals flashed into the session and
+   * rendered on the page. Only a client-facing `HttpException` may drive it.
+   */
+  test('a foreign error that looks like a 422 does not flash anything', async () => {
+    const app = buildApp()
+    const res = await app.handle(
+      new Request('http://localhost/fake-validate', {
+        method: 'POST',
+        headers: { accept: 'text/html', referer: 'http://localhost/form' },
+      }),
+    )
+
+    // A generic 500 page, not a 303 back to the form.
+    expect(res.status).toBe(500)
+    const html = await res.text()
+    expect(html).not.toContain('secret detail')
+    expect(html).not.toContain('10.0.0.5')
+    expect(html).not.toContain('postgres://')
   })
 
   test('API request → 422 JSON with the error bag', async () => {

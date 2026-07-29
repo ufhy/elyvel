@@ -1,4 +1,4 @@
-import { trans } from '@elyvel/support'
+import { HttpException, trans } from '@elyvel/support'
 
 export type ErrorBag = Record<string, string[]>
 
@@ -9,15 +9,14 @@ export type ErrorBag = Record<string, string[]>
  * reaches the client (see core's `error-pages.ts` `jsonBody()`/`safeMessage()`),
  * not just an internal/log-only string, so it's translated too.
  */
-export class ValidationException extends Error {
-  readonly status = 422
+export class ValidationException extends HttpException {
   readonly isValidationException = true
-  readonly errors: ErrorBag
+  /** Narrows {@link HttpException.errors}; `declare` re-types without re-declaring the field. */
+  declare readonly errors: ErrorBag
 
   constructor(errors: ErrorBag) {
-    super(summarize(errors))
+    super(422, summarize(errors), errors)
     this.name = 'ValidationException'
-    this.errors = errors
   }
 }
 

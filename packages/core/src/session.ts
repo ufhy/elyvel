@@ -2,7 +2,7 @@ import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { trans } from '@elyvel/support'
+import { isHttpException, trans } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
@@ -545,10 +545,16 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
     // old input flashed, instead of the API-style 422 JSON.
     .onError({ as: 'global' }, async (ctx: Record<string, unknown>) => {
       const session = ctx.session as Session | undefined
-      const error = ctx.error as { status?: unknown, errors?: Record<string, unknown> } | undefined
+      const error = ctx.error
       const request = ctx.request as Request
 
-      const isValidation = error?.status === 422 && error.errors !== undefined
+      // Only a client-facing exception may drive this. Matching on a bare
+      // `status === 422 && errors` meant a foreign error that happened to carry
+      // both — an outbound HTTP client rejection, say — redirected the user back
+      // with its internals flashed into the session and rendered on the page.
+      const isValidation = isHttpException(error)
+        && error.status === 422
+        && error.errors !== undefined
       if (session && isValidation && !expectsJson(request)) {
         // Inertia's `form.errors.field` (and Laravel's own `HandleInertiaRequests`
         // convention) expects one message per field, not the full Laravel-style

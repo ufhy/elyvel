@@ -1,4 +1,5 @@
 import type { DebugInfo, RenderableView } from './error-page'
+import { isHttpException } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { debugInfo, defaultErrorMessage, errorPageResolver, renderDebugPage, renderErrorPage } from './error-page'
 import { expectsJson } from './negotiation'
@@ -25,8 +26,13 @@ interface StatusResponse {
  * consulted on the web lane, so JSON/API responses are never affected.
  */
 function resolveStatus(code: string, error: unknown): number {
-  if (typeof (error as { status?: unknown } | null)?.status === 'number')
-    return (error as { status: number }).status
+  // Only an exception AUTHORED to face the client picks its own status. This used
+  // to trust any object with a numeric `status`, and outbound HTTP clients and
+  // database drivers routinely carry one — so a driver rejection was relayed as a
+  // plausible-looking 4xx instead of the 500 it actually was. Everything
+  // unmarked falls through to the code switch below (500 by default).
+  if (isHttpException(error))
+    return error.status
   switch (code) {
     case 'NOT_FOUND':
       return 404
@@ -42,12 +48,39 @@ function resolveStatus(code: string, error: unknown): number {
 
 /**
  * A safe, human message for the client, or undefined to use the status default.
- * 5xx stays generic (never leak internals); Elysia's ALL_CAPS error codes
- * (`NOT_FOUND`, `VALIDATION`, …) are treated as non-messages.
+ *
+ * Only an {@link HttpException}'s message is shown. Previously ANY error's
+ * message was echoed verbatim below 500, in production too — so an internal
+ * fault that happened to carry `status: 404` leaked its text to the client:
+ * hostnames, connection strings, even credentials sitting in a query string.
+ * 5xx was already scrubbed; now everything unmarked is.
+ *
+ * Elysia's ALL_CAPS error codes (`NOT_FOUND`, `VALIDATION`, …) are still treated
+ * as non-messages so the status default is used instead.
  */
-function safeMessage(status: number, raw: unknown): string | undefined {
+function safeMessage(status: number, error: unknown): string | undefined {
+  if (status >= 500 || !isHttpException(error))
+    return undefined
+  return presentableMessage(error.message)
+}
+
+/**
+ * The message of an error-status response a handler or guard RETURNED, e.g.
+ * `status(403, { message: '…' })` from the `can` guard or the throttler.
+ *
+ * Separate from {@link safeMessage} on purpose: the app chose this status and
+ * body explicitly, so the message is client-facing by construction — there is no
+ * exception object to check a marker on. Keeping one shared helper here would
+ * have silently swallowed every custom guard message.
+ */
+function safeResponseMessage(status: number, raw: string | undefined): string | undefined {
   if (status >= 500)
     return undefined
+  return presentableMessage(raw)
+}
+
+/** Drops empty strings and Elysia's ALL_CAPS codes (`NOT_FOUND`, `VALIDATION`, …). */
+function presentableMessage(raw: unknown): string | undefined {
   if (typeof raw !== 'string' || !raw || /^[A-Z][A-Z0-9_]*$/.test(raw))
     return undefined
   return raw
@@ -131,12 +164,15 @@ export function errorPages(options: ErrorPagesOptions = {}) {
       // plugin has already redirected web 422 validation errors before us).
       .onError({ as: 'global' }, async (ctx: any) => {
         const status = resolveStatus(ctx.code, ctx.error)
-        const message = safeMessage(status, ctx.error?.message)
+        const message = safeMessage(status, ctx.error)
         if (expectsJson(ctx.request)) {
           ctx.set.status = status
           ctx.set.headers['content-type'] = 'application/json'
           const debugPayload = debug && status >= 500 && ctx.error instanceof Error ? debugInfo(ctx.error) : undefined
-          return jsonBody(status, message, (ctx.error as { errors?: unknown })?.errors, debugPayload)
+          // Field errors, too, come only from a client-facing exception — a
+          // foreign error carrying an `errors` property used to have it echoed.
+          const errors = isHttpException(ctx.error) ? ctx.error.errors : undefined
+          return jsonBody(status, message, errors, debugPayload)
         }
         return webResponse(status, message, ctx.error, ctx, debug)
       })
@@ -153,7 +189,7 @@ export function errorPages(options: ErrorPagesOptions = {}) {
         const body = (res as StatusResponse).response
         const message
           = body && typeof body === 'object' && 'message' in body ? String(body.message) : undefined
-        return webResponse(status, safeMessage(status, message), undefined, ctx, debug)
+        return webResponse(status, safeResponseMessage(status, message), undefined, ctx, debug)
       })
   )
 }
