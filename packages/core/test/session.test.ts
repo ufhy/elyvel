@@ -59,6 +59,47 @@ describe('session (cookie driver)', () => {
     )
     expect(await r3.json()).toEqual({ msg: null }) // expired
   })
+
+  // Regression: the encrypted payload used to carry NO expiry, so `lifetime`
+  // only reached the browser as `Max-Age` — a hint an attacker replaying a
+  // captured cookie simply ignores. A cookie stolen once stayed valid forever.
+  // The lifetime is now stamped into the signed payload and checked on read.
+  test('a captured cookie stops working once the lifetime has elapsed', async () => {
+    const shortLived = new Elysia().use(sessionPlugin({ ...cfg, lifetime: 1 })).use(
+      route()
+        .get('/in', ({ session }: any) => {
+          session.put('user', 42)
+          return 'ok'
+        })
+        .get('/who', ({ session }: any) => ({ user: session.get('user') ?? null })),
+    )
+    const captured = jar(await shortLived.handle(new Request('http://localhost/in')))
+
+    const fresh = await shortLived.handle(
+      new Request('http://localhost/who', { headers: { cookie: captured } }),
+    )
+    expect(await fresh.json()).toEqual({ user: 42 })
+
+    await new Promise(resolve => setTimeout(resolve, 1600)) // past the 1s lifetime
+    const replayed = await shortLived.handle(
+      new Request('http://localhost/who', { headers: { cookie: captured } }),
+    )
+    expect(await replayed.json()).toEqual({ user: null })
+  })
+
+  test('a payload with no expiry envelope is rejected (fails closed)', async () => {
+    // Exactly the pre-fix on-the-wire shape: a bare data object, no expiry.
+    const { createCipheriv, createHash, randomBytes } = require('node:crypto') as typeof import('node:crypto')
+    const iv = randomBytes(12)
+    const cipher = createCipheriv('aes-256-gcm', createHash('sha256').update(cfg.secret).digest(), iv)
+    const enc = Buffer.concat([cipher.update(JSON.stringify({ user: 99 }), 'utf8'), cipher.final()])
+    const legacy = `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${enc.toString('base64url')}`
+
+    const res = await app.handle(
+      new Request('http://localhost/name', { headers: { cookie: `${cfg.cookie}=${legacy}` } }),
+    )
+    expect(await res.json()).toEqual({ name: null }) // not honored
+  })
 })
 
 describe('server-side session drivers (memory / file / database)', () => {

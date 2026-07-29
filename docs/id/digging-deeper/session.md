@@ -31,6 +31,22 @@ lewat "lottery" GC — pada persentase kecil request (`lottery: [chance,
 outOf]`, default 2%), bukan setiap request, karena sweep penuh menyentuh
 seluruh session yang tersimpan.
 
+::: warning Driver `cookie` tidak bisa dicabut dari sisi server
+Stateless adalah inti dari driver `cookie` — dan konsekuensinya tidak ada
+record di server yang bisa dihapus. `lifetime` **memang** ditegakkan saat
+dibaca (di-stamp ke dalam payload yang di-sign, bukan cuma dikirim sebagai
+`Max-Age` cookie yang akan diabaikan attacker saat replay), jadi cookie yang
+dicuri berhenti bekerja begitu lifetime-nya lewat. Tapi di dalam window itu,
+`session.invalidate()` hanya bisa menghentikan *browser* mengirim cookie-nya
+lagi — ia tidak bisa membatalkan salinan yang sudah dipegang attacker.
+
+Kalau kamu butuh pencabutan sungguhan — "logout semua device", paksa
+re-auth setelah ganti password, lockout seketika — pakai driver berbasis
+store (`file`/`database`/`redis`), di mana `invalidate()` menghapus
+record-nya dan id lama tidak lagi resolve ke apa pun. Kalau tidak, pendekkan
+`lifetime`.
+:::
+
 Opsi lain: `secret` (default ke `app.key`), `path`/`domain`/`secure`/
 `httpOnly`/`sameSite` (atribut cookie), `expireOnClose` (hilangkan `maxAge`
 supaya cookie mati bersama tab browser).

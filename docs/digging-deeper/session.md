@@ -29,6 +29,21 @@ Every driver but `cookie`/`redis` sweeps expired entries via a GC "lottery" —
 on a small percentage of requests (`lottery: [chance, outOf]`, default 2%)
 rather than every one, since a full sweep touches every stored session.
 
+::: warning The `cookie` driver can't be revoked server-side
+Being stateless is the whole point of the `cookie` driver — and the cost is
+that there's no server-side record to delete. `lifetime` **is** enforced on
+read (it's stamped into the signed payload, not just sent as the cookie's
+`Max-Age`, which a replaying attacker would simply ignore), so a captured
+cookie stops working once it elapses. But within that window
+`session.invalidate()` can only stop the *browser* from sending the cookie
+again — it cannot retroactively invalidate a copy an attacker already has.
+
+If you need real revocation — "log out all devices", forced re-auth after a
+password change, immediate lockout — use a store-backed driver
+(`file`/`database`/`redis`), where `invalidate()` deletes the record and the
+old id resolves to nothing. Otherwise keep `lifetime` short.
+:::
+
 Other options: `secret` (defaults to `app.key`), `path`/`domain`/`secure`/
 `httpOnly`/`sameSite` (cookie attributes), `expireOnClose` (drop `maxAge` so
 the cookie dies with the browser tab).

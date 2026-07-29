@@ -197,10 +197,31 @@ export class Session {
 function keyFrom(secret: string): Buffer {
   return createHash('sha256').update(secret).digest()
 }
-function encrypt(data: Record<string, unknown>, secret: string): string {
+/**
+ * The cookie driver's payload envelope. `e` (expiry, epoch ms) is what makes
+ * the lifetime enforceable SERVER-side: the cookie's own `Max-Age` is only a
+ * hint the browser may ignore — and an attacker replaying a captured cookie
+ * sends it back regardless. Without `e` in the signed payload, a cookie
+ * captured once stayed valid forever. (Laravel's `CookieSessionHandler`
+ * carries an `expires` field for the same reason.)
+ *
+ * Note the inherent limit of a stateless driver: there's no server-side
+ * record to delete, so `invalidate()` can't retroactively revoke an
+ * already-captured cookie — it can only stop the browser from sending it
+ * again. `e` is what bounds that exposure to `lifetime` instead of forever.
+ * A store-backed driver (file/database/redis) is the answer where true
+ * server-side revocation matters.
+ */
+interface CookiePayload {
+  d: Record<string, unknown>
+  e: number
+}
+
+function encrypt(data: Record<string, unknown>, secret: string, lifetimeSeconds: number): string {
+  const envelope: CookiePayload = { d: data, e: Date.now() + lifetimeSeconds * 1000 }
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', keyFrom(secret), iv)
-  const enc = Buffer.concat([cipher.update(JSON.stringify(data), 'utf8'), cipher.final()])
+  const enc = Buffer.concat([cipher.update(JSON.stringify(envelope), 'utf8'), cipher.final()])
   const tag = cipher.getAuthTag()
   return `${iv.toString('base64url')}.${tag.toString('base64url')}.${enc.toString('base64url')}`
 }
@@ -217,7 +238,15 @@ function decrypt(payload: string, secret: string): Record<string, unknown> | nul
       decipher.update(Buffer.from(enc as string, 'base64url')),
       decipher.final(),
     ])
-    return JSON.parse(out.toString('utf8'))
+    const parsed = JSON.parse(out.toString('utf8')) as Partial<CookiePayload>
+    // Fail CLOSED on anything that isn't a well-formed, unexpired envelope —
+    // including the older un-enveloped payload shape, which carried no expiry
+    // at all. Treating those as valid would preserve the very replay window
+    // this envelope exists to close, so they're dropped (the visitor simply
+    // starts a fresh session) rather than honored.
+    if (typeof parsed?.e !== 'number' || Date.now() >= parsed.e)
+      return null
+    return parsed.d && typeof parsed.d === 'object' ? parsed.d : null
   }
   catch {
     return null
@@ -550,7 +579,9 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
         store.gc().catch(() => {})
     }
     else {
-      value = encrypt(session.toData(), config.secret) // cookie driver
+      // The lifetime is stamped INTO the payload (see `encrypt`) so it's
+      // enforced on read, not just advertised to the browser via Max-Age.
+      value = encrypt(session.toData(), config.secret, config.lifetime) // cookie driver
     }
     const base = {
       path: config.path,
