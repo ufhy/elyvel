@@ -115,6 +115,15 @@ session (biasanya untuk `logout`). Keduanya hanya berpengaruh pada driver
 yang didukung store (`memory`/`file`/`database`/`redis`) — driver `cookie`
 tidak punya id server-side terpisah yang bisa fixated.
 
+Memanggil `regenerate()` saat login tetap kebiasaan yang benar, tapi id
+session yang tidak pernah diterbitkan server sekarang tidak bisa dipakai
+begitu saja: id yang masuk hanya diadopsi kalau bentuknya memang seperti yang
+kita hasilkan **dan** resolve ke session yang benar-benar dipegang store.
+Selain itu (nilai yang ditanam, yang dipalsukan, atau id yang session-nya
+sudah expired/di-invalidate) akan mendapat id baru — jadi attacker tidak bisa
+memilih id tempat session korban akan hidup, dan session yang sudah dihapus
+tidak bisa dihidupkan lagi dengan me-replay id lamanya.
+
 ## Proteksi CSRF
 
 Setiap session membawa token CSRF (`session.token()`), bisa dibaca dari sisi

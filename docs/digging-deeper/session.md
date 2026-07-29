@@ -111,6 +111,14 @@ route().post('/login', async ({ session, request }) => {
 (`memory`/`file`/`database`/`redis`) — the `cookie` driver has no separate
 server-side id to fixate.
 
+Calling `regenerate()` at login is still the right habit, but a session id
+the server never issued is no longer usable on its own: an incoming id is
+only adopted when it both looks like one we generated and resolves to a
+session the store actually holds. Anything else (a planted value, a forged
+one, an id whose session expired or was invalidated) gets a fresh id
+instead — so an attacker can't pick the id a victim's session will live
+under, and a destroyed session can't be revived by replaying its old id.
+
 ## CSRF protection
 
 Every session ships a CSRF token (`session.token()`), readable client-side

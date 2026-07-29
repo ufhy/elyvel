@@ -181,6 +181,59 @@ describe('server-side session drivers (memory / file / database)', () => {
   }
 })
 
+// Regression: a client-supplied id used to be adopted verbatim, and `rotate`
+// was false whenever ANY cookie was present — even one the store had no record
+// for. So an attacker could plant a known id and have the victim's
+// authenticated session written under it, without the app ever calling
+// regenerate().
+describe('client-supplied session ids are not adopted', () => {
+  const { mkdtempSync } = require('node:fs') as typeof import('node:fs')
+  const { tmpdir } = require('node:os') as typeof import('node:os')
+  const dir = mkdtempSync(`${tmpdir()}/elyvel-sess-ids-`)
+  const idDrivers = ['memory', 'file'] as const
+
+  for (const driver of idDrivers) {
+    const build = () =>
+      new Elysia().use(sessionPlugin({ ...cfg, driver, files: dir })).use(
+        route()
+          .get('/login', ({ session }: any) => {
+            session.put('user', 'ada')
+            return 'ok'
+          })
+          .get('/whoami', ({ session }: any) => ({ user: session.get('user') ?? null })),
+      )
+
+    test(`${driver}: a malformed planted id is replaced, not written to`, async () => {
+      const app = build()
+      const planted = `${cfg.cookie}=ATTACKERCHOSENID`
+      const login = await app.handle(new Request('http://localhost/login', { headers: { cookie: planted } }))
+      expect(jar(login)).not.toContain('ATTACKERCHOSENID')
+
+      const replayed = await app.handle(new Request('http://localhost/whoami', { headers: { cookie: planted } }))
+      expect(await replayed.json()).toEqual({ user: null })
+    })
+
+    test(`${driver}: a well-formed but unknown id is rotated, not revived`, async () => {
+      // Format validation alone wouldn't catch this — an attacker can generate
+      // a valid-looking id, so an id the store doesn't know must be rotated.
+      const app = build()
+      const forged = `${cfg.cookie}=${'a'.repeat(32)}`
+      const login = await app.handle(new Request('http://localhost/login', { headers: { cookie: forged } }))
+      expect(jar(login)).not.toContain('a'.repeat(32))
+
+      const replayed = await app.handle(new Request('http://localhost/whoami', { headers: { cookie: forged } }))
+      expect(await replayed.json()).toEqual({ user: null })
+    })
+
+    test(`${driver}: a legitimate session still persists across requests`, async () => {
+      const app = build()
+      const good = jar(await app.handle(new Request('http://localhost/login')))
+      const again = await app.handle(new Request('http://localhost/whoami', { headers: { cookie: good } }))
+      expect(await again.json()).toEqual({ user: 'ada' })
+    })
+  }
+})
+
 describe('redis session store (fake client — logic only)', () => {
   test('read/write round-trip + expiry', async () => {
     const { RedisSessionStore } = require('../src/session') as typeof import('../src/session')

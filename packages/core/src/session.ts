@@ -1,6 +1,6 @@
 import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { trans } from '@elyvel/support'
 import { RedisClient } from 'bun'
@@ -11,6 +11,8 @@ import { Middleware } from './middleware'
 
 const TOKEN_KEY = '_token'
 const FLASH_KEY = '_flash'
+/** Shape of the ids we issue (`randomBytes(16).toString('hex')`) — anything else is not ours. */
+const SESSION_ID = /^[a-f0-9]{32}$/
 
 interface FlashState {
   old: string[]
@@ -353,7 +355,15 @@ export class FileSessionStore implements SessionStore {
   }
 
   async write(id: string, data: Record<string, unknown>, lifetime: number): Promise<void> {
-    writeFileSync(this.path(id), JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }))
+    // Write-then-rename: a plain writeFileSync truncates before it writes, so
+    // a concurrent read landing in that window parsed a half-written file, hit
+    // the `catch` below, and silently returned `{}` — logging the user out with
+    // no error anywhere. Browsers fire parallel requests on one session
+    // routinely, so this window is real.
+    const file = this.path(id)
+    const tmp = `${file}.${randomBytes(6).toString('hex')}.tmp`
+    writeFileSync(tmp, JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }))
+    renameSync(tmp, file)
   }
 
   async destroy(id: string): Promise<void> {
@@ -412,8 +422,13 @@ class DatabaseSessionStore implements SessionStore {
       return {}
     try {
       const entry = JSON.parse(payload) as { data: Record<string, unknown>, expiresAt: number }
-      if (Date.now() >= entry.expiresAt)
+      if (Date.now() >= entry.expiresAt) {
+        // Drop it on read, like the memory and file stores do — `gc()` is
+        // optional on the adapter, so without this an expired row could sit
+        // there indefinitely.
+        await this.adapter().destroy(id)
         return {}
+      }
       return entry.data
     }
     catch {
@@ -504,7 +519,12 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       let sid: string | undefined
       let data: Record<string, unknown> = {}
       if (store) {
-        sid = raw
+        // Only adopt an id that looks like one WE issued. An arbitrary
+        // client-supplied string used to be taken verbatim and written to the
+        // store, which both let an attacker pick the id (plant a known cookie,
+        // wait for the victim to log in under it) and let anyone flood the
+        // store with unbounded keys.
+        sid = raw !== undefined && SESSION_ID.test(raw) ? raw : undefined
         data = sid ? await store.read(sid) : {}
       }
       else {
@@ -512,7 +532,11 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       }
       const session = new Session(data)
       session.ensureToken()
-      return { session, __sid: sid }
+      // A stored session always carries at least `_token`, so an empty read
+      // means the id resolved to nothing — expired, destroyed, or never ours.
+      // `persist` rotates in that case rather than reviving the id, so a
+      // just-invalidated (or attacker-chosen) id can't be resurrected.
+      return { session, __sid: sid, __sidKnown: sid !== undefined && Object.keys(data).length > 0 }
     })
     // Persist the session (aging flash) on the happy path.
     .onAfterHandle({ as: 'global' }, (ctx: Record<string, unknown>) => persist(ctx))
@@ -554,13 +578,25 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
     const session = ctx.session as Session | undefined
     if (!session)
       return
+    // Idempotent: both `onAfterHandle` and `onError` call this, and a hook
+    // registered AFTER the session plugin that throws gets us both. Running
+    // twice used to age flash data a second time (so flash set in the handler
+    // vanished before the next request) and — because `__sid` wasn't updated
+    // after rotating — rewrite the session under the OLD, already-destroyed
+    // id, silently undoing `regenerate()`.
+    if (ctx.__sessionPersisted)
+      return
+    ctx.__sessionPersisted = true
+
     const cookie = ctx.cookie as any
     session.ageFlashData()
 
     let value: string
     if (store) {
       const oldSid = ctx.__sid as string | undefined
-      const rotate = !oldSid || session.shouldRegenerateId()
+      // Rotate when there's no usable id to keep: none sent, one that resolved
+      // to nothing (expired/destroyed/not ours), or an explicit regenerate().
+      const rotate = !oldSid || !ctx.__sidKnown || session.shouldRegenerateId()
       const sid = rotate ? randomBytes(16).toString('hex') : oldSid!
       await store.write(sid, session.toData(), config.lifetime)
       // Kill the old id so a fixated/pre-login cookie can't still be replayed
@@ -568,6 +604,10 @@ export function sessionPlugin(config: ResolvedSessionConfig): Elysia {
       if (rotate && oldSid && oldSid !== sid)
         await store.destroy(oldSid)
       session.markIdRegenerated()
+      // Keep the context in step with what we just wrote, so anything that
+      // reads `__sid` afterwards sees the live id rather than a dead one.
+      ctx.__sid = sid
+      ctx.__sidKnown = true
       value = sid
 
       // GC lottery (Laravel's session.lottery): sweep expired sessions on a
