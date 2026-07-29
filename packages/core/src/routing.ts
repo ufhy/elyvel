@@ -499,8 +499,25 @@ function buildResource(
     const ability = METHOD_AUTHORIZE.get(fn)
     if (!ability)
       return handler
-    return (ctx) => {
-      (ctx.authorize as ((a: string, ...x: unknown[]) => void) | undefined)?.(ability, ctx.model)
+    return async (ctx) => {
+      const authorize = ctx.authorize as
+        | ((a: string, ...x: unknown[]) => unknown)
+        | undefined
+      // Fail CLOSED. This used to be an optional call (`?.()`), so any route
+      // tree without an authorizer on the context — plain `route()` instead of
+      // `webRoute()`, `@elyvel/auth` not installed, a test harness, or a
+      // mount-ordering slip — ran the action with NO authorization at all and
+      // happily returned 200. It also wasn't awaited, so an async authorizer
+      // became an unhandled rejection while the handler proceeded anyway.
+      if (typeof authorize !== 'function') {
+        throw new TypeError(
+          `[elyvel] @Authorize('${ability}') cannot run: this route has no `
+          + 'authorizer on its context. Mount the auth plugin on this route '
+          + 'tree (e.g. use webRoute()/betterAuthPlugin) or remove the '
+          + 'decorator — it must never be skipped silently.',
+        )
+      }
+      await authorize(ability, ctx.model)
       return handler(ctx)
     }
   }
