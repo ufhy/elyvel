@@ -164,6 +164,29 @@ export interface CacheDbAdapter {
    * SET value = value + ?` statement. Optional: without it, `DatabaseStore`
    * falls back to a plain read-then-write, which races under concurrent
    * increments from multiple processes sharing the same table.
+   *
+   * **An expired row MUST count as absent** — reset it to `by` rather than
+   * adding to the stale value, and clear its `expires_at`. `DatabaseStore`
+   * cannot enforce this for you: it delegates in one call precisely so the
+   * whole operation stays atomic, and re-reading the row here first would
+   * cost the round-trip that makes this worth having. A naive
+   * `SET value = value + ?` keeps accumulating on top of a value the rest of
+   * the store already treats as gone, so a quota counter never resets. One
+   * statement can do both:
+   *
+   * ```sql
+   * INSERT INTO cache (key, value, expires_at) VALUES (?, ?, NULL)
+   * ON CONFLICT (key) DO UPDATE SET
+   *   value = CASE
+   *     WHEN cache.expires_at IS NOT NULL AND cache.expires_at <= ? THEN excluded.value
+   *     ELSE cache.value + excluded.value
+   *   END,
+   *   expires_at = CASE
+   *     WHEN cache.expires_at IS NOT NULL AND cache.expires_at <= ? THEN NULL
+   *     ELSE cache.expires_at
+   *   END
+   * RETURNING value
+   * ```
    */
   increment?(key: string, by: number): Promise<number>
 }
@@ -215,9 +238,17 @@ export class DatabaseStore implements CacheStore {
     const adapter = requireAdapter()
     if (adapter.increment)
       return adapter.increment(key, by)
-    const current = Number((await this.get<number>(key)) ?? 0)
+    // Read the raw row rather than going through `get()`, so the expiry is
+    // visible: this used to `put(key, next)` with no `seconds`, which wrote
+    // `expiresAt: null` and so DISCARDED the window of a still-live key —
+    // turning a TTL'd counter immortal on its first increment, unlike every
+    // other store. Alive keeps its window; expired or absent starts fresh
+    // (no expiry), matching MemoryStore/FileStore/Redis `INCRBY`.
+    const row = await adapter.read(key)
+    const alive = row !== undefined && (row.expiresAt === null || Date.now() < row.expiresAt)
+    const current = alive ? Number(JSON.parse(row.value)) : 0
     const next = current + by
-    await this.put(key, next)
+    await adapter.write(key, JSON.stringify(next), alive ? row.expiresAt : null)
     return next
   }
 

@@ -69,11 +69,14 @@ build a once-only guard (send-this-email-once, dispatch-this-job-once) or a
 single-use token on them alone — use a database unique constraint, or the
 queue's own unique-job support, where the guarantee has to hold.
 
-`increment()` doesn't create or refresh a window: incrementing a key whose
-TTL has elapsed starts a fresh counter with **no** expiry (matching Redis
-`INCRBY`). For a rolling window, `put()` the key with a TTL first — or use
-[Rate Limiting](/digging-deeper/rate-limiting), which manages the window for
-you.
+`increment()` doesn't create or refresh a window: a live key keeps whatever
+expiry it already had, and incrementing one whose TTL has elapsed starts a
+fresh counter with **no** expiry (matching Redis `INCRBY`). So a counter you
+want to reset periodically needs its window re-established — `put()` the key
+with a TTL, or use [Rate Limiting](/digging-deeper/rate-limiting), which
+manages it for you. If you write your own `database` adapter, note that its
+optional atomic `increment` must treat an expired row as absent; see the
+`CacheDbAdapter` docstring for a single statement that does it.
 :::
 
 ## Tags

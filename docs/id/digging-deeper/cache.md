@@ -71,11 +71,16 @@ sekali, dispatch-job-ini-sekali) atau token sekali-pakai hanya di atasnya —
 pakai unique constraint database, atau dukungan unique-job milik queue, di
 tempat jaminannya memang harus dipegang.
 
-`increment()` tidak membuat atau menyegarkan window: increment pada key yang
-TTL-nya sudah lewat memulai counter baru **tanpa** expiry (sama seperti
-`INCRBY` Redis). Untuk rolling window, `put()` dulu key-nya dengan TTL — atau
-pakai [Rate Limiting](/id/digging-deeper/rate-limiting), yang mengelola
-window-nya untukmu.
+`increment()` tidak membuat atau menyegarkan window: key yang masih hidup
+mempertahankan expiry yang sudah ada, dan increment pada key yang TTL-nya
+sudah lewat memulai counter baru **tanpa** expiry (sama seperti `INCRBY`
+Redis). Jadi counter yang ingin kamu reset berkala perlu window-nya
+dibangun ulang — `put()` key-nya dengan TTL, atau pakai
+[Rate Limiting](/id/digging-deeper/rate-limiting), yang mengelolanya
+untukmu. Kalau kamu menulis adapter `database` sendiri, perhatikan bahwa
+`increment` atomik opsionalnya harus memperlakukan row yang expired sebagai
+tidak ada; lihat docstring `CacheDbAdapter` untuk satu statement yang
+melakukannya.
 :::
 
 ## Tag

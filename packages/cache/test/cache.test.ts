@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, test } from 'bun:test'
 import { cache, CacheManager, setDefaultCache } from '../src/manager'
 import { Repository } from '../src/repository'
-import { FileStore, MemoryStore, RedisStore } from '../src/store'
+import { configureDatabaseCache, DatabaseStore, FileStore, MemoryStore, RedisStore } from '../src/store'
 
 const dir = mkdtempSync(join(tmpdir(), 'cache-'))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
@@ -286,6 +286,29 @@ describe('cache concurrency + expiry regressions', () => {
     await cache.tags('a').flush()
     expect(await cache.tags('a').get('ka')).toBeUndefined()
     expect(await cache.tags('b').get('kb')).toBe(2)
+  })
+
+  test('DatabaseStore.increment keeps a live window and resets an expired one', async () => {
+    // The fallback path called `put(key, next)` with no seconds, writing
+    // expiresAt: null — so a still-live TTL'd counter went immortal on its
+    // first increment, unlike every other store.
+    const rows = new Map<string, { value: string, expiresAt: number | null }>()
+    configureDatabaseCache({
+      read: async k => rows.get(k),
+      write: async (k, v, e) => void rows.set(k, { value: v, expiresAt: e }),
+      forget: async k => void rows.delete(k),
+      flush: async () => rows.clear(),
+    })
+    const db = new DatabaseStore()
+
+    await db.put('live', 5, 60)
+    expect(await db.increment('live')).toBe(6)
+    expect(rows.get('live')!.expiresAt).not.toBeNull() // window survived
+
+    await db.put('gone', 9, 0.02)
+    await new Promise(resolve => setTimeout(resolve, 40))
+    expect(await db.increment('gone')).toBe(1) // reset, not 9 + 1
+    expect(await db.increment('gone')).toBe(2) // and keeps climbing
   })
 
   test('RedisStore.flush deletes only its own prefix, not the whole database', async () => {
