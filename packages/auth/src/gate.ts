@@ -295,6 +295,23 @@ export class GateForUser<U extends Authenticatable = Authenticatable> {
 function toResponse(value: Raw): Response {
   if (value instanceof Response)
     return value
+  // A Promise is truthy, so an `async` policy method or ability callback used to
+  // resolve to ALLOW unconditionally — for every user, every ability. `async`
+  // is the natural form to reach for in TS the moment a check touches the
+  // database, so this silently opened whatever it was meant to guard.
+  //
+  // The Gate API is synchronous by contract (`allows(): boolean`, and Elysia's
+  // `can`/`authorize` macros depend on that), so there is nothing to await
+  // here. Fail LOUD instead of open: the developer sees the mistake on the
+  // first request rather than shipping an unguarded route.
+  if (typeof (value as unknown as { then?: unknown } | null)?.then === 'function') {
+    throw new TypeError(
+      '[elyvel] A Gate ability or policy method returned a Promise. The Gate is '
+      + 'synchronous, so an async check cannot be awaited — it would always '
+      + 'ALLOW. Make the method non-async and resolve what it needs up front '
+      + '(eager-load the relation, or pass the value in as an argument).',
+    )
+  }
   return value ? Response.allow() : Response.deny()
 }
 

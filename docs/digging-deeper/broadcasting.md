@@ -131,9 +131,25 @@ ws.onmessage = ({ data }) => {
 ## Notifications integration
 
 `@elyvel/notifications`' `broadcast` channel pushes a notification's
-`toBroadcast()` payload to `notifications.<id>` (or a routed channel) the
-same way the `mail`/`database`/`telegram` channels deliver theirs — see
+`toBroadcast()` payload to `private-notifications.<id>` (or a routed channel)
+the same way the `mail`/`database`/`telegram` channels deliver theirs — see
 [Notifications](/digging-deeper/notifications).
+
+The channel is **private**, and `BroadcastServiceProvider` registers its
+authorizer for you: a socket may only subscribe to the channel matching its
+own authenticated key. Subscribe with the prefix included:
+
+```ts
+ws.send(JSON.stringify({ event: 'subscribe', channel: `private-notifications.${user.id}` }))
+```
+
+::: warning A notification channel must never be public
+Without the `private-` prefix the hub treats a channel as public and lets
+anyone subscribe — any unauthenticated socket could read another user's
+notification payloads by guessing their id. If you override the channel with
+`routeNotificationFor('broadcast')`, keep the `private-` (or `presence-`)
+prefix and register a matching `hub.channel(...)` rule.
+:::
 
 ## Testing
 

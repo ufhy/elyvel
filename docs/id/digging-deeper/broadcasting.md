@@ -131,9 +131,27 @@ ws.onmessage = ({ data }) => {
 ## Integrasi notifikasi
 
 Channel `broadcast` milik `@elyvel/notifications` mengirim payload
-`toBroadcast()` sebuah notifikasi ke `notifications.<id>` (atau channel
-yang di-route) dengan cara yang sama seperti channel `mail`/`database`/
-`telegram` mengirimkan miliknya — lihat [Notifikasi](/id/digging-deeper/notifications).
+`toBroadcast()` sebuah notifikasi ke `private-notifications.<id>` (atau
+channel yang di-route) dengan cara yang sama seperti channel `mail`/
+`database`/`telegram` mengirimkan miliknya — lihat
+[Notifikasi](/id/digging-deeper/notifications).
+
+Channel-nya **private**, dan `BroadcastServiceProvider` mendaftarkan
+authorizer-nya untukmu: sebuah socket hanya boleh subscribe ke channel yang
+cocok dengan key terautentikasinya sendiri. Subscribe dengan prefix-nya:
+
+```ts
+ws.send(JSON.stringify({ event: 'subscribe', channel: `private-notifications.${user.id}` }))
+```
+
+::: warning Channel notifikasi tidak boleh publik
+Tanpa prefix `private-`, hub-nya menganggap channel itu publik dan
+mengizinkan siapa pun subscribe — socket yang tidak terautentikasi pun bisa
+membaca payload notifikasi user lain hanya dengan menebak id-nya. Kalau kamu
+meng-override channel-nya lewat `routeNotificationFor('broadcast')`,
+pertahankan prefix `private-` (atau `presence-`) dan daftarkan rule
+`hub.channel(...)` yang cocok.
+:::
 
 ## Testing
 

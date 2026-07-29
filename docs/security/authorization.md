@@ -79,6 +79,34 @@ this policy:
 gate().policy(Post, new PostPolicy())
 ```
 
+::: danger Abilities and policy methods must be synchronous
+The gate is synchronous — `can`, `ctx.can`, `gate().allows()` and the
+`@Authorize` decorator all return a `boolean` immediately, with nothing to
+await. An `async` method therefore returns a Promise, and a Promise is truthy:
+
+```ts
+class PostPolicy {
+  // ✗ Rejected at runtime — the check never runs.
+  async update(user: User | null, post: Post) {
+    await post.load('team')
+    return user?.id === post.user_id
+  }
+}
+```
+
+Rather than silently allowing everything, the gate **throws** when an ability
+or policy method returns a Promise. Resolve what the check needs *before*
+calling it — eager-load the relation on the query that fetched the model, or
+pass the value in as an extra argument:
+
+```ts
+const post = await Post.query().with('team').findOrFail(id)
+gate().allows('update', user, post) // the policy method reads post.team, no await
+```
+
+The same applies to `policy.before`, `Gate.before` and `Gate.after` hooks.
+:::
+
 A method can return a plain `boolean`, or a `Response` when you want a specific
 denial message/status: `Response.allow()`, `Response.deny(message, status?)`,
 `Response.denyWithStatus(status, message?)` (set the status without the

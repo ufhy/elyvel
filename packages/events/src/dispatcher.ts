@@ -116,8 +116,15 @@ export class Dispatcher {
   /** Dispatch (and clear) all events pushed under `name`. */
   async flush(name: string): Promise<void> {
     const list = this.pushed.get(name) ?? []
+    // Drop each payload only once it has actually been dispatched. Clearing
+    // the whole list up front meant a listener throwing on payload #1
+    // discarded #2..N — already gone from the map, never dispatched, and
+    // unrecoverable.
+    while (list.length > 0) {
+      await this.dispatch(name, list[0])
+      list.shift()
+    }
     this.pushed.delete(name)
-    for (const payload of list) await this.dispatch(name, payload)
   }
 
   /** Dispatch until a listener returns a non-null value; returns that value. */

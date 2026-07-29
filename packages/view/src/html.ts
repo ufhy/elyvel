@@ -36,6 +36,12 @@ function render(value: unknown): string {
     return value.map(render).join('')
   if (typeof value === 'string')
     return escape(value)
+  // Any iterable, not just arrays. `Model.query().get()` returns a `Collection`,
+  // and `Collection.map()` returns another one — so the idiomatic
+  // `${users.map(u => html`<li>…</li>`)}` rendered `[object Object]`. Same for
+  // `Set` and generators.
+  if (typeof (value as { [Symbol.iterator]?: unknown })?.[Symbol.iterator] === 'function')
+    return [...(value as Iterable<unknown>)].map(render).join('')
   return escape(String(value))
 }
 

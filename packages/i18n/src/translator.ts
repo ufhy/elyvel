@@ -71,7 +71,14 @@ export class Translator {
   addLines(locale: string, lines: LinesTree, group?: string, namespace?: string): this {
     const store = namespace ? (this.namespaces.get(namespace) ?? new Map<string, LinesTree>()) : this.locales
     const existing = store.get(locale) ?? {}
-    const merged = group ? { ...existing, [group]: { ...(existing[group] as object), ...lines } } : deepMerge(existing, lines)
+    // Both branches DEEP-merge. The group branch used to spread one level only,
+    // so an override supplying `{ 404: { title: 'X' } }` over a nested group
+    // deleted the sibling keys under `404` (e.g. `message`) instead of layering
+    // on top of them — exactly what `lang/vendor/<pkg>/...` overrides do, and
+    // core's own `errors` lines are nested per status.
+    const merged = group
+      ? deepMerge(existing, { [group]: lines } as LinesTree)
+      : deepMerge(existing, lines)
     store.set(locale, merged)
     if (namespace)
       this.namespaces.set(namespace, store)
@@ -197,15 +204,39 @@ function resolve(tree: LinesTree | undefined, key: string): unknown {
 
 /** Replace `:name` tokens; `:Name`/`:NAME` mirror the placeholder's casing. */
 function applyReplacements(line: string, replace: Replacements): string {
-  let result = line
-  for (const [key, raw] of Object.entries(replace)) {
+  const entries = Object.entries(replace)
+  if (entries.length === 0)
+    return line
+
+  // Every accepted spelling of a placeholder → the text it expands to. Exact
+  // keys are registered first so they always win over another key's case
+  // variant.
+  const lookup = new Map<string, string>()
+  for (const [key, raw] of entries)
+    lookup.set(key, String(raw))
+  for (const [key, raw] of entries) {
     const value = String(raw)
-    result = result
-      .replace(new RegExp(`:${escapeRegExp(key)}\\b`, 'g'), value)
-      .replace(new RegExp(`:${escapeRegExp(capitalize(key))}\\b`, 'g'), capitalize(value))
-      .replace(new RegExp(`:${escapeRegExp(key.toUpperCase())}\\b`, 'g'), value.toUpperCase())
+    if (!lookup.has(capitalize(key)))
+      lookup.set(capitalize(key), capitalize(value))
+    if (!lookup.has(key.toUpperCase()))
+      lookup.set(key.toUpperCase(), value.toUpperCase())
   }
-  return result
+
+  // Longest name first so `:name_full` is preferred over `:name`.
+  const names = [...lookup.keys()].sort((a, b) => b.length - a.length).map(escapeRegExp)
+  const pattern = new RegExp(`:(${names.join('|')})\\b`, 'g')
+
+  // ONE pass, with a FUNCTION replacer. The old per-key sequential
+  // `.replace(re, value)` carried two bugs:
+  //  - a string replacement leaves `$&`, `` $` ``, `$'` and `$1` ACTIVE inside
+  //    the VALUE, so a user-supplied replacement of `$'` spliced in the text
+  //    surrounding the placeholder.
+  //  - each key's pass re-scanned text an earlier key had already substituted,
+  //    so `{ name: ':secret', secret: 'p@ssw0rd' }` rendered the secret where
+  //    the user's own name belonged — leaking `:token`/`:code`-style values to
+  //    whoever controlled the other input.
+  // A single pass with a function replacer is inert on both counts.
+  return line.replace(pattern, (matched, name: string) => lookup.get(name) ?? matched)
 }
 
 function deepMerge(a: LinesTree, b: LinesTree): LinesTree {

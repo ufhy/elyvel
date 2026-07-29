@@ -79,6 +79,36 @@ pengecekan gaya `create`) ke policy ini:
 gate().policy(Post, new PostPolicy())
 ```
 
+::: danger Ability dan method policy harus sinkron
+Gate-nya sinkron — `can`, `ctx.can`, `gate().allows()`, dan decorator
+`@Authorize` semuanya mengembalikan `boolean` seketika, tidak ada yang
+di-await. Method `async` karena itu mengembalikan Promise, dan Promise itu
+truthy:
+
+```ts
+class PostPolicy {
+  // ✗ Ditolak saat runtime — pemeriksaannya tidak pernah jalan.
+  async update(user: User | null, post: Post) {
+    await post.load('team')
+    return user?.id === post.user_id
+  }
+}
+```
+
+Alih-alih diam-diam mengizinkan semuanya, gate-nya **throw** ketika sebuah
+ability atau method policy mengembalikan Promise. Siapkan dulu data yang
+dibutuhkan *sebelum* memanggilnya — eager-load relasinya di query yang
+mengambil model itu, atau kirim nilainya sebagai argumen tambahan:
+
+```ts
+const post = await Post.query().with('team').findOrFail(id)
+gate().allows('update', user, post) // method policy-nya baca post.team, tanpa await
+```
+
+Hal yang sama berlaku untuk hook `policy.before`, `Gate.before`, dan
+`Gate.after`.
+:::
+
 Sebuah method bisa mengembalikan `boolean` biasa, atau `Response` saat kamu
 ingin pesan/status penolakan spesifik: `Response.allow()`,
 `Response.deny(message, status?)`, `Response.denyWithStatus(status, message?)`

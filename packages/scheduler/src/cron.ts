@@ -54,9 +54,18 @@ export function parseCron(expression: string): ParsedCron {
     throw new Error(`Cron expression must have 5 fields, got "${expression}"`)
   const [minute, hour, dayOfMonth, month, dayOfWeek] = fields.map((f, i) => {
     const [lo, hi] = FIELD_RANGES[i] as [number, number]
-    // normalize Sunday-as-7 in the day-of-week field
-    const normalized = i === 4 ? f.replace(/\b7\b/g, '0') : f
-    return parseCronField(normalized, lo, hi)
+    // Sunday is both 0 and 7. Rewriting the raw field text (`\b7\b` → `0`)
+    // corrupted any 7 that wasn't a standalone value: `1-7` became the
+    // backwards range `1-0` and `*/7` became the zero step `*/0`, so both
+    // threw at parse time even though they're valid cron. Parse the field with
+    // 7 ALLOWED, then fold 7 into 0 in the resulting set.
+    if (i === 4) {
+      const values = parseCronField(f, lo, 7)
+      if (values.delete(7))
+        values.add(0)
+      return values
+    }
+    return parseCronField(f, lo, hi)
   }) as [Set<number>, Set<number>, Set<number>, Set<number>, Set<number>]
   return { minute, hour, dayOfMonth, month, dayOfWeek }
 }

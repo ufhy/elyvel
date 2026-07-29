@@ -85,5 +85,15 @@ const EMPTY_SHARED = {
 export function formatAddress(address: Address): string {
   if (typeof address === 'string')
     return address
-  return address.name ? `${address.name} <${address.email}>` : address.email
+  if (!address.name)
+    return address.email
+  // The display name MUST be quoted. Interpolated raw, a name containing angle
+  // brackets took over the whole address: nodemailer re-parses this string, so
+  // `{ email: 'victim@x', name: 'John <attacker@evil>' }` sent to
+  // attacker@evil ONLY — the real recipient was dropped and send() still
+  // reported success. Display names routinely come from user-editable profile
+  // fields, so this was reachable by anyone who could set their own name.
+  // Quoting (escaping `\` and `"`, folding away CR/LF) makes it inert.
+  const name = address.name.replace(/[\r\n]+/g, ' ').replace(/(["\\])/g, '\\$1')
+  return `"${name}" <${address.email}>`
 }

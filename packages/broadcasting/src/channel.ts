@@ -17,8 +17,15 @@ export class BroadcastChannel implements Channel {
       return
     const payload = notification.toBroadcast(notifiable)
     const route = routeFor(notifiable, 'broadcast')
+    // The default MUST carry the `private-` prefix. `notifications.<id>` has no
+    // prefix, so `BroadcastHub.isAuthorized` short-circuits to `true` and ANY
+    // unauthenticated socket could subscribe to `notifications.7` and read
+    // user 7's notification payloads. `BroadcastServiceProvider` registers the
+    // matching authorizer (identity's key must equal the channel's key).
     const channel
-      = route !== undefined ? String(route) : `notifications.${String(notifiableKey(notifiable))}`
+      = route !== undefined
+        ? String(route)
+        : `private-notifications.${String(notifiableKey(notifiable))}`
     await broadcaster().broadcast([channel], notification.constructor.name, payload)
   }
 }

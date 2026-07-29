@@ -1,5 +1,4 @@
-import type { Html } from './html'
-import { html } from './html'
+import { escape, html, Html } from './html'
 
 /** Data shared into every view by the framework (from the session). */
 export interface ViewShared {
@@ -48,7 +47,7 @@ function resolveGlobals(): Record<string, unknown> {
 }
 
 /** A view template: given props (and shared session data) it returns HTML. */
-export type ViewTemplate<P> = (props: P, shared: ViewShared) => Html | string
+export type ViewTemplate<P> = (props: P, shared: ViewShared) => Html
 
 /**
  * A rendered-view response. Returned from a handler; the framework's response
@@ -75,7 +74,14 @@ export class ViewResponse<P> {
 
   /** Render to an HTML string, merging `View.share` globals into the shared data. */
   render(shared: CoreShared): string {
-    return String(this.template(this.props, { ...shared, globals: resolveGlobals() }))
+    const out = this.template(this.props, { ...shared, globals: resolveGlobals() })
+    // Only a real `Html` is trusted. `html\`…\`` and a bare backtick literal are
+    // one character apart, so a template that returned a plain template string
+    // used to be emitted VERBATIM — `view(p => \`<h1>${p.name}</h1>\`, …)` was a
+    // straight XSS. `document()` already escaped a plain string; this path
+    // disagreed. Escaping here matches it, and `raw()` remains the explicit
+    // opt-out.
+    return out instanceof Html ? out.value : escape(String(out))
   }
 }
 

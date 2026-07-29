@@ -26,12 +26,14 @@ export class BroadcastServiceProvider extends ServiceProvider {
     let broadcaster: Broadcaster
     if (driver === 'websocket') {
       const hub = new BroadcastHub()
+      authorizeOwnNotifications(hub)
       this.app.webSocket(hub.websocket, server => hub.setServer(server), config.authenticate)
       setActiveHub(hub)
       broadcaster = hub
     }
     else if (driver === 'redis') {
       const hub = new BroadcastHub()
+      authorizeOwnNotifications(hub)
       this.app.webSocket(hub.websocket, server => hub.setServer(server), config.authenticate)
       setActiveHub(hub)
       const publisher = config.url ? new RedisClient(config.url) : new RedisClient()
@@ -56,4 +58,20 @@ export class BroadcastServiceProvider extends ServiceProvider {
     setDefaultBroadcaster(broadcaster)
     this.app.container.instance(BroadcasterToken, broadcaster)
   }
+}
+
+/**
+ * Default rule for the `broadcast` notification channel: a socket may only
+ * subscribe to its OWN `private-notifications.<key>`. Registered automatically
+ * so the private default from `BroadcastChannel` is usable out of the box —
+ * without a rule, a `private-` channel is inaccessible to everyone (the hub
+ * fails closed), which would have traded a leak for a silent non-delivery.
+ * An app can still override the pattern with its own `hub.channel(...)`.
+ */
+function authorizeOwnNotifications(hub: BroadcastHub): void {
+  hub.channel('private-notifications.{key}', (identity, params) => {
+    const holder = identity as { getKey?(): unknown, id?: unknown } | null | undefined
+    const key = holder?.getKey?.() ?? holder?.id
+    return key != null && String(key) === params.key
+  })
 }

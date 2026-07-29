@@ -54,7 +54,7 @@ export class SmtpTransport implements Transport {
       secure: this.options.secure ?? false,
       auth: this.options.auth,
     })
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: message.fromAddress ? formatAddress(message.fromAddress) : this.options.from,
       to: message.toAddresses.map(formatAddress),
       cc: message.ccAddresses.map(formatAddress),
@@ -70,5 +70,15 @@ export class SmtpTransport implements Transport {
         contentType: a.contentType,
       })),
     })
+    // `sendMail` RESOLVES when the server accepted some recipients and rejected
+    // others — discarding its result meant a mail that reached nobody (or only
+    // half the list) was reported as sent, so `MailManager.deliver` never
+    // recorded a failure and the caller had no way to know.
+    const rejected = (info as { rejected?: unknown[] } | undefined)?.rejected ?? []
+    if (rejected.length > 0) {
+      throw new Error(
+        `[elyvel] SMTP rejected ${rejected.length} recipient(s): ${rejected.map(String).join(', ')}`,
+      )
+    }
   }
 }

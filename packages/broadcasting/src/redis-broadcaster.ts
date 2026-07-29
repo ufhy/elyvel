@@ -61,6 +61,8 @@ export class RedisBroadcaster implements Broadcaster {
     private readonly onConnectionEvent?: (event: RedisConnectionEvent, detail?: unknown) => void,
   ) {}
 
+  private subscribed = false
+
   /** Starts relaying incoming envelopes into the local hub. Call once at boot. */
   async listen(): Promise<void> {
     this.subscriber.onclose = (error) => {
@@ -72,16 +74,40 @@ export class RedisBroadcaster implements Broadcaster {
       // connection doesn't know about SUBSCRIBE commands issued on the
       // old one — re-issue it every (re)connect so relaying actually
       // resumes rather than silently staying dark after a blip.
-      void this.subscribeToWireChannel()
+      //
+      // Only on a RE-connect, though. Bun connects lazily, so the very first
+      // `subscribe()` below is itself what triggers `onconnect` — re-issuing
+      // there registered a SECOND listener on the same channel and every
+      // broadcast was relayed into the hub TWICE, so every WebSocket client
+      // received each event twice.
+      if (this.subscribed)
+        void this.subscribeToWireChannel()
     }
     await this.subscribeToWireChannel()
+    this.subscribed = true
+  }
+
+  /**
+   * One stable listener reference. Bun keys pub/sub listeners by reference, so
+   * passing a fresh arrow function per subscribe ADDS a listener rather than
+   * replacing it — the second half of the double-delivery bug above.
+   */
+  private readonly relay = (message: string): void => {
+    let envelope: RelayEnvelope
+    try {
+      envelope = JSON.parse(message) as RelayEnvelope
+    }
+    catch {
+      // The wire channel name is configurable and defaults to a shared
+      // `elyvel-broadcast`, so a foreign publisher can land a non-JSON message
+      // here. Throwing inside the listener would take down relaying entirely.
+      return
+    }
+    this.hub.broadcast(envelope.channels, envelope.event, envelope.payload)
   }
 
   private async subscribeToWireChannel(): Promise<void> {
-    await this.subscriber.subscribe(this.wireChannel, (message) => {
-      const envelope = JSON.parse(message) as RelayEnvelope
-      this.hub.broadcast(envelope.channels, envelope.event, envelope.payload)
-    })
+    await this.subscriber.subscribe(this.wireChannel, this.relay)
   }
 
   async broadcast(channels: string[], event: string, payload: Record<string, unknown>): Promise<void> {
