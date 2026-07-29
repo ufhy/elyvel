@@ -85,18 +85,23 @@ export class QueueManager {
   /** Dispatch a job (or closure): run inline on `sync`, otherwise enqueue. */
   async push(dispatchable: Dispatchable, options: DispatchOptions = {}): Promise<void> {
     const job = toJob(dispatchable)
-    // Unique jobs: skip the dispatch if a lock is already held.
     const uniqueKey = uniqueKeyFor(job)
     const lock = uniqueLock()
-    if (uniqueKey && lock) {
-      const acquired = await lock.acquire(uniqueKey, job.uniqueFor ?? 3600)
-      if (!acquired)
-        return
-    }
 
     const name = options.connection ?? this.defaultConnection
     const store = this.store(name)
     const doPush = async () => {
+      // Unique jobs: skip the dispatch if a lock is already held. Acquired
+      // HERE rather than before this closure, because the closure may be
+      // deferred to after-commit (and dropped entirely on rollback) or may
+      // throw partway. Taking the lock up front leaked it in both cases: no
+      // job was queued, yet the lock stayed held for `uniqueFor` (an hour by
+      // default), so every later dispatch of that job silently did nothing.
+      if (uniqueKey && lock) {
+        const acquired = await lock.acquire(uniqueKey, job.uniqueFor ?? 3600)
+        if (!acquired)
+          return
+      }
       if (store === 'sync') {
         try {
           await job.handle()
@@ -107,10 +112,18 @@ export class QueueManager {
         }
         return
       }
-      await store.push(encodeBody(serializeJob(job)), {
-        delaySeconds: options.delay ?? 0,
-        queue: options.queue,
-      })
+      try {
+        await store.push(encodeBody(serializeJob(job)), {
+          delaySeconds: options.delay ?? 0,
+          queue: options.queue,
+        })
+      }
+      catch (error) {
+        // Nothing was queued, so nothing will ever release this.
+        if (uniqueKey && lock)
+          await lock.release(uniqueKey)
+        throw error
+      }
     }
 
     const connCfg = this.config.connections?.[name]

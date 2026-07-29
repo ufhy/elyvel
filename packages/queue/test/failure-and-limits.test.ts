@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { configureFailedJobs, failedJobs, MemoryFailedJobStore } from '../src/failed'
 import { Job, registerJob, serializeJob } from '../src/job'
+import { QueueManager } from '../src/manager'
 import { MemoryRateLimiter } from '../src/middleware'
 import { MemoryQueueStore } from '../src/store'
+import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import { Worker } from '../src/worker'
 
 class AlwaysFails extends Job {
@@ -56,5 +58,59 @@ describe('MemoryRateLimiter prunes an elapsed window', () => {
     const limiter = new MemoryRateLimiter()
     await limiter.hit('reports', 60)
     expect(await limiter.tooManyAttempts('reports', 1)).toBe(true)
+  })
+})
+
+describe('unique-job lock is not leaked by a failed dispatch', () => {
+  // Regression: the lock was acquired BEFORE the push closure, which may be
+  // deferred to after-commit (and dropped on rollback) or may throw partway.
+  // Either way nothing was queued while the lock stayed held for `uniqueFor` —
+  // an hour by default — so every later dispatch silently did nothing.
+  class OneAtATime extends Job {
+    override unique = true
+    override uniqueId(): string {
+      return 'only'
+    }
+
+    async handle(): Promise<void> {}
+  }
+  registerJob(OneAtATime)
+
+  const managerWith = (store: unknown) => {
+    const manager = new QueueManager({
+      default: 'x',
+      connections: { x: { driver: 'memory' } },
+    } as never)
+    ;(manager as unknown as { store(): unknown }).store = () => store
+    return manager
+  }
+
+  const stub = (onPush: () => Promise<void>) => ({
+    push: onPush,
+    async pop() { return null },
+    async release() {},
+    async size() { return 0 },
+  })
+
+  test('a push that throws releases the lock', async () => {
+    const lock = new MemoryUniqueLock()
+    configureUniqueJobs(lock)
+    const failing = stub(async () => {
+      throw new Error('store down')
+    })
+
+    await expect(managerWith(failing).push(new OneAtATime())).rejects.toThrow('store down')
+    // Free again, so the job can actually be dispatched on a later attempt.
+    expect(await lock.acquire('unique:OneAtATime:only', 60)).toBe(true)
+  })
+
+  test('uniqueness still dedupes on the happy path', async () => {
+    configureUniqueJobs(new MemoryUniqueLock())
+    const pushes: string[] = []
+    const manager = managerWith(stub(async () => void pushes.push('pushed')))
+
+    await manager.push(new OneAtATime())
+    await manager.push(new OneAtATime())
+    expect(pushes).toHaveLength(1)
   })
 })
