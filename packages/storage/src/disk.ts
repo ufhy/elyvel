@@ -3,7 +3,7 @@ import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { appendFile, chmod, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
 // biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
-import { dirname, extname, posix, resolve, sep } from 'node:path'
+import { dirname, extname, join, posix, resolve, sep } from 'node:path'
 import { download } from '@elyvel/core'
 import { S3Client } from 'bun'
 
@@ -469,7 +469,17 @@ export class LocalDisk implements FilesystemDisk {
 
   async deleteDirectory(path: string): Promise<boolean> {
     try {
-      await rm(this.full(path), { recursive: true, force: true })
+      const target = this.full(path)
+      // `deleteDirectory('')` resolves to the root and would delete the disk
+      // itself — almost certainly a bug at the call site (an empty variable),
+      // not an intent to wipe everything. Clear the CONTENTS instead.
+      if (target === this.realRoot()) {
+        for (const entry of await readdir(target)) {
+          await rm(join(target, entry), { recursive: true, force: true })
+        }
+        return true
+      }
+      await rm(target, { recursive: true, force: true })
       return true
     }
     catch (error) {
@@ -570,7 +580,10 @@ export class S3Disk implements FilesystemDisk {
   }
 
   async copy(from: string, to: string): Promise<boolean> {
-    await this.client.write(to, this.client.file(from))
+    // Set the ACL explicitly, as every other write path does — without it the
+    // copy lands with the bucket default, so copying a `private` disk's object
+    // could quietly produce a public one (or vice versa).
+    await this.client.write(to, this.client.file(from), { acl: this.acl() })
     return true
   }
 
@@ -690,6 +703,10 @@ export class S3Disk implements FilesystemDisk {
     const keys = await this.allFiles(path)
     if (keys.length)
       await this.delete(keys)
+    // `allFiles` filters out keys ending in `/` — which is exactly the marker
+    // `makeDirectory` writes, so it used to survive and the directory kept
+    // showing up in `directories()` after being "deleted".
+    await this.client.file(`${path.replace(/\/$/, '')}/`).delete().catch(() => {})
     return true
   }
 }

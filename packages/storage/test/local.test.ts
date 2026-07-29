@@ -184,6 +184,21 @@ describe('LocalDisk — directories', () => {
     expect((await disk.allDirectories()).sort()).toEqual(['a', 'a/b'])
   })
 
+  // Regression: `deleteDirectory('')` resolved to the root and `rm -r`'d the
+  // disk itself. An empty path is almost always an empty variable at the call
+  // site, not an intent to destroy the disk, so clear the contents instead.
+  test('deleteDirectory("") empties the disk without deleting it', async () => {
+    const disk = makeDisk()
+    await disk.put('a/one.txt', '1')
+    await disk.put('top.txt', '2')
+
+    expect(await disk.deleteDirectory('')).toBe(true)
+    expect(await disk.allFiles()).toEqual([])
+    // still a working disk afterwards
+    await disk.put('after.txt', 'x')
+    expect(await disk.get('after.txt')).toBe('x')
+  })
+
   test('makeDirectory and deleteDirectory', async () => {
     const disk = makeDisk()
     await disk.makeDirectory('created')

@@ -123,6 +123,10 @@ nol-byte yang berakhiran `/`, dan listing direktori diturunkan dari
 prefix key — tapi API-nya terbaca identik dengan driver local baik dari
 sisi mana pun.
 
+`deleteDirectory('')` membersihkan **isi** disk-nya, bukan menghapus root
+disk itu sendiri, karena path kosong hampir selalu berarti variabel kosong
+di call site, bukan niat menghapus semuanya.
+
 ## Visibility
 
 ```ts

@@ -120,6 +120,10 @@ On S3 there's no real directory concept — `makeDirectory` writes a
 zero-byte key ending in `/`, and directory listing is derived from key
 prefixes — but the API reads identically to the local driver either way.
 
+`deleteDirectory('')` clears the disk's **contents** rather than removing
+the disk root itself, since an empty path is almost always an empty variable
+at the call site rather than an intent to wipe everything.
+
 ## Visibility
 
 ```ts
