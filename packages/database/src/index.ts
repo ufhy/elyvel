@@ -62,6 +62,7 @@ export {
   tableIndexes,
 } from './inspect'
 export {
+  configureMigrationEventDispatcher,
   forceUnlock,
   freshMigrate,
   loadMigrations,

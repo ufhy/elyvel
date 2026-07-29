@@ -41,6 +41,25 @@ class ColumnBuilder {
   }
 
   /**
+   * A generated column, physically computed from `expr` and stored on disk
+   * (MySQL, Postgres, SQLite 3.31+). The column can't be assigned to directly.
+   */
+  storedAs(expr: string): this {
+    this.def.generatedAs = { expr, stored: true }
+    return this
+  }
+
+  /**
+   * A generated column, computed on read rather than stored (MySQL, SQLite
+   * 3.31+). Not supported on Postgres — it only has STORED generated columns;
+   * use {@link storedAs} there.
+   */
+  virtualAs(expr: string): this {
+    this.def.generatedAs = { expr, stored: false }
+    return this
+  }
+
+  /**
    * `DEFAULT CURRENT_TIMESTAMP`. Use with `timestampTz()`/`dateTimeTz()` on
    * MySQL — plain `timestamp()`/`datetime()` stay `TEXT` there for
    * cross-dialect ISO-string consistency, and MySQL rejects a
@@ -195,6 +214,34 @@ export class Blueprint {
   readonly renameIndexes: { from: string, to: string }[] = []
   /** Set by `dropUserstamps()` — those columns carry FK constraints, which SQLite can't drop via `ALTER TABLE`. */
   droppedUserstamps = false
+  /** Set by `temporary()` — a session-local table, dropped automatically when the connection closes. */
+  isTemporary = false
+  /** Set by `engine()` — MySQL/MariaDB only (`ENGINE=InnoDB`); ignored on Postgres/SQLite. */
+  tableEngine?: string
+  /** Set by `charset()` — MySQL/MariaDB only (`DEFAULT CHARSET=...`); ignored on Postgres/SQLite. */
+  tableCharset?: string
+  /** Set by `collation()` — MySQL/MariaDB only (`COLLATE=...`); ignored on Postgres/SQLite. */
+  tableCollation?: string
+
+  /** A session-local table (`CREATE TEMPORARY TABLE`) — dropped automatically when the connection closes. */
+  temporary(): void {
+    this.isTemporary = true
+  }
+
+  /** MySQL/MariaDB storage engine (e.g. `'InnoDB'`, `'MyISAM'`). No table-level equivalent on Postgres/SQLite — ignored there. */
+  engine(name: string): void {
+    this.tableEngine = name
+  }
+
+  /** MySQL/MariaDB table default charset (e.g. `'utf8mb4'`). No table-level equivalent on Postgres/SQLite — ignored there. */
+  charset(name: string): void {
+    this.tableCharset = name
+  }
+
+  /** MySQL/MariaDB table collation (e.g. `'utf8mb4_unicode_ci'`). No table-level equivalent on Postgres/SQLite — ignored there. */
+  collation(name: string): void {
+    this.tableCollation = name
+  }
 
   private push(def: ColumnDefinition): ColumnBuilder {
     this.columns.push(def)
@@ -465,6 +512,26 @@ export class Blueprint {
     this.indexes.push({ columns: cols, unique: true, name: name ?? `${cols.join('_')}_unique` })
   }
 
+  /**
+   * A full-text index (MySQL `FULLTEXT INDEX`; Postgres: a functional GIN
+   * index over `to_tsvector(...)`, matching what {@link whereFullText}
+   * queries against). No SQLite equivalent — `whereFullText()` still works
+   * there via a `LIKE` fallback, it just has no index to speed it up.
+   */
+  fullText(columns: string | string[], name?: string): void {
+    const cols = Array.isArray(columns) ? columns : [columns]
+    this.indexes.push({ columns: cols, unique: false, name: name ?? `${cols.join('_')}_fulltext`, fullText: true })
+  }
+
+  /**
+   * A spatial index (MySQL `SPATIAL INDEX`). Not supported on SQLite, and
+   * needs the PostGIS extension on Postgres (not assumed installed here).
+   */
+  spatialIndex(columns: string | string[], name?: string): void {
+    const cols = Array.isArray(columns) ? columns : [columns]
+    this.indexes.push({ columns: cols, unique: false, name: name ?? `${cols.join('_')}_spatial`, spatial: true })
+  }
+
   /** A single or composite primary key. */
   primary(columns: string | string[], name?: string): void {
     const cols = Array.isArray(columns) ? columns : [columns]
@@ -622,7 +689,12 @@ export class SchemaBuilder {
     build(blueprint)
     const g = this.connection.grammar
     const run = (sql: string) => this.run(sql)
-    await run(g.compileCreateTable(table, blueprint.columns, blueprint.primaryKeys))
+    await run(g.compileCreateTable(table, blueprint.columns, blueprint.primaryKeys, {
+      temporary: blueprint.isTemporary,
+      engine: blueprint.tableEngine,
+      charset: blueprint.tableCharset,
+      collation: blueprint.tableCollation,
+    }))
     for (const index of blueprint.indexes) {
       await run(g.compileCreateIndex(table, index))
     }

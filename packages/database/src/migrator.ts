@@ -18,6 +18,30 @@ const LOCK_TABLE = '_elyvel_migrations_lock'
 const LOCK_ROW_ID = 1
 
 /**
+ * Optional bridge so migration lifecycle events also flow through an app-wide
+ * event dispatcher (the same injectable pattern as `configureModelEventDispatcher`/
+ * `configureQueueEventDispatcher`). Wire it once at boot, e.g.
+ * `configureMigrationEventDispatcher((name, payload) => event(name, payload))`,
+ * then `listen('migration.ended', ...)`. Kept injectable so the database
+ * package stays decoupled from `@elyvel/events`. Never fires during
+ * `--pretend` (no actual migrating happens then).
+ *
+ * Events: `migrations.started`/`migrations.ended` once per `migrate()`/
+ * `rollback()`/`reset()` call (payload: `{ names, direction }`), and
+ * `migration.started`/`migration.ended` per migration (payload:
+ * `{ name, direction }`, `direction` is `'up'` or `'down'`).
+ */
+type MigrationEventDispatcher = (eventName: string, payload: Record<string, unknown>) => void | Promise<void>
+let migrationEventDispatcher: MigrationEventDispatcher | null = null
+export function configureMigrationEventDispatcher(dispatcher: MigrationEventDispatcher): void {
+  migrationEventDispatcher = dispatcher
+}
+async function fireMigrationEvent(name: string, payload: Record<string, unknown>): Promise<void> {
+  if (migrationEventDispatcher)
+    await migrationEventDispatcher(name, payload)
+}
+
+/**
  * Thrown when another process (or another instance in a rolling deploy) is
  * already migrating. Not silently swallowed — the caller should know a
  * migration didn't run rather than assume "nothing to migrate" (which
@@ -164,19 +188,27 @@ async function runPending(conn: Connection, dir: string, options: MigrateOptions
   const pending = (await loadMigrations(dir)).filter(m => !ran.has(m.name))
   const g = conn.grammar
 
+  if (pending.length > 0 && !options.pretend)
+    await fireMigrationEvent('migrations.started', { names: pending.map(m => m.name), direction: 'up' })
+
   const applied: string[] = []
   for (const { name, migration } of pending) {
+    if (!options.pretend)
+      await fireMigrationEvent('migration.started', { name, direction: 'up' })
     await migration.up(schema)
     if (!options.pretend) {
       await conn.statement(
         `INSERT INTO ${TABLE} (name, batch, ran_at) VALUES (${g.placeholder(0)}, ${g.placeholder(1)}, ${g.placeholder(2)})`,
         [name, batch, new Date().toISOString()],
       )
+      await fireMigrationEvent('migration.ended', { name, direction: 'up' })
     }
     applied.push(name)
     if (options.step)
       batch++
   }
+  if (pending.length > 0 && !options.pretend)
+    await fireMigrationEvent('migrations.ended', { names: applied, direction: 'up' })
   return applied
 }
 
@@ -228,15 +260,24 @@ async function runDown(
     return []
   const schema = new SchemaBuilder(conn, { dryRun: pretend })
   const g = conn.grammar
+  const toRun = (await loadMigrations(dir)).reverse().filter(({ name }) => targetNames.has(name))
+
+  if (!pretend)
+    await fireMigrationEvent('migrations.started', { names: toRun.map(m => m.name), direction: 'down' })
+
   const rolledBack: string[] = []
-  for (const { name, migration } of (await loadMigrations(dir)).reverse()) {
-    if (!targetNames.has(name))
-      continue
-    await migration.down(schema)
+  for (const { name, migration } of toRun) {
     if (!pretend)
+      await fireMigrationEvent('migration.started', { name, direction: 'down' })
+    await migration.down(schema)
+    if (!pretend) {
       await conn.statement(`DELETE FROM ${TABLE} WHERE name = ${g.placeholder(0)}`, [name])
+      await fireMigrationEvent('migration.ended', { name, direction: 'down' })
+    }
     rolledBack.push(name)
   }
+  if (!pretend)
+    await fireMigrationEvent('migrations.ended', { names: rolledBack, direction: 'down' })
   return rolledBack
 }
 

@@ -54,6 +54,53 @@ on SQLite/MySQL:
 Column modifiers chain fluently: `.nullable()`, `.default(value)`, `.unique()`,
 `.unsigned()`, `.index()`, `.after('column')`.
 
+### Generated columns
+
+A column computed from an expression instead of assigned directly — MySQL,
+Postgres, and SQLite (3.31+) all support `STORED` (physically written to
+disk); only MySQL and SQLite also support `VIRTUAL` (computed on read,
+`virtualAs()` throws on Postgres since it has no VIRTUAL generated columns):
+
+```ts
+t.integer('price')
+t.integer('tax')
+t.integer('total').storedAs('price + tax')     // STORED — every dialect
+t.integer('doubled').virtualAs('price * 2')    // VIRTUAL — MySQL/SQLite only
+```
+
+### Indexes
+
+```ts
+t.index(['team_id', 'status'])           // a composite index
+t.unique('email')                        // a standalone unique index (see also .unique() on the column itself)
+t.fullText('body')                       // MySQL FULLTEXT / Postgres GIN over to_tsvector — see whereFullText()
+t.fullText(['title', 'body'])            // a full-text index over multiple columns
+t.spatialIndex('location')               // MySQL SPATIAL INDEX only
+```
+
+`fullText()` has no SQLite equivalent — `whereFullText()` still works there,
+it just falls back to a `LIKE` approximation with no index to speed it up.
+`spatialIndex()` isn't supported on SQLite at all, and needs the PostGIS
+extension on Postgres (not assumed installed, so it throws there instead of
+silently doing nothing).
+
+### Table options
+
+```ts
+schema.create('reports', (t) => {
+  t.temporary()               // CREATE TEMPORARY TABLE — dropped when the connection closes
+  t.engine('InnoDB')          // MySQL/MariaDB only
+  t.charset('utf8mb4')        // MySQL/MariaDB only
+  t.collation('utf8mb4_unicode_ci') // MySQL/MariaDB only
+  t.id()
+  t.string('title')
+})
+```
+
+`engine()`/`charset()`/`collation()` have no table-level equivalent on
+Postgres/SQLite — they're silently ignored there rather than erroring, the
+same way a column `.comment()` is. `temporary()` works on all three dialects.
+
 ### Foreign keys
 
 ```ts
@@ -126,3 +173,27 @@ elyvel db:show                # list tables with row counts
 elyvel db:table users         # describe a table's columns
 elyvel db:monitor --max=100   # open-connection count (Postgres)
 ```
+
+## Events
+
+Bridge migration lifecycle events to `@elyvel/events` (the same injectable
+pattern as the Eloquent model-event bridge) — `migrations.started`/
+`migrations.ended` fire once per `migrate()`/`rollback()`/`reset()` call,
+`migration.started`/`migration.ended` fire per individual migration:
+
+```ts
+import { configureMigrationEventDispatcher } from '@elyvel/database'
+import { event } from '@elyvel/events'
+
+configureMigrationEventDispatcher((name, payload) => event(name, payload))
+```
+
+```ts
+listen('migration.started', ({ name, direction }) => {
+  logger.info(`Running ${direction === 'down' ? 'rollback' : 'migration'}: ${name}`)
+})
+```
+
+`payload` is `{ names, direction }` for the batch-level events and `{ name,
+direction }` for the per-migration ones (`direction` is `'up'` or `'down'`).
+Nothing fires during `--pretend` — no migrating actually happens then.

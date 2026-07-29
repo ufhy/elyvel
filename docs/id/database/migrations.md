@@ -55,6 +55,54 @@ SQLite/MySQL:
 Modifier kolom dirangkai secara fluent: `.nullable()`, `.default(value)`,
 `.unique()`, `.unsigned()`, `.index()`, `.after('column')`.
 
+### Kolom generated
+
+Kolom yang dihitung dari sebuah ekspresi alih-alih di-assign langsung —
+MySQL, Postgres, dan SQLite (3.31+) semuanya mendukung `STORED` (ditulis
+fisik ke disk); hanya MySQL dan SQLite yang juga mendukung `VIRTUAL`
+(dihitung saat dibaca, `virtualAs()` throw di Postgres karena tidak punya
+kolom generated VIRTUAL):
+
+```ts
+t.integer('price')
+t.integer('tax')
+t.integer('total').storedAs('price + tax')     // STORED — semua dialek
+t.integer('doubled').virtualAs('price * 2')    // VIRTUAL — MySQL/SQLite saja
+```
+
+### Index
+
+```ts
+t.index(['team_id', 'status'])           // index komposit
+t.unique('email')                        // index unique standalone (lihat juga .unique() di kolom itu sendiri)
+t.fullText('body')                       // MySQL FULLTEXT / Postgres GIN atas to_tsvector — lihat whereFullText()
+t.fullText(['title', 'body'])            // index full-text atas beberapa kolom
+t.spatialIndex('location')               // MySQL SPATIAL INDEX saja
+```
+
+`fullText()` tidak punya padanan di SQLite — `whereFullText()` tetap
+bekerja di sana, cuma fallback ke pendekatan `LIKE` tanpa index untuk
+mempercepatnya. `spatialIndex()` sama sekali tidak didukung di SQLite, dan
+butuh ekstensi PostGIS di Postgres (tidak diasumsikan terpasang, jadi
+throw di sana alih-alih diam-diam tidak melakukan apa-apa).
+
+### Opsi tabel
+
+```ts
+schema.create('reports', (t) => {
+  t.temporary()               // CREATE TEMPORARY TABLE — dihapus saat koneksi ditutup
+  t.engine('InnoDB')          // MySQL/MariaDB saja
+  t.charset('utf8mb4')        // MySQL/MariaDB saja
+  t.collation('utf8mb4_unicode_ci') // MySQL/MariaDB saja
+  t.id()
+  t.string('title')
+})
+```
+
+`engine()`/`charset()`/`collation()` tidak punya padanan level-tabel di
+Postgres/SQLite — diam-diam diabaikan di sana alih-alih error, sama seperti
+`.comment()` kolom. `temporary()` bekerja di ketiga dialek.
+
 ### Foreign key
 
 ```ts
@@ -126,3 +174,29 @@ elyvel db:show                # daftar tabel beserta jumlah row
 elyvel db:table users         # deskripsikan kolom sebuah tabel
 elyvel db:monitor --max=100   # jumlah koneksi terbuka (Postgres)
 ```
+
+## Event
+
+Jembatani event lifecycle migrasi ke `@elyvel/events` (pola injectable yang
+sama seperti bridge event model Eloquent) — `migrations.started`/
+`migrations.ended` terpicu sekali per panggilan
+`migrate()`/`rollback()`/`reset()`, `migration.started`/`migration.ended`
+terpicu per migrasi individual:
+
+```ts
+import { configureMigrationEventDispatcher } from '@elyvel/database'
+import { event } from '@elyvel/events'
+
+configureMigrationEventDispatcher((name, payload) => event(name, payload))
+```
+
+```ts
+listen('migration.started', ({ name, direction }) => {
+  logger.info(`Menjalankan ${direction === 'down' ? 'rollback' : 'migrasi'}: ${name}`)
+})
+```
+
+`payload` adalah `{ names, direction }` untuk event level-batch dan `{ name,
+direction }` untuk yang per-migrasi (`direction` adalah `'up'` atau
+`'down'`). Tidak ada yang terpicu saat `--pretend` — memang tidak ada
+migrasi sungguhan yang berjalan saat itu.

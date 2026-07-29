@@ -64,6 +64,8 @@ export interface ColumnDefinition {
   useCurrentOnUpdate?: boolean
   /** Marks this column definition as a modification (`->change()`) rather than an add. */
   change?: boolean
+  /** A generated column (`storedAs`/`virtualAs`) — computed from `expr`, not assignable directly. */
+  generatedAs?: { expr: string, stored: boolean }
 }
 
 /** A standalone index (created after the table). */
@@ -71,6 +73,21 @@ export interface IndexDefinition {
   columns: string[]
   unique: boolean
   name: string
+  /** MySQL `FULLTEXT INDEX`; Postgres: a functional GIN index over `to_tsvector(...)`. No SQLite equivalent. */
+  fullText?: boolean
+  /** MySQL `SPATIAL INDEX`. No SQLite equivalent; Postgres needs the PostGIS extension (not supported here). */
+  spatial?: boolean
+}
+
+/** Table-level options for `CREATE TABLE` — set via `Blueprint.temporary()`/`engine()`/`charset()`/`collation()`. */
+export interface TableOptions {
+  temporary?: boolean
+  /** MySQL/MariaDB only (e.g. `'InnoDB'`). */
+  engine?: string
+  /** MySQL/MariaDB only (e.g. `'utf8mb4'`). */
+  charset?: string
+  /** MySQL/MariaDB only (e.g. `'utf8mb4_unicode_ci'`). */
+  collation?: string
 }
 
 /** A composite (or single-column) primary key, added separately from `id()`. */
@@ -111,6 +128,7 @@ export abstract class Grammar {
     table: string,
     columns: ColumnDefinition[],
     primaryKeys: PrimaryKeyDefinition[] = [],
+    options: TableOptions = {},
   ): string {
     const defs = columns.map(c => this.compileColumn(c))
     const constraints: string[] = []
@@ -122,7 +140,21 @@ export abstract class Grammar {
     }
     for (const pk of primaryKeys)
       constraints.push(`PRIMARY KEY (${pk.columns.map(c => this.wrap(c)).join(', ')})`)
-    return `CREATE TABLE ${this.wrap(table)} (${[...defs, ...constraints].join(', ')})`
+    // TEMP/TEMPORARY are synonyms in every dialect here (Postgres, MySQL, SQLite).
+    const temp = options.temporary ? 'TEMPORARY ' : ''
+    let sql = `CREATE ${temp}TABLE ${this.wrap(table)} (${[...defs, ...constraints].join(', ')})`
+    if (this.dialect === 'mysql') {
+      if (options.engine)
+        sql += ` ENGINE=${options.engine}`
+      if (options.charset)
+        sql += ` DEFAULT CHARSET=${options.charset}`
+      if (options.collation)
+        sql += ` COLLATE=${options.collation}`
+    }
+    // engine/charset/collation have no table-level equivalent on Postgres/SQLite
+    // (Postgres charset/collation are database- or column-level, not table-level;
+    // SQLite has neither concept) — silently ignored there, like `comment()`.
+    return sql
   }
 
   /** Shared `FOREIGN KEY (...) REFERENCES ... ON DELETE ... ON UPDATE ...` fragment. */
@@ -210,9 +242,39 @@ export abstract class Grammar {
   }
 
   compileCreateIndex(table: string, index: IndexDefinition): string {
+    if (index.fullText)
+      return this.compileFullTextIndex(table, index)
+    if (index.spatial)
+      return this.compileSpatialIndex(table, index)
     const unique = index.unique ? 'UNIQUE ' : ''
     const cols = index.columns.map(c => this.wrap(c)).join(', ')
     return `CREATE ${unique}INDEX ${this.wrap(index.name)} ON ${this.wrap(table)} (${cols})`
+  }
+
+  private compileFullTextIndex(table: string, index: IndexDefinition): string {
+    const cols = index.columns.map(c => this.wrap(c)).join(', ')
+    if (this.dialect === 'mysql')
+      return `ALTER TABLE ${this.wrap(table)} ADD FULLTEXT INDEX ${this.wrap(index.name)} (${cols})`
+    if (this.dialect === 'pg') {
+      const concat = index.columns.map(c => this.wrap(c)).join(` || ' ' || `)
+      return `CREATE INDEX ${this.wrap(index.name)} ON ${this.wrap(table)} USING GIN (to_tsvector('english', ${concat}))`
+    }
+    throw new Error(
+      '[eloquent] fullText() is not supported on SQLite — whereFullText() still works there via a LIKE fallback, it just has no dedicated index to speed it up.',
+    )
+  }
+
+  private compileSpatialIndex(table: string, index: IndexDefinition): string {
+    if (this.dialect === 'mysql') {
+      const cols = index.columns.map(c => this.wrap(c)).join(', ')
+      return `ALTER TABLE ${this.wrap(table)} ADD SPATIAL INDEX ${this.wrap(index.name)} (${cols})`
+    }
+    if (this.dialect === 'pg') {
+      throw new Error(
+        '[eloquent] spatialIndex() on Postgres requires the PostGIS extension, which isn\'t assumed to be installed — add the GIST index yourself via a raw migration statement if PostGIS is available.',
+      )
+    }
+    throw new Error('[eloquent] spatialIndex() is not supported on SQLite.')
   }
 
   compileDropColumn(table: string, name: string): string {
@@ -268,6 +330,16 @@ export abstract class Grammar {
     const parts = [this.wrap(column.name), this.columnType(column)]
     if (column.unsigned && this.dialect === 'mysql')
       parts.push('UNSIGNED')
+    if (column.generatedAs) {
+      if (this.dialect === 'pg' && !column.generatedAs.stored) {
+        throw new Error(
+          '[eloquent] virtualAs() is not supported on Postgres — Postgres only supports STORED generated columns, use storedAs() instead.',
+        )
+      }
+      const storage = column.generatedAs.stored ? 'STORED' : 'VIRTUAL'
+      parts.push(`GENERATED ALWAYS AS (${column.generatedAs.expr}) ${storage}`)
+      return parts.join(' ')
+    }
     if (column.type !== 'id') {
       parts.push(column.nullable ? 'NULL' : 'NOT NULL')
       if (column.useCurrent && column.default === undefined)
