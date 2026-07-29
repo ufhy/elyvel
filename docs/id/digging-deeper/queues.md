@@ -173,10 +173,13 @@ bertahan, default 3600 detik):
 
 ```ts
 export class SyncInventory extends Job {
-  static override unique = true
+  override unique = true
   uniqueId() { return 'inventory-sync' }
 }
 ```
+
+`unique` adalah field instance, bukan static — `static unique = true`
+membuat dedupe berbasis `uniqueId` mati diam-diam.
 
 Dispatch duplikat selagi lock masih berlaku akan diam-diam diabaikan; lock
 dilepas saat job selesai (sukses atau gagal final).
@@ -338,6 +341,37 @@ Listener yang seharusnya jalan di queue alih-alih inline tidak butuh
 penulisan job ekstra — implementasikan listener seperti biasa dan daftarkan
 dengan `registerListener(...)` (di samping `registerJob`) alih-alih framework
 menjalankannya secara sinkron.
+
+## Apa yang boleh dibawa payload
+
+Field publik sebuah job diserialisasi sebagai **JSON**, jadi hanya yang bisa
+diwakili JSON yang selamat sampai ke worker:
+
+```ts
+class SendReport extends Job {
+  constructor(public at: Date) { super() } // sampai sebagai STRING ISO
+}
+```
+
+`at.getTime()` lalu throw di worker. `Map`/`Set` sampai sebagai `{}`, dan
+field `undefined` hilang. Tidak ada peringatan — dispatch-nya sukses dan
+job-nya crash belakangan.
+
+Oper primitive dan object biasa, lalu konversi di ujungnya:
+
+```ts
+class SendReport extends Job {
+  constructor(public atIso: string) { super() }
+  async handle() {
+    const at = new Date(this.atIso)
+  }
+}
+```
+
+Ini disengaja, bukan kelalaian: menghidupkan apa pun yang *terlihat* seperti
+tanggal akan diam-diam mengubah string berbentuk-tanggal yang sah menjadi
+object `Date`, dan itu kegagalan yang lebih buruk daripada yang jujur. Khusus
+untuk model, memang ADA mekanisme penghidupan — lihat di bawah.
 
 ## Serialisasi model
 

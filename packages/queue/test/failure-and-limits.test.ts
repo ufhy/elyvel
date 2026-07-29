@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { configureFailedJobs, failedJobs, MemoryFailedJobStore } from '../src/failed'
 import { Job, registerJob, serializeJob } from '../src/job'
 import { QueueManager } from '../src/manager'
-import { MemoryRateLimiter } from '../src/middleware'
+import { MemoryRateLimiter, ReleaseJob, WithoutOverlapping } from '../src/middleware'
 import { MemoryQueueStore } from '../src/store'
 import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import { Worker } from '../src/worker'
@@ -112,5 +112,54 @@ describe('unique-job lock is not leaked by a failed dispatch', () => {
     await manager.push(new OneAtATime())
     await manager.push(new OneAtATime())
     expect(pushes).toHaveLength(1)
+  })
+})
+
+describe('WithoutOverlapping does not release a lapsed lock', () => {
+  class Task extends Job {
+    async handle(): Promise<void> {}
+  }
+
+  test('a job that outruns expireAfter leaves the next holder alone', async () => {
+    // Regression: `release()` was an unconditional delete. Once the job
+    // outran `expireAfter` its own lock had lapsed and another worker could
+    // hold the key — deleting it removed THAT worker's lock and let a third
+    // in on top, turning one overrun into a cascade.
+    const lock = new MemoryUniqueLock()
+    configureUniqueJobs(lock)
+    const middleware = new WithoutOverlapping('report', { expireAfter: 0.05 })
+
+    const slow = middleware.handle(new Task(), async () => {
+      await new Promise(resolve => setTimeout(resolve, 120))
+    })
+
+    await new Promise(resolve => setTimeout(resolve, 80)) // let the TTL lapse
+    expect(await lock.acquire('overlap:report', 60)).toBe(true) // a second worker takes it
+
+    await slow // its `finally` must not touch the new holder's lock
+    expect(await lock.acquire('overlap:report', 60)).toBe(false)
+  })
+
+  test('a job inside its window still releases immediately', async () => {
+    // The guard must not make a fast job hold the lock for the whole TTL.
+    const lock = new MemoryUniqueLock()
+    configureUniqueJobs(lock)
+    await new WithoutOverlapping('report', { expireAfter: 60 }).handle(new Task(), async () => {})
+    expect(await lock.acquire('overlap:report', 60)).toBe(true)
+  })
+
+  test('a concurrent run is still prevented', async () => {
+    const lock = new MemoryUniqueLock()
+    configureUniqueJobs(lock)
+    const middleware = new WithoutOverlapping('report', { expireAfter: 60 })
+    let bodies = 0
+
+    const first = middleware.handle(new Task(), async () => {
+      bodies++
+      await new Promise(resolve => setTimeout(resolve, 50))
+    })
+    await expect(middleware.handle(new Task(), async () => void bodies++)).rejects.toBeInstanceOf(ReleaseJob)
+    await first
+    expect(bodies).toBe(1)
   })
 })

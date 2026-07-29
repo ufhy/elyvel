@@ -51,14 +51,24 @@ export class WithoutOverlapping implements JobMiddleware {
       return
     }
     const lockKey = `overlap:${this.key}`
-    const acquired = await lock.acquire(lockKey, this.options.expireAfter ?? 60)
+    const ttlSeconds = this.options.expireAfter ?? 60
+    const acquired = await lock.acquire(lockKey, ttlSeconds)
     if (!acquired)
       throw new ReleaseJob(this.options.releaseAfter ?? 0)
+    const heldSince = Date.now()
     try {
       await next()
     }
     finally {
-      await lock.release(lockKey)
+      // Only release a lock that can still be OURS. Once the job outruns
+      // `expireAfter` our lock has already lapsed and another worker may hold
+      // the key — an unconditional delete would remove THEIR lock and let a
+      // third worker in on top of them, turning one overrun into a cascade.
+      // (The overlap at the moment the TTL lapses is inherent to a TTL lock —
+      // that's `expireAfter` being shorter than the job's real runtime — but
+      // deleting someone else's lock is not.)
+      if (Date.now() - heldSince < ttlSeconds * 1000)
+        await lock.release(lockKey)
     }
   }
 }

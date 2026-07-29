@@ -169,10 +169,13 @@ custom dedupe key, and `uniqueFor` for how long the lock holds, default
 
 ```ts
 export class SyncInventory extends Job {
-  static override unique = true
+  override unique = true
   uniqueId() { return 'inventory-sync' }
 }
 ```
+
+`unique` is an instance field, not a static one — `static unique = true`
+leaves `uniqueId`-based dedupe switched off silently.
 
 Dispatching a duplicate while the lock holds is silently dropped; the lock
 releases when the job finishes (success or final failure).
@@ -329,6 +332,37 @@ A listener that should run on the queue instead of inline needs no extra
 job-writing — implement the listener as usual and register it with
 `registerListener(...)` (alongside `registerJob`) instead of the framework
 running it synchronously.
+
+## What a payload can hold
+
+A job's public fields are serialized as **JSON**, so only what JSON can
+represent survives the trip to the worker:
+
+```ts
+class SendReport extends Job {
+  constructor(public at: Date) { super() } // arrives as an ISO STRING
+}
+```
+
+`at.getTime()` then throws on the worker. `Map`/`Set` arrive as `{}`, and
+`undefined` fields disappear. Nothing warns you — the dispatch succeeds and
+the job crashes later.
+
+Pass primitives and plain objects, and convert at the edges:
+
+```ts
+class SendReport extends Job {
+  constructor(public atIso: string) { super() }
+  async handle() {
+    const at = new Date(this.atIso)
+  }
+}
+```
+
+This is deliberate rather than an oversight: reviving anything that *looks*
+like a date would silently turn legitimate date-shaped strings into `Date`
+objects, which is a worse failure than an honest one. For models
+specifically, there IS a revival mechanism — see below.
 
 ## Model serialization
 
