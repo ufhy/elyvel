@@ -139,6 +139,17 @@ rest]`), `toArray`/`toJSON`. Juga langsung bisa di-spread/iterasi
 menyerialisasi dirinya sendiri dengan benar saat sekumpulan model
 di-JSON-stringify.
 
+**Subclass bertahan sepanjang chain.** Transform yang mempertahankan tipe
+elemen — `filter`, `reject`, `take`, `skip`, `slice`, `reverse`, `sortBy`,
+`sortByDesc`, `unique`, `where`, `concat`/`merge`, `diff`, `intersect`,
+`partition`, `groupBy`, dan setiap batch `chunk` — mengembalikan subclass
+yang *sama* seperti yang dipanggil, jadi `EloquentCollection` tetap
+model-aware sepanjang `posts.filter(...).sortBy('title').take(5)`.
+Transform yang **mengubah** tipe elemen — `map`, `flatMap`, `pluck`,
+`flatten` — mengembalikan `Collection` biasa, karena hasilnya tidak lagi
+memuat tipe elemen aslinya (`posts.map(p => p.title)` adalah collection
+berisi string, bukan model). Ini pembedaan yang sama seperti di Laravel.
+
 ::: tip Hasil query Eloquent
 `Model.query().get()` mengembalikan `EloquentCollection`, yang
 **meng-extend** `Collection` yang sama ini — setiap method di atas sudah

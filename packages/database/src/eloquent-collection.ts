@@ -43,13 +43,13 @@ export class EloquentCollection<M extends Model> extends Collection<M> {
   }
 
   /** Only the models whose primary key is in `ids`. */
-  only(...ids: unknown[]): EloquentCollection<M> {
-    return new EloquentCollection(this.all().filter(model => ids.includes(model.getKey())))
+  only(...ids: unknown[]): this {
+    return this.newInstance(this.all().filter(model => ids.includes(model.getKey())))
   }
 
   /** Every model EXCEPT those whose primary key is in `ids`. */
-  except(...ids: unknown[]): EloquentCollection<M> {
-    return new EloquentCollection(this.all().filter(model => !ids.includes(model.getKey())))
+  except(...ids: unknown[]): this {
+    return this.newInstance(this.all().filter(model => !ids.includes(model.getKey())))
   }
 
   /** Re-fetch every model in this collection fresh from the database (by primary key). */
@@ -91,19 +91,19 @@ export class EloquentCollection<M extends Model> extends Collection<M> {
    * queried collections of the same rows (different object instances, same
    * keys) would incorrectly return every model.
    */
-  override diff(items: M[] | Collection<M>): EloquentCollection<M> {
+  override diff(items: M[] | Collection<M>): this {
     const otherKeys = new Set((items instanceof Collection ? items.all() : items).map(m => m.getKey()))
-    return new EloquentCollection(this.all().filter(model => !otherKeys.has(model.getKey())))
+    return this.newInstance(this.all().filter(model => !otherKeys.has(model.getKey())))
   }
 
   /** Models present in both this collection and `items` — compared by primary key. */
-  override intersect(items: M[] | Collection<M>): EloquentCollection<M> {
+  override intersect(items: M[] | Collection<M>): this {
     const otherKeys = new Set((items instanceof Collection ? items.all() : items).map(m => m.getKey()))
-    return new EloquentCollection(this.all().filter(model => otherKeys.has(model.getKey())))
+    return this.newInstance(this.all().filter(model => otherKeys.has(model.getKey())))
   }
 
   /** Distinct models — by primary key (default) or a custom selector, first wins. */
-  override unique(by?: keyof M | ((item: M) => unknown)): EloquentCollection<M> {
+  override unique(by?: keyof M | ((item: M) => unknown)): this {
     const select = by === undefined ? (m: M) => m.getKey() : typeof by === 'function' ? by : (m: M) => m[by]
     const seen = new Set<unknown>()
     const out: M[] = []
@@ -114,7 +114,7 @@ export class EloquentCollection<M extends Model> extends Collection<M> {
         out.push(model)
       }
     }
-    return new EloquentCollection(out)
+    return this.newInstance(out)
   }
 
   /** Eager-load relations onto every model in the collection. */

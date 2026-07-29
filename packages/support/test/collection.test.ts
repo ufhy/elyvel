@@ -110,3 +110,66 @@ describe('Collection', () => {
     expect(() => new Collection(people).sole(p => p.name === 'Nobody')).toThrow(/no matching/)
   })
 })
+
+// A subclass must survive element-type-preserving transforms — otherwise a
+// subclass like EloquentCollection silently degrades to a plain Collection
+// mid-chain and its own methods vanish (a runtime TypeError when called).
+class TaggedCollection<T> extends Collection<T> {
+  tag(): string {
+    return `tagged:${this.count()}`
+  }
+}
+
+describe('Collection subclassing', () => {
+  const c = () => new TaggedCollection(people)
+
+  test('element-type-preserving transforms keep the subclass', () => {
+    for (const [name, result] of [
+      ['filter', c().filter(p => p.role === 'admin')],
+      ['reject', c().reject(p => p.role === 'admin')],
+      ['take', c().take(2)],
+      ['skip', c().skip(1)],
+      ['slice', c().slice(0, 2)],
+      ['reverse', c().reverse()],
+      ['sortBy', c().sortBy('age')],
+      ['sortByDesc', c().sortByDesc('age')],
+      ['unique', c().unique('role')],
+      ['where', c().where('role', 'admin')],
+      ['concat', c().concat([])],
+      ['merge', c().merge([])],
+      ['diff', c().diff([])],
+      ['intersect', c().intersect(people)],
+    ] as const) {
+      expect(result instanceof TaggedCollection, name).toBe(true)
+      expect(typeof (result as TaggedCollection<unknown>).tag, name).toBe('function')
+    }
+  })
+
+  test('partition, groupBy, and chunk batches keep the subclass', () => {
+    const [pass, fail] = c().partition(p => p.role === 'admin')
+    expect(pass instanceof TaggedCollection).toBe(true)
+    expect(fail instanceof TaggedCollection).toBe(true)
+
+    expect(c().groupBy('role').admin instanceof TaggedCollection).toBe(true)
+
+    const batches = c().chunk(2)
+    expect(batches instanceof TaggedCollection).toBe(false) // outer holds collections, not T
+    expect(batches.first() instanceof TaggedCollection).toBe(true)
+  })
+
+  test('element-type-CHANGING transforms fall back to a base Collection', () => {
+    // The result no longer holds the subclass's element type, so keeping the
+    // subclass would be a lie — matches Laravel's own map() behavior.
+    expect(c().map(p => p.name) instanceof TaggedCollection).toBe(false)
+    expect(c().map(p => p.name) instanceof Collection).toBe(true)
+    expect(c().pluck('name') instanceof TaggedCollection).toBe(false)
+    expect(c().flatMap(p => [p.name]) instanceof TaggedCollection).toBe(false)
+    expect(c().flatten() instanceof TaggedCollection).toBe(false)
+  })
+
+  test('chained transforms stay on the subclass the whole way', () => {
+    const result = c().filter(p => p.age > 30).sortBy('age').take(2).reverse()
+    expect(result instanceof TaggedCollection).toBe(true)
+    expect(result.tag()).toBe('tagged:2')
+  })
+})

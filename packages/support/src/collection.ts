@@ -12,6 +12,20 @@ export class Collection<T> implements Iterable<T> {
     return new Collection(items)
   }
 
+  /**
+   * Build a new collection of the SAME subclass. Transforms that keep the
+   * element type (`filter`, `take`, `sortBy`, …) go through this so a subclass
+   * survives the chain — without it, `posts.filter(...)` on an
+   * `EloquentCollection` would silently hand back a plain `Collection` and
+   * lose `find`/`modelKeys`/`load`/`toQuery`. Transforms that CHANGE the
+   * element type (`map`, `pluck`, `flatten`) deliberately don't use this:
+   * their result no longer holds the subclass's element type, so they return
+   * a base `Collection` — the same distinction Laravel draws.
+   */
+  protected newInstance(items: T[]): this {
+    return new (this.constructor as new (items: T[]) => this)(items)
+  }
+
   all(): T[] {
     return this.items
   }
@@ -44,13 +58,13 @@ export class Collection<T> implements Iterable<T> {
     return new Collection(this.items.map(fn))
   }
 
-  filter(fn: (item: T, index: number) => boolean): Collection<T> {
-    return new Collection(this.items.filter(fn))
+  filter(fn: (item: T, index: number) => boolean): this {
+    return this.newInstance(this.items.filter(fn))
   }
 
   /** The inverse of {@link filter} — keep items where `fn` is falsy. */
-  reject(fn: (item: T, index: number) => boolean): Collection<T> {
-    return new Collection(this.items.filter((item, i) => !fn(item, i)))
+  reject(fn: (item: T, index: number) => boolean): this {
+    return this.newInstance(this.items.filter((item, i) => !fn(item, i)))
   }
 
   /** Map then flatten one level. */
@@ -73,7 +87,7 @@ export class Collection<T> implements Iterable<T> {
   }
 
   /** Distinct items — by identity, or by a key/selector's value (first wins). */
-  unique(by?: keyof T | ((item: T) => unknown)): Collection<T> {
+  unique(by?: keyof T | ((item: T) => unknown)): this {
     const select = by === undefined ? (i: T) => i : typeof by === 'function' ? by : (i: T) => i[by]
     const seen = new Set<unknown>()
     const out: T[] = []
@@ -84,50 +98,50 @@ export class Collection<T> implements Iterable<T> {
         out.push(item)
       }
     }
-    return new Collection(out)
+    return this.newInstance(out)
   }
 
-  reverse(): Collection<T> {
-    return new Collection([...this.items].reverse())
+  reverse(): this {
+    return this.newInstance([...this.items].reverse())
   }
 
   /** Like {@link sortBy} but descending. */
-  sortByDesc(by: keyof T | ((item: T) => number | string)): Collection<T> {
+  sortByDesc(by: keyof T | ((item: T) => number | string)): this {
     return this.sortBy(by).reverse()
   }
 
   /** First `n` items (or the last `|n|` when `n` is negative). */
-  take(n: number): Collection<T> {
-    return new Collection(n < 0 ? this.items.slice(n) : this.items.slice(0, n))
+  take(n: number): this {
+    return this.newInstance(n < 0 ? this.items.slice(n) : this.items.slice(0, n))
   }
 
   /** Drop the first `n` items. */
-  skip(n: number): Collection<T> {
-    return new Collection(this.items.slice(n))
+  skip(n: number): this {
+    return this.newInstance(this.items.slice(n))
   }
 
-  slice(start: number, length?: number): Collection<T> {
-    return new Collection(this.items.slice(start, length === undefined ? undefined : start + length))
+  slice(start: number, length?: number): this {
+    return this.newInstance(this.items.slice(start, length === undefined ? undefined : start + length))
   }
 
   /** Append more items (array or Collection), returning a new Collection. */
-  concat(items: T[] | Collection<T>): Collection<T> {
-    return new Collection(this.items.concat(items instanceof Collection ? items.all() : items))
+  concat(items: T[] | Collection<T>): this {
+    return this.newInstance(this.items.concat(items instanceof Collection ? items.all() : items))
   }
 
   /** Alias of {@link concat} (Laravel's `merge` for a list collection). */
-  merge(items: T[] | Collection<T>): Collection<T> {
+  merge(items: T[] | Collection<T>): this {
     return this.concat(items)
   }
 
   /** Items in this collection not present in `items`. */
-  diff(items: T[] | Collection<T>): Collection<T> {
+  diff(items: T[] | Collection<T>): this {
     const other = new Set(items instanceof Collection ? items.all() : items)
     return this.filter(item => !other.has(item))
   }
 
   /** Items present in both this collection and `items`. */
-  intersect(items: T[] | Collection<T>): Collection<T> {
+  intersect(items: T[] | Collection<T>): this {
     const other = new Set(items instanceof Collection ? items.all() : items)
     return this.filter(item => other.has(item))
   }
@@ -209,7 +223,7 @@ export class Collection<T> implements Iterable<T> {
     return new Collection(this.items.map(item => item[key]))
   }
 
-  where<K extends keyof T>(key: K, value: T[K]): Collection<T> {
+  where<K extends keyof T>(key: K, value: T[K]): this {
     return this.filter(item => item[key] === value)
   }
 
@@ -223,18 +237,18 @@ export class Collection<T> implements Iterable<T> {
     return out
   }
 
-  groupBy<K extends keyof T>(key: K): Record<string, Collection<T>> {
+  groupBy<K extends keyof T>(key: K): Record<string, this> {
     const out: Record<string, T[]> = {}
     for (const item of this.items) {
       const k = String(item[key])
       ;(out[k] ??= []).push(item)
     }
-    return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, new Collection(v)]))
+    return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, this.newInstance(v)]))
   }
 
-  sortBy(by: keyof T | ((item: T) => number | string)): Collection<T> {
+  sortBy(by: keyof T | ((item: T) => number | string)): this {
     const select = typeof by === 'function' ? by : (item: T) => item[by] as number | string
-    return new Collection(
+    return this.newInstance(
       [...this.items].sort((a, b) => {
         const av = select(a)
         const bv = select(b)
@@ -265,19 +279,20 @@ export class Collection<T> implements Iterable<T> {
     return Math.max(...this.numbers(by))
   }
 
-  chunk(size: number): Collection<Collection<T>> {
-    const out: Collection<T>[] = []
+  /** Fixed-size batches. Each batch keeps this collection's own type; the outer wrapper is a plain Collection (its elements are collections, not `T`). */
+  chunk(size: number): Collection<this> {
+    const out: this[] = []
     for (let i = 0; i < this.items.length; i += size) {
-      out.push(new Collection(this.items.slice(i, i + size)))
+      out.push(this.newInstance(this.items.slice(i, i + size)))
     }
     return new Collection(out)
   }
 
-  partition(fn: (item: T) => boolean): [Collection<T>, Collection<T>] {
+  partition(fn: (item: T) => boolean): [this, this] {
     const pass: T[] = []
     const fail: T[] = []
     for (const item of this.items) (fn(item) ? pass : fail).push(item)
-    return [new Collection(pass), new Collection(fail)]
+    return [this.newInstance(pass), this.newInstance(fail)]
   }
 
   /** Plain array, unwrapping model-aware items via their `toObject()`. */

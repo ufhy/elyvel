@@ -116,6 +116,31 @@ for (const d of dialects) {
       expect(() => empty.toQuery()).toThrow(/needs at least one model/)
     })
 
+    // Regression: the base Collection used to hardcode `new Collection(...)` in
+    // every transform, so `posts.filter(...)` handed back a PLAIN collection and
+    // every model-aware method silently vanished — calling `.find()` on the
+    // result was a TypeError, not a wrong answer.
+    test('filter/take/sortBy keep the collection model-aware', async () => {
+      const all = await Post.all()
+      const firstKey = all.modelKeys()[0]
+
+      const filtered = all.filter(p => p.getKey() === firstKey)
+      expect(filtered).toBeInstanceOf(EloquentCollection)
+      expect(filtered.find(firstKey)?.getKey()).toBe(firstKey)
+
+      const chained = all.sortBy('title').take(2)
+      expect(chained).toBeInstanceOf(EloquentCollection)
+      expect(chained.modelKeys()).toHaveLength(2)
+      // `toQuery()` is one of the methods that used to disappear mid-chain.
+      expect(typeof chained.toQuery).toBe('function')
+    })
+
+    test('map falls back to a plain Collection (its items are no longer models)', async () => {
+      const titles = (await Post.all()).map(p => p.title)
+      expect(titles).not.toBeInstanceOf(EloquentCollection)
+      expect(titles.all().sort()).toEqual(['One', 'Three', 'Two'])
+    })
+
     test('makeVisible/makeHidden apply to every model in the collection', async () => {
       const all = await Post.all()
       all.makeHidden('title')

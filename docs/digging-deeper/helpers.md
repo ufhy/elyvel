@@ -136,6 +136,17 @@ unless exactly one match), `mapWithKeys`, `reduce`, `each`, `contains`,
 method — this is the hook that lets Eloquent models serialize themselves
 correctly when a collection of them is JSON-stringified.
 
+**Subclasses survive the chain.** Transforms that keep the element type —
+`filter`, `reject`, `take`, `skip`, `slice`, `reverse`, `sortBy`,
+`sortByDesc`, `unique`, `where`, `concat`/`merge`, `diff`, `intersect`,
+`partition`, `groupBy`, and each `chunk` batch — return the *same* subclass
+they were called on, so an `EloquentCollection` stays model-aware all the
+way through `posts.filter(...).sortBy('title').take(5)`. Transforms that
+**change** the element type — `map`, `flatMap`, `pluck`, `flatten` — return
+a plain `Collection`, because their result no longer holds the original
+element type (`posts.map(p => p.title)` is a collection of strings, not of
+models). This is the same distinction Laravel draws.
+
 ::: tip Eloquent query results
 `Model.query().get()` returns an `EloquentCollection`, which **extends**
 this same `Collection` class — every method above already works on query
