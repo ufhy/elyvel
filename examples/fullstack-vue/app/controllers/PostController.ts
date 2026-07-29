@@ -31,7 +31,13 @@ async function storeCoverImage(ctx: MiddlewareContext): Promise<string | undefin
   const file = (ctx.body as Record<string, unknown>).cover_image
   if (!(file instanceof File) || file.size === 0)
     return undefined
-  return storage().putFile('covers', file)
+  const stored = await storage().putFile('covers', file)
+  // A disk left on the default `throw: false` reports a failed write by
+  // returning `false` rather than raising. Persisting the path anyway would
+  // leave the post pointing at an image that isn't there, so fail loudly.
+  if (stored === false)
+    throw new Error('[example] Could not store the cover image.')
+  return stored
 }
 
 export class PostController extends Controller {

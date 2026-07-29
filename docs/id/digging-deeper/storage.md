@@ -71,9 +71,18 @@ storage('s3').get('backups/latest.tar.gz') // disk bernama tertentu, bukan yang 
 route().post('/posts', async ({ body }) => {
   const path = await storage().putFile('covers', body.cover) // nama acak, ekstensi tetap
   await storage().putFileAs('covers', body.cover, 'custom-name.jpg') // nama eksplisit
+  if (path === false)
+    return status(500, { message: 'Upload gagal.' })
   return Post.create({ cover_image: path })
 })
 ```
+
+Keduanya mengembalikan path yang tersimpan, atau **`false`** kalau
+penulisannya gagal — kontrak yang sama seperti `put()`. Di disk yang
+dibiarkan pada default `throw: false`, begitulah kegagalan sampai ke kamu,
+jadi periksa dulu sebelum menyimpan path-nya: kalau tidak, row-nya berakhir
+menunjuk ke file yang tidak pernah ditulis. Set `throw: true` di disk-nya
+kalau kamu lebih suka kegagalan melempar error.
 
 Operasi lain: `prepend(path, data)`/`append(path, data)` (`append` di
 local adalah penulisan `O_APPEND` yang benar-benar atomik; `prepend` di

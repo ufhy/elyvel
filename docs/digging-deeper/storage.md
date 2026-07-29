@@ -71,9 +71,17 @@ storage('s3').get('backups/latest.tar.gz') // a specific named disk instead of t
 route().post('/posts', async ({ body }) => {
   const path = await storage().putFile('covers', body.cover) // random name, extension kept
   await storage().putFileAs('covers', body.cover, 'custom-name.jpg') // explicit name
+  if (path === false)
+    return status(500, { message: 'Upload failed.' })
   return Post.create({ cover_image: path })
 })
 ```
+
+Both return the stored path, or **`false`** if the write failed — the same
+contract as `put()`. On a disk left at the default `throw: false` that's how a
+failure arrives, so check it before persisting the path: otherwise the row
+ends up pointing at a file that was never written. Set `throw: true` on the
+disk if you'd rather have failures raise.
 
 Other operations: `prepend(path, data)`/`append(path, data)` (local's
 `append` is a real atomic `O_APPEND` write; `prepend` on either driver is

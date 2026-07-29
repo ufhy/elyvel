@@ -30,13 +30,20 @@ export interface FilesystemDisk {
   missing(path: string): Promise<boolean>
 
   put(path: string, contents: Contents, visibility?: Visibility): Promise<boolean>
-  putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string>
+  /**
+   * The stored path, or `false` if the write failed — same contract as
+   * {@link put}, whose boolean these used to discard, handing back a path for a
+   * file that was never written (a dangling reference once a caller persists
+   * it). On a disk configured with `throw: true` a failure throws instead, so
+   * `false` only appears in the default lenient mode.
+   */
+  putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string | false>
   putFileAs(
     directory: string,
     file: Storable,
     name: string,
     visibility?: Visibility,
-  ): Promise<string>
+  ): Promise<string | false>
   prepend(path: string, data: string): Promise<boolean>
   append(path: string, data: string): Promise<boolean>
   copy(from: string, to: string): Promise<boolean>
@@ -253,7 +260,7 @@ export class LocalDisk implements FilesystemDisk {
     }
   }
 
-  async putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string> {
+  async putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string | false> {
     return this.putFileAs(directory, file, hashName(extensionOf(file)), visibility)
   }
 
@@ -262,11 +269,12 @@ export class LocalDisk implements FilesystemDisk {
     file: Storable,
     name: string,
     visibility?: Visibility,
-  ): Promise<string> {
+  ): Promise<string | false> {
     assertPlainFilename(name)
     const target = posix.join(directory, name)
-    await this.put(target, await toBytes(file), visibility)
-    return target
+    // Propagate `put`'s result: discarding it returned a path for a file that
+    // was never written, which callers then persisted to the database.
+    return (await this.put(target, await toBytes(file), visibility)) ? target : false
   }
 
   /**
@@ -527,7 +535,7 @@ export class S3Disk implements FilesystemDisk {
     return true
   }
 
-  async putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string> {
+  async putFile(directory: string, file: Storable, visibility?: Visibility): Promise<string | false> {
     return this.putFileAs(directory, file, hashName(extensionOf(file)), visibility)
   }
 
@@ -536,11 +544,12 @@ export class S3Disk implements FilesystemDisk {
     file: Storable,
     name: string,
     visibility?: Visibility,
-  ): Promise<string> {
+  ): Promise<string | false> {
     assertPlainFilename(name)
     const target = posix.join(directory, name)
-    await this.put(target, await toBytes(file), visibility)
-    return target
+    // Propagate `put`'s result: discarding it returned a path for a file that
+    // was never written, which callers then persisted to the database.
+    return (await this.put(target, await toBytes(file), visibility)) ? target : false
   }
 
   /**
@@ -736,11 +745,13 @@ export class ScopedDisk implements FilesystemDisk {
   }
 
   async putFile(directory: string, file: Storable, visibility?: Visibility) {
-    return this.strip(await this.inner.putFile(this.p(directory), file, visibility))
+    const stored = await this.inner.putFile(this.p(directory), file, visibility)
+    return stored === false ? false : this.strip(stored)
   }
 
   async putFileAs(directory: string, file: Storable, name: string, visibility?: Visibility) {
-    return this.strip(await this.inner.putFileAs(this.p(directory), file, name, visibility))
+    const stored = await this.inner.putFileAs(this.p(directory), file, name, visibility)
+    return stored === false ? false : this.strip(stored)
   }
 
   prepend(path: string, data: string) {

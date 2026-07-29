@@ -139,6 +139,29 @@ describe('LocalDisk — uploads (putFile/putFileAs)', () => {
     expect(Array.from(await disk.getBytes(path))).toEqual([9, 8, 7])
   })
 
+  // Regression: `putFileAs` discarded `put()`'s boolean and returned the path
+  // regardless, so a failed write handed back a path callers persist to the
+  // database — a reference to a file that was never written.
+  test('a failed write returns false, not a path', async () => {
+    const disk = makeDisk()
+    // Writing under a path whose parent is a FILE cannot succeed (ENOTDIR).
+    await disk.put('blocker', 'x')
+    expect(await disk.putFileAs('blocker', new Blob(['y']), 'child.bin')).toBe(false)
+    expect(await disk.exists('blocker/child.bin')).toBe(false)
+    expect(await disk.putFile('blocker', new Blob(['y']))).toBe(false)
+
+    // A write that CAN succeed still returns its path.
+    expect(await disk.putFileAs('ok', new Blob(['y']), 'child.bin')).toBe('ok/child.bin')
+  })
+
+  test('ScopedDisk propagates a failed write instead of stripping false', async () => {
+    const base = makeDisk()
+    const scoped = new ScopedDisk(base, 'tenant')
+    await base.put('tenant/blocker', 'x')
+    expect(await scoped.putFileAs('blocker', new Blob(['y']), 'child.bin')).toBe(false)
+    expect(await scoped.putFileAs('ok', new Blob(['y']), 'child.bin')).toBe('ok/child.bin')
+  })
+
   test('putFile generates a unique name, preserving the extension', async () => {
     const disk = makeDisk()
     const blob = new File(['content'], 'photo.jpg', { type: 'image/jpeg' })
