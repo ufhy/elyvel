@@ -59,7 +59,24 @@ await cache().rememberForever('site.settings', () => Settings.first())
 Pemanggil konkuren yang berebut key yang sama saat cold/expired digabungkan
 dalam satu proses — hanya pemanggil pertama yang benar-benar menjalankan
 factory; sisanya menunggu hasilnya, alih-alih semuanya membebani sumber data
-asli (thundering herd saat key populer expired).
+asli (thundering herd saat key populer expired). View bertag
+(`cache().tags(...).remember(...)`) mendapat coalescing yang sama.
+
+::: warning `add` dan `pull` tidak atomik
+Keduanya adalah baca lalu tulis dengan `await` di antaranya, jadi dua
+pemanggil konkuren untuk key yang sama bisa sama-sama "menang": `add()` bisa
+mengembalikan `true` dua kali, dan `pull()` bisa menyerahkan nilai one-shot
+yang sama ke dua pemanggil. Jangan bangun guard sekali-jalan (kirim-email-ini-
+sekali, dispatch-job-ini-sekali) atau token sekali-pakai hanya di atasnya —
+pakai unique constraint database, atau dukungan unique-job milik queue, di
+tempat jaminannya memang harus dipegang.
+
+`increment()` tidak membuat atau menyegarkan window: increment pada key yang
+TTL-nya sudah lewat memulai counter baru **tanpa** expiry (sama seperti
+`INCRBY` Redis). Untuk rolling window, `put()` dulu key-nya dengan TTL — atau
+pakai [Rate Limiting](/id/digging-deeper/rate-limiting), yang mengelola
+window-nya untukmu.
+:::
 
 ## Tag
 

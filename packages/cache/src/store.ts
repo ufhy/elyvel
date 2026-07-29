@@ -53,9 +53,15 @@ export class MemoryStore implements CacheStore {
 
   async increment(key: string, by = 1): Promise<number> {
     const entry = this.entries.get(key)
-    const current = entry && !expired(entry, Date.now()) ? Number(entry.value) : 0
+    const alive = entry !== undefined && !expired(entry, Date.now())
+    const current = alive ? Number(entry.value) : 0
     const next = current + by
-    this.entries.set(key, { value: next, expiresAt: entry?.expiresAt })
+    // Carry the window forward only while the entry is still alive. Reusing an
+    // ALREADY-PAST `expiresAt` wrote a value that was expired on arrival, so a
+    // counter reset to 0 by expiry could never climb past 1 again — every
+    // subsequent increment re-read 0 and re-stored a dead entry. A counter that
+    // silently stops counting is worse than one that resets.
+    this.entries.set(key, { value: next, expiresAt: alive ? entry.expiresAt : undefined })
     return next
   }
 
@@ -260,8 +266,30 @@ export class RedisStore implements CacheStore {
     await this.client.send('DEL', [this.k(key)])
   }
 
+  /**
+   * Delete only THIS store's keys. `FLUSHDB` would wipe the entire Redis
+   * database — and the `prefix` option exists precisely because that database
+   * is normally shared with sessions, throttle counters and the queue, so
+   * `cache().flush()` used to destroy all of those too. Scans instead of
+   * `KEYS` so a large keyspace doesn't block the server.
+   */
   async flush(): Promise<void> {
-    await this.client.send('FLUSHDB', [])
+    let cursor = '0'
+    do {
+      const reply = (await this.client.send('SCAN', [
+        cursor,
+        'MATCH',
+        `${this.prefix}*`,
+        'COUNT',
+        '500',
+      ])) as [string, string[]] | null
+      if (!reply)
+        break
+      cursor = reply[0]
+      const keys = reply[1] ?? []
+      if (keys.length > 0)
+        await this.client.send('DEL', keys)
+    } while (cursor !== '0')
   }
 
   async increment(key: string, by = 1): Promise<number> {

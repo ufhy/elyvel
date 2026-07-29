@@ -1,4 +1,5 @@
 import type { CacheStore } from './store'
+import { coalesce } from './coalesce'
 import { TaggedCache } from './tagged-cache'
 
 /**
@@ -17,7 +18,6 @@ export class Repository {
   // every instance already dedupes its own concurrent callers, an N-instance
   // fleet still goes from "however many concurrent requests landed" down to
   // "at most N" factory() calls, not eliminated but substantially reduced.
-  private readonly inFlight = new Map<string, Promise<unknown>>()
 
   constructor(private readonly store: CacheStore) {}
 
@@ -115,13 +115,12 @@ export class Repository {
     })
   }
 
-  /** Run `compute` once per key, sharing the result with any concurrent caller. */
+  /**
+   * Run `compute` once per key, sharing the result with any concurrent caller.
+   * Keyed on the STORE (see `coalesce.ts`) so a tagged view of the same cache
+   * shares the same in-flight work instead of stampeding alongside it.
+   */
   private coalesce<T>(key: string, compute: () => Promise<T>): Promise<T> {
-    const pending = this.inFlight.get(key) as Promise<T> | undefined
-    if (pending)
-      return pending
-    const promise = compute().finally(() => this.inFlight.delete(key))
-    this.inFlight.set(key, promise)
-    return promise
+    return coalesce(this.store, key, compute)
   }
 }

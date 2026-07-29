@@ -1,5 +1,6 @@
 import type { CacheStore } from './store'
 import { createHash, randomUUID } from 'node:crypto'
+import { coalesce } from './coalesce'
 
 /**
  * A tag-scoped view over a {@link CacheStore} — Laravel's `Cache::tags(...)`.
@@ -24,15 +25,33 @@ export class TaggedCache {
     return `tag:${name}:version`
   }
 
-  /** The current version id for a tag, creating (and persisting forever) one if absent. */
+  /**
+   * The current version id for a tag, creating (and persisting forever) one if
+   * absent.
+   *
+   * The create path is coalesced because it's a check-then-act across an
+   * `await`: on a cold tag, concurrent callers all saw `undefined`, each minted
+   * a DIFFERENT `randomUUID()`, and each persisted it — so whoever wrote last
+   * won and every other caller's data was already stored under a namespace
+   * nobody would look up again. Those writes reported success and the values
+   * simply vanished. Coalescing on the version key makes concurrent callers
+   * share one creation, so they agree on the namespace.
+   */
   private async tagVersion(name: string): Promise<string> {
     const key = this.tagVersionKey(name)
     const existing = await this.store.get<string>(key)
     if (existing !== undefined)
       return existing
-    const version = randomUUID()
-    await this.store.put(key, version) // forever
-    return version
+    return coalesce(this.store, `version:${key}`, async () => {
+      // Re-read inside the coalesced section: a writer may have landed between
+      // our miss above and our turn here.
+      const raced = await this.store.get<string>(key)
+      if (raced !== undefined)
+        return raced
+      const version = randomUUID()
+      await this.store.put(key, version) // forever
+      return version
+    })
   }
 
   /** Namespace prefix derived from every tag's current version. */
@@ -93,22 +112,35 @@ export class TaggedCache {
     return value === undefined ? fallback : value
   }
 
+  /**
+   * As `Repository.remember`, including its stampede coalescing — this used to
+   * duplicate the logic WITHOUT it, so merely adding `.tags(...)` silently
+   * dropped the protection and a cold key ran the factory once per concurrent
+   * caller. Coalesced on the resolved (namespaced) key so it lines up with the
+   * untagged path.
+   */
   async remember<T>(key: string, seconds: number, factory: () => T | Promise<T>): Promise<T> {
     const existing = await this.get<T>(key)
     if (existing !== undefined)
       return existing
-    const value = await factory()
-    await this.put(key, value, seconds)
-    return value
+    const real = await this.k(key)
+    return coalesce(this.store, real, async () => {
+      const value = await factory()
+      await this.store.put(real, value, seconds)
+      return value
+    })
   }
 
   async rememberForever<T>(key: string, factory: () => T | Promise<T>): Promise<T> {
     const existing = await this.get<T>(key)
     if (existing !== undefined)
       return existing
-    const value = await factory()
-    await this.forever(key, value)
-    return value
+    const real = await this.k(key)
+    return coalesce(this.store, real, async () => {
+      const value = await factory()
+      await this.store.put(real, value)
+      return value
+    })
   }
 
   /**

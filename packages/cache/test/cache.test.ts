@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, test } from 'bun:test'
 import { cache, CacheManager, setDefaultCache } from '../src/manager'
 import { Repository } from '../src/repository'
-import { FileStore, MemoryStore } from '../src/store'
+import { FileStore, MemoryStore, RedisStore } from '../src/store'
 
 const dir = mkdtempSync(join(tmpdir(), 'cache-'))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
@@ -234,5 +234,79 @@ describe('CacheManager + cache() helper', () => {
     await cache().put('hello', 'world')
     expect(await cache().get('hello')).toBe('world')
     expect(manager.store('memory')).toBe(manager.store()) // same default instance
+  })
+})
+
+// Regression suite for a 2026-07-29 correctness audit. Each of these passed
+// review by inspection and failed the moment it was actually run concurrently.
+describe('cache concurrency + expiry regressions', () => {
+  test('increment past an expired window keeps counting', async () => {
+    // `expiresAt` used to be copied from the ALREADY-EXPIRED entry, so the
+    // rewritten value was dead on arrival: the counter reset to 1 and then
+    // could never climb past it. A counter that silently stops counting is
+    // worse than one that resets.
+    const store = new MemoryStore()
+    await store.put('hits', 5, 0.02)
+    await new Promise(resolve => setTimeout(resolve, 40))
+    expect(await store.increment('hits')).toBe(1)
+    expect(await store.increment('hits')).toBe(2)
+  })
+
+  test('concurrent writes to a cold tag do not lose data', async () => {
+    // Each concurrent caller used to mint its own tag version, so all but the
+    // last wrote under a namespace nobody would read again — and reported
+    // success while doing it.
+    const cache = new Repository(new MemoryStore())
+    await Promise.all([
+      cache.tags('posts').put('x', 1),
+      cache.tags('posts').put('y', 2),
+    ])
+    expect(await cache.tags('posts').get('x')).toBe(1)
+    expect(await cache.tags('posts').get('y')).toBe(2)
+  })
+
+  test('tags().remember() coalesces like the untagged path', async () => {
+    const cache = new Repository(new MemoryStore())
+    let runs = 0
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        cache.tags('t').remember('k', 60, async () => {
+          runs++
+          return 'computed'
+        })),
+    )
+    expect(runs).toBe(1) // was 10 — adding .tags() silently dropped protection
+    expect(results.every(r => r === 'computed')).toBe(true)
+  })
+
+  test('flushing one tag still leaves other tags alone', async () => {
+    const cache = new Repository(new MemoryStore())
+    await cache.tags('a').put('ka', 1)
+    await cache.tags('b').put('kb', 2)
+    await cache.tags('a').flush()
+    expect(await cache.tags('a').get('ka')).toBeUndefined()
+    expect(await cache.tags('b').get('kb')).toBe(2)
+  })
+
+  test('RedisStore.flush deletes only its own prefix, not the whole database', async () => {
+    // Was FLUSHDB, which also destroyed sessions/throttle/queue state living
+    // in the same (shared) Redis database.
+    const keys = new Map([['cache:one', '1'], ['cache:two', '2'], ['sess:keep', 'x']])
+    const commands: string[] = []
+    const client = {
+      async send(command: string, args: string[]) {
+        commands.push(command)
+        if (command === 'SCAN')
+          return ['0', [...keys.keys()].filter(k => k.startsWith('cache:'))]
+        if (command === 'DEL') {
+          for (const k of args) keys.delete(k)
+          return args.length
+        }
+        return null
+      },
+    }
+    await new RedisStore(client).flush()
+    expect(commands).not.toContain('FLUSHDB')
+    expect([...keys.keys()]).toEqual(['sess:keep'])
   })
 })

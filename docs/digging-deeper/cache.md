@@ -58,7 +58,23 @@ await cache().rememberForever('site.settings', () => Settings.first())
 Concurrent callers racing the same cold/expired key are coalesced within one
 process — only the first caller actually runs the factory; the rest await its
 result, instead of every one of them hitting the origin (thundering herd on a
-popular key's expiry).
+popular key's expiry). Tagged views (`cache().tags(...).remember(...)`) get
+the same coalescing.
+
+::: warning `add` and `pull` are not atomic
+Both are a read followed by a write with an `await` in between, so two
+concurrent callers for the same key can both "win": `add()` can return `true`
+twice, and `pull()` can hand the same one-shot value to two callers. Don't
+build a once-only guard (send-this-email-once, dispatch-this-job-once) or a
+single-use token on them alone — use a database unique constraint, or the
+queue's own unique-job support, where the guarantee has to hold.
+
+`increment()` doesn't create or refresh a window: incrementing a key whose
+TTL has elapsed starts a fresh counter with **no** expiry (matching Redis
+`INCRBY`). For a rolling window, `put()` the key with a TTL first — or use
+[Rate Limiting](/digging-deeper/rate-limiting), which manages the window for
+you.
+:::
 
 ## Tags
 
