@@ -84,6 +84,19 @@ function setPath(out: Data, path: string, value: unknown): void {
   node[segments[segments.length - 1] as string] = value
 }
 
+/**
+ * A comparable key for `distinct`. Loose by default (Laravel's semantics):
+ * `1` and `'1'` collide, and structurally-equal objects collide. `strict`
+ * falls back to reference/type identity.
+ */
+function distinctKey(value: unknown, strict: boolean): unknown {
+  if (strict)
+    return value
+  if (value !== null && typeof value === 'object')
+    return JSON.stringify(value)
+  return String(value)
+}
+
 function isRuleObject(entry: unknown): entry is RuleObject {
   return (
     typeof entry === 'object'
@@ -235,7 +248,14 @@ export class Validator {
       const paths = expandKey(ruleKey, this.data)
 
       // Precompute values for `distinct` (unique across the wildcard group).
-      const distinctValues = names.has('distinct') ? paths.map(p => getValue(this.data, p)) : null
+      // Compared by a stable string form, not `===`: Laravel's `distinct` is
+      // non-strict, so `[1, '1']` is a duplicate, and object identity is the
+      // wrong notion of equality — `[{a:1}, {a:1}]` are duplicates too, but
+      // `===` saw two distinct references. `distinct:strict` opts into `===`.
+      const distinctStrict = parsed.some(r => r.name === 'distinct' && r.args.includes('strict'))
+      const distinctKeys = names.has('distinct')
+        ? paths.map(p => distinctKey(getValue(this.data, p), distinctStrict))
+        : null
 
       for (const path of paths) {
         const value = getValue(this.data, path)
@@ -255,7 +275,8 @@ export class Validator {
             continue
 
           if (name === 'distinct') {
-            const dupes = distinctValues?.filter(x => x === value).length ?? 0
+            const key = distinctKey(value, distinctStrict)
+            const dupes = distinctKeys?.filter(x => x === key).length ?? 0
             if (dupes > 1) {
               add(
                 formatMessage({

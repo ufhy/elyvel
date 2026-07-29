@@ -51,6 +51,11 @@ function isIpv4(value: string): boolean {
   return value.split('.').every(octet => Number(octet) <= 255)
 }
 
+/** A primitive a rule can meaningfully compare with `String(...)`. */
+function isScalar(value: unknown): boolean {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+}
+
 function isFile(value: unknown): value is Blob {
   return typeof Blob !== 'undefined' && value instanceof Blob
 }
@@ -389,8 +394,13 @@ export const RULES: Record<string, Rule> = {
   lowercase: { validate: v => String(v) === String(v).toLowerCase() },
 
   // membership / string content
-  in: { validate: (v, args) => args.includes(String(v)) },
-  not_in: { validate: (v, args) => !args.includes(String(v)) },
+  // A non-scalar can't be "in" a list of scalars. Stringifying it compared
+  // `String(['x','admin'])` === `'x,admin'`, so an ARRAY sailed through both:
+  // `['active']` satisfied `in:active,banned`, and worse, `['x','admin']`
+  // satisfied `not_in:admin,root` — a denylist bypass by sending an array
+  // where a string was expected.
+  in: { validate: (v, args) => isScalar(v) && args.includes(String(v)) },
+  not_in: { validate: (v, args) => isScalar(v) && !args.includes(String(v)) },
   in_array: {
     validate: (v, args, data) => {
       const other = getValue(data, (args[0] ?? '').replace(/\.\*$/, ''))
@@ -415,6 +425,10 @@ export const RULES: Record<string, Rule> = {
   },
   decimal: {
     validate: (v, args) => {
+      // Only counted digits after the dot, so `'a.bc'` "had 2 decimal places"
+      // and passed `decimal:2`. It has to be a number first.
+      if (!isNumeric(v))
+        return false
       const dp = String(v).split('.')[1]?.length ?? 0
       if (args[1] !== undefined)
         return dp >= Number(args[0]) && dp <= Number(args[1])

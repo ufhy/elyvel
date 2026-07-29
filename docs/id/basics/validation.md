@@ -260,6 +260,18 @@ rules(): Rules {
 }
 ```
 
+Perbandingannya loose, sama seperti Laravel — `1` dan `'1'` dihitung
+duplikat, begitu juga dua object yang strukturnya sama. Pakai
+`distinct:strict` untuk membandingkan berdasarkan tipe dan identitas.
+
+::: tip `in` / `not_in` butuh scalar
+Keduanya menolak non-scalar secara langsung alih-alih men-stringify-nya.
+Kirim array di tempat string diharapkan, ia akan gagal validasi — *tidak*
+diratakan jadi string yang digabung koma yang bisa lolos dari denylist
+`not_in`. Validasi bentuknya juga (`string`, atau `array` + `tags.*`) supaya
+pesan error-nya menunjuk masalah yang sebenarnya.
+:::
+
 Path bertitik juga bekerja di mana pun sebuah rule menyebut field **lain** —
 `required_if:address.country,ID`, `same:user.password`, `lte:limits.max`,
 `exclude_unless:address.country,ID`, dan seterusnya.

@@ -302,3 +302,35 @@ describe('size, emptiness, regex and scheme rules', () => {
     expect(await passes({ i: '10.0.0.1' }, { i: 'ip' })).toBe(true)
   })
 })
+
+describe('scalar comparison rules reject non-scalars', () => {
+  const passes = (data: Record<string, unknown>, rules: Record<string, string>) =>
+    Validator.make(data, rules).validate().then(() => true, () => false)
+
+  test('in / not_in do not stringify an array into the comparison', async () => {
+    // `String(['x','admin'])` is `'x,admin'`, so an array sent where a string
+    // was expected slipped past BOTH — including `not_in`, a denylist bypass.
+    expect(await passes({ s: ['active'] }, { s: 'in:active,banned' })).toBe(false)
+    expect(await passes({ r: ['x', 'admin'] }, { r: 'not_in:admin,root' })).toBe(false)
+    // scalars keep working
+    expect(await passes({ s: 'active' }, { s: 'in:active,banned' })).toBe(true)
+    expect(await passes({ n: 5 }, { n: 'in:5,6' })).toBe(true)
+    expect(await passes({ r: 'user' }, { r: 'not_in:admin,root' })).toBe(true)
+    expect(await passes({ r: 'admin' }, { r: 'not_in:admin,root' })).toBe(false)
+  })
+
+  test('distinct compares loosely by default, strictly on request', async () => {
+    expect(await passes({ t: [1, '1'] }, { 't.*': 'distinct' })).toBe(false) // Laravel: a duplicate
+    expect(await passes({ t: [{ a: 1 }, { a: 1 }] }, { 't.*': 'distinct' })).toBe(false) // not identity
+    expect(await passes({ t: [1, '1'] }, { 't.*': 'distinct:strict' })).toBe(true)
+    expect(await passes({ t: [1, 2] }, { 't.*': 'distinct' })).toBe(true)
+    expect(await passes({ t: [1, 1] }, { 't.*': 'distinct' })).toBe(false)
+  })
+
+  test('decimal requires the value to be numeric at all', async () => {
+    expect(await passes({ d: 'a.bc' }, { d: 'decimal:2' })).toBe(false) // "2 decimal places"
+    expect(await passes({ d: '1.23' }, { d: 'decimal:2' })).toBe(true)
+    expect(await passes({ d: '1.2' }, { d: 'decimal:2' })).toBe(false)
+    expect(await passes({ d: '1.234' }, { d: 'decimal:2,4' })).toBe(true)
+  })
+})

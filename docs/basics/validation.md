@@ -257,6 +257,18 @@ rules(): Rules {
 }
 ```
 
+Comparison is loose, matching Laravel — `1` and `'1'` count as duplicates, and
+so do two structurally-equal objects. Use `distinct:strict` to compare by
+type and identity instead.
+
+::: tip `in` / `not_in` need a scalar
+Both reject a non-scalar outright rather than stringifying it. Send an array
+where a string was expected and it fails validation — it does *not* get
+flattened into a comma-joined string that could slip past a `not_in` denylist.
+Validate the shape too (`string`, or `array` + `tags.*`) so the error names the
+real problem.
+:::
+
 A dotted path also works wherever a rule names **another** field —
 `required_if:address.country,ID`, `same:user.password`, `lte:limits.max`,
 `exclude_unless:address.country,ID`, and so on.
