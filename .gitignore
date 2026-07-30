@@ -3,6 +3,9 @@ dist
 *.tsbuildinfo
 .env
 .env.local
+
+# npm auth tokens — a project-level .npmrc holds a publish token in plaintext
+.npmrc
 .DS_Store
 bun.lockb
 # runtime databases (anywhere, incl. examples/*/database)
