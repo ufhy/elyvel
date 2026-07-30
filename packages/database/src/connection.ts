@@ -32,6 +32,16 @@ export interface Connection {
   readonly grammar: Grammar
   select<T = Record<string, unknown>>(sql: string, bindings?: Bindings): Promise<T[]>
   statement(sql: string, bindings?: Bindings): Promise<void>
+  /**
+   * Run a statement and report how many rows it changed, à la Laravel's
+   * `DB::affectingStatement` — what `update()`/`delete()` return.
+   *
+   * Optional so an existing custom `Connection` keeps compiling; every built-in
+   * driver implements it. A connection without it can still run updates and
+   * deletes, but cannot report a count, and the query builder says so rather than
+   * inventing a `0`.
+   */
+  affectingStatement?(sql: string, bindings?: Bindings): Promise<number>
   /** Run raw SQL with no bindings (e.g. multi-statement DDL), à la `DB::unprepared`. */
   unprepared(sql: string): Promise<void>
   /**
@@ -173,7 +183,14 @@ export async function createConnection(config: ConnectionConfig): Promise<Connec
 
 type RawConnection = Pick<
   Connection,
-  'dialect' | 'grammar' | 'select' | 'statement' | 'unprepared' | 'close' | 'insertGetId'
+  | 'dialect'
+  | 'grammar'
+  | 'select'
+  | 'statement'
+  | 'affectingStatement'
+  | 'unprepared'
+  | 'close'
+  | 'insertGetId'
 >
 
 type ConfigOverride = Record<string, unknown> | undefined
@@ -258,6 +275,12 @@ function composeReadWrite(
       if (endsTransaction)
         txSticky = false
     },
+    affectingStatement: write.affectingStatement
+      ? async (sql, bindings) => {
+        markWrite()
+        return write.affectingStatement!(sql, bindings)
+      }
+      : undefined,
     unprepared: (sql) => {
       markWrite()
       return write.unprepared(sql)
@@ -393,6 +416,14 @@ function withQueryLog(base: RawConnection): Connection {
       const b = bindNamed(sql, bindings, base.grammar)
       return withAccess(() => stmt(b.sql, b.bindings))
     },
+    affectingStatement: base.affectingStatement
+      ? (sql, bindings = []) => {
+          const b = bindNamed(sql, bindings, base.grammar)
+          return withAccess(() =>
+            record(b.sql, b.bindings, () => base.affectingStatement!(b.sql, b.bindings)),
+          )
+        }
+      : undefined,
     unprepared: sql => withAccess(() => record(sql, [], () => base.unprepared(sql))),
     insertGetId: base.insertGetId
       ? (sql, bindings = []) => {
@@ -513,6 +544,8 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         statement: async (sql, bindings = []) => {
           db.query(sql).run(...(bindings as never[]))
         },
+        affectingStatement: async (sql, bindings = []) =>
+          db.query(sql).run(...(bindings as never[])).changes,
         unprepared: async (sql) => {
           db.exec(sql)
         },
@@ -533,6 +566,8 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         statement: async (sql, bindings = []) => {
           await client.query(sql, bindings as unknown[])
         },
+        affectingStatement: async (sql, bindings = []) =>
+          (await client.query(sql, bindings as unknown[])).affectedRows ?? 0,
         unprepared: async (sql) => {
           await client.exec(sql)
         },
@@ -557,6 +592,8 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         dialect: 'pg',
         grammar: grammarFor('pg'),
         select: async (sql, bindings = []) => client.unsafe(sql, bindings as never[]) as never,
+        affectingStatement: async (sql, bindings = []) =>
+          (await client.unsafe(sql, bindings as never[])).count,
         statement: async (sql, bindings = []) => {
           await client.unsafe(sql, bindings as never[])
         },
@@ -595,6 +632,8 @@ async function buildConnection(config: ConnectionConfig): Promise<RawConnection>
         statement: async (sql, bindings = []) => {
           await run(sql, bindings as unknown[])
         },
+        affectingStatement: async (sql, bindings = []) =>
+          Number((await run(sql, bindings as unknown[])).numAffectedRows ?? 0n),
         unprepared: async (sql) => {
           await run(sql)
         },

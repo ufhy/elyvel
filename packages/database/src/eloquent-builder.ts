@@ -6,6 +6,18 @@ import { LazyCollection } from '@elyvel/support'
 import { BelongsTo, eagerLoad, MorphTo } from './relations'
 
 type Row = Record<string, unknown>
+/** What {@link EloquentBuilder.whereAttachedTo} accepts: one model, an array, or a collection. */
+export type AttachedTarget = Model | Model[] | EloquentCollection<Model>
+
+function toModelList(related: AttachedTarget): Model[] {
+  if (Array.isArray(related))
+    return related
+  // An EloquentCollection is iterable; a bare Model is not.
+  if (typeof (related as { all?: unknown }).all === 'function')
+    return (related as EloquentCollection<Model>).all()
+  return [related as Model]
+}
+
 /** Constrain a relation's query in `with`/`whereHas` (loosely typed by design). */
 export type EagerConstraint = (query: any) => void
 
@@ -167,6 +179,45 @@ export class EloquentBuilder<M extends Model> {
   orWhereDoesntHave(name: string, constrain?: EagerConstraint): this {
     this.hasSpecs.push({ name, constrain, boolean: 'OR', negate: true })
     return this
+  }
+
+  /**
+   * Rows attached to the given related model(s) through a `belongsToMany`
+   * relation — Laravel's `whereAttachedTo`.
+   *
+   * Sugar over {@link whereHas}, constraining the relation to those specific
+   * related keys:
+   *
+   * ```ts
+   * const tag = await Tag.findOrFail(3)
+   * await Post.query().whereAttachedTo('tags', tag).get()      // one model
+   * await Post.query().whereAttachedTo('tags', await Tag.query().get()).get()
+   * ```
+   */
+  whereAttachedTo(name: string, related: AttachedTarget): this {
+    return this.constrainAttached(name, related, false)
+  }
+
+  /** The negation: rows NOT attached to any of the given related model(s). */
+  whereNotAttachedTo(name: string, related: AttachedTarget): this {
+    return this.constrainAttached(name, related, true)
+  }
+
+  private constrainAttached(name: string, related: AttachedTarget, negate: boolean): this {
+    const models = toModelList(related)
+    if (models.length === 0) {
+      // Attached to nothing matches nothing — and "not attached to nothing"
+      // matches everything. Say so directly rather than building a subquery over
+      // an empty key list, which also spares us guessing the key column when
+      // there's no model to read it from.
+      if (!negate)
+        this.qb.whereRaw('1 = 0')
+      return this
+    }
+    const keyName = (models[0]!.constructor as typeof Model).primaryKey
+    const keys = models.map(model => model.getKey())
+    const constrain: EagerConstraint = query => void query.whereIn(keyName, keys)
+    return negate ? this.whereDoesntHave(name, constrain) : this.whereHas(name, constrain)
   }
 
   /**
@@ -615,14 +666,16 @@ export class EloquentBuilder<M extends Model> {
     return this.qb.count()
   }
 
-  async update(values: Row): Promise<void> {
+  /** Mass-update the matched rows; resolves to how many changed. */
+  async update(values: Row): Promise<number> {
     this.prepare()
-    await this.qb.update(values)
+    return this.qb.update(values)
   }
 
-  async delete(): Promise<void> {
+  /** Delete the matched rows; resolves to how many were removed. */
+  async delete(): Promise<number> {
     this.prepare()
-    await this.qb.delete()
+    return this.qb.delete()
   }
 
   increment(column: string, amount = 1, extra: Row = {}): Promise<void> {

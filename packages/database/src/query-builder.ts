@@ -1370,14 +1370,35 @@ export class QueryBuilder {
     return insertId == null ? { ...values } : { ...values, [key]: insertId }
   }
 
-  async update(values: Row): Promise<void> {
+  /** Run the UPDATE; resolves to the number of rows changed (Laravel's `update`). */
+  async update(values: Row): Promise<number> {
     const g = this.connection.grammar
     const bindings: unknown[] = []
     const sets = Object.entries(values).map(
       ([col, val]) => `${g.wrap(col)} = ${this.bind(val, bindings)}`,
     )
     const sql = `UPDATE ${g.wrap(this.table)} SET ${sets.join(', ')}${this.compileWheres(bindings)}`
+    return this.affecting(sql, bindings)
+  }
+
+  /**
+   * Run a write and report the rows it changed.
+   *
+   * Every built-in driver implements `affectingStatement`. A custom `Connection`
+   * that predates it can't report a count, and returning `0` would be a lie the
+   * caller can't detect — the whole point of the return value is to branch on it
+   * ("nothing matched, so 404"). So the statement still runs, and only *reading*
+   * the count fails, with a message naming the fix.
+   */
+  private async affecting(sql: string, bindings: unknown[]): Promise<number> {
+    if (this.connection.affectingStatement)
+      return this.connection.affectingStatement(sql, bindings)
     await this.connection.statement(sql, bindings)
+    throw new Error(
+      '[elyvel] This connection cannot report affected rows: it does not implement '
+      + '`affectingStatement`. The statement DID run. Implement '
+      + '`affectingStatement(sql, bindings)` on the connection to get a count.',
+    )
   }
 
   private async crement(
@@ -1413,11 +1434,12 @@ export class QueryBuilder {
     return this.crement(changes, extra)
   }
 
-  async delete(): Promise<void> {
+  /** Run the DELETE; resolves to the number of rows removed (Laravel's `delete`). */
+  async delete(): Promise<number> {
     const g = this.connection.grammar
     const bindings: unknown[] = []
     const sql = `DELETE FROM ${g.wrap(this.table)}${this.compileWheres(bindings)}`
-    await this.connection.statement(sql, bindings)
+    return this.affecting(sql, bindings)
   }
 
   /** Empty the table. Uses TRUNCATE on Postgres/MySQL, DELETE on SQLite. */

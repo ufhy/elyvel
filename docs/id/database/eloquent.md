@@ -334,7 +334,19 @@ await Post.query().whereBelongsTo(user, 'author').get()
 // Untuk relasi morphTo, batasi ke satu model tertentu (type DAN key)
 await Comment.query().whereMorphedTo('commentable', post).get()
 await Comment.query().whereNotMorphedTo('commentable', post).get()
+
+// Untuk relasi belongsToMany, batasi ke model terlampir tertentu —
+// satu model, sebuah array, atau sebuah collection
+await Post.query().whereAttachedTo('tags', tag).get()
+await Post.query().whereAttachedTo('tags', [php, js]).get()
+await Post.query().whereAttachedTo('tags', await Tag.query().get()).get()
+await Post.query().whereNotAttachedTo('tags', tag).get()
 ```
+
+`whereAttachedTo` dengan list kosong tidak mencocokkan apa pun, dan
+`whereNotAttachedTo` dengan list kosong mencocokkan semuanya — "tidak terlampir
+ke salah satu dari ini" bernilai benar secara hampa ketika tidak ada model untuk
+dilampiri.
 
 ### Collection
 
@@ -351,7 +363,7 @@ users.contains(someUser)          // berdasarkan model, key, atau predicate
 users.only(1, 2)                  // hanya primary key ini
 users.except(1, 2)                // semua primary key SELAIN ini
 await users.fresh()               // ambil ulang setiap model di collection dari DB
-await users.toQuery().update({ active: true }) // bulk-update set yang sudah di-fetch
+await users.toQuery().update({ active: true }) // bulk-update; resolve ke jumlah row
 users.makeHidden('email')         // sembunyikan attribute di setiap model (chainable)
 users.makeVisible('email')
 ```

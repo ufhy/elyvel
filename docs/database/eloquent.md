@@ -330,7 +330,18 @@ await Post.query().whereBelongsTo(user, 'author').get()
 // For a morphTo relation, constrain to one specific model (type AND key)
 await Comment.query().whereMorphedTo('commentable', post).get()
 await Comment.query().whereNotMorphedTo('commentable', post).get()
+
+// For a belongsToMany relation, constrain to specific attached models —
+// one model, an array, or a collection
+await Post.query().whereAttachedTo('tags', tag).get()
+await Post.query().whereAttachedTo('tags', [php, js]).get()
+await Post.query().whereAttachedTo('tags', await Tag.query().get()).get()
+await Post.query().whereNotAttachedTo('tags', tag).get()
 ```
+
+`whereAttachedTo` with an empty list matches nothing, and
+`whereNotAttachedTo` with an empty list matches everything — "attached to none
+of these" is vacuously true when there are no models to be attached to.
 
 ### Collections
 
@@ -347,7 +358,7 @@ users.contains(someUser)          // by model, by key, or by predicate
 users.only(1, 2)                  // just these primary keys
 users.except(1, 2)                // every OTHER primary key
 await users.fresh()               // re-fetch every model in the collection from the DB
-await users.toQuery().update({ active: true }) // bulk-update the fetched set
+await users.toQuery().update({ active: true }) // bulk-update; resolves to the row count
 users.makeHidden('email')         // hide an attribute on every model (chainable)
 users.makeVisible('email')
 ```
