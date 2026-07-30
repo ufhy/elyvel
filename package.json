@@ -16,7 +16,8 @@
     "test": "bun test",
     "typecheck": "tsc -p tsconfig.json && tsc -p examples/fullstack-vue/tsconfig.json && tsc -p examples/spa-vue/tsconfig.json",
     "lint": "eslint .",
-    "format": "eslint . --fix"
+    "format": "eslint . --fix",
+    "release": "bun scripts/release.ts"
   },
   "dependencies": {
     "dayjs": "^1.11.21"
