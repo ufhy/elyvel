@@ -198,8 +198,8 @@ async function main(): Promise<number> {
   return 1
 }
 
-// Re-export the scaffold API so wrappers (e.g. the `create-elyvel` launcher for
-// `bun create elyvel`) reuse the exact same logic and bundled templates.
+// Re-export the scaffold API so wrappers (e.g. the `@elyvel/create` launcher for
+// `bun create @elyvel`) reuse the exact same logic and bundled templates.
 export { newApp } from './commands/new'
 
 // I/O helpers for writing your own commands (`elyvel make:command` — see

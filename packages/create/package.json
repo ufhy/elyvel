@@ -1,15 +1,15 @@
 {
-  "name": "create-elyvel",
+  "name": "@elyvel/create",
   "type": "module",
   "version": "0.1.0-alpha.0",
-  "description": "Scaffold a new elyvel app — `bun create elyvel <name>`",
+  "description": "Scaffold a new elyvel app — `bun create @elyvel <name>`",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ufhy/elyvel.git",
-    "directory": "packages/create-elyvel"
+    "directory": "packages/create"
   },
   "bugs": {
     "url": "https://github.com/ufhy/elyvel/issues"
@@ -26,7 +26,7 @@
     "tag": "alpha"
   },
   "bin": {
-    "create-elyvel": "./src/index.ts"
+    "elyvel-create": "./src/index.ts"
   },
   "files": [
     "src"

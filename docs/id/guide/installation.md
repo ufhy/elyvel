@@ -18,7 +18,7 @@ Scaffold aplikasi baru dengan `bun create`. Default-nya adalah kit Vue
 full-stack:
 
 ```bash
-bun create elyvel my-app
+bun create @elyvel my-app
 ```
 
 Pilih starter yang berbeda dengan `--kit` (gunakan bentuk `=` — `--kit=none`, bukan
@@ -31,10 +31,10 @@ Pilih starter yang berbeda dengan `--kit` (gunakan bentuk `=` — `--kit=none`, 
 | `none` | Backend saja — template dasar, tanpa frontend atau auth. |
 
 ```bash
-bun create elyvel my-app --kit=none
+bun create @elyvel my-app --kit=none
 ```
 
-`bun create elyvel` juga menulis file `.env` dengan **`APP_KEY`** yang baru dibuat,
+`bun create @elyvel` juga menulis file `.env` dengan **`APP_KEY`** yang baru dibuat,
 sehingga aplikasi siap dijalankan seketika.
 
 ## Menjalankan aplikasi
@@ -52,7 +52,7 @@ untuk HMR frontend. Untuk menjalankan server secara langsung (mis. di production
 
 ::: tip APP_KEY
 `APP_KEY` menandatangani cookie session dan menggerakkan model cast `encrypted` — aplikasi
-tidak akan boot tanpanya. `bun create elyvel` mengaturnya untukmu; rotasi kapan saja
+tidak akan boot tanpanya. `bun create @elyvel` mengaturnya untukmu; rotasi kapan saja
 dengan `bun run key:generate`.
 :::
 

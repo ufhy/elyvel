@@ -44,7 +44,7 @@ function readPackages(): Map<string, Pkg> {
       name: d.name,
       version: d.version,
       dir,
-      internal: Object.keys(deps).filter(k => k.startsWith('@elyvel/') || k === 'create-elyvel'),
+      internal: Object.keys(deps).filter(k => k.startsWith('@elyvel/')),
       tag: d.publishConfig?.tag ?? 'latest',
       private: d.private,
     })
@@ -126,7 +126,7 @@ async function verifyTarballs(order: Pkg[], version: string): Promise<string[]> 
       for (const [dep, range] of Object.entries(deps)) {
         if (range.startsWith('workspace:'))
           problems.push(`${pkg.name}: "${dep}" still uses the workspace protocol`)
-        else if ((dep.startsWith('@elyvel/') || dep === 'create-elyvel') && range !== version)
+        else if (dep.startsWith('@elyvel/') && range !== version)
           problems.push(`${pkg.name}: depends on ${dep}@${range}, expected ${version} — run \`bun install\``)
       }
       rmSync(join(scratch, tgz))

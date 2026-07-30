@@ -18,7 +18,7 @@ Scaffold a new application with `bun create`. The default is a full-stack Vue
 kit:
 
 ```bash
-bun create elyvel my-app
+bun create @elyvel my-app
 ```
 
 Choose a different starter with `--kit` (use the `=` form — `--kit=none`, not
@@ -31,10 +31,10 @@ Choose a different starter with `--kit` (use the `=` form — `--kit=none`, not
 | `none` | Backend only — the base template, no frontend or auth. |
 
 ```bash
-bun create elyvel my-app --kit=none
+bun create @elyvel my-app --kit=none
 ```
 
-`bun create elyvel` also writes a `.env` with a freshly generated **`APP_KEY`**,
+`bun create @elyvel` also writes a `.env` with a freshly generated **`APP_KEY`**,
 so the app is ready to run immediately.
 
 ## Running the app
@@ -52,7 +52,7 @@ for frontend HMR. To run the server directly (e.g. in production), use
 
 ::: tip APP_KEY
 `APP_KEY` signs session cookies and powers `encrypted` model casts — the app
-won't boot without it. `bun create elyvel` sets it for you; rotate it any time
+won't boot without it. `bun create @elyvel` sets it for you; rotate it any time
 with `bun run key:generate`.
 :::
 
