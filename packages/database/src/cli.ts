@@ -22,6 +22,7 @@ import {
   rollback,
   status,
 } from './migrator'
+import { defaultDumpPath, dumpSchema, pruneMigrations } from './schema-dump'
 import { runSeeders } from './seeder'
 import { DatabaseToken } from './tokens'
 
@@ -57,7 +58,13 @@ export async function migrateCommand(fresh: boolean, flags: MigrateFlags = {}): 
 
   const applied = fresh
     ? await freshMigrate(conn, dir)
-    : await migrate(conn, dir, { step: Boolean(flags.step), pretend })
+    : await migrate(conn, dir, {
+        step: Boolean(flags.step),
+        pretend,
+        // Use a `schema:dump` file if the project has one and this database has
+        // never been migrated.
+        schemaDumpPath: pretend ? undefined : defaultDumpPath('default', app.basePath),
+      })
 
   if (pretend) {
     printPretend(pretend)
@@ -180,6 +187,33 @@ export async function unlockCommand(): Promise<number> {
   const { conn } = await boot()
   const existed = await forceUnlock(conn)
   info(existed ? 'Migration lock cleared.' : 'No migration lock was held.')
+  return 0
+}
+
+/**
+ * `elyvel schema:dump [--prune] [--path=…]` — write the current structure to one
+ * SQL file so a fresh database can be built in a single step instead of replaying
+ * every migration ever written.
+ *
+ * `--prune` additionally deletes the migration files the dump now covers. Only
+ * APPLIED migrations are pruned; a pending one would be work the dump doesn't
+ * contain.
+ */
+export async function schemaDumpCommand(
+  flags: Record<string, string | boolean> = {},
+): Promise<number> {
+  const { app, conn } = await boot()
+  const path = typeof flags.path === 'string' ? flags.path : defaultDumpPath('default', app.basePath)
+
+  const { path: written, bytes } = await dumpSchema(conn, path)
+  info(`Schema dumped to ${written} (${bytes} bytes).`)
+
+  if (flags.prune) {
+    const removed = await pruneMigrations(conn, app.path('database/migrations'))
+    if (removed.length === 0)
+      comment('Nothing to prune — no applied migration files found.')
+    else info(`Pruned ${removed.length} migration file(s): ${removed.join(', ')}`)
+  }
   return 0
 }
 
@@ -596,6 +630,12 @@ export const elyvelCommands: ConsoleCommand[] = [
     description: 'Roll back (all, or last N) then re-migrate',
     usage: '[--step=N] [--seed]',
     run: (flags: Record<string, string | boolean>) => refreshCommand(flags),
+  },
+  {
+    name: 'schema:dump',
+    description: 'Dump the current schema to one SQL file (--prune to drop covered migrations)',
+    usage: '[--prune] [--path=database/schema/default-schema.sql]',
+    run: (flags: Record<string, string | boolean>) => schemaDumpCommand(flags),
   },
   {
     name: 'migrate:status',

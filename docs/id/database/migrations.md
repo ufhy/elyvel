@@ -48,12 +48,39 @@ SQLite/MySQL:
 - **Tanggal/waktu**: `date`, `time`, `timestamp`, `timestampTz`, `datetime`
 - **Jaringan/lain-lain**: `inet`, `cidr`, `macaddr`, `interval`
 - **Terstruktur**: `json`, `jsonb`, `enum`, kolom array (`t.array('tags', 'text')`)
+- **Spasial / vektor**: `geometry`, `geography`, `vector` — lihat di bawah
 - **Kemudahan**: `t.id()` (primary key auto-increment), `t.foreignId('user_id')`
   (kolom FK unsigned bigint), `t.morphs('commentable')` (`commentable_id` +
   `commentable_type`, untuk relasi polymorphic)
 
 Modifier kolom dirangkai secara fluent: `.nullable()`, `.default(value)`,
 `.unique()`, `.unsigned()`, `.index()`, `.after('column')`.
+
+### Kolom spasial dan vektor
+
+```ts
+t.geometry('area')                     // geometry apa pun
+t.geometry('location', 'point')        // GEOMETRY(Point) di PG, POINT di MySQL
+t.geometry('location', 'point', 4326)  // …dipatok ke sebuah SRID
+t.geography('route', 'linestring')     // math sferis PostGIS
+t.vector('embedding', 1536)            // pgvector / MySQL 9 — dimensi wajib
+```
+
+Postgres perlu extension-nya diaktifkan dulu (`CREATE EXTENSION IF NOT EXISTS
+postgis` / `vector`); tipe spasial MySQL bersifat native, dan `VECTOR` hadir di
+MySQL 9. MySQL tidak punya tipe geography terpisah, jadi `geography` menjadi kolom
+spasial di sana.
+
+::: warning SQLite tidak mendukung spasial maupun vektor
+Kolomnya tetap *dibuat* — SQLite bertipe dinamis dan menerima nama tipe yang
+dideklarasikan — jadi skema tetap portabel untuk dev lokal dan test. Tapi tidak
+ada **fungsi** spasial atau vektor yang bekerja di sana. Yang tidak portabel
+adalah query-nya, bukan skemanya.
+:::
+
+Jumlah dimensi untuk `vector` diwajibkan, bukan diberi default: pgvector maupun
+MySQL membutuhkannya, dan lebar yang salah diam-diam adalah hal yang baru kamu
+sadari ketika similarity search mengembalikan hasil ngawur.
 
 ### Kolom generated
 
@@ -164,7 +191,32 @@ elyvel migrate:fresh      # drop semua tabel lalu jalankan ulang dari awal
 elyvel migrate:rollback   # rollback batch migrasi terakhir
 elyvel migrate:status     # tampilkan migrasi mana saja yang sudah berjalan
 elyvel db:seed            # jalankan database seeder
+elyvel schema:dump        # squash skema saat ini jadi satu file SQL
 ```
+
+### Squashing migrasi
+
+Begitu sebuah proyek menumpuk ratusan migrasi, menjalankannya ulang dari awal —
+di CI, atau untuk developer baru — jadi lambat dan makin rapuh. `schema:dump`
+menulis struktur saat ini ke satu file:
+
+```bash
+elyvel schema:dump              # → database/schema/default-schema.sql
+elyvel schema:dump --prune      # …dan hapus file migrasi yang sudah tercakup
+```
+
+`elyvel migrate` memuat file itu otomatis ketika database-nya belum pernah
+dimigrasi, lalu hanya menjalankan migrasi yang ditulis *setelah* dump. Dump-nya
+membawa baris applied-migration-nya sendiri, jadi tidak ada yang dijalankan ulang
+di atas skema yang sudah terbangun.
+
+`--prune` hanya menghapus migrasi yang benar-benar sudah **diterapkan** — yang
+masih pending adalah pekerjaan yang tidak ada di dalam dump, jadi ia dibiarkan.
+
+Di Postgres dan MySQL strukturnya dibaca dengan `pg_dump`/`mysqldump` (seperti
+Laravel), jadi binary-nya harus ada di `PATH` dan `DATABASE_URL` harus di-set;
+perintahnya gagal dengan alasannya, bukan menulis file setengah jadi. SQLite tidak
+butuh apa pun dari luar — DDL-nya langsung dari `sqlite_master`.
 
 ### Lock migrasi
 

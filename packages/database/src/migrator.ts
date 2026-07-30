@@ -2,6 +2,7 @@ import type { Connection } from './connection'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { SchemaBuilder } from './schema'
+import { loadSchemaDump } from './schema-dump'
 
 /**
  * A migration file default-exports one of these. `up` applies the change,
@@ -177,6 +178,12 @@ export interface MigrateOptions {
   step?: boolean
   /** Collect the SQL each migration would run instead of executing it — no ledger writes either. */
   pretend?: string[]
+  /**
+   * Path to a `schema:dump` file. Loaded first when the database has never been
+   * migrated, so a fresh checkout/CI run builds the structure in one step instead
+   * of replaying every migration.
+   */
+  schemaDumpPath?: string
 }
 
 /** The actual "apply pending migrations" work — always called with the lock already held. */
@@ -218,7 +225,19 @@ async function runPending(conn: Connection, dir: string, options: MigrateOptions
  * instance in a rolling deploy already migrating) — see {@link withMigrationLock}.
  */
 export async function migrate(conn: Connection, dir: string, options: MigrateOptions = {}): Promise<string[]> {
-  return withMigrationLock(conn, () => runPending(conn, dir, options))
+  return withMigrationLock(conn, async () => {
+    // On a database that has never been migrated, load a `schema:dump` file when
+    // one exists — that's the point of the dump: build the structure in one step
+    // and then replay only the migrations written after it. The dump carries its
+    // own applied-migration rows, so those are not re-run.
+    if (options.schemaDumpPath && !(await hasMigrationsTable(conn)))
+      await loadSchemaDump(conn, options.schemaDumpPath)
+    return runPending(conn, dir, options)
+  })
+}
+
+async function hasMigrationsTable(conn: Connection): Promise<boolean> {
+  return (await userTables(conn)).includes(TABLE)
 }
 
 async function userTables(conn: Connection): Promise<string[]> {

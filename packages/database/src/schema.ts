@@ -385,6 +385,46 @@ export class Blueprint {
     return this.push({ name, type: 'jsonb' })
   }
 
+  /**
+   * A spatial column — PostGIS `GEOMETRY` on Postgres, native `GEOMETRY`/`POINT`/…
+   * on MySQL. Pass a `subtype` to narrow it and an `srid` to pin the coordinate
+   * system:
+   *
+   * ```ts
+   * t.geometry('area')                        // any geometry
+   * t.geometry('location', 'point')           // GEOMETRY(Point) / POINT
+   * t.geometry('location', 'point', 4326)     // …with an SRID
+   * ```
+   *
+   * Postgres needs the PostGIS extension enabled. SQLite has no spatial support:
+   * the column is created (SQLite accepts any declared type) so a schema stays
+   * portable for dev/test, but spatial FUNCTIONS won't work there.
+   */
+  geometry(name: string, subtype?: string, srid?: number): ColumnBuilder {
+    return this.push({ name, type: 'geometry', subtype, srid })
+  }
+
+  /**
+   * PostGIS `GEOGRAPHY` — like {@link geometry} but with spherical (lat/long)
+   * math. MySQL has no separate geography type, so it falls back to a spatial
+   * column there.
+   */
+  geography(name: string, subtype?: string, srid?: number): ColumnBuilder {
+    return this.push({ name, type: 'geography', subtype, srid })
+  }
+
+  /**
+   * A fixed-width embedding vector — `VECTOR(n)` via pgvector on Postgres, native
+   * `VECTOR(n)` on MySQL 9+. The dimension count is required by both.
+   *
+   * ```ts
+   * t.vector('embedding', 1536)
+   * ```
+   */
+  vector(name: string, dimensions: number): ColumnBuilder {
+    return this.push({ name, type: 'vector', dimensions })
+  }
+
   /** Binary blob — `BYTEA` on Postgres, `BLOB` on SQLite (e.g. raw bytes). */
   binary(name: string): ColumnBuilder {
     return this.push({ name, type: 'binary' })

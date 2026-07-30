@@ -30,6 +30,7 @@ describe('elyvelCommands (discovered by `elyvel package:discover`)', () => {
       'model:prune',
       'model:sync',
       'db:seed',
+      'schema:dump',
     ].sort())
   })
 })

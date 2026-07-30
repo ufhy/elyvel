@@ -47,12 +47,39 @@ on SQLite/MySQL:
 - **Date/time**: `date`, `time`, `timestamp`, `timestampTz`, `datetime`
 - **Network/misc**: `inet`, `cidr`, `macaddr`, `interval`
 - **Structured**: `json`, `jsonb`, `enum`, array columns (`t.array('tags', 'text')`)
+- **Spatial / vector**: `geometry`, `geography`, `vector` — see below
 - **Convenience**: `t.id()` (auto-increment primary key), `t.foreignId('user_id')`
   (unsigned bigint FK column), `t.morphs('commentable')` (`commentable_id` +
   `commentable_type`, for polymorphic relationships)
 
 Column modifiers chain fluently: `.nullable()`, `.default(value)`, `.unique()`,
 `.unsigned()`, `.index()`, `.after('column')`.
+
+### Spatial and vector columns
+
+```ts
+t.geometry('area')                     // any geometry
+t.geometry('location', 'point')        // GEOMETRY(Point) on PG, POINT on MySQL
+t.geometry('location', 'point', 4326)  // …pinned to an SRID
+t.geography('route', 'linestring')     // PostGIS spherical math
+t.vector('embedding', 1536)            // pgvector / MySQL 9 — dimensions required
+```
+
+Postgres needs the relevant extension enabled first (`CREATE EXTENSION IF NOT
+EXISTS postgis` / `vector`); MySQL's spatial types are native, and `VECTOR`
+arrived in MySQL 9. MySQL has no separate geography type, so `geography` becomes a
+spatial column there.
+
+::: warning SQLite has no spatial or vector support
+The column is still *created* — SQLite is dynamically typed and accepts the
+declared type name — so a schema stays portable for local dev and tests. But no
+spatial or vector **function** works there. It's the queries that won't port, not
+the schema.
+:::
+
+The dimension count for `vector` is required rather than defaulted: both pgvector
+and MySQL need it, and a silently-wrong width is the kind of thing you discover
+only when similarity search returns nonsense.
 
 ### Generated columns
 
@@ -163,7 +190,32 @@ elyvel migrate:fresh      # drop every table and re-run from scratch
 elyvel migrate:rollback   # roll back the most recent batch
 elyvel migrate:status     # show which migrations have run
 elyvel db:seed            # run database seeders
+elyvel schema:dump        # squash the current schema into one SQL file
 ```
+
+### Squashing migrations
+
+Once a project has accumulated hundreds of migrations, replaying them from
+scratch — in CI, or for a new developer — is slow and increasingly fragile.
+`schema:dump` writes the current structure to a single file instead:
+
+```bash
+elyvel schema:dump              # → database/schema/default-schema.sql
+elyvel schema:dump --prune      # …and delete the migration files it now covers
+```
+
+`elyvel migrate` loads that file automatically when the database has never been
+migrated, then runs only the migrations written *after* the dump. The dump carries
+its own applied-migration rows, so nothing is re-run against an already-built
+schema.
+
+`--prune` only deletes migrations that have actually been **applied** — a pending
+one is work the dump doesn't contain, so it stays.
+
+On Postgres and MySQL the structure is read with `pg_dump`/`mysqldump` (as Laravel
+does), so those binaries must be on `PATH` and `DATABASE_URL` must be set; the
+command fails with the reason rather than writing a partial file. SQLite needs
+nothing external — its DDL comes straight out of `sqlite_master`.
 
 ### The migration lock
 

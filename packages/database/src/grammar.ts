@@ -37,6 +37,9 @@ export type ColumnType
     | 'interval'
     | 'enum'
     | 'array'
+    | 'geometry'
+    | 'geography'
+    | 'vector'
 
 /** Foreign-key/referential action, shared by `onDelete`/`onUpdate`. */
 export type RefAction = 'cascade' | 'set null' | 'restrict' | 'no action'
@@ -50,6 +53,15 @@ export interface ColumnDefinition {
   enumValues?: string[]
   /** Element type for `array` columns (Postgres `<type>[]`). */
   arrayOf?: ColumnType
+  /**
+   * Spatial subtype for `geometry`/`geography` — `'point'`, `'polygon'`,
+   * `'linestring'`, … Omitted means any geometry.
+   */
+  subtype?: string
+  /** SRID for `geometry`/`geography` (PostGIS's second type argument). */
+  srid?: number
+  /** Dimension count for a `vector` column (pgvector / MySQL 9 `VECTOR(n)`). */
+  dimensions?: number
   nullable?: boolean
   unique?: boolean
   default?: unknown
@@ -116,6 +128,30 @@ export abstract class Grammar {
   readonly supportsReturning: boolean = true
   abstract placeholder(index: number): string
   protected abstract columnType(column: ColumnDefinition): string
+
+  /**
+   * `GEOMETRY`, `GEOMETRY(Point)` or `GEOMETRY(Point,4326)` — PostGIS's form,
+   * which MySQL accepts the bare/subtype spelling of.
+   */
+  protected spatialType(keyword: string, column: ColumnDefinition): string {
+    if (!column.subtype)
+      return keyword
+    const subtype = column.subtype.replace(/[^a-z0-9]/gi, '')
+    return column.srid === undefined
+      ? `${keyword}(${subtype})`
+      : `${keyword}(${subtype},${column.srid})`
+  }
+
+  /** `VECTOR(n)`; the dimension count is required by both pgvector and MySQL 9. */
+  protected vectorType(column: ColumnDefinition): string {
+    if (column.dimensions === undefined || !Number.isInteger(column.dimensions) || column.dimensions <= 0) {
+      throw new Error(
+        `[eloquent] The vector column "${column.name}" needs a positive integer `
+        + 'dimension count, e.g. `t.vector(\'embedding\', 1536)`.',
+      )
+    }
+    return `VECTOR(${column.dimensions})`
+  }
 
   wrap(identifier: string): string {
     return identifier
@@ -394,6 +430,16 @@ class SqliteGrammar extends Grammar {
         return 'NUMERIC'
       case 'binary':
         return 'BLOB'
+      // SQLite has no spatial or vector types (those need SpatiaLite / an
+      // extension). The column is created with the declared type name — SQLite is
+      // dynamically typed, so it accepts it and gives it BLOB affinity — but no
+      // spatial/vector FUNCTION will work. Creating it keeps a schema portable
+      // across dialects for dev/test; the queries are what won't port.
+      case 'geometry':
+      case 'geography':
+        return this.spatialType('GEOMETRY', c)
+      case 'vector':
+        return this.vectorType(c)
       // array + everything else stores as TEXT (JSON) under SQLite.
       default:
         return 'TEXT'
@@ -472,12 +518,26 @@ class PostgresGrammar extends Grammar {
         return 'INTERVAL'
       case 'array':
         return `${this.columnType({ name: '', type: c.arrayOf ?? 'text' })}[]`
+      // PostGIS / pgvector types. Both come from extensions, so the migration
+      // needs `CREATE EXTENSION IF NOT EXISTS postgis` / `vector` to have run.
+      case 'geometry':
+        return this.spatialType('GEOMETRY', c)
+      case 'geography':
+        return this.spatialType('GEOGRAPHY', c)
+      case 'vector':
+        return this.vectorType(c)
     }
   }
 }
 
 class MysqlGrammar extends Grammar {
   readonly dialect = 'mysql' as const
+
+  private mysqlSpatial(column: ColumnDefinition): string {
+    const keyword = column.subtype ? column.subtype.replace(/[^a-z0-9]/gi, '').toUpperCase() : 'GEOMETRY'
+    return column.srid === undefined ? keyword : `${keyword} SRID ${column.srid}`
+  }
+
   // MySQL has no RETURNING — the query builder emulates it via LAST_INSERT_ID.
   override readonly supportsReturning = false
   placeholder(): string {
@@ -552,6 +612,15 @@ class MysqlGrammar extends Grammar {
         return 'JSON'
       case 'timestampTz':
         return 'TIMESTAMP'
+      // MySQL's spatial types are native. A subtype maps to the concrete type
+      // (POINT, POLYGON …) rather than a parameterized GEOMETRY, and an SRID
+      // becomes the column's `SRID` attribute. `geography` has no MySQL
+      // equivalent — spatial columns there are geometry with an SRID.
+      case 'geometry':
+      case 'geography':
+        return this.mysqlSpatial(c)
+      case 'vector':
+        return this.vectorType(c)
       default:
         return 'TEXT'
     }

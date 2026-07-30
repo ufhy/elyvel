@@ -1,7 +1,7 @@
 import type { MiddlewareContext } from './middleware'
 import { trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
-import { route } from './middleware'
+import { excludeMiddleware, guardName, route } from './middleware'
 import { named } from './url'
 
 /** A controller action handler — receives the Elysia context, returns a response. */
@@ -317,11 +317,19 @@ function middlewareFor(
   const explicit = !mw ? [] : Array.isArray(mw) ? mw : (mw[action] ?? [])
   const merged = [...classMw, ...methodMw, ...explicit]
 
-  const without = new Set([
+  const without = withoutNames(Controller, fn)
+  // Compare by alias NAME, not the whole spec: an exact-string match meant
+  // `@WithoutMiddleware('throttle')` silently failed to drop `'throttle:60,1'`,
+  // leaving the middleware in place on a route that had asked to be exempt.
+  return without.size ? merged.filter(spec => !without.has(guardName(spec))) : merged
+}
+
+/** Every middleware name this controller/action opted out of. */
+function withoutNames(Controller: ControllerClass, fn: RouteHandler | undefined): Set<string> {
+  return new Set([
     ...(CLASS_WITHOUT_MIDDLEWARE.get(Controller) ?? []),
     ...(fn ? (METHOD_WITHOUT_MIDDLEWARE.get(fn) ?? []) : []),
   ])
-  return without.size ? merged.filter(name => !without.has(name)) : merged
 }
 
 /**
@@ -562,12 +570,20 @@ function buildResource(
   }
   const recordMeta = (method: string, action: ResourceAction, base: string, suffix: string) => {
     const fn = instance[action]
+    const path = fullPath(base, suffix)
     ROUTE_META.push({
       method,
-      path: fullPath(base, suffix),
+      path,
       middleware: mwByAction.get(action) ?? [],
       authorize: typeof fn === 'function' ? METHOD_AUTHORIZE.get(fn) : undefined,
     })
+    // `@WithoutMiddleware` used to filter only the route's OWN list, so an action
+    // could not opt out of middleware applied by `global` or by a group — those
+    // run from their own hooks and never see that list. Register the exemption
+    // against the matched route so the shared guard runner honours it as well.
+    const without = withoutNames(Controller, typeof fn === 'function' ? fn : undefined)
+    if (without.size)
+      excludeMiddleware(method, path, [...without])
   }
 
   for (const action of selectedActions(options, base)) {

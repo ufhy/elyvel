@@ -64,12 +64,92 @@ export function defineMiddlewareConfig(config: MiddlewareConfig): MiddlewareConf
 // do it, or explicitly flush/reset state per-request if you do.
 const aliases = new Map<string, MiddlewareClass>()
 const groups = new Map<string, GroupItem[]>()
+/** Reverse of `aliases`, so a guard CLASS can be matched by the name it's excluded under. */
+const aliasOfClass = new Map<MiddlewareClass, string>()
+
+/**
+ * Middleware a specific route opts out of, keyed by `"METHOD /route/:pattern"`.
+ * A `'*'` value drops every middleware for that route.
+ *
+ * Route-level lists could always be filtered at registration, but `global` and
+ * `group` middleware run from their own hooks and never saw that list — so there
+ * was no way to exempt one route from them (Laravel's
+ * `->withoutMiddleware([...])`). Keying on the matched route pattern lets the
+ * shared guard runner consult it, since `ctx.route` is the pattern Elysia
+ * matched.
+ */
+const exclusions = new Map<string, Set<string> | '*'>()
+
+function exclusionKey(method: string, path: string): string {
+  return `${method.toUpperCase()} ${path}`
+}
+
+/**
+ * Exempt a route from named middleware — including middleware applied globally
+ * or through a group. Pass `'*'` to drop all of it.
+ *
+ * ```ts
+ * excludeMiddleware('POST', '/webhooks/stripe', ['csrf'])
+ * excludeMiddleware('GET', '/health', '*')
+ * ```
+ */
+export function excludeMiddleware(method: string, path: string, names: string[] | '*'): void {
+  const key = exclusionKey(method, path)
+  if (names === '*') {
+    exclusions.set(key, '*')
+    return
+  }
+  const existing = exclusions.get(key)
+  if (existing === '*')
+    return
+  const set = existing ?? new Set<string>()
+  for (const name of names) set.add(name)
+  exclusions.set(key, set)
+}
+
+/** Test/boot helper: forget every registered route exemption. */
+export function resetMiddlewareExclusions(): void {
+  exclusions.clear()
+}
+
+/**
+ * The name a guard is known by, for exclusion matching: the alias before any
+ * `:args` (so `withoutMiddleware('throttle')` also drops `throttle:60,1`), or a
+ * class's registered alias, falling back to its class name.
+ */
+export function guardName(guard: Guard): string {
+  if (typeof guard === 'string')
+    return guard.split(':')[0] as string
+  return aliasOfClass.get(guard) ?? guard.name
+}
+
+function excludedFor(context: MiddlewareContext): Set<string> | '*' | undefined {
+  const route = (context as { route?: unknown }).route
+  if (typeof route !== 'string')
+    return undefined
+  return exclusions.get(exclusionKey(context.request.method, route))
+}
+
+/** Drop the guards this route opted out of. */
+function applicableGuards(guards: Guard[], context: MiddlewareContext): Guard[] {
+  const excluded = excludedFor(context)
+  if (excluded === undefined)
+    return guards
+  if (excluded === '*')
+    return []
+  return guards.filter(guard => !excluded.has(guardName(guard)))
+}
 
 /** Wire the alias/group registries from config (called by the Application at boot). */
 export function registerMiddlewareRegistry(config: MiddlewareConfig): void {
   aliases.clear()
   groups.clear()
-  for (const [name, cls] of Object.entries(config.aliases ?? {})) aliases.set(name, cls)
+  aliasOfClass.clear()
+  for (const [name, cls] of Object.entries(config.aliases ?? {})) {
+    aliases.set(name, cls)
+    if (!aliasOfClass.has(cls))
+      aliasOfClass.set(cls, name)
+  }
   for (const [name, items] of Object.entries(config.groups ?? {})) groups.set(name, items)
   // `web` must always carry CSRF protection. The Application used to build the
   // group as `{ web: ['csrf'], ...config.groups }`, so an app defining its own
@@ -111,7 +191,7 @@ function instantiate(guard: Guard): { instance: Middleware, args: string[] } {
 
 /** Run guards' `handle` in order; the first response short-circuits. */
 async function runGuards(guards: Guard[], context: MiddlewareContext): Promise<unknown> {
-  for (const guard of guards) {
+  for (const guard of applicableGuards(guards, context)) {
     const { instance, args } = instantiate(guard)
     const result = await instance.handle(context, ...args)
     if (result !== undefined)
@@ -126,7 +206,8 @@ async function runGuards(guards: Guard[], context: MiddlewareContext): Promise<u
  * config never throws twice.
  */
 async function runTerminators(guards: Guard[], context: MiddlewareContext): Promise<void> {
-  for (const guard of guards) {
+  // Excluded here too: a middleware that never ran must not get a `terminate`.
+  for (const guard of applicableGuards(guards, context)) {
     let resolved: { instance: Middleware, args: string[] }
     try {
       resolved = instantiate(guard)

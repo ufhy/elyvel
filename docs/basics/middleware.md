@@ -123,6 +123,33 @@ for the full picture alongside `@Authorize`/`@ValidateWith`, and for adjusting a
 `resource()`'s middleware fluently after registration
 (`.middleware()`/`.middlewareFor()`/`.withoutMiddlewareFor()`).
 
+### Exempting a route from global or group middleware
+
+`@WithoutMiddleware` also removes middleware that a route never listed itself —
+the `global` stack and any `group()` applied to it. Those run from their own hooks,
+so exemptions are recorded against the matched route and honoured by the shared
+guard runner. For a plain route (no controller), register it directly:
+
+```ts
+import { excludeMiddleware } from '@elyvel/core'
+
+// A webhook can't carry a CSRF token — exempt just that route.
+excludeMiddleware('POST', '/webhooks/stripe', ['csrf'])
+
+// A health check that must answer even when everything else is guarded.
+excludeMiddleware('GET', '/health', '*')
+```
+
+The name matches the **alias**, so `'throttle'` also drops `throttle:60,1` — a
+whole-string match meant a route asked to be exempt and silently wasn't. `'*'`
+drops everything for that route. `terminate` is skipped too: middleware that never
+ran must not get a termination hook.
+
+::: warning An exemption is a hole you are choosing to open
+`excludeMiddleware` bypasses controls the rest of the app relies on. Scope it to
+the exact method and path, and prefer naming the one middleware over `'*'`.
+:::
+
 ## Middleware parameters
 
 An alias can take arguments after a colon; they arrive as trailing string

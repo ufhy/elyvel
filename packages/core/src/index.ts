@@ -91,13 +91,16 @@ export {
 } from './maintenance'
 export {
   defineMiddlewareConfig,
+  excludeMiddleware,
   group,
   type GroupItem,
+  guardName,
   Middleware,
   type MiddlewareClass,
   type MiddlewareConfig,
   type MiddlewareContext,
   type MiddlewareItem,
+  resetMiddlewareExclusions,
   route,
 } from './middleware'
 export { requestContext, setRequestLogger } from './request-context'

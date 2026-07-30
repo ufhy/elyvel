@@ -130,6 +130,36 @@ untuk gambaran lengkapnya bersama `@Authorize`/`@ValidateWith`, dan untuk
 mengatur middleware sebuah `resource()` secara fluent setelah registrasi
 (`.middleware()`/`.middlewareFor()`/`.withoutMiddlewareFor()`).
 
+### Mengecualikan route dari middleware global atau group
+
+`@WithoutMiddleware` juga menghapus middleware yang tidak pernah didaftarkan
+route itu sendiri — stack `global` dan `group()` mana pun yang diterapkan padanya.
+Keduanya berjalan dari hook-nya sendiri, jadi pengecualiannya dicatat terhadap
+route yang cocok dan dihormati oleh guard runner bersama. Untuk route biasa (tanpa
+controller), daftarkan langsung:
+
+```ts
+import { excludeMiddleware } from '@elyvel/core'
+
+// Webhook tidak bisa membawa token CSRF — kecualikan route itu saja.
+excludeMiddleware('POST', '/webhooks/stripe', ['csrf'])
+
+// Health check yang harus tetap menjawab meski yang lain terjaga semua.
+excludeMiddleware('GET', '/health', '*')
+```
+
+Namanya dicocokkan ke **alias**-nya, jadi `'throttle'` juga menggugurkan
+`throttle:60,1` — pencocokan seluruh string membuat sebuah route meminta
+dikecualikan lalu diam-diam tidak. `'*'` menggugurkan semuanya untuk route itu.
+`terminate` juga dilewati: middleware yang tidak pernah jalan tidak boleh
+mendapat hook terminasi.
+
+::: warning Pengecualian adalah lubang yang kamu buka dengan sengaja
+`excludeMiddleware` melewati kontrol yang diandalkan bagian lain aplikasi.
+Batasi ke method dan path yang persis, dan lebih baik sebutkan satu middleware
+daripada `'*'`.
+:::
+
 ## Parameter middleware
 
 Sebuah alias dapat menerima argumen setelah tanda titik dua; argumen tersebut tiba
