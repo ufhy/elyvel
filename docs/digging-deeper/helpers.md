@@ -87,6 +87,19 @@ Laravel).
 | `Arr.has(target, path)` | dot-path existence (counts `null` as present) | `Arr.has({ a: { b: null } }, 'a.b')` → `true` |
 | `Arr.set(target, path, value)` | dot-path write, creating intermediates — **mutates** | `Arr.set({}, 'a.b.c', 1)` → `{ a: { b: { c: 1 } } }` |
 | `Arr.forget(target, path)` | dot-path delete — **mutates** | |
+
+::: warning Dot-path writes reject prototype-polluting segments
+`Arr.set`/`Arr.forget` **throw** if any segment is `__proto__`, `constructor`, or
+`prototype`. Assigning to `__proto__` sets an object's prototype instead of
+creating a property, so walking a path through it lands on `Object.prototype` and
+the next write leaks into *every* object in the process. PHP arrays have no
+prototype chain, so Laravel's `Arr::set` has no equivalent hazard — the guard is
+specific to the JS port.
+
+If a path can come from a request, validate it against a known list before
+calling: the throw stops the pollution but a user-triggerable 500 is still a
+denial-of-service.
+:::
 | `Arr.only(target, keys)` / `Arr.except(target, keys)` | pick/omit keys | `Arr.only({a:1,b:2}, ['a'])` → `{a:1}` |
 | `Arr.pluck(array, value, key?)` | column extraction, optionally keyed | `Arr.pluck(rows, 'name', 'id')` → `{1:'a',2:'b'}` |
 | `Arr.wrap(value)` | wrap non-array in one; `null`/`undefined` → `[]` | |

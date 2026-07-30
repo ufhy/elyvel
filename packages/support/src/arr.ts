@@ -10,6 +10,35 @@ function isDict(value: unknown): value is Dict {
   return value !== null && typeof value === 'object'
 }
 
+/**
+ * Keys that must never be written through a dot-path.
+ *
+ * Assigning to `__proto__` sets an object's PROTOTYPE rather than creating a
+ * property, so walking a path through it hands the caller
+ * `Object.prototype` — and the next write pollutes every object in the process.
+ * Laravel's `Arr::set` has no equivalent hazard because PHP arrays have no
+ * prototype chain, so a straight port inherits a vulnerability the original
+ * doesn't have.
+ */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/** Is `key` unsafe to write through a dot-path? See {@link UNSAFE_KEYS}. */
+export function isUnsafeKey(key: string): boolean {
+  return UNSAFE_KEYS.has(key)
+}
+
+function assertSafePath(path: string, segments: string[]): void {
+  for (const segment of segments) {
+    if (isUnsafeKey(segment)) {
+      throw new TypeError(
+        `[elyvel] Refusing to write through the unsafe path segment "${segment}" `
+        + `in "${path}" — it would modify the prototype chain rather than the `
+        + 'target. If this path came from user input, reject it upstream.',
+      )
+    }
+  }
+}
+
 /** Read a dot-path value, returning `fallback` (or undefined) if any segment is missing. */
 function arrGet<T>(target: unknown, path: string | null, fallback: T): T
 function arrGet<T = unknown>(target: unknown, path: string | null): T | undefined
@@ -50,6 +79,7 @@ export const Arr = {
   /** Set a dot-path value, creating intermediate objects. Mutates and returns `target`. */
   set(target: Dict, path: string, value: unknown): Dict {
     const segments = path.split('.')
+    assertSafePath(path, segments)
     let current: Dict = target
     for (let i = 0; i < segments.length - 1; i++) {
       const key = segments[i]!
@@ -64,6 +94,7 @@ export const Arr = {
   /** Remove a dot-path key. Mutates `target`. */
   forget(target: Dict, path: string): void {
     const segments = path.split('.')
+    assertSafePath(path, segments)
     let current: Dict = target
     for (let i = 0; i < segments.length - 1; i++) {
       const key = segments[i]!

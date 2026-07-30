@@ -1,5 +1,6 @@
 import type { SizeKind } from './messages'
 import type { ErrorBag } from './validation-exception'
+import { isUnsafeKey } from '@elyvel/support'
 import { formatMessage } from './messages'
 import { getValue, hasPath, isEmpty, RULES } from './rules'
 import { ValidationException } from './validation-exception'
@@ -53,7 +54,18 @@ function expandKey(key: string, data: Data): string[] {
           })
         }
         else if (target && typeof target === 'object') {
-          for (const k of Object.keys(target)) next.push(prefix ? `${prefix}.${k}` : k)
+          // Skip keys that can never be a legitimate field name and that would
+          // walk the prototype chain instead of the data. `JSON.parse` creates an
+          // OWN `__proto__` key, so a request body of
+          // `{"settings":{"__proto__":{"name":"x"}}}` under a rule like
+          // `settings.*.name` expanded to `settings.__proto__.name`, and the
+          // rebuild in `validated()` then wrote through `Object.prototype` —
+          // remote prototype pollution from an ordinary request body.
+          for (const k of Object.keys(target)) {
+            if (isUnsafeKey(k))
+              continue
+            next.push(prefix ? `${prefix}.${k}` : k)
+          }
         }
       }
       else {
@@ -72,6 +84,13 @@ function expandKey(key: string, data: Data): string[] {
  */
 function setPath(out: Data, path: string, value: unknown): void {
   const segments = path.split('.')
+  // Defence in depth: `expandKey` already drops these, so reaching here means a
+  // rule itself named one. Refuse rather than write through the prototype.
+  if (segments.some(isUnsafeKey)) {
+    throw new TypeError(
+      `[elyvel] Refusing to build validated data through the unsafe path "${path}".`,
+    )
+  }
   let node: Record<string, unknown> = out
   for (let i = 0; i < segments.length - 1; i++) {
     const key = segments[i] as string

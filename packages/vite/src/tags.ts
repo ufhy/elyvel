@@ -34,22 +34,32 @@ export function viteTags(options: ViteOptions): string {
   const isProduction = (process.env.APP_ENV ?? process.env.NODE_ENV) === 'production'
 
   if (isProduction && existsSync(manifestPath)) {
+    // In production a manifest problem must be LOUD. Falling through to the dev
+    // tags emitted `http://localhost:5173/...` asset URLs to real users: the page
+    // rendered, every asset 404'd in the browser, and the server logged nothing.
+    let manifest: Record<string, ManifestChunk>
     try {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<
-        string,
-        ManifestChunk
-      >
-      const chunk = manifest[options.entry]
-      if (chunk) {
-        const css = (chunk.css ?? [])
-          .map(f => `<link rel="stylesheet" href="${base}${f}">`)
-          .join('')
-        return `${css}<script type="module" src="${base}${chunk.file}"></script>`
-      }
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, ManifestChunk>
     }
-    catch {
-      // fall through to dev tags
+    catch (error) {
+      throw new Error(
+        `[elyvel] Could not read the Vite manifest at "${manifestPath}": `
+        + `${error instanceof Error ? error.message : String(error)}. `
+        + 'Run `vite build` before serving in production.',
+      )
     }
+    const chunk = manifest[options.entry]
+    if (!chunk) {
+      throw new Error(
+        `[elyvel] Entry "${options.entry}" is not in the Vite manifest at `
+        + `"${manifestPath}" (found: ${Object.keys(manifest).join(', ') || 'nothing'}). `
+        + 'Check the entry name matches your vite config input.',
+      )
+    }
+    const css = (chunk.css ?? [])
+      .map(f => `<link rel="stylesheet" href="${base}${f}">`)
+      .join('')
+    return `${css}<script type="module" src="${base}${chunk.file}"></script>`
   }
 
   // Dev: the Vite dev server serves under its configured `base` (e.g. /build/),

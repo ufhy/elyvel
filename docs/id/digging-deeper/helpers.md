@@ -88,6 +88,20 @@ Laravel).
 | `Arr.has(target, path)` | keberadaan dot-path (menghitung `null` sebagai ada) | `Arr.has({ a: { b: null } }, 'a.b')` → `true` |
 | `Arr.set(target, path, value)` | tulis dot-path, membuat intermediate — **mutasi** | `Arr.set({}, 'a.b.c', 1)` → `{ a: { b: { c: 1 } } }` |
 | `Arr.forget(target, path)` | hapus dot-path — **mutasi** | |
+
+::: warning Penulisan dot-path menolak segmen yang bisa mencemari prototype
+`Arr.set`/`Arr.forget` akan **throw** kalau ada segmen bernama `__proto__`,
+`constructor`, atau `prototype`. Menugaskan nilai ke `__proto__` mengubah
+prototype sebuah object, bukan membuat property — jadi menelusuri path melewatinya
+akan mendarat di `Object.prototype`, dan penulisan berikutnya merembes ke
+**setiap** object di proses itu. Array PHP tidak punya prototype chain, jadi
+`Arr::set` milik Laravel tidak punya bahaya serupa — penjaga ini khusus untuk port
+JS-nya.
+
+Kalau path-nya bisa berasal dari request, validasi dulu terhadap daftar yang kamu
+kenal sebelum memanggilnya: throw itu menghentikan pencemarannya, tapi 500 yang
+bisa dipicu pengguna tetap denial-of-service.
+:::
 | `Arr.only(target, keys)` / `Arr.except(target, keys)` | ambil/buang key | `Arr.only({a:1,b:2}, ['a'])` → `{a:1}` |
 | `Arr.pluck(array, value, key?)` | ekstraksi kolom, opsional dengan key | `Arr.pluck(rows, 'name', 'id')` → `{1:'a',2:'b'}` |
 | `Arr.wrap(value)` | bungkus non-array jadi satu; `null`/`undefined` → `[]` | |

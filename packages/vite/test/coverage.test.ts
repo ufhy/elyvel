@@ -44,7 +44,33 @@ describe('viteTags — production manifest', () => {
     expect(html).not.toContain('stylesheet')
   })
 
-  test('falls through to dev tags when the entry is missing from the manifest', () => {
+  /**
+   * Regression: a manifest problem in production fell through to the DEV tags, so
+   * real users were served `http://localhost:5173/...` asset URLs — the page
+   * rendered, every asset 404'd in their browser, and the server logged nothing.
+   * A missing entry or an unreadable manifest must fail loudly instead.
+   */
+  test('a missing entry throws instead of emitting dev-server URLs', () => {
+    const path = manifest({ 'other.ts': { file: 'x.js' } })
+    expect(() => viteTags({ entry: 'missing.ts', manifest: path, devUrl: 'http://localhost:5173' }))
+      .toThrow(/is not in the Vite manifest/)
+  })
+
+  test('the error names the entries that ARE present, so the typo is obvious', () => {
+    const path = manifest({ 'frontend/app.ts': { file: 'x.js' } })
+    expect(() => viteTags({ entry: 'frontend/main.ts', manifest: path }))
+      .toThrow(/frontend\/app\.ts/)
+  })
+
+  test('an unparseable manifest throws rather than silently degrading', () => {
+    const path = join(dir, `broken-${crypto.randomUUID()}.json`)
+    writeFileSync(path, '{ not json')
+    expect(() => viteTags({ entry: 'frontend/app.ts', manifest: path }))
+      .toThrow(/Could not read the Vite manifest/)
+  })
+
+  test('outside production a missing manifest still falls back to the dev server', () => {
+    process.env.APP_ENV = 'local'
     const path = manifest({ 'other.ts': { file: 'x.js' } })
     const html = viteTags({ entry: 'missing.ts', manifest: path, devUrl: 'http://localhost:5173' })
     expect(html).toContain('http://localhost:5173')

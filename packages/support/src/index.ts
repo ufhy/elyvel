@@ -1,4 +1,4 @@
-export { Arr } from './arr'
+export { Arr, isUnsafeKey } from './arr'
 export { Collection } from './collection'
 export { blank, dataGet, filled, retry, tap, value } from './helpers'
 export {

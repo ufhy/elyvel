@@ -61,6 +61,15 @@ export function logViewer(options: LogViewerOptions = {}): Elysia {
   const rawDir = options.logDir ?? 'storage/logs'
   const logDir = isAbsolute(rawDir) ? rawDir : resolve(process.cwd(), rawDir)
 
+  /**
+   * The 403 response when access is denied, or `undefined` when allowed.
+   *
+   * Callers compare against `undefined` rather than testing truthiness: every
+   * route here gates on this one value, and a falsy-but-present response would
+   * have granted access on the four routes that used `if (denied)` while the one
+   * using `??` still denied — the same guard behaving differently on sibling
+   * paths is how an authorization hole hides.
+   */
   async function denyUnlessAuthorized(ctx: Ctx): Promise<unknown> {
     const allowed = config.authorize ? await config.authorize(ctx) : false
     if (!allowed)
@@ -79,7 +88,7 @@ export function logViewer(options: LogViewerOptions = {}): Elysia {
   return new Elysia({ name: 'elyvel-log-viewer' })
     .get(path, async (ctx: any) => {
       const denied = await denyUnlessAuthorized(ctx)
-      if (denied)
+      if (denied !== undefined)
         return denied
       ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
       return renderLogViewerPage(path)
@@ -90,7 +99,7 @@ export function logViewer(options: LogViewerOptions = {}): Elysia {
     })
     .get(`${path}/api/files/:name/entries`, async (ctx: any) => {
       const denied = await denyUnlessAuthorized(ctx)
-      if (denied)
+      if (denied !== undefined)
         return denied
       const file = knownFile(ctx.params.name)
       if (!file)
@@ -105,7 +114,7 @@ export function logViewer(options: LogViewerOptions = {}): Elysia {
     })
     .get(`${path}/api/files/:name/download`, async (ctx: any) => {
       const denied = await denyUnlessAuthorized(ctx)
-      if (denied)
+      if (denied !== undefined)
         return denied
       const file = knownFile(ctx.params.name)
       if (!file)
@@ -116,7 +125,7 @@ export function logViewer(options: LogViewerOptions = {}): Elysia {
     })
     .delete(`${path}/api/files/:name`, async (ctx: any) => {
       const denied = await denyUnlessAuthorized(ctx)
-      if (denied)
+      if (denied !== undefined)
         return denied
       const file = knownFile(ctx.params.name)
       if (!file)
