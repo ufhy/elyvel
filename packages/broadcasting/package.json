@@ -1,14 +1,42 @@
 {
   "name": "@elyvel/broadcasting",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Real-time broadcasting for elyvel — Bun-native WebSocket pub/sub, no Pusher needed",
+  "author": "ufhy",
+  "license": "MIT",
+  "homepage": "https://github.com/ufhy/elyvel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ufhy/elyvel.git",
+    "directory": "packages/broadcasting"
+  },
+  "bugs": {
+    "url": "https://github.com/ufhy/elyvel/issues"
+  },
+  "keywords": [
+    "broadcasting",
+    "bun",
+    "elyvel",
+    "pubsub",
+    "websocket"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

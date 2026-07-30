@@ -1,14 +1,41 @@
 {
   "name": "@elyvel/telegram",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Telegram Bot API client for elyvel — send messages (and a notifications channel)",
+  "author": "ufhy",
+  "license": "MIT",
+  "homepage": "https://github.com/ufhy/elyvel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ufhy/elyvel.git",
+    "directory": "packages/telegram"
+  },
+  "bugs": {
+    "url": "https://github.com/ufhy/elyvel/issues"
+  },
+  "keywords": [
+    "bot",
+    "bun",
+    "elyvel",
+    "telegram"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

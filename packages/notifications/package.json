@@ -1,14 +1,40 @@
 {
   "name": "@elyvel/notifications",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Laravel-style notifications for elyvel — multi-channel (mail/database/telegram/broadcast)",
+  "author": "ufhy",
+  "license": "MIT",
+  "homepage": "https://github.com/ufhy/elyvel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ufhy/elyvel.git",
+    "directory": "packages/notifications"
+  },
+  "bugs": {
+    "url": "https://github.com/ufhy/elyvel/issues"
+  },
+  "keywords": [
+    "bun",
+    "elyvel",
+    "notifications"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

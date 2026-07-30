@@ -1,10 +1,38 @@
 {
   "name": "create-elyvel",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Scaffold a new elyvel app — `bun create elyvel <name>`",
+  "author": "ufhy",
+  "license": "MIT",
+  "homepage": "https://github.com/ufhy/elyvel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ufhy/elyvel.git",
+    "directory": "packages/create-elyvel"
+  },
+  "bugs": {
+    "url": "https://github.com/ufhy/elyvel/issues"
+  },
+  "keywords": [
+    "bun",
+    "create",
+    "elyvel",
+    "scaffold",
+    "starter"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "bin": {
     "create-elyvel": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
