@@ -54,11 +54,11 @@ describe('progressBar', () => {
   test('advance() moves toward total, finish() completes it and prints a trailing newline', () => {
     const writes: string[] = []
     const original = process.stdout.write.bind(process.stdout)
-    // @ts-expect-error — narrowing for the test capture only
-    process.stdout.write = (chunk: string) => {
+    // A narrower signature than the real `write`, which is all this capture needs.
+    process.stdout.write = ((chunk: string) => {
       writes.push(chunk)
       return true
-    }
+    }) as typeof process.stdout.write
     try {
       const bar = progressBar(4)
       bar.advance()

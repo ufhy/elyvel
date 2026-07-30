@@ -95,6 +95,8 @@ describe('S3Disk — live round-trips (MinIO)', () => {
     const d = disk()
     const blob = new File(['pixels'], 'p.jpg', { type: 'image/jpeg' })
     const key = await d.putFile('photos', blob)
+    if (key === false)
+      throw new Error('putFile reported a failed write')
     expect(key).toMatch(/^photos\/[a-f0-9]{32}\.jpg$/)
 
     await d.copy(key, 'photos/copy.jpg')

@@ -14,7 +14,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p examples/fullstack-vue/tsconfig.json && tsc -p examples/spa-vue/tsconfig.json",
     "lint": "eslint .",
     "format": "eslint . --fix"
   },

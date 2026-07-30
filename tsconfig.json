@@ -1,5 +1,14 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "examples/*/**/*.ts"],
-  "exclude": ["**/resources/**", "**/vite.config.ts", "**/public/**"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "examples/*/**/*.ts"
+  ],
+  "exclude": [
+    "**/resources/**",
+    "**/vite.config.ts",
+    "**/public/**",
+    "examples/*/frontend/**"
+  ]
 }

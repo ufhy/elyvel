@@ -168,6 +168,8 @@ describe('LocalDisk — uploads (putFile/putFileAs)', () => {
       type: 'application/octet-stream',
     })
     const path = await disk.putFileAs('uploads', blob, 'named.bin')
+    if (path === false)
+      throw new Error('putFileAs reported a failed write')
     expect(path).toBe('uploads/named.bin')
     expect(Array.from(await disk.getBytes(path))).toEqual([9, 8, 7])
   })
@@ -199,6 +201,8 @@ describe('LocalDisk — uploads (putFile/putFileAs)', () => {
     const disk = makeDisk()
     const blob = new File(['content'], 'photo.jpg', { type: 'image/jpeg' })
     const path = await disk.putFile('photos', blob)
+    if (path === false)
+      throw new Error('putFile reported a failed write')
     expect(path).toMatch(/^photos\/[a-f0-9]{32}\.jpg$/)
     expect(await disk.exists(path)).toBe(true)
   })

@@ -261,8 +261,8 @@ describe('cache concurrency + expiry regressions', () => {
       cache.tags('posts').put('x', 1),
       cache.tags('posts').put('y', 2),
     ])
-    expect(await cache.tags('posts').get('x')).toBe(1)
-    expect(await cache.tags('posts').get('y')).toBe(2)
+    expect(await cache.tags('posts').get<number>('x')).toBe(1)
+    expect(await cache.tags('posts').get<number>('y')).toBe(2)
   })
 
   test('tags().remember() coalesces like the untagged path', async () => {
@@ -285,7 +285,7 @@ describe('cache concurrency + expiry regressions', () => {
     await cache.tags('b').put('kb', 2)
     await cache.tags('a').flush()
     expect(await cache.tags('a').get('ka')).toBeUndefined()
-    expect(await cache.tags('b').get('kb')).toBe(2)
+    expect(await cache.tags('b').get<number>('kb')).toBe(2)
   })
 
   test('add is once-only under concurrency, on every store that can be', async () => {

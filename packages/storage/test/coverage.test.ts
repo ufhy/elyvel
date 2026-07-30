@@ -107,6 +107,10 @@ describe('ScopedDisk — delegation surface', () => {
     const stored = await disk.putFileAs('uploads', blob, 'named.bin')
     expect(stored).toBe('uploads/named.bin') // prefix stripped from the returned path
     const generated = await disk.putFile('uploads', blob)
+    // `putFile` returns `string | false` — narrow rather than cast, so a write
+    // that actually failed fails the test instead of silently comparing `false`.
+    if (generated === false)
+      throw new Error('putFile reported a failed write')
     expect(generated.startsWith('uploads/')).toBe(true)
   })
 

@@ -1,16 +1,21 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // The frontend needs the DOM lib and Vite's ambient types (`import.meta.glob`,
+  // `*.css` side-effect imports). The root tsconfig is server-oriented
+  // (`lib: ["ESNext"]`, `types: ["@types/bun"]`) and reported ~24 phantom errors
+  // for this directory — `Cannot find name 'window'` and friends — which is why
+  // it excludes `frontend/` and defers to this config instead. `vite/client`
+  // resolves from THIS package's node_modules, so the config has to live here
+  // rather than at the repo root.
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    // Mirrors the `@` alias in vite.config.ts, so `@/lib/utils` resolves here
+    // too. No `baseUrl` — it's deprecated in TS 6 and `paths` is resolved
+    // relative to this file without it.
     "paths": { "@/*": ["./frontend/*"] },
-    "types": ["bun", "vite/client"],
-    "allowImportingTsExtensions": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noEmit": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "types": ["vite/client"]
   },
-  "include": ["**/*.ts", "**/*.d.ts", "**/*.vue"]
+  "include": ["frontend/**/*.ts", "frontend/**/*.d.ts"]
 }

@@ -65,8 +65,19 @@ export class TaggedCache {
     return `${await this.namespace()}:${key}`
   }
 
-  async get<T = unknown>(key: string, fallback?: T): Promise<T | undefined> {
-    const value = await this.store.get<T>(await this.k(key))
+  /**
+   * Two overloads rather than one signature with an optional fallback. With
+   * `get<T = unknown>(key, fallback?: T)`, calling `get('k')` gave TypeScript
+   * nothing to infer `T` from except the absent `fallback`, so it settled on
+   * `undefined` — every caller's value came back typed `undefined` and had to
+   * pass an explicit type argument to be usable at all. Splitting the no-fallback
+   * case into its own overload lets the default `T = unknown` apply, while
+   * `get<Shape>('k')` and `get('k', fallback)` both keep working.
+   */
+  async get<T = unknown>(key: string): Promise<T | undefined>
+  async get<T>(key: string, fallback: T): Promise<T>
+  async get(key: string, fallback?: unknown): Promise<unknown> {
+    const value = await this.store.get(await this.k(key))
     return value === undefined ? fallback : value
   }
 
@@ -129,10 +140,12 @@ export class TaggedCache {
    * untagged path.
    */
   async remember<T>(key: string, seconds: number, factory: () => T | Promise<T>): Promise<T> {
-    const existing = await this.get<T>(key)
+    // Reads the store directly rather than this class's overloaded `get`, which
+    // has no single-argument generic form (same as `Repository` does).
+    const real = await this.k(key)
+    const existing = await this.store.get<T>(real)
     if (existing !== undefined)
       return existing
-    const real = await this.k(key)
     return coalesce(this.store, real, async () => {
       const value = await factory()
       await this.store.put(real, value, seconds)
@@ -141,10 +154,12 @@ export class TaggedCache {
   }
 
   async rememberForever<T>(key: string, factory: () => T | Promise<T>): Promise<T> {
-    const existing = await this.get<T>(key)
+    // Reads the store directly rather than this class's overloaded `get`, which
+    // has no single-argument generic form (same as `Repository` does).
+    const real = await this.k(key)
+    const existing = await this.store.get<T>(real)
     if (existing !== undefined)
       return existing
-    const real = await this.k(key)
     return coalesce(this.store, real, async () => {
       const value = await factory()
       await this.store.put(real, value)

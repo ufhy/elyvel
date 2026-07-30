@@ -85,7 +85,7 @@ for (const d of dialects) {
       expect(all.contains(post)).toBe(true)
       expect(all.contains(post.getKey())).toBe(true)
       expect(all.contains(-1)).toBe(false)
-      expect(all.contains(p => p.title === 'Two')).toBe(true)
+      expect(all.contains((p: Post) => p.title === 'Two')).toBe(true)
     })
 
     test('only/except filter by primary key', async () => {
