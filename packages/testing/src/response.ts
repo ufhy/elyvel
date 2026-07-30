@@ -109,7 +109,10 @@ export class TestResponse {
       (acc, key) => (acc == null ? undefined : (acc as Record<string, unknown>)[key]),
       this.json(),
     )
-    if (JSON.stringify(actual) !== JSON.stringify(value))
+    // Structural comparison, not `JSON.stringify` equality: stringify is
+    // key-ORDER sensitive, so asserting `{ id: 1, name: 'Ada' }` against a body
+    // that serialized `{ name: 'Ada', id: 1 }` failed a correct assertion.
+    if (!deepEquals(actual, value))
       this.fail(`Expected JSON path "${path}" to be ${JSON.stringify(value)}, got ${JSON.stringify(actual)}.`)
     return this
   }
@@ -122,7 +125,16 @@ export class TestResponse {
   }
 }
 
-/** Deep partial match: every key/value in `subset` appears in `value`. */
+/**
+ * Deep partial match: every key/value in `subset` appears in `value`.
+ *
+ * An EMPTY expected array or object is the one exception — it asserts that the
+ * actual value is empty too, rather than imposing no constraint. `every` over an
+ * empty list is vacuously true, so `assertJson({ errors: [] })` used to PASS
+ * while `errors` held two entries: a test written to prove there were no
+ * validation errors passed precisely when there were. Laravel compares the value
+ * at that point and fails, and so do we.
+ */
 function containsSubset(value: unknown, subset: unknown): boolean {
   if (subset !== null && typeof subset === 'object') {
     if (value === null || typeof value !== 'object')
@@ -130,11 +142,42 @@ function containsSubset(value: unknown, subset: unknown): boolean {
     if (Array.isArray(subset)) {
       if (!Array.isArray(value))
         return false
+      if (subset.length === 0)
+        return value.length === 0
       return subset.every((s, i) => containsSubset(value[i], s))
     }
-    return Object.entries(subset).every(([k, v]) =>
-      containsSubset((value as Record<string, unknown>)[k], v),
+    if (Array.isArray(value))
+      return false
+    const keys = Object.keys(subset)
+    if (keys.length === 0)
+      return Object.keys(value).length === 0
+    return keys.every(k =>
+      containsSubset(
+        (value as Record<string, unknown>)[k],
+        (subset as Record<string, unknown>)[k],
+      ),
     )
   }
   return JSON.stringify(value) === JSON.stringify(subset)
+}
+
+/** Structural equality over JSON values — key order does not matter. */
+function deepEquals(a: unknown, b: unknown): boolean {
+  if (a === b)
+    return true
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object')
+    return JSON.stringify(a) === JSON.stringify(b)
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length)
+      return false
+    return a.every((item, i) => deepEquals(item, b[i]))
+  }
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length)
+    return false
+  return aKeys.every(k =>
+    Object.hasOwn(b, k)
+    && deepEquals((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+  )
 }

@@ -33,6 +33,29 @@ function cookiePair(setCookie: string): [string, string] | undefined {
 }
 
 /**
+ * Is this `Set-Cookie` deleting the cookie? A browser removes it from the jar
+ * entirely on `Max-Age=0` (or a past `Expires`); storing the empty value instead
+ * meant the client kept sending `cookie: sess=` after a logout, and
+ * `cookieJar()` still reported a cookie that no longer exists — so a test could
+ * disagree with what a real browser would send.
+ */
+function isDeletion(setCookie: string): boolean {
+  const attributes = setCookie.split(';').slice(1)
+  for (const attribute of attributes) {
+    const [rawName, rawValue = ''] = attribute.split('=')
+    const name = rawName?.trim().toLowerCase()
+    if (name === 'max-age' && Number(rawValue.trim()) <= 0)
+      return true
+    if (name === 'expires') {
+      const expires = Date.parse(rawValue.trim())
+      if (!Number.isNaN(expires) && expires <= Date.now())
+        return true
+    }
+  }
+  return false
+}
+
+/**
  * A fluent HTTP test client that drives an app through its `handle()` method —
  * no socket, no port. Every call resolves to a {@link TestResponse}.
  *
@@ -145,8 +168,11 @@ export class TestClient {
     const response = await this.app.handle(new Request(url.toString(), { method, headers, body }))
     for (const raw of response.headers.getSetCookie()) {
       const pair = cookiePair(raw)
-      if (pair)
-        this.cookies.set(...pair)
+      if (!pair)
+        continue
+      if (isDeletion(raw))
+        this.cookies.delete(pair[0])
+      else this.cookies.set(...pair)
     }
     return TestResponse.of(response)
   }

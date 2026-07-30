@@ -41,6 +41,26 @@ res.assertHeader('content-type', 'application/json; charset=utf-8')
 res.assertSee('Hello')                       // substring check on the raw body
 ```
 
+::: tip What the JSON assertions do and don't match
+`assertJson` is a **deep partial** match: extra keys in the response are fine,
+and an expected array matches a prefix of the actual one. Two things it is strict
+about:
+
+- **An empty expected array or object asserts emptiness**, not "anything goes".
+  `assertJson({ errors: [] })` fails when `errors` has entries — which is what you
+  want, since that assertion is usually written to prove there were none. (A
+  vacuous `every` over an empty list used to make it pass in exactly that case.)
+- **Types are not coerced.** `{ count: '2' }` does not match `{ count: 2 }`.
+
+`assertJsonPath` compares **structurally**, so key order in an expected object
+doesn't matter, but array order does. Passing `undefined` as the expected value
+asserts the path is *absent* — handy, but note a typo'd path also satisfies it.
+
+`assertSee` is a substring check on the **raw** body, with no HTML unescaping: to
+match text the renderer escaped, write the escaped form (`'Ada &amp; Bob'`) or
+compare against `.text()` yourself.
+:::
+
 Also available: `assertStatus(code)`, `assertCreated()`, `assertNoContent()`,
 `assertNotFound()`, `assertUnauthorized()`, `assertForbidden()`,
 `assertSuccessful()` (any 2xx), `assertRedirect(location?)`. Drop to
@@ -51,7 +71,10 @@ assertion isn't specific enough — they compose fine with plain `expect()`.
 
 The client carries its own cookie jar: every `Set-Cookie` the app returns
 is captured and replayed on later requests from that same client, so a
-session established at one route is still there on the next request. For
+session established at one route is still there on the next request. A
+`Set-Cookie` that *deletes* a cookie (`Max-Age=0`, or a past `Expires`) removes it
+from the jar, the same as a browser would — so after hitting a logout route the
+client stops sending it instead of replaying an empty value. For
 any non-GET/HEAD/OPTIONS request, it also mirrors the `XSRF-TOKEN` cookie
 into an `X-XSRF-Token` header automatically — the same double-submit
 pattern a real browser/axios does — so a CSRF-protected `POST` just works

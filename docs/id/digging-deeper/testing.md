@@ -41,6 +41,28 @@ res.assertHeader('content-type', 'application/json; charset=utf-8')
 res.assertSee('Hello')                       // cek substring pada raw body
 ```
 
+::: tip Apa yang dicocokkan assertion JSON, dan apa yang tidak
+`assertJson` adalah pencocokan **deep partial**: key tambahan di response tidak
+masalah, dan array yang diharapkan cocok dengan prefix array sebenarnya. Dua hal
+yang ia ketat soal itu:
+
+- **Array atau object kosong yang diharapkan berarti "harus kosong"**, bukan
+  "apa saja boleh". `assertJson({ errors: [] })` gagal kalau `errors` berisi —
+  dan itu yang kamu inginkan, karena assertion seperti itu biasanya ditulis untuk
+  membuktikan tidak ada error. (Dulu `every` atas list kosong yang vacuously true
+  membuatnya lolos justru di kasus itu.)
+- **Tipe tidak dikonversi.** `{ count: '2' }` tidak cocok dengan `{ count: 2 }`.
+
+`assertJsonPath` membandingkan secara **struktural**, jadi urutan key di object
+yang diharapkan tidak berpengaruh, tapi urutan array berpengaruh. Memberi
+`undefined` sebagai nilai yang diharapkan berarti memastikan path-nya **tidak
+ada** — praktis, tapi perhatikan bahwa path yang salah tulis juga memenuhinya.
+
+`assertSee` adalah pemeriksaan substring pada body **mentah**, tanpa unescape
+HTML: untuk mencocokkan teks yang sudah di-escape renderer, tulis bentuk
+escape-nya (`'Ada &amp; Bob'`) atau bandingkan sendiri lewat `.text()`.
+:::
+
 Tersedia juga: `assertStatus(code)`, `assertCreated()`, `assertNoContent()`,
 `assertNotFound()`, `assertUnauthorized()`, `assertForbidden()`,
 `assertSuccessful()` (2xx apa pun), `assertRedirect(location?)`. Turun ke
@@ -52,7 +74,10 @@ tidak cukup spesifik — semuanya bisa dipakai bersama `expect()` biasa.
 Client membawa cookie jar-nya sendiri: setiap `Set-Cookie` yang
 dikembalikan aplikasi ditangkap dan diulang di request berikutnya dari
 client yang sama, jadi session yang terbentuk di satu route masih ada di
-request selanjutnya. Untuk request non-GET/HEAD/OPTIONS, client juga
+request selanjutnya. `Set-Cookie` yang **menghapus** sebuah cookie
+(`Max-Age=0`, atau `Expires` yang sudah lewat) mengeluarkannya dari jar, sama
+seperti browser — jadi setelah memanggil route logout, client berhenti
+mengirimnya alih-alih mengulang nilai kosong. Untuk request non-GET/HEAD/OPTIONS, client juga
 otomatis mencerminkan cookie `XSRF-TOKEN` ke header `X-XSRF-Token` — pola
 double-submit yang sama seperti browser/axios sungguhan — jadi `POST`
 yang terproteksi CSRF langsung bekerja selama request sebelumnya di test
