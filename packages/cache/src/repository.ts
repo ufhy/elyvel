@@ -1,5 +1,6 @@
 import type { CacheStore } from './store'
 import { coalesce } from './coalesce'
+import { Lock, supportsLocks } from './lock'
 import { TaggedCache } from './tagged-cache'
 
 /**
@@ -13,8 +14,8 @@ export class Repository {
   // `factory()` (a thundering herd against the origin DB/API on any popular
   // key's expiry). Only the first caller actually runs `factory()`; the rest
   // await its result. This dedupes WITHIN one process; it doesn't coordinate
-  // across instances sharing a `redis`/`database` store (that needs a
-  // distributed lock, which no cache driver here exposes yet) — but since
+  // across instances sharing a `redis`/`database` store — wrap the factory in
+  // `lock()` when you need that — but since
   // every instance already dedupes its own concurrent callers, an N-instance
   // fleet still goes from "however many concurrent requests landed" down to
   // "at most N" factory() calls, not eliminated but substantially reduced.
@@ -28,6 +29,37 @@ export class Repository {
    */
   tags(names: string | string[]): TaggedCache {
     return new TaggedCache(this.store, Array.isArray(names) ? names : [names])
+  }
+
+  /**
+   * An owner-checked mutex on top of this store — Laravel's `Cache::lock()`.
+   *
+   * ```ts
+   * await cache().lock('rebuild-sitemap', 300).acquire(() => rebuildSitemap())
+   * ```
+   *
+   * See {@link Lock} for the ownership and TTL semantics. Only a store with
+   * atomic `add` + `forgetIf` can back one; anything else throws here rather than
+   * handing back a lock that two callers could hold at once.
+   */
+  lock(name: string, seconds = 60, owner?: string): Lock {
+    if (!supportsLocks(this.store)) {
+      throw new Error(
+        `[elyvel] The configured cache store cannot provide locks: it needs atomic `
+        + '`add` and `forgetIf`. Use the memory, file, redis or database store, or '
+        + 'implement both on your custom store.',
+      )
+    }
+    return new Lock(this.store, name, seconds, owner)
+  }
+
+  /**
+   * Rebuild a lock held elsewhere from its owner token, so the process that
+   * releases it needn't be the one that took it — the queued-job case: acquire in
+   * the request, pass `lock.owner()` in the payload, release from the worker.
+   */
+  restoreLock(name: string, owner: string, seconds = 60): Lock {
+    return this.lock(name, seconds, owner)
   }
 
   async get(key: string): Promise<unknown>

@@ -1,6 +1,7 @@
 import { CacheServiceProvider } from './provider'
 
 export { type CacheConfig, type CacheStoreConfig, defineCacheConfig } from './config-schema'
+export { Lock, LockTimeoutError, supportsLocks } from './lock'
 export { cache, CacheManager, setDefaultCache } from './manager'
 export { CacheServiceProvider, CacheToken } from './provider'
 export { Repository } from './repository'

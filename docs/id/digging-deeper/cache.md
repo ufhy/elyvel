@@ -108,6 +108,94 @@ setiap tag punya version id, dan flush cukup merotasi version-nya, sehingga
 entri lama menjadi tak terjangkau dan expired sendiri sesuai TTL-nya,
 bukan di-enumerasi lalu dihapus satu per satu.
 
+## Atomic lock
+
+Sebuah mutex di atas cache, supaya hanya satu proses menjalankan sepotong
+pekerjaan pada satu waktu — `Cache::lock()` milik Laravel. Bentuk yang sebaiknya
+dipakai memberi callback, karena ia tidak bisa membocorkan lock saat return lebih
+awal atau saat throw:
+
+```ts
+await cache().lock('rebuild-sitemap', 300).acquire(() => rebuildSitemap())
+```
+
+`acquire()` tidak menunggu — ia langsung mengembalikan `false` kalau lock-nya
+sedang dipegang, dan callback-nya tidak dijalankan. Untuk menunggu, pakai
+`block()`:
+
+```ts
+// Tunggu maksimal 10 detik, lalu menyerah
+await cache().lock('import-feed', 120).block(10, () => importFeed())
+```
+
+`block()` akan **throw** `LockTimeoutError` ketika waktunya habis, bukan
+mengembalikan `false` yang gampang terabaikan. Tanpa callback, `acquire()`
+mengembalikan boolean dan `release()` jadi tanggung jawabmu:
+
+```ts
+const lock = cache().lock('import-feed', 120)
+if (await lock.acquire()) {
+  try { await importFeed() }
+  finally { await lock.release() }
+}
+```
+
+### Kepemilikan, dan kenapa release bisa mengembalikan false
+
+Setiap acquisition menyimpan owner token acak, dan `release()` menghapus lock-nya
+hanya jika token itu masih ada. Jadi `release()` yang mengembalikan `false`
+berarti **TTL-mu sudah lewat dan sekarang lock-nya dipegang orang lain** —
+pekerjaanmu berjalan lebih lama daripada proteksi yang menaunginya. Itu layak
+di-log.
+
+Inilah inti dari pemeriksaan kepemilikan: tanpa itu, pemegang yang kelamaan akan
+menghapus lock yang sudah sah diambil peer, lalu menyerahkannya ke pemanggil
+ketiga sementara peer-nya masih mengira lock itu miliknya. (Scheduler mutex milik
+framework ini sendiri pernah punya bug persis seperti itu.)
+
+::: warning TTL itu penjaga terhadap crash, bukan jaring pengaman
+TTL wajib ada — `lock(name, 0)` akan throw — karena lock yang pemegangnya crash
+harus bisa kedaluwarsa sendiri, kalau tidak operasinya macet selamanya. Set
+dengan longgar di atas durasi pekerjaan sebenarnya. Kalau pekerjaannya rutin
+melewati TTL, naikkan TTL-nya; jangan mengandalkan expiry untuk mengakhiri
+critical section.
+:::
+
+`forceRelease()` melepas lock tanpa peduli pemiliknya. Ia akan dengan senang hati
+merenggut lock yang sedang diandalkan proses lain, jadi simpan untuk
+membersihkan lock yang terlantar karena crash.
+
+### Melepas dari proses lain
+
+Bawa owner token-nya dan bangun ulang lock-nya di tempat pekerjaan itu selesai —
+kasus queued job, di mana request yang acquire dan worker yang release:
+
+```ts
+const lock = cache().lock('process-upload', 600)
+if (await lock.acquire())
+  await dispatch(new ProcessUpload(uploadId, lock.owner()))
+
+// …di dalam job-nya
+await cache().restoreLock('process-upload', this.lockOwner, 600).release()
+```
+
+### Dukungan store
+
+Lock butuh dua operasi atomik: acquire-jika-belum-ada dan compare-and-delete.
+Keempat store bawaan menyediakannya — `memory` dan `file` dalam satu proses,
+`redis` lewat `SET NX` plus compare-and-delete berbasis Lua, `database` lewat
+adapter-nya. Store custom yang kehilangan salah satunya akan throw saat kamu
+memanggil `lock()`, bukan menyerahkan lock yang bisa dipegang dua pemanggil
+sekaligus.
+
+::: warning Hanya redis (dan database store dengan `forgetIf`) yang mengunci lintas instance
+Lock `memory` dan `file` bersifat per-proses — dua instance di belakang load
+balancer masing-masing punya lock sendiri. Store `database` jatuh ke
+read-then-delete saat release kecuali adapter-nya mengimplementasikan `forgetIf`,
+dan itu bisa melepas lock yang sudah diambil peer. Untuk distributed lock yang
+sesungguhnya, pakai `redis`.
+:::
+
 ## Memilih store
 
 | Driver | Catatan |

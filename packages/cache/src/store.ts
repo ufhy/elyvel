@@ -29,6 +29,22 @@ export interface CacheStore {
    * `get()`-then-`forget()` pair can hand the same value to two callers.
    */
   pull?<T = unknown>(key: string): Promise<T | undefined>
+  /**
+   * Delete `key` only if its stored value still equals `expected`, in ONE
+   * indivisible step. Returns whether this caller was the one that deleted it.
+   *
+   * This is what makes {@link Repository.lock} safe. A lock holder whose TTL has
+   * already lapsed must NOT delete the key — by then a peer may legitimately hold
+   * it, and an unconditional delete would hand the same lock to a third caller
+   * while the peer still believed it was theirs. (That exact bug existed in the
+   * scheduler's own mutex.) Comparing the owner token and deleting in one step is
+   * the only way to get that right; a `get()`-then-`forget()` pair reopens the
+   * race it is meant to close.
+   *
+   * A store that implements this AND {@link add} can back locks; one that doesn't
+   * says so rather than handing out a lock that can't be released safely.
+   */
+  forgetIf?(key: string, expected: unknown): Promise<boolean>
 }
 
 interface Entry {
@@ -97,6 +113,17 @@ export class MemoryStore implements CacheStore {
       value,
       expiresAt: seconds !== undefined ? Date.now() + seconds * 1000 : undefined,
     })
+    return true
+  }
+
+  /** Atomic by construction — compare and delete in one synchronous step. */
+  async forgetIf(key: string, expected: unknown): Promise<boolean> {
+    const entry = this.entries.get(key)
+    if (entry === undefined || expired(entry, Date.now()))
+      return false
+    if (!Object.is(entry.value, expected) && JSON.stringify(entry.value) !== JSON.stringify(expected))
+      return false
+    this.entries.delete(key)
     return true
   }
 
@@ -198,6 +225,15 @@ export class FileStore implements CacheStore {
   }
 
   /** Single-process atomic, same caveat as `add`. */
+  async forgetIf(key: string, expected: unknown): Promise<boolean> {
+    const current = this.read(key)
+    if (current === undefined || JSON.stringify(current) !== JSON.stringify(expected))
+      return false
+    await this.forget(key)
+    return true
+  }
+
+  /** Single-process atomic, same caveat as `add`. */
   async pull<T = unknown>(key: string): Promise<T | undefined> {
     const entry = this.read(key)
     const file = this.path(key)
@@ -217,6 +253,19 @@ export interface CacheDbAdapter {
   write(key: string, value: string, expiresAt: number | null): Promise<void>
   forget(key: string): Promise<void>
   flush(): Promise<void>
+  /**
+   * Delete `key` only if its stored value is still exactly `value`, in ONE
+   * statement, returning whether this call deleted it:
+   *
+   * ```sql
+   * DELETE FROM cache WHERE key = ? AND value = ?
+   * ```
+   *
+   * Optional, but required for `Cache.lock()` to be safe across processes:
+   * without it `DatabaseStore` falls back to read-then-delete, which can release
+   * a lock a peer has since acquired.
+   */
+  forgetIf?(key: string, value: string): Promise<boolean>
   /**
    * Atomically add `by` to the numeric value stored at `key` (creating it
    * at `by` if absent) and return the new value — e.g. a single
@@ -341,6 +390,20 @@ export class DatabaseStore implements CacheStore {
     await adapter.write(key, JSON.stringify(value), expiresAt)
     return true
   }
+
+  async forgetIf(key: string, expected: unknown): Promise<boolean> {
+    const adapter = requireAdapter()
+    if (adapter.forgetIf)
+      return adapter.forgetIf(key, JSON.stringify(expected))
+    // Without the adapter primitive this is a read-then-delete across an await —
+    // fine on a single instance, racy across several sharing the table. Wire
+    // `forgetIf` on the adapter for a lock that is safe cross-process.
+    const current = await this.get(key)
+    if (current === undefined || JSON.stringify(current) !== JSON.stringify(expected))
+      return false
+    await adapter.forget(key)
+    return true
+  }
 }
 
 /** Minimal Redis client (Bun's built-in `RedisClient` satisfies this via `send`). */
@@ -424,6 +487,21 @@ export class RedisStore implements CacheStore {
       args.push('EX', String(Math.max(1, Math.ceil(seconds))))
     // Redis replies OK on success and nil when NX prevented the write.
     return (await this.client.send('SET', args)) !== null
+  }
+
+  /**
+   * Compare-and-delete in ONE round trip via `EVAL`. A `GET` followed by `DEL`
+   * would reopen the very race this closes: the key can expire and be re-acquired
+   * by a peer between the two commands, and we'd delete THEIR lock.
+   */
+  async forgetIf(key: string, expected: unknown): Promise<boolean> {
+    const removed = await this.client.send('EVAL', [
+      'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end',
+      '1',
+      this.k(key),
+      JSON.stringify(expected),
+    ])
+    return Number(removed) === 1
   }
 
   /** `GETDEL` — read and delete in one round trip, so no two callers can both consume it. */

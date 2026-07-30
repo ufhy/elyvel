@@ -105,6 +105,87 @@ has a version id, and flushing just rotates it, so previously-tagged entries
 become unreachable and expire on their own TTL rather than being enumerated
 and deleted.
 
+## Atomic locks
+
+A mutex on top of the cache, so only one process runs a piece of work at a time —
+Laravel's `Cache::lock()`. The form to prefer passes a callback, because it can't
+leak the lock on an early return or a throw:
+
+```ts
+await cache().lock('rebuild-sitemap', 300).acquire(() => rebuildSitemap())
+```
+
+`acquire()` does not wait — it returns `false` immediately when the lock is held,
+and the callback simply doesn't run. To wait for it, use `block()`:
+
+```ts
+// Wait up to 10s, then give up
+await cache().lock('import-feed', 120).block(10, () => importFeed())
+```
+
+`block()` **throws** `LockTimeoutError` when the wait runs out, rather than
+returning a `false` that's easy to drop on the floor. Without a callback,
+`acquire()` returns a boolean and `release()` is yours to call:
+
+```ts
+const lock = cache().lock('import-feed', 120)
+if (await lock.acquire()) {
+  try { await importFeed() }
+  finally { await lock.release() }
+}
+```
+
+### Ownership, and why release can return false
+
+Every acquisition stores a random owner token, and `release()` deletes the lock
+only if that token is still there. So `release()` returning `false` means **your
+TTL lapsed and someone else holds the lock now** — your work outlived the
+protection it was running under. That's worth logging.
+
+This is the whole point of the ownership check: without it, a holder that ran long
+would delete a lock a peer had legitimately taken, handing it to a third caller
+while the peer still believed it was theirs. (This framework's own scheduler mutex
+had exactly that bug.)
+
+::: warning The TTL is a crash guard, not a safety net
+A TTL is required — `lock(name, 0)` throws — because a lock whose holder crashes
+must expire on its own or the operation is wedged forever. Set it comfortably
+longer than the work actually takes. If the work regularly outruns it, raise the
+TTL; don't rely on expiry to end the critical section.
+:::
+
+`forceRelease()` releases regardless of owner. It will happily yank a lock another
+process is actively relying on, so reserve it for clearing one stranded by a crash.
+
+### Releasing from another process
+
+Pass the owner token along and rebuild the lock where the work finishes — the
+queued-job case, where the request acquires and the worker releases:
+
+```ts
+const lock = cache().lock('process-upload', 600)
+if (await lock.acquire())
+  await dispatch(new ProcessUpload(uploadId, lock.owner()))
+
+// …in the job
+await cache().restoreLock('process-upload', this.lockOwner, 600).release()
+```
+
+### Store support
+
+Locks need two atomic operations: acquire-if-absent and compare-and-delete. All
+four built-in stores provide them — `memory` and `file` within one process,
+`redis` via `SET NX` plus a Lua compare-and-delete, `database` via its adapter. A
+custom store missing either one throws when you call `lock()` instead of handing
+back a lock two callers could hold at once.
+
+::: warning Only redis (and a database store with `forgetIf` wired) locks across instances
+`memory` and `file` locks are per-process — two instances behind a load balancer
+each get their own. The `database` store falls back to a read-then-delete release
+unless its adapter implements `forgetIf`, which can release a lock a peer has
+since acquired. For a real distributed lock, use `redis`.
+:::
+
 ## Which store to pick
 
 | Driver | Notes |
