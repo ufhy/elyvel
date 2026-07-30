@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/broadcasting",
   "type": "module",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Real-time broadcasting for elyvel — Bun-native WebSocket pub/sub, no Pusher needed",
   "author": "ufhy",
   "license": "MIT",
@@ -32,6 +32,7 @@
   "module": "./src/index.ts",
   "types": "./src/index.ts",
   "files": [
+    "lang",
     "src"
   ],
   "engines": {

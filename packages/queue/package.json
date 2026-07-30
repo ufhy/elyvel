@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/queue",
   "type": "module",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Laravel-style queues for elyvel — jobs, workers, sync/memory/database/redis drivers",
   "author": "ufhy",
   "license": "MIT",

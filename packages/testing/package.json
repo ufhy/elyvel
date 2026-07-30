@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/testing",
   "type": "module",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Test helpers for elyvel — HTTP test client, response assertions, and database refresh",
   "author": "ufhy",
   "license": "MIT",

@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/cli",
   "type": "module",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "The `elyvel` command-line generator and dev server",
   "author": "ufhy",
   "license": "MIT",
@@ -30,7 +30,9 @@
     "elyvel": "./src/index.ts"
   },
   "files": [
-    "src"
+    "src",
+    "stubs",
+    "templates"
   ],
   "engines": {
     "bun": ">=1.1.0"

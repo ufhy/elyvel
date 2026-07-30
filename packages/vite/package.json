@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/vite",
   "type": "module",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Vite integration for elyvel — asset tags + serve a Vite SPA (no Inertia required)",
   "author": "ufhy",
   "license": "MIT",

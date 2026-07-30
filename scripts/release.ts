@@ -102,6 +102,18 @@ async function alreadyPublished(pkg: Pkg): Promise<boolean> {
  * version that will never exist — every install then fails. So pack each package
  * and read back what the tarball actually says.
  */
+/**
+ * Directories in a package that look like runtime assets: anything top-level that
+ * isn't source, tests, tooling, or build output. `dist/` is gitignored build junk
+ * and must NOT ship.
+ */
+function assetDirs(dir: string): string[] {
+  const ignored = new Set(['src', 'test', 'tests', 'node_modules', 'dist', 'coverage'])
+  return readdirSync(dir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && !ignored.has(entry.name) && !entry.name.startsWith('.'))
+    .map(entry => entry.name)
+}
+
 async function verifyTarballs(order: Pkg[], version: string): Promise<string[]> {
   const scratch = mkdtempSync(join(tmpdir(), 'elyvel-release-'))
   const problems: string[] = []
@@ -120,6 +132,19 @@ async function verifyTarballs(order: Pkg[], version: string): Promise<string[]> 
       const listing = await run(['tar', '-xzOf', join(scratch, tgz), 'package/package.json'])
       const inTarball = JSON.parse(listing.out) as Record<string, any>
       const deps: Record<string, string> = { ...inTarball.dependencies, ...inTarball.peerDependencies }
+
+      // Runtime assets that live OUTSIDE src/ and so are easy to leave out of
+      // `files`. This is not hypothetical: shipping `files: ["src"]` published a
+      // CLI with no `templates/` (so `bun create @elyvel` failed outright) and
+      // four packages with no `lang/` (so translations silently fell back to
+      // English forever, with no error anywhere). Nothing in package.json points
+      // at these directories, so checking `exports`/`bin` targets cannot catch it.
+      const contents = await run(['tar', '-tzf', join(scratch, tgz)])
+      const shipped = contents.out.split('\n')
+      for (const asset of assetDirs(pkg.dir)) {
+        if (!shipped.some(entry => entry.startsWith(`package/${asset}/`)))
+          problems.push(`${pkg.name}: "${asset}/" exists but is missing from the tarball — add it to \`files\``)
+      }
 
       if (inTarball.version !== version)
         problems.push(`${pkg.name}: tarball says ${inTarball.version}, expected ${version}`)
