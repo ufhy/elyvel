@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push supersedes an in-flight run for the same ref. Saves Actions
+# minutes, which are metered while this repo is private.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Pinned rather than `latest`, so a Bun release can never turn every
+          # open PR red on its own. Bump it deliberately, and see the
+          # `bun-latest` job below for early warning about new Bun versions.
+          bun-version: 1.3.12
+
+      - run: bun install --frozen-lockfile
+
+      # Cheapest first, so an obvious break fails in seconds rather than minutes.
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun test
+
+      # The docs are part of the repo and a broken build is invisible until
+      # deploy otherwise — `docs.yml` only builds on push to main, not on PRs.
+      - name: Build docs
+        run: bun run build
+        working-directory: docs
+
+      # Catches the release-blocking mistake this project has actually made:
+      # a version bump without `bun install` leaves the lockfile stale, and the
+      # packed tarballs then depend on versions that will never exist. Dry run —
+      # publishes nothing.
+      - name: Verify packages are publishable
+        run: bun run release
+
+  bun-latest:
+    # Early warning that a new Bun release breaks us, WITHOUT gating merges on it.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun --version
+      - run: bun test
