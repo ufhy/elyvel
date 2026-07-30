@@ -5,7 +5,7 @@ import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { error, info, line } from '../io'
-import { isKitName, kitNames, kitNextSteps, scaffoldKit } from '../kits'
+import { isKitName, kitNames, kitNextSteps, pinWorkspaceDeps, scaffoldKit } from '../kits'
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'templates', 'base')
 
@@ -88,6 +88,12 @@ export async function newApp(
     const content = (await readFile(envExample, 'utf8')).replace(/^APP_KEY=.*$/m, `APP_KEY=${key}`)
     await Bun.write(join(target, '.env'), content)
   }
+
+  // The templates spell `@elyvel/*` as `workspace:*`, which only resolves inside
+  // this monorepo — a scaffolded app would fail `bun install` immediately. Pin
+  // them to this CLI's real version. Also runs after a kit is applied, since kit
+  // dep lists carry the same specs.
+  await pinWorkspaceDeps(target)
 
   info(`✓ Created ${vars.appName} in ${rawName}/ (${count} files, .env + APP_KEY set)`)
 

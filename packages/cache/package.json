@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/cache",
   "type": "module",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Laravel-style cache for elyvel — repository API, memory + file stores",
   "author": "ufhy",
   "license": "MIT",

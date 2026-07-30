@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/notifications",
   "type": "module",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Laravel-style notifications for elyvel — multi-channel (mail/database/telegram/broadcast)",
   "author": "ufhy",
   "license": "MIT",

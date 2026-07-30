@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/scheduler",
   "type": "module",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Laravel-style task scheduling for elyvel — cron expressions, fluent frequencies, schedule:run",
   "author": "ufhy",
   "license": "MIT",

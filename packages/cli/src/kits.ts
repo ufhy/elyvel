@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -125,6 +125,51 @@ async function mergePackageJson(cwd: string, kit: Kit): Promise<void> {
   pkg.devDependencies = { ...kit.devDeps, ...pkg.devDependencies }
   pkg.scripts = { ...kit.scripts, ...pkg.scripts }
   await Bun.write(path, `${JSON.stringify(pkg, null, 2)}\n`)
+  await pinWorkspaceDeps(cwd)
+}
+
+/** This CLI's own version — every `@elyvel/*` package is released at the same one. */
+export function elyvelVersion(): string {
+  const own = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json')
+  return (JSON.parse(readFileSync(own, 'utf8')) as { version: string }).version
+}
+
+/**
+ * Replace every `workspace:*` in the generated app's package.json with this
+ * CLI's real version.
+ *
+ * The templates and kit dep lists spell `@elyvel/*` as `workspace:*` because
+ * that's what resolves while developing inside this monorepo. In a scaffolded app
+ * there IS no workspace, so `bun install` fails outright — the generated app was
+ * dead on arrival:
+ *
+ *   error: @elyvel/database@workspace:* failed to resolve
+ *
+ * Pinned exactly rather than with a caret: the release script enforces that all
+ * 22 packages publish at one version, so an app gets the set that was tested
+ * together. Idempotent, and called from both scaffold paths (with a kit and
+ * `--kit=none`) so neither can miss it.
+ */
+export async function pinWorkspaceDeps(cwd: string): Promise<void> {
+  const path = join(cwd, 'package.json')
+  if (!existsSync(path))
+    return
+  const pkg = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
+  const version = elyvelVersion()
+  let changed = false
+  for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
+    const deps = pkg[field] as Record<string, string> | undefined
+    if (!deps)
+      continue
+    for (const [name, range] of Object.entries(deps)) {
+      if (range.startsWith('workspace:')) {
+        deps[name] = version
+        changed = true
+      }
+    }
+  }
+  if (changed)
+    await Bun.write(path, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
 /**
