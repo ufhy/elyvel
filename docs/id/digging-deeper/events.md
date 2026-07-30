@@ -50,6 +50,33 @@ butuh class:
 listen('cache.cleared', payload => console.log(payload))
 ```
 
+## Identitas event
+
+Sebuah class event diidentifikasi lewat **nama class**-nya — string itulah yang
+diterima listener sebagai argumen kedua, dan yang dibawa queued listener
+melintasi queue, jadi ia harus stabil dan bisa diserialisasi, bukan symbol
+internal.
+
+Karena identitasnya adalah nama *sederhana*, dua class tak berhubungan yang
+sama-sama bernama `Created` akan berbagi satu daftar listener. Mendaftarkan yang
+kedua akan **throw**, bukan membiarkan listener terpicu untuk event yang salah
+dengan bentuk payload yang salah. Patok namanya untuk menyelesaikannya:
+
+```ts
+export class Created {
+  static eventName = 'billing.invoice.created'
+  constructor(public readonly invoiceId: number) {}
+}
+```
+
+Deklarasikan `static eventName` kapan pun sebuah event berpotensi bertabrakan,
+dan selalu kalau kamu **me-minify bundle server**: minifier mengubah class-class
+berbeda ke nama pendek yang sama, dan mengubahnya antar build — yang juga akan
+membuat payload yang sudah mengendap di queue dari deploy sebelumnya jadi
+terlantar. Class anonim tidak bisa diidentifikasi sama sekali dan ditolak.
+
+Event bernama string tidak terpengaruh: menamainya sejak awal sudah pilihanmu.
+
 ## Men-dispatch event
 
 ```ts

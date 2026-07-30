@@ -16,11 +16,45 @@ export interface Subscriber {
 
 const WILDCARD = '*'
 
+/**
+ * The event's identity as a string.
+ *
+ * A class is keyed by `static eventName` when it declares one, otherwise by its
+ * SIMPLE class name. The simple name is convenient but not unique: two unrelated
+ * `Created` classes in different modules collapse onto one listener list, and a
+ * minifying bundler can mangle distinct classes to the same short name (and
+ * changes the name between builds, which also breaks already-queued payloads).
+ * `static eventName` pins it:
+ *
+ * ```ts
+ * class Created { static eventName = 'billing.invoice.created' }
+ * ```
+ *
+ * The name can't just be an internal symbol: it's handed to every listener as
+ * their second argument and travels to the queue as a string for queued
+ * listeners, so it has to be stable and serializable.
+ *
+ * {@link Dispatcher.listen} rejects a collision rather than letting two classes
+ * quietly share listeners — see `assertNoCollision`.
+ */
 function keyOf(event: EventKey): string {
-  return typeof event === 'string' ? event : event.name
+  if (typeof event === 'string')
+    return event
+  const declared = (event as { eventName?: unknown }).eventName
+  if (typeof declared === 'string' && declared !== '')
+    return declared
+  if (!event.name) {
+    throw new TypeError(
+      '[elyvel] Cannot identify an anonymous event class. Give it a name, or '
+      + 'declare `static eventName = \'some.event\'` on it.',
+    )
+  }
+  return event.name
 }
+
 function nameOfInstance(event: object): string {
-  return (event as { constructor: { name: string } }).constructor.name
+  const ctor = (event as { constructor: EventClass }).constructor
+  return keyOf(ctor)
 }
 async function invoke(listener: Listener, event: AnyEvent, name: string): Promise<unknown> {
   // A ShouldQueue listener is pushed to the queue (via the wired queuer) instead
@@ -45,10 +79,39 @@ async function invoke(listener: Listener, event: AnyEvent, name: string): Promis
 export class Dispatcher {
   private readonly listeners = new Map<string, Listener[]>()
   private readonly pushed = new Map<string, AnyEvent[]>()
+  /** Which constructor claimed each name, so a collision can be reported. */
+  private readonly claimedBy = new Map<string, EventClass>()
+
+  /**
+   * Refuse to let two different classes share one event name.
+   *
+   * Keying on the simple class name means two unrelated `Created` classes — a
+   * routine thing across modules — silently share a listener list: listeners for
+   * one fire for the other, with the wrong payload shape. Registering by string
+   * name is unaffected; that's the caller choosing the identity themselves.
+   */
+  private assertNoCollision(event: EventKey, key: string): void {
+    if (typeof event === 'string')
+      return
+    const claimed = this.claimedBy.get(key)
+    if (claimed === undefined) {
+      this.claimedBy.set(key, event as EventClass)
+      return
+    }
+    if (claimed !== event) {
+      throw new Error(
+        `[elyvel] Two different event classes both identify as "${key}". Event `
+        + 'identity is the class name unless you override it, so unrelated '
+        + 'classes with the same name would share listeners. Declare '
+        + `\`static eventName = '...'\` on at least one of them.`,
+      )
+    }
+  }
 
   /** Register a listener for an event class or string name (or `'*'` for all). */
   listen<E>(event: EventKey<E>, listener: Listener<E>): this {
     const key = keyOf(event)
+    this.assertNoCollision(event, key)
     const list = this.listeners.get(key) ?? []
     list.push(listener as Listener)
     this.listeners.set(key, list)
@@ -60,7 +123,10 @@ export class Dispatcher {
   }
 
   forget(event: EventKey): void {
-    this.listeners.delete(keyOf(event))
+    const key = keyOf(event)
+    this.listeners.delete(key)
+    // Release the name so a different class may claim it afterwards.
+    this.claimedBy.delete(key)
   }
 
   /** Register a subscriber's listener mappings. */

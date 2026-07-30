@@ -47,6 +47,33 @@ String-named events work too, for ad-hoc signals that don't need a class:
 listen('cache.cleared', payload => console.log(payload))
 ```
 
+## Event identity
+
+An event class is identified by its **class name** — that string is what
+listeners receive as their second argument, and what a queued listener carries
+through the queue, so it has to be stable and serializable rather than an
+internal symbol.
+
+Because the *simple* name is the identity, two unrelated classes both called
+`Created` would share one listener list. Registering the second one **throws**
+rather than letting listeners fire for the wrong event with the wrong payload
+shape. Pin the name to resolve it:
+
+```ts
+export class Created {
+  static eventName = 'billing.invoice.created'
+  constructor(public readonly invoiceId: number) {}
+}
+```
+
+Declare `static eventName` whenever an event might collide, and always if you
+**minify the server bundle**: a minifier mangles distinct classes toward the same
+short names, and changes them between builds — which would also orphan payloads
+already sitting in the queue from the previous deploy. An anonymous class can't be
+identified at all and is rejected.
+
+String-named events are unaffected: naming them is already your choice.
+
 ## Dispatching events
 
 ```ts
