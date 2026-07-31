@@ -1,8 +1,7 @@
 import type { FileResponse } from '@elyvel/core'
 import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 import { existsSync, realpathSync, statSync } from 'node:fs'
-import { appendFile, chmod, copyFile, mkdir, open, readdir, rename, rm, unlink } from 'node:fs/promises'
-// biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
+import { chmod, copyFile, mkdir, open, readdir, rename, rm, unlink } from 'node:fs/promises'
 import { dirname, extname, join, posix, resolve, sep } from 'node:path'
 import { download } from '@elyvel/core'
 import { trimTrailing } from '@elyvel/support'
@@ -306,7 +305,7 @@ export class LocalDisk implements FilesystemDisk {
     return this.put(path, data + existing)
   }
 
-  /** Safe under concurrent callers: `appendFile` issues a single O_APPEND write, atomic at the OS level. */
+  /** Safe under concurrent callers: the handle is O_APPEND, so every write lands at the end. */
   async append(path: string, data: string): Promise<boolean> {
     try {
       const full = this.full(path)
