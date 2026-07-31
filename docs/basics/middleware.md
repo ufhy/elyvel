@@ -126,7 +126,10 @@ for the full picture alongside `@Authorize`/`@ValidateWith`, and for adjusting a
 ### Exempting a route from global or group middleware
 
 `@WithoutMiddleware` also removes middleware that a route never listed itself —
-the `global` stack and any `group()` applied to it. Those run from their own hooks,
+the `global` stack and any `group()` applied to it. That is deliberate, and matches
+Laravel's `->withoutMiddleware()`: one annotation means one thing, wherever the
+middleware was applied from. Reach for it knowing it removes global protections
+too, not only what the controller declared. Those run from their own hooks,
 so exemptions are recorded against the matched route and honoured by the shared
 guard runner. For a plain route (no controller), register it directly:
 

@@ -134,6 +134,9 @@ mengatur middleware sebuah `resource()` secara fluent setelah registrasi
 
 `@WithoutMiddleware` juga menghapus middleware yang tidak pernah didaftarkan
 route itu sendiri — stack `global` dan `group()` mana pun yang diterapkan padanya.
+Itu disengaja, dan sesuai `->withoutMiddleware()` milik Laravel: satu anotasi
+berarti satu hal, dari mana pun middleware-nya diterapkan. Pakai dengan sadar bahwa
+ia juga mencabut proteksi global, bukan hanya yang dideklarasikan controller.
 Keduanya berjalan dari hook-nya sendiri, jadi pengecualiannya dicatat terhadap
 route yang cocok dan dihormati oleh guard runner bersama. Untuk route biasa (tanpa
 controller), daftarkan langsung:
