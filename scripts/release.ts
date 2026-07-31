@@ -26,6 +26,16 @@ interface Pkg {
 
 const PACKAGES_DIR = 'packages'
 const publishForReal = process.argv.includes('--publish')
+/**
+ * Publish the packed tarball with `npm` instead of `bun`, to attach a provenance
+ * attestation (`bun publish` has no `--provenance`). CI passes this.
+ *
+ * The tarball is still built by `bun pm pack`, and that matters: `npm pack` does
+ * NOT rewrite the `workspace:*` protocol — verified — so packing with npm would
+ * publish `"@elyvel/core": "workspace:*"` and break every install. Pack with bun,
+ * publish the resulting file with npm.
+ */
+const withProvenance = process.argv.includes('--provenance')
 
 function readPackages(): Map<string, Pkg> {
   const out = new Map<string, Pkg>()
@@ -163,6 +173,36 @@ async function verifyTarballs(order: Pkg[], version: string): Promise<string[]> 
   return problems
 }
 
+/** Pack with bun (correct `workspace:*` rewriting), publish that file with npm. */
+async function publishViaNpm(pkg: Pkg): Promise<{ ok: boolean, out: string }> {
+  const scratch = mkdtempSync(join(tmpdir(), 'elyvel-publish-'))
+  try {
+    const packed = await run(['bun', 'pm', 'pack', '--destination', scratch], pkg.dir)
+    if (!packed.ok)
+      return { ok: false, out: `pack failed: ${packed.out}` }
+    const tgz = readdirSync(scratch)[0]
+    if (!tgz)
+      return { ok: false, out: 'pack produced no tarball' }
+
+    const cmd = [
+      'npm',
+      'publish',
+      join(scratch, tgz),
+      '--provenance',
+      '--access',
+      'public',
+      '--tag',
+      pkg.tag,
+    ]
+    if (!publishForReal)
+      cmd.push('--dry-run')
+    return await run(cmd)
+  }
+  finally {
+    rmSync(scratch, { recursive: true, force: true })
+  }
+}
+
 const pkgs = readPackages()
 for (const [name, pkg] of pkgs) {
   if (pkg.private) {
@@ -204,11 +244,14 @@ for (const [index, pkg] of order.entries()) {
     continue
   }
 
-  const cmd = ['bun', 'publish', '--tag', pkg.tag]
-  if (!publishForReal)
-    cmd.push('--dry-run')
-
-  const result = await run(cmd, pkg.dir)
+  const result = withProvenance
+    ? await publishViaNpm(pkg)
+    : await run(
+        publishForReal
+          ? ['bun', 'publish', '--tag', pkg.tag]
+          : ['bun', 'publish', '--tag', pkg.tag, '--dry-run'],
+        pkg.dir,
+      )
   if (!result.ok) {
     console.error(`${label} — FAILED`)
     console.error(result.out.split('\n').map(l => `   ${l}`).join('\n'))

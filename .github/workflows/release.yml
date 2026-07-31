@@ -1,0 +1,60 @@
+name: Release
+
+# Publishing is driven by a tag, so what ships is always a commit that exists in
+# history — not whatever happened to be in someone's working tree. `bun publish`
+# packs the working directory, so a local release could quietly include
+# uncommitted changes; this cannot.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Verify everything without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  # Required for npm provenance: the attestation is signed with a GitHub OIDC
+  # token, which is what lets npm show "Built and signed on GitHub Actions".
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      # npm does the publishing (bun has no --provenance) and this also writes the
+      # .npmrc that picks up NODE_AUTH_TOKEN.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: bun install --frozen-lockfile
+
+      # A tag that doesn't build, lint, typecheck or pass its tests must not reach
+      # the registry. This repo has already published three broken alphas.
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun run test:all
+
+      # `scripts/release.ts` re-verifies the packed tarballs before sending
+      # anything: one version across all packages, no `workspace:` protocol left,
+      # and every runtime asset directory actually present. Each of those has
+      # broken a real release here.
+      - name: Publish
+        run: bun run release ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--provenance' || '--publish --provenance' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
