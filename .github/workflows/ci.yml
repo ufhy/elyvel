@@ -69,4 +69,6 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun --version
-      - run: bun test
+      # Same per-package isolation as `check`, or this job reports the shared-state
+      # interleaving as though a new Bun had broken something.
+      - run: bun run test:all
