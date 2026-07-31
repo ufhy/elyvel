@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Full dialect coverage nightly, so a Postgres-only break can't sit unnoticed
+  # between pushes to main.
+  schedule:
+    - cron: '0 18 * * *'
   workflow_dispatch:
 
 permissions:
@@ -42,8 +46,16 @@ jobs:
       # on a 2-core machine and a DIFFERENT 2 on an 8-core one — same code, only
       # the interleaving changes. Every package passes on its own. See
       # scripts/test-all.ts.
+      #
+      # Dialects: the Eloquent suite runs against sqlite AND pglite, and pglite is
+      # WASM Postgres that reboots per test — measured at 144s vs 4s for the same
+      # ~330 tests, i.e. essentially all of this job's runtime. Pull requests run
+      # sqlite for fast feedback; pushes to main and the nightly run cover every
+      # dialect, so Postgres breakage is caught before it can travel far.
       - name: Test
         run: bun run test:all
+        env:
+          TEST_DIALECTS: ${{ github.event_name == 'pull_request' && 'sqlite' || 'sqlite,pglite' }}
 
       # The docs are part of the repo and a broken build is invisible until
       # deploy otherwise — `docs.yml` only builds on push to main, not on PRs.
@@ -70,5 +82,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun --version
       # Same per-package isolation as `check`, or this job reports the shared-state
-      # interleaving as though a new Bun had broken something.
+      # interleaving as though a new Bun had broken something. sqlite only — this
+      # job exists to catch Bun regressions, not to re-verify Postgres.
       - run: bun run test:all
+        env:
+          TEST_DIALECTS: sqlite

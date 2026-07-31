@@ -21,6 +21,7 @@ interface Result {
   pass: number
   fail: number
   ok: boolean
+  ms: number
 }
 
 function suiteDirs(): string[] {
@@ -48,6 +49,7 @@ function counts(output: string): { pass: number, fail: number } {
 
 const results: Result[] = []
 for (const dir of suiteDirs()) {
+  const startedAt = Bun.nanoseconds()
   const proc = Bun.spawn(['bun', 'test', dir], { stdout: 'pipe', stderr: 'pipe' })
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -57,9 +59,13 @@ for (const dir of suiteDirs()) {
   const output = `${stdout}${stderr}`
   const { pass, fail } = counts(output)
   const ok = code === 0
-  results.push({ dir, pass, fail, ok })
+  const ms = Math.round((Bun.nanoseconds() - startedAt) / 1e6)
+  results.push({ dir, pass, fail, ok, ms })
 
-  console.log(`${ok ? '✓' : '✗'} ${dir.padEnd(34)} ${String(pass).padStart(4)} pass${fail ? `  ${fail} fail` : ''}`)
+  // Timing per package, so a slow suite is attributable rather than a mystery —
+  // the whole test step is ~80% of CI's wall clock.
+  const seconds = `${(ms / 1000).toFixed(1)}s`.padStart(7)
+  console.log(`${ok ? '✓' : '✗'} ${dir.padEnd(34)} ${String(pass).padStart(4)} pass${fail ? `  ${fail} fail` : ''}${seconds}`)
   if (!ok) {
     // Only the failing package's output, so the log stays readable.
     console.log(output.split('\n').filter(l => /\(fail\)|error:|Expected|Received/.test(l)).slice(0, 40).map(l => `    ${l}`).join('\n'))
@@ -70,7 +76,10 @@ const pass = results.reduce((n, r) => n + r.pass, 0)
 const fail = results.reduce((n, r) => n + r.fail, 0)
 const broken = results.filter(r => !r.ok)
 
-console.log(`\n${pass} pass, ${fail} fail across ${results.length} packages`)
+const totalMs = results.reduce((n, r) => n + r.ms, 0)
+console.log(`\n${pass} pass, ${fail} fail across ${results.length} packages in ${(totalMs / 1000).toFixed(1)}s`)
+const slowest = [...results].sort((a, b) => b.ms - a.ms).slice(0, 3)
+console.log(`slowest: ${slowest.map(r => `${r.dir} ${(r.ms / 1000).toFixed(1)}s`).join(', ')}`)
 if (broken.length > 0) {
   console.log(`failing: ${broken.map(r => r.dir).join(', ')}`)
   process.exit(1)
