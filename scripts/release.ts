@@ -244,14 +244,19 @@ for (const [index, pkg] of order.entries()) {
     continue
   }
 
+  // A dry run stops here. `bun publish --dry-run` still demands npm credentials,
+  // which made the CI verification step fail the moment a version wasn't already
+  // published — it had only ever passed because everything was skipped. The check
+  // worth having is `verifyTarballs` above, and that needs no credentials at all.
+  if (!publishForReal) {
+    console.log(`${label} — ok (dry run)`)
+    published++
+    continue
+  }
+
   const result = withProvenance
     ? await publishViaNpm(pkg)
-    : await run(
-        publishForReal
-          ? ['bun', 'publish', '--tag', pkg.tag]
-          : ['bun', 'publish', '--tag', pkg.tag, '--dry-run'],
-        pkg.dir,
-      )
+    : await run(['bun', 'publish', '--tag', pkg.tag], pkg.dir)
   if (!result.ok) {
     console.error(`${label} — FAILED`)
     console.error(result.out.split('\n').map(l => `   ${l}`).join('\n'))
