@@ -107,9 +107,16 @@ export const DEFAULT_MESSAGES: Record<string, string | Record<SizeKind, string>>
 /** Fallback for rules without a specific message. */
 const FALLBACK = 'The :attribute field is invalid.'
 
-/** Humanize an attribute name, à la Laravel (`first_name` → "first name"). */
+/**
+ * Humanize an attribute name, à la Laravel (`first_name` → "first name").
+ *
+ * Dots are left as-is, so a nested attribute reads `user.email` — same as
+ * Laravel's `getDisplayableAttribute`. (There used to be a
+ * `.replace(/\./g, '.')` here, which swapped every dot for a dot and did
+ * nothing at all.)
+ */
 export function humanizeAttribute(attribute: string): string {
-  return attribute.replace(/_/g, ' ').replace(/\./g, '.').toLowerCase()
+  return attribute.replace(/_/g, ' ').toLowerCase()
 }
 
 interface MessageInput {
