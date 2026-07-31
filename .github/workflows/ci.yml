@@ -88,6 +88,45 @@ jobs:
       - name: Verify packages are publishable
         run: bun run release
 
+  mysql:
+    # MySQL is a shipped driver (Kysely-based, fd034d3) that CI never ran: `check`
+    # covers sqlite and pg, and the nightly adds pglite. The only machine ever
+    # running the MySQL suite was a laptop with `TEST_DIALECTS=mysql` in a
+    # gitignored .env — so a MySQL regression could reach npm with nothing to
+    # catch it. Note the dialect sets are DISJOINT, not nested: mysql-only runs
+    # ~227 dialect-parameterised tests that sqlite/pg runs skip, and vice versa.
+    #
+    # Its own job rather than another dialect in `check`, so it costs no extra
+    # wall-clock — the two run concurrently and CI stays as fast as its slowest
+    # job instead of the sum.
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: elyvel_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.12
+      - run: bun install --frozen-lockfile
+      # An unreachable dialect that was asked for explicitly is a hard failure,
+      # not a silent skip — see packages/database/test/dialects.ts. So if the
+      # service never comes up, this job goes red instead of quietly passing with
+      # nothing covered.
+      - run: bun run test:all
+        env:
+          MYSQL_URL: mysql://root:root@127.0.0.1:3306/elyvel_test
+          TEST_DIALECTS: mysql
+
   bun-latest:
     # Early warning that a new Bun release breaks us, WITHOUT gating merges on it.
     runs-on: ubuntu-latest
