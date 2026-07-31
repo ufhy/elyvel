@@ -22,6 +22,23 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # A real Postgres, not the WASM one. PGlite exists so the suite can cover
+    # Postgres semantics with no server; on a machine that HAS a server it is
+    # strictly worse — measured on the same 333 tests: pglite 136s, pg 12s. Real
+    # Postgres is 11x faster and higher fidelity, so CI uses it and pglite is left
+    # to the nightly run (it is a supported driver, so it still gets covered).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: elyvel_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -47,15 +64,16 @@ jobs:
       # the interleaving changes. Every package passes on its own. See
       # scripts/test-all.ts.
       #
-      # Dialects: the Eloquent suite runs against sqlite AND pglite, and pglite is
-      # WASM Postgres that reboots per test — measured at 144s vs 4s for the same
-      # ~330 tests, i.e. essentially all of this job's runtime. Pull requests run
-      # sqlite for fast feedback; pushes to main and the nightly run cover every
-      # dialect, so Postgres breakage is caught before it can travel far.
+      # Dialects: sqlite plus the real Postgres above on every run, so pull
+      # requests get full Postgres coverage instead of the sqlite-only compromise
+      # that the WASM driver's cost used to force. The nightly run adds pglite,
+      # which is a supported driver and so still needs covering — just not on the
+      # critical path.
       - name: Test
         run: bun run test:all
         env:
-          TEST_DIALECTS: ${{ github.event_name == 'pull_request' && 'sqlite' || 'sqlite,pglite' }}
+          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/elyvel_test
+          TEST_DIALECTS: ${{ github.event_name == 'schedule' && 'sqlite,pg,pglite' || 'sqlite,pg' }}
 
       # The docs are part of the repo and a broken build is invisible until
       # deploy otherwise — `docs.yml` only builds on push to main, not on PRs.
