@@ -27,6 +27,11 @@ export default antfu(
       '**/*.md',
       // VitePress build output + generated cache.
       '**/.vitepress/cache',
+      // Scratch space holding apps installed from npm to test a release. They are
+      // generated output, they carry their own eslint config, and they are linted
+      // there — not here.
+      'sandbox/**',
+      'playground/**',
     ],
   },
   // Global ignores must be their own ignores-only config object — nesting
