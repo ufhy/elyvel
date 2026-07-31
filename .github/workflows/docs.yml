@@ -34,10 +34,27 @@ jobs:
       # validates that the docs build.
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         if: ${{ !github.event.repository.private }}
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+      # This is what `actions/upload-pages-artifact` does internally, inlined.
+      # That action calls `actions/upload-artifact@v4` — by tag — and this repo
+      # requires every action to be pinned to a full-length SHA. The rule applies
+      # transitively, so GitHub's own Pages action is rejected by GitHub's own
+      # policy, and the build job died in "Set up job" before running a step. The
+      # tar flags and the artifact name are the contract `deploy-pages` reads;
+      # they are not arbitrary.
+      - name: Package the site the way deploy-pages expects
+        if: ${{ !github.event.repository.private }}
+        run: |
+          tar --dereference --hard-dereference \
+            --exclude=.git --exclude=.github \
+            -cvf "$RUNNER_TEMP/artifact.tar" \
+            -C docs/.vitepress/dist .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !github.event.repository.private }}
         with:
-          path: docs/.vitepress/dist
+          name: github-pages
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
 
   deploy:
     needs: build

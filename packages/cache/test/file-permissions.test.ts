@@ -37,6 +37,6 @@ describe('file cache storage is not world-readable', () => {
     const dir = join(mkdtempSync(join(tmpdir(), 'elyvel-cache-')), 'cache')
     const store = new FileStore(dir)
     await store.put('k', { a: 1 }, 120)
-    expect(await store.get('k')).toEqual({ a: 1 })
+    expect(await store.get<{ a: number }>('k')).toEqual({ a: 1 })
   })
 })
