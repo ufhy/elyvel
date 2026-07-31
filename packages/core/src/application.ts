@@ -229,7 +229,25 @@ export class Application {
 
   private registerLogger(): void {
     const isProduction = this.config.get<string>('app.env') === 'production'
-    const pretty = this.config.get<boolean>('logging.pretty') ?? !isProduction
+    /**
+     * `logging.pretty`, when set, applies everywhere. When it isn't, console and
+     * file diverge on purpose:
+     *
+     * - The console is ephemeral and read by a person, so it follows the
+     *   environment — readable outside production, JSON in it.
+     * - A log FILE keeps its format for as long as the file lives, and must not
+     *   depend on the environment. It used to: flipping `APP_ENV` to `production`
+     *   switched the writer to JSON while the existing lines stayed pretty, and one
+     *   `app.log` ended up holding both. The log viewer read 18 of its 64 entries.
+     *   Pretty also *destroys* structure — context that JSON keeps as fields
+     *   becomes unparseable text, so it can't be filtered on or displayed as data.
+     *
+     * So files default to JSON regardless of environment. Want the old look?
+     * Set `pretty: true` explicitly, on the channel or on `logging`.
+     */
+    const explicitPretty = this.config.get<boolean | undefined>('logging.pretty')
+    const consolePretty = explicitPretty ?? !isProduction
+    const filePretty = explicitPretty ?? false
     const level = this.config.get<LogLevel>('logging.level') ?? 'info'
     const redact = this.config.get<string[] | undefined>('logging.redact')
     const redactPatterns = (
@@ -249,7 +267,7 @@ export class Application {
       const transportsByChannel = new Map<string, Transport[]>()
       for (const [name, cfg] of Object.entries(channelConfigs)) {
         if (cfg.driver !== 'stack')
-          transportsByChannel.set(name, this.buildTransports(cfg, pretty))
+          transportsByChannel.set(name, this.buildTransports(cfg, consolePretty, filePretty))
       }
       const resolve = (names: string[]) => names.flatMap(n => transportsByChannel.get(n) ?? [])
 
@@ -273,17 +291,16 @@ export class Application {
     }
     else {
       // No channels configured — console + optional single file.
-      const transports: Transport[] = [new ConsoleTransport(pretty)]
+      const transports: Transport[] = [new ConsoleTransport(consolePretty)]
       const file = this.config.get<string | undefined>('logging.file')
       if (file) {
         transports.push(
           new FileTransport(this.path(file), {
             maxBytes: this.config.get<number | undefined>('logging.maxBytes'),
             maxFiles: this.config.get<number | undefined>('logging.maxFiles'),
-            // Same signal as the console: human-readable outside production
-            // (a file a developer will actually open), JSON in production
-            // (a file a log aggregator will parse).
-            pretty,
+            // JSON unless asked otherwise — see registerLogger's note on why a
+            // file's format must not follow the environment.
+            pretty: filePretty,
           }),
         )
       }
@@ -296,21 +313,21 @@ export class Application {
     this.container.instance(LogManagerToken, new LogManager(channels, defaultLogger))
   }
 
-  private buildTransports(cfg: ChannelConfig, pretty: boolean): Transport[] {
+  private buildTransports(cfg: ChannelConfig, consolePretty: boolean, filePretty: boolean): Transport[] {
     switch (cfg.driver) {
       case 'console':
-        return [new ConsoleTransport(cfg.pretty ?? pretty)]
+        return [new ConsoleTransport(cfg.pretty ?? consolePretty)]
       case 'file':
         return [
           cfg.buffered
-            ? new BufferedFileTransport(this.path(cfg.path), { ...cfg, pretty: cfg.pretty ?? pretty })
-            : new FileTransport(this.path(cfg.path), { ...cfg, pretty: cfg.pretty ?? pretty }),
+            ? new BufferedFileTransport(this.path(cfg.path), { ...cfg, pretty: cfg.pretty ?? filePretty })
+            : new FileTransport(this.path(cfg.path), { ...cfg, pretty: cfg.pretty ?? filePretty }),
         ]
       case 'daily':
         return [
           new DailyFileTransport(this.path(cfg.path), {
             maxDays: cfg.maxDays,
-            pretty: cfg.pretty ?? pretty,
+            pretty: cfg.pretty ?? filePretty,
           }),
         ]
       default:

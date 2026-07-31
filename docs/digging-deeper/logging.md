@@ -23,6 +23,12 @@ export default defineLoggingConfig({
 })
 ```
 
+`pretty` controls the **console** only when you leave it unset: readable
+outside production, JSON in it. The log **file** is always JSON unless you
+set `pretty` explicitly — a file outlives the environment that produced
+it, and pretty text drops the structured context that makes entries
+filterable.
+
 For more control, define named channels and combine them into a `stack`
 (Laravel's stacked-channel concept):
 
