@@ -327,7 +327,11 @@ export class MemorySessionStore implements SessionStore {
 
 export class FileSessionStore implements SessionStore {
   constructor(private readonly dir: string) {
-    mkdirSync(dir, { recursive: true })
+    // 0700/0600, not the 0755/0644 the defaults give. A session file holds the
+    // user's id, their CSRF token and any flashed data, and the default modes
+    // made every one of them readable by any other local user or process on the
+    // box. PHP writes session files 0600 for exactly this reason.
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
   }
 
   private path(id: string): string {
@@ -362,7 +366,9 @@ export class FileSessionStore implements SessionStore {
     // routinely, so this window is real.
     const file = this.path(id)
     const tmp = `${file}.${randomBytes(6).toString('hex')}.tmp`
-    writeFileSync(tmp, JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }))
+    writeFileSync(tmp, JSON.stringify({ data, expiresAt: Date.now() + lifetime * 1000 }), {
+      mode: 0o600,
+    })
     renameSync(tmp, file)
   }
 

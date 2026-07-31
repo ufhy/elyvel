@@ -196,8 +196,17 @@ function rotateBySize(
   const ext = compress ? '.gz' : ''
   for (let i = maxFiles - 1; i >= 1; i--) {
     const from = `${path}.${i}${ext}`
-    if (existsSync(from))
+    // Rename and treat "it wasn't there" as normal, rather than checking first.
+    // `existsSync` then `renameSync` is a race: two processes sharing a log
+    // volume (a rolling deploy on one mount) can both pass the check, and the
+    // loser threw ENOENT out of the middle of a log write.
+    try {
       renameSync(from, `${path}.${i + 1}${ext}`)
+    }
+    catch (error) {
+      if ((error as { code?: string }).code !== 'ENOENT')
+        throw error
+    }
   }
 
   if (compress) {

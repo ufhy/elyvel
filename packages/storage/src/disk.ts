@@ -1,7 +1,7 @@
 import type { FileResponse } from '@elyvel/core'
 import type { LocalDiskConfig, S3DiskConfig, Visibility } from './config-schema'
 import { existsSync, realpathSync, statSync } from 'node:fs'
-import { appendFile, chmod, copyFile, mkdir, readdir, rename, rm, unlink } from 'node:fs/promises'
+import { appendFile, chmod, copyFile, mkdir, open, readdir, rename, rm, unlink } from 'node:fs/promises'
 // biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
 import { dirname, extname, join, posix, resolve, sep } from 'node:path'
 import { download } from '@elyvel/core'
@@ -310,16 +310,22 @@ export class LocalDisk implements FilesystemDisk {
   async append(path: string, data: string): Promise<boolean> {
     try {
       const full = this.full(path)
-      const isNew = !existsSync(full)
       await mkdir(dirname(full), { recursive: true })
-      await appendFile(full, data)
-      // `appendFile` creates a missing file at the process umask (typically
-      // 0644), so appending to a not-yet-existing path on a `private` disk used
-      // to produce a world-readable file — every other write path chmods. Only
-      // on creation: chmod'ing an existing file would silently reset
-      // permissions a caller may have set deliberately.
-      if (isNew)
-        await chmod(full, this.perms.file[this.defaultVisibility])
+      // Open with the mode instead of checking existence first and chmod'ing
+      // after. `open`'s mode applies ONLY when it creates the file, which is
+      // exactly the intent — and it does so atomically. The previous
+      // `existsSync` then conditional-chmod raced: if the file was removed
+      // between the check and the append, `appendFile` recreated it at the
+      // process umask (0644) and the chmod was skipped, leaving a world-readable
+      // file on a `private` disk. Chmod'ing unconditionally is not the answer
+      // either — it would reset permissions a caller set deliberately.
+      const handle = await open(full, 'a', this.perms.file[this.defaultVisibility])
+      try {
+        await handle.writeFile(data)
+      }
+      finally {
+        await handle.close()
+      }
       return true
     }
     catch (error) {

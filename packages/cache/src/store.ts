@@ -152,7 +152,10 @@ export class MemoryStore implements CacheStore {
  */
 export class FileStore implements CacheStore {
   constructor(private readonly dir: string) {
-    mkdirSync(dir, { recursive: true })
+    // 0700/0600 rather than the default 0755/0644 — a cache entry routinely holds
+    // whatever the app decided was expensive to recompute, which is often a user
+    // record or a token, and the defaults left all of it world-readable.
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
   }
 
   private path(key: string): string {
@@ -177,7 +180,7 @@ export class FileStore implements CacheStore {
   }
 
   private write(key: string, entry: Entry): void {
-    writeFileSync(this.path(key), JSON.stringify(entry))
+    writeFileSync(this.path(key), JSON.stringify(entry), { mode: 0o600 })
   }
 
   async get<T = unknown>(key: string): Promise<T | undefined> {
@@ -199,7 +202,7 @@ export class FileStore implements CacheStore {
 
   async flush(): Promise<void> {
     rmSync(this.dir, { recursive: true, force: true })
-    mkdirSync(this.dir, { recursive: true })
+    mkdirSync(this.dir, { recursive: true, mode: 0o700 })
   }
 
   async increment(key: string, by = 1): Promise<number> {
