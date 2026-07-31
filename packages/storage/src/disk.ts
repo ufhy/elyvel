@@ -5,6 +5,7 @@ import { appendFile, chmod, copyFile, mkdir, readdir, rename, rm, unlink } from 
 // biome-ignore lint/correctness/noUnusedImports: false positive — all are used (verified by tsc)
 import { dirname, extname, join, posix, resolve, sep } from 'node:path'
 import { download } from '@elyvel/core'
+import { trimTrailing } from '@elyvel/support'
 import { S3Client } from 'bun'
 
 /** Raw content accepted by write operations. */
@@ -738,7 +739,7 @@ export class ScopedDisk implements FilesystemDisk {
   private p(path: string): string {
     // Confirm the joined path stays under the scope prefix — a `../` must not
     // let a scoped (e.g. per-tenant) disk reach a sibling's files.
-    const base = this.prefix.replace(/\/+$/, '')
+    const base = trimTrailing(this.prefix, '/')
     const joined = posix.normalize(posix.join(base, path))
     if (joined !== base && !joined.startsWith(`${base}/`)) {
       throw new PathEscapeError(
@@ -749,7 +750,7 @@ export class ScopedDisk implements FilesystemDisk {
   }
 
   private strip(path: string): string {
-    const base = `${this.prefix.replace(/\/$/, '')}/`
+    const base = `${trimTrailing(this.prefix, '/')}/`
     return path.startsWith(base) ? path.slice(base.length) : path
   }
 

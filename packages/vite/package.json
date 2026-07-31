@@ -41,6 +41,7 @@
   },
   "peerDependencies": {
     "@elyvel/core": "workspace:*",
+    "@elyvel/support": "workspace:*",
     "elysia": ">=1.4.0"
   }
 }

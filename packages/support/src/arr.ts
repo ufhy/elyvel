@@ -182,10 +182,23 @@ export const Arr = {
     return isDict(value) && !Array.isArray(value)
   },
 
-  /** A random element (or `undefined` when empty). */
+  /**
+   * A random element (or `undefined` when empty), uniformly distributed.
+   *
+   * `random32 % length` is biased by `2**32 % length` — negligible in practice
+   * (around 1e-7% for a small array, and this picks an element rather than
+   * generating a secret), but rejection sampling costs nothing and means there is
+   * one fewer "is this bias big enough to matter?" question in the codebase.
+   */
   random<T>(array: T[]): T | undefined {
     if (array.length === 0)
       return undefined
-    return array[crypto.getRandomValues(new Uint32Array(1))[0]! % array.length]
+    const n = array.length
+    const limit = Math.floor(0x1_0000_0000 / n) * n
+    let draw = 0
+    do {
+      draw = crypto.getRandomValues(new Uint32Array(1))[0] as number
+    } while (draw >= limit)
+    return array[draw % n]
   },
 }

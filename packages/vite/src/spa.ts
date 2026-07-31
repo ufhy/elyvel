@@ -1,5 +1,6 @@
 import type { ViteOptions } from './tags'
 import { configureErrorPage, staticFiles } from '@elyvel/core'
+import { trimTrailing } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { viteTags } from './tags'
 
@@ -38,9 +39,9 @@ function defaultShell(opts: { head: string, rootId: string, title?: string }): s
  *   route().use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard' }))
  */
 export function spa(options: SpaOptions) {
-  const prefix = (options.prefix ?? '').replace(/\/+$/, '')
+  const prefix = trimTrailing(options.prefix ?? '', '/')
   const rootId = options.rootId ?? 'app'
-  const base = (options.base ?? '/build/').replace(/\/+$/, '')
+  const base = trimTrailing(options.base ?? '/build/', '/')
   const head = (options.head ?? '') + viteTags(options)
   const render = options.html ?? defaultShell
   const shell = () => render({ head, rootId, title: options.title })

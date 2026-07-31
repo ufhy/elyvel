@@ -309,6 +309,7 @@
       "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/support": {
@@ -359,6 +360,7 @@
       "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
         "elysia": ">=1.4.0",
       },
     },

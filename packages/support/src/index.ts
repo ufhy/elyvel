@@ -8,7 +8,7 @@ export {
   isHttpException,
 } from './http-exception'
 export { LazyCollection } from './lazy-collection'
-export { Str } from './str'
+export { Str, trimTrailing } from './str'
 export {
   hasMessageTranslator,
   type MessageTranslator,

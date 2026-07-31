@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { trans } from '@elyvel/support'
+import { trans, trimTrailing } from '@elyvel/support'
 import { Elysia } from 'elysia'
 
 export interface StaticFilesOptions {
@@ -15,7 +15,7 @@ export interface StaticFilesOptions {
  * against path traversal and 404s missing files.
  */
 export function staticFiles(options: StaticFilesOptions) {
-  const prefix = (options.prefix ?? '').replace(/\/+$/, '')
+  const prefix = trimTrailing(options.prefix ?? '', '/')
   const root = resolve(process.cwd(), options.dir)
 
   return new Elysia({ name: `elyvel-static-${prefix || 'root'}` }).get(
