@@ -37,14 +37,13 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      # TEMPORARY: two error-pages tests assert 404 and get 200 only on this
-      # runner. Prints the actual response so the cause is visible. Remove with
-      # packages/core/test/diagnose-404.ts once fixed.
-      - name: Diagnose the 404 mismatch
-        run: bun packages/core/test/diagnose-404.ts
-
+      # One `bun test` process per package. A single process for the whole repo
+      # shares module state between packages, and the full-repo run fails 2 tests
+      # on a 2-core machine and a DIFFERENT 2 on an 8-core one — same code, only
+      # the interleaving changes. Every package passes on its own. See
+      # scripts/test-all.ts.
       - name: Test
-        run: bun test
+        run: bun run test:all
 
       # The docs are part of the repo and a broken build is invisible until
       # deploy otherwise — `docs.yml` only builds on push to main, not on PRs.

@@ -27,8 +27,15 @@ jobs:
       - name: Build docs
         run: bun run build
         working-directory: docs
+      # Both of these call the Pages API, which 404s until Pages is enabled on the
+      # repo — so the BUILD job failed on every push, not just the deploy. A
+      # permanently red workflow trains you to ignore red ones, which is expensive
+      # now that CI actually runs the tests. While Pages is off, this job just
+      # validates that the docs build.
       - uses: actions/configure-pages@v5
+        if: ${{ !github.event.repository.private }}
       - uses: actions/upload-pages-artifact@v3
+        if: ${{ !github.event.repository.private }}
         with:
           path: docs/.vitepress/dist
 
