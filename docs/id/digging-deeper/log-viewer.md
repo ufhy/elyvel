@@ -86,11 +86,14 @@ berotasi-harian (`app-2026-07-19.log`) — lihat
 kamu telusuri di sini.
 
 Mode JSON (satu object JSON per baris, default) vs. mode pretty/teks
-(`pretty: true`) di-deteksi otomatis dengan mengendus baris pertama. Di
-mode pretty hanya `time`/`level`/`name`/`message` yang di-parse sebagai
-field terstruktur — sisanya (context, stack trace) kembali apa adanya
-sebagai teks mentah, karena bisa mengandung newline sungguhan yang tidak
-bisa di-parse ulang dengan aman.
+(`pretty: true`) dideteksi **per baris**, sehingga file yang memuat
+keduanya — yang terjadi ketika formatnya berubah sementara file-nya tetap
+hidup — tetap terbaca seluruhnya. Di mode pretty hanya
+`time`/`level`/`name`/`message` yang di-parse sebagai field terstruktur;
+sisanya (context, stack trace) kembali apa adanya sebagai teks mentah,
+karena bisa mengandung newline sungguhan yang tidak bisa di-parse ulang
+dengan aman. Itu satu alasan memilih JSON untuk file: context di mode
+pretty tidak bisa difilter.
 
 Tidak ada index di disk — setiap request memuat file yang relevan ke
 memori, yang cukup baik pada ukuran rotasi default 5MB tapi tidak

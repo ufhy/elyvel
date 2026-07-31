@@ -85,11 +85,13 @@ true`) — leave compression off for a log directory you want to browse
 here.
 
 JSON mode (one JSON object per line, the default) vs. pretty/text mode
-(`pretty: true`) is auto-detected by sniffing the first line. In pretty
-mode only `time`/`level`/`name`/`message` are parsed as structured
-fields — everything else (context, stack traces) comes back verbatim as
-raw text, since it may contain real newlines that can't be safely
-re-parsed.
+(`pretty: true`) is detected **per line**, so a file containing both —
+which happens whenever the format changed while the file lived on — is
+read completely. In pretty mode only `time`/`level`/`name`/`message` are
+parsed as structured fields; everything else (context, stack traces)
+comes back verbatim as raw text, since it may contain real newlines that
+can't be safely re-parsed. That is a reason to prefer JSON for the file:
+pretty mode cannot be filtered on its context.
 
 There's no on-disk index — each request loads the relevant file into
 memory, which is fine at the default 5MB rotation size but not built for

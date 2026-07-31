@@ -142,6 +142,45 @@ describe('readEntries — pretty mode (FileTransport pretty: true)', () => {
   })
 })
 
+/**
+ * Regression: the mode was chosen once per file, from the first non-blank line.
+ * One real log file legitimately holds both formats — `pretty` defaults to
+ * `app.env !== 'production'` and both formats append to the same path, so
+ * flipping APP_ENV (or running dev then prod against one file) switches mid-file.
+ * Every line of the *other* format then vanished from the viewer: JSON lines
+ * matched no header, so they were swallowed as continuation text into the last
+ * pretty entry. Found in a real app.log: 64 entries reported as 18.
+ */
+describe('readEntries — a file that mixes both formats', () => {
+  const pretty = '2026-07-19T02:42:22.474Z INFO (app) application booted\n  appName=My App\n'
+  const json = line({ time: '2026-07-19T03:00:00.000Z', level: 'warn', name: 'http', message: 'GET /favicon.ico' })
+
+  test('pretty first, then JSON — the JSON entries are not swallowed', () => {
+    const path = join(dir, 'app.log')
+    writeFileSync(path, pretty + json + json)
+    const { entries, total } = readEntries(path)
+    expect(total).toBe(3)
+    expect(entries.filter(e => e.message === 'GET /favicon.ico')).toHaveLength(2)
+    // The pretty entry keeps its own continuation line, and only that line.
+    expect(entries.find(e => e.message === 'application booted')?._raw).toBe('  appName=My App')
+  })
+
+  test('JSON first, then pretty — the pretty entry is not dropped', () => {
+    const path = join(dir, 'app.log')
+    writeFileSync(path, json + pretty)
+    const { entries, total } = readEntries(path)
+    expect(total).toBe(2)
+    expect(entries.map(e => e.message)).toEqual(['application booted', 'GET /favicon.ico'])
+  })
+
+  test('level filter reaches entries of both formats', () => {
+    const path = join(dir, 'app.log')
+    writeFileSync(path, pretty + json)
+    expect(readEntries(path, { level: 'warn' }).total).toBe(1)
+    expect(readEntries(path, { level: 'info' }).total).toBe(1)
+  })
+})
+
 describe('deleteLogFile', () => {
   test('removes the file; a missing file is a no-op', () => {
     const path = join(dir, 'app.log')

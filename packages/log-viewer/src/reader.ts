@@ -76,21 +76,20 @@ export function listLogFiles(dir: string): LogFileInfo[] {
 
 interface Parsed { entry: LogEntry, searchText: string }
 
-/** One JSON object per line (`FileTransport`'s default, `pretty: false`). */
-function parseJsonMode(lines: string[]): Parsed[] {
-  const out: Parsed[] = []
-  for (const raw of lines) {
-    const trimmed = raw.trim()
-    if (!trimmed)
-      continue
-    try {
-      out.push({ entry: JSON.parse(trimmed) as LogEntry, searchText: raw })
-    }
-    catch {
-      // Malformed line — skip it rather than fail the whole file.
-    }
+/** A line that is itself a complete JSON object (`FileTransport`'s default, `pretty: false`). */
+function parseJsonLine(line: string): LogEntry | undefined {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('{'))
+    return undefined
+  try {
+    const parsed = JSON.parse(trimmed) as unknown
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed))
+      return parsed as LogEntry
   }
-  return out
+  catch {
+    // Not a complete JSON object — fall through and treat it as text.
+  }
+  return undefined
 }
 
 /**
@@ -104,7 +103,19 @@ function parseJsonMode(lines: string[]): Parsed[] {
  */
 const HEADER_RE = /^(\S+) (DEBUG|INFO|WARN|ERROR) (?:\(([^)]*)\) )?(.*)$/
 
-function parsePrettyMode(lines: string[]): Parsed[] {
+/**
+ * Classifies every line on its own, rather than picking one mode for the whole
+ * file. A file can legitimately contain both: `pretty` is typically on in dev and
+ * off in production, and both write to the same path — so `bun run dev` followed
+ * by `bun run start` leaves pretty lines above JSON lines in one file.
+ *
+ * Deciding from the first line alone (what this used to do) made every later line
+ * of the other format invisible: JSON lines don't match `HEADER_RE`, so they were
+ * absorbed as continuation text into whichever pretty entry came last — 47 real
+ * entries collapsed into one entry's `_raw` block, with nothing in the UI to
+ * suggest anything was missing.
+ */
+function parseFile(content: string): Parsed[] {
   const out: Parsed[] = []
   let current: { entry: LogEntry, searchLines: string[], rawLines: string[] } | undefined
 
@@ -117,7 +128,14 @@ function parsePrettyMode(lines: string[]): Parsed[] {
     current = undefined
   }
 
-  for (const line of lines) {
+  for (const line of content.split('\n')) {
+    const json = parseJsonLine(line)
+    if (json) {
+      flush()
+      out.push({ entry: json, searchText: line })
+      continue
+    }
+
     const match = line.match(HEADER_RE)
     if (match) {
       flush()
@@ -131,14 +149,6 @@ function parsePrettyMode(lines: string[]): Parsed[] {
   }
   flush()
   return out
-}
-
-/** A file is JSON mode if its first non-blank line parses as a JSON object; otherwise pretty mode. */
-function parseFile(content: string): Parsed[] {
-  const lines = content.split('\n')
-  const firstNonBlank = lines.find(l => l.trim())
-  const isJson = firstNonBlank !== undefined && firstNonBlank.trim().startsWith('{')
-  return isJson ? parseJsonMode(lines) : parsePrettyMode(lines)
 }
 
 /**
