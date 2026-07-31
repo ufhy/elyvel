@@ -36,11 +36,16 @@ beforeAll(async () => {
     stdout: 'ignore',
     stderr: 'ignore',
   })
-  // poll until the server answers
-  for (let i = 0; i < 50; i++) {
+  // Poll until an actual S3 write succeeds — not until /health/live answers.
+  // Health goes green before the object API will serve requests, so the first
+  // `put` intermittently failed instead of the suite skipping cleanly. That made
+  // this file flaky inside `bun run test`, where MinIO boots on a machine already
+  // busy with twenty other packages, while passing every time in isolation.
+  for (let i = 0; i < 150; i++) {
     try {
       const res = await fetch(`${endpoint}/minio/health/live`)
-      if (res.ok) {
+      if (res.ok && (await disk().put('.readiness', 'ok'))) {
+        await disk().delete('.readiness')
         live = true
         break
       }
