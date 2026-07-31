@@ -135,7 +135,7 @@
     },
     "packages/auth": {
       "name": "@elyvel/auth",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "devDependencies": {
         "better-auth": "^1.6.0",
       },
@@ -150,7 +150,7 @@
     },
     "packages/broadcasting": {
       "name": "@elyvel/broadcasting",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "@elyvel/notifications": "workspace:*",
@@ -159,14 +159,14 @@
     },
     "packages/cache": {
       "name": "@elyvel/cache",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
       },
     },
     "packages/cli": {
       "name": "@elyvel/cli",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "bin": {
         "elyvel": "./src/index.ts",
       },
@@ -180,7 +180,7 @@
     },
     "packages/core": {
       "name": "@elyvel/core",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "dependencies": {
         "@sinclair/typebox": "^0.34.52",
         "dayjs": "^1.11.13",
@@ -201,7 +201,7 @@
     },
     "packages/create": {
       "name": "@elyvel/create",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "bin": {
         "elyvel-create": "./src/index.ts",
       },
@@ -211,7 +211,7 @@
     },
     "packages/database": {
       "name": "@elyvel/database",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "dependencies": {
         "@electric-sql/pglite": "^0.5.4",
         "@elyvel/cli": "workspace:*",
@@ -229,14 +229,14 @@
     },
     "packages/events": {
       "name": "@elyvel/events",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
       },
     },
     "packages/i18n": {
       "name": "@elyvel/i18n",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "@elyvel/support": "workspace:*",
@@ -244,7 +244,7 @@
     },
     "packages/inertia": {
       "name": "@elyvel/inertia",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "@elyvel/vite": "workspace:*",
@@ -253,7 +253,7 @@
     },
     "packages/log-viewer": {
       "name": "@elyvel/log-viewer",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "devDependencies": {
         "elysia": "^1.4.0",
       },
@@ -264,7 +264,7 @@
     },
     "packages/mail": {
       "name": "@elyvel/mail",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "devDependencies": {
         "@types/nodemailer": "^8.0.1",
         "nodemailer": "^9.0.3",
@@ -276,7 +276,7 @@
     },
     "packages/notifications": {
       "name": "@elyvel/notifications",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "@elyvel/mail": "workspace:*",
@@ -285,7 +285,7 @@
     },
     "packages/queue": {
       "name": "@elyvel/queue",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "dependencies": {
         "@elyvel/cli": "workspace:*",
         "@elyvel/events": "workspace:*",
@@ -296,7 +296,7 @@
     },
     "packages/scheduler": {
       "name": "@elyvel/scheduler",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "dependencies": {
         "@elyvel/cli": "workspace:*",
       },
@@ -306,25 +306,25 @@
     },
     "packages/storage": {
       "name": "@elyvel/storage",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
       },
     },
     "packages/support": {
       "name": "@elyvel/support",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
     },
     "packages/telegram": {
       "name": "@elyvel/telegram",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
       },
     },
     "packages/testing": {
       "name": "@elyvel/testing",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "devDependencies": {
         "@elyvel/auth": "workspace:*",
         "elysia": "^1.4.0",
@@ -341,14 +341,14 @@
     },
     "packages/validation": {
       "name": "@elyvel/validation",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/support": "workspace:*",
       },
     },
     "packages/view": {
       "name": "@elyvel/view",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "elysia": ">=1.4.0",
@@ -356,7 +356,7 @@
     },
     "packages/vite": {
       "name": "@elyvel/vite",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
         "elysia": ">=1.4.0",
