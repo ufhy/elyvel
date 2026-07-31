@@ -45,13 +45,31 @@ ditolak**. Kamu harus menyambungkan ini secara eksplisit, bahkan di
 production, sebelum log viewer melakukan apa pun yang berguna.
 :::
 
+Panggil sekali saat startup, dari service provider aplikasimu — tempat
+yang sama dengan setup app-wide lainnya:
+
 ```ts
+// app/providers/AppServiceProvider.ts
+import type { User } from '@elyvel/auth'
+import { ServiceProvider } from '@elyvel/core'
 import { configureLogViewer } from '@elyvel/log-viewer'
 
-configureLogViewer({
-  authorize: ctx => ADMIN_EMAILS.includes((ctx.user as User | null)?.email ?? ''),
-})
+const ADMIN_EMAILS = ['ada@example.com']
+
+export class AppServiceProvider extends ServiceProvider {
+  override boot(): void {
+    configureLogViewer({
+      authorize: ctx => ADMIN_EMAILS.includes((ctx.user as User | null)?.email ?? ''),
+    })
+  }
+}
 ```
+
+Dua bagian ini sengaja dipisah: `config/middleware.ts` menentukan
+**apakah** viewer terpasang, provider menentukan **siapa** yang boleh
+masuk. Mengatur `authorize` tanpa memasang `logViewer()` tidak
+mendaftarkan route apa pun; memasangnya tanpa `authorize` menyajikan
+viewer yang menolak semua orang.
 
 `authorize(ctx)` mengembalikan (atau me-resolve ke) boolean. Aplikasi
 sungguhan sebaiknya memeriksa role/permission alih-alih allowlist email

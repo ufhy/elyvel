@@ -44,13 +44,31 @@ wire this explicitly, even in production, before the log viewer does
 anything useful.
 :::
 
+Call it once at startup, from your app's service provider — the same
+place other app-wide setup lives:
+
 ```ts
+// app/providers/AppServiceProvider.ts
+import type { User } from '@elyvel/auth'
+import { ServiceProvider } from '@elyvel/core'
 import { configureLogViewer } from '@elyvel/log-viewer'
 
-configureLogViewer({
-  authorize: ctx => ADMIN_EMAILS.includes((ctx.user as User | null)?.email ?? ''),
-})
+const ADMIN_EMAILS = ['ada@example.com']
+
+export class AppServiceProvider extends ServiceProvider {
+  override boot(): void {
+    configureLogViewer({
+      authorize: ctx => ADMIN_EMAILS.includes((ctx.user as User | null)?.email ?? ''),
+    })
+  }
+}
 ```
+
+The two halves live apart on purpose: `config/middleware.ts` decides
+**whether** the viewer is mounted at all, and the provider decides **who**
+gets in. Configuring `authorize` without mounting `logViewer()` registers
+no routes; mounting it without `authorize` serves a viewer that denies
+everyone.
 
 `authorize(ctx)` returns (or resolves to) a boolean. A real app should
 check a role/permission rather than an email allowlist — swap in
