@@ -86,7 +86,38 @@ const requested = process.env.TEST_DIALECTS
   ? process.env.TEST_DIALECTS.split(',').map(s => s.trim()).filter(Boolean)
   : available
 
-/** Dialects the Active Record suite runs against. */
-export const dialects: readonly Dialect[] = requested
-  .map(name => registry[name])
-  .filter((d): d is Dialect => d != null)
+/**
+ * Dialects the Active Record suite runs against.
+ *
+ * An EXPLICIT `TEST_DIALECTS` entry that isn't reachable is a hard error. This
+ * used to be `.filter(d => d != null)`, which silently dropped it: CI asked for
+ * `sqlite,pg`, the Postgres service wasn't reachable, and the run passed with
+ * sqlite alone — 1483 tests instead of 1710, reported as green. Asking for a
+ * dialect and not getting it has to be loud, or coverage quietly evaporates.
+ *
+ * The DEFAULT (no `TEST_DIALECTS`) still takes whatever is available, since a
+ * laptop without a Postgres server should not fail to run tests.
+ */
+export const dialects: readonly Dialect[] = (() => {
+  const resolved = requested.map(name => ({ name, dialect: registry[name] }))
+  if (process.env.TEST_DIALECTS) {
+    const missing = resolved.filter(r => r.dialect == null).map(r => r.name)
+    if (missing.length > 0) {
+      const why = missing
+        .map((name) => {
+          if (name === 'pg')
+            return `pg (POSTGRES_URL ${POSTGRES_URL ? 'set but not reachable' : 'not set'})`
+          if (name === 'mysql')
+            return `mysql (MYSQL_URL ${MYSQL_URL ? 'set but not reachable' : 'not set'})`
+          return `${name} (unknown dialect)`
+        })
+        .join(', ')
+      throw new Error(
+        `[eloquent tests] TEST_DIALECTS asked for ${why}. Refusing to run a `
+        + 'narrower suite than requested — that reports green on less coverage. '
+        + `Available: ${Object.entries(registry).filter(([, d]) => d).map(([n]) => n).join(', ')}.`,
+      )
+    }
+  }
+  return resolved.map(r => r.dialect).filter((d): d is Dialect => d != null)
+})()
