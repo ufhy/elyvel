@@ -141,9 +141,14 @@ excludeMiddleware('GET', '/health', '*')
 ```
 
 The name matches the **alias**, so `'throttle'` also drops `throttle:60,1` — a
-whole-string match meant a route asked to be exempt and silently wasn't. `'*'`
-drops everything for that route. `terminate` is skipped too: middleware that never
-ran must not get a termination hook.
+whole-string match meant a route asked to be exempt and silently wasn't.
+`terminate` is skipped too: middleware that never ran must not get a termination
+hook.
+
+`'*'` drops every **guard** on that route — middleware classes and alias strings.
+It does NOT remove a raw Elysia plugin placed in a group: those are mounted with
+`.use()` and run outside the guard runner, so nothing can exempt a route from them.
+Check what a group actually contains before relying on `'*'`.
 
 ::: warning An exemption is a hole you are choosing to open
 `excludeMiddleware` bypasses controls the rest of the app relies on. Scope it to

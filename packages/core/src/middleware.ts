@@ -145,6 +145,12 @@ export function registerMiddlewareRegistry(config: MiddlewareConfig): void {
   aliases.clear()
   groups.clear()
   aliasOfClass.clear()
+  // Route exemptions share this registry's lifecycle. Leaving them behind meant a
+  // second Application in the same process inherited the first one's — and in the
+  // test suite they leaked between files. Safe to clear here: the Application calls
+  // this during boot, and routes (which is what registers exemptions, via
+  // `resource()`) load afterwards.
+  exclusions.clear()
   for (const [name, cls] of Object.entries(config.aliases ?? {})) {
     aliases.set(name, cls)
     if (!aliasOfClass.has(cls))

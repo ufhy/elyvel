@@ -11,6 +11,7 @@ import {
   registerMiddlewareRegistry,
   resetMiddlewareExclusions,
 } from '../src/middleware'
+import { CsrfMiddleware } from '../src/session'
 
 class Blocker extends Middleware {
   handle(ctx: MiddlewareContext): unknown {
@@ -104,6 +105,28 @@ describe('a route can be exempted from group middleware', () => {
     expect((await get(app('throttled'), '/x')).status).toBe(429)
     excludeMiddleware('GET', '/x', ['throttle'])
     expect((await get(app('throttled'), '/x')).status).toBe(200)
+  })
+})
+
+/**
+ * Regression: `registerMiddlewareRegistry` cleared aliases, groups and the reverse
+ * alias map but NOT the exemptions, so a second Application in one process
+ * inherited the first one's — and in the test suite they leaked between files.
+ */
+describe('re-registering the middleware registry clears route exemptions', () => {
+  test('an exemption from a previous registry does not survive', async () => {
+    excludeMiddleware('POST', '/open', '*')
+    // Same shape as the Application's boot call.
+    registerMiddlewareRegistry({ aliases: { csrf: CsrfMiddleware }, groups: { web: [] } })
+
+    const app = new Elysia()
+      .derive({ as: 'global' }, () => ({ session: { token: () => 'tok' } }))
+      .use(group('web'))
+      .post('/open', () => 'saved') as unknown as Elysia
+
+    const res = await app.handle(new Request('http://localhost/open', { method: 'POST' }))
+    // The stale '*' would have dropped csrf and let this through as 200.
+    expect(res.status).toBe(419)
   })
 })
 

@@ -150,9 +150,14 @@ excludeMiddleware('GET', '/health', '*')
 
 Namanya dicocokkan ke **alias**-nya, jadi `'throttle'` juga menggugurkan
 `throttle:60,1` — pencocokan seluruh string membuat sebuah route meminta
-dikecualikan lalu diam-diam tidak. `'*'` menggugurkan semuanya untuk route itu.
-`terminate` juga dilewati: middleware yang tidak pernah jalan tidak boleh
-mendapat hook terminasi.
+dikecualikan lalu diam-diam tidak. `terminate` juga dilewati: middleware yang
+tidak pernah jalan tidak boleh mendapat hook terminasi.
+
+`'*'` menggugurkan setiap **guard** di route itu — class middleware dan string
+alias. Ia **tidak** menghapus plugin Elysia mentah yang dipasang di sebuah group:
+plugin itu dipasang lewat `.use()` dan berjalan di luar guard runner, jadi tidak
+ada cara mengecualikan sebuah route darinya. Periksa dulu isi group-nya sebelum
+mengandalkan `'*'`.
 
 ::: warning Pengecualian adalah lubang yang kamu buka dengan sengaja
 `excludeMiddleware` melewati kontrol yang diandalkan bagian lain aplikasi.
