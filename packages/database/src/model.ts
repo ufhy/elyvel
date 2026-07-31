@@ -1,6 +1,7 @@
 import type { EagerConstraint } from './eloquent-builder'
 import type { Relation } from './relations'
 import { currentActorId, date } from '@elyvel/core'
+import { isUnsafeKey } from '@elyvel/support'
 import { useConnection } from './connection'
 import { decrypt, encrypt } from './crypto'
 import { EloquentBuilder } from './eloquent-builder'
@@ -709,6 +710,21 @@ export class Model {
   }
 
   setAttribute(key: string, value: unknown): void {
+    // `attributes[key] = value` with key `__proto__` REPLACES the attributes
+    // object's prototype instead of adding a column. On an unguarded model
+    // (`static guarded = []`, a common convention) a request body of
+    // `{"__proto__":{"isAdmin":true}}` therefore made `getAttribute('isAdmin')`
+    // and `model.isAdmin` return true — invisibly, since `Object.keys` and
+    // `toJSON` only see own properties. Any authorization check reading such an
+    // attribute during that request was fooled. No column can legitimately be
+    // named this, so refuse it.
+    if (isUnsafeKey(key)) {
+      throw new TypeError(
+        `[eloquent] Refusing to set the attribute "${key}" on ${this.self().name}: `
+        + 'it would modify the prototype chain rather than the model. If this came '
+        + 'from user input, it is not a column — drop it upstream.',
+      )
+    }
     const accessor = this.self().accessors[key]
     if (accessor && typeof accessor === 'object' && accessor.set) {
       Object.assign(this.attributes, accessor.set(value, this))
@@ -765,6 +781,12 @@ export class Model {
   fill(attributes: Attributes): this {
     const self = this.self()
     for (const [key, value] of Object.entries(attributes)) {
+      // Mass assignment takes untrusted input, so a prototype-manipulating key is
+      // skipped rather than thrown: it is never a real column, and throwing would
+      // hand any caller a trivial way to force a 500. `setAttribute` still throws
+      // if code reaches it directly.
+      if (isUnsafeKey(key))
+        continue
       if (self.isFillable(key)) {
         this.setAttribute(key, value)
       }
