@@ -37,6 +37,12 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # TEMPORARY: two error-pages tests assert 404 and get 200 only on this
+      # runner. Prints the actual response so the cause is visible. Remove with
+      # packages/core/test/diagnose-404.ts once fixed.
+      - name: Diagnose the 404 mismatch
+        run: bun packages/core/test/diagnose-404.ts
+
       - name: Test
         run: bun test
 
