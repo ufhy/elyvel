@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  # The workflows pin actions to commit SHAs, which is the point — a mutable tag
+  # like `@v4` can be repointed by its owner at any time. The cost is that a pin
+  # never updates itself, so security fixes in an action would sit unnoticed.
+  # Dependabot opens the PRs; CI gates them like any other change.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'ci'
+    groups:
+      actions:
+        patterns: ['*']
