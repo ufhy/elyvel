@@ -10,8 +10,18 @@
  * on its own.
  *
  * A process per package makes the run deterministic and pins the blame to one
- * package when something does break. It does NOT fix the underlying leaks — see
- * the test-isolation follow-up — it stops them from being everyone's problem.
+ * package when something does break.
+ *
+ * This is the fix, not a stopgap. A static audit found 95 test files calling one
+ * of 60+ module-level setters (`setConnection`, `registerMiddlewareRegistry`,
+ * `configureErrorPage`, `setDefault*`, …) without resetting it — the pattern is
+ * systemic, and making every global reset-safe across all of them would be far
+ * more work and risk than isolating the processes. Within a package the shared
+ * state is intentional: tests configure what they need.
+ *
+ * `bun run test` maps here. Plain `bun test` still works for a targeted run, but
+ * over the WHOLE repo it shares one process and is order-dependent — use
+ * `bun run test` or `bun run test:one <path>` instead.
  */
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'

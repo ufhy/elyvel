@@ -13,12 +13,13 @@
     "bun": ">=1.1.0"
   },
   "scripts": {
-    "test": "bun test",
+    "test": "bun scripts/test-all.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p examples/fullstack-vue/tsconfig.json && tsc -p examples/spa-vue/tsconfig.json",
     "lint": "eslint .",
     "format": "eslint . --fix",
     "release": "bun scripts/release.ts",
-    "test:all": "bun scripts/test-all.ts"
+    "test:all": "bun scripts/test-all.ts",
+    "test:one": "bun test"
   },
   "dependencies": {
     "dayjs": "^1.11.21"
