@@ -38,7 +38,13 @@ export interface AppConfig {
 export interface LoggingConfig {
   /** Minimum level to emit. Default `info`. */
   level?: LogLevel
-  /** Colorized console output. Default: true unless `app.env === 'production'`. */
+  /**
+   * Human-readable output instead of JSON. Set explicitly, it applies to the
+   * console AND to files. Left unset, the two differ: the console is pretty
+   * unless `app.env === 'production'`, while files are always JSON — a file
+   * outlives the environment that wrote it, and pretty text cannot carry
+   * structured context.
+   */
   pretty?: boolean
   /** Log every HTTP request/response with a correlation id. Default true. */
   http?: boolean
