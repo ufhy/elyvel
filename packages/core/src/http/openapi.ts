@@ -6,7 +6,12 @@ import type { AnyElysia } from 'elysia'
  * just wires the renderer and document metadata.
  */
 export interface OpenApiConfig {
-  /** Serve the docs UI + spec. Defaults to on outside production. */
+  /**
+   * Serve the docs UI + spec. Default true — the decision is the app's, taken
+   * from this config alone (no `APP_ENV` inference; Laravel's Telescope reads
+   * `config('telescope.enabled')` the same way). The scaffolded
+   * `config/openapi.ts` keeps it off in production on a visible line.
+   */
   enabled?: boolean
   /** UI path (default `/openapi`). The raw spec is served at `${path}/json`. */
   path?: string

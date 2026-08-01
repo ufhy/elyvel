@@ -406,8 +406,14 @@ export class Application {
    */
   private async registerOpenApi(): Promise<void> {
     const cfg = this.config.get<OpenApiConfig | undefined>('openapi') ?? {}
-    const env = this.config.get<string>('app.env') ?? process.env.NODE_ENV ?? 'development'
-    if ((cfg.enabled ?? env !== 'production') === false)
+    // Exposure is the app's call, taken from config only. It used to default to
+    // `app.env !== 'production'`, so the decision lived in a variable named after
+    // something else and was invisible from `config/openapi.ts`. Laravel's
+    // equivalent (Telescope) reads `config('telescope.enabled')` and nothing
+    // else, with `env('TELESCOPE_ENABLED', true)` written in the app's own
+    // config. The scaffolded `config/openapi.ts` does the same, and keeps docs
+    // off in production on a line you can see and change.
+    if ((cfg.enabled ?? true) === false)
       return
     const plugin = await openApiPlugin({
       ...cfg,

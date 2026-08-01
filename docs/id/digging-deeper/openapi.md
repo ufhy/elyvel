@@ -7,9 +7,25 @@ renderer-nya.
 
 ## Aktif secara default
 
-Di luar production, aplikasi otomatis mount UI docs di `/openapi` (spec di
-`/openapi/json`) tanpa konfigurasi apa pun — tidak ada yang perlu di-opt-in
-untuk development lokal.
+Pasang peer opsional `@elysiajs/openapi` dan aplikasi otomatis mount UI docs di
+`/openapi` (spec di `/openapi/json`) tanpa konfigurasi lain — memasangnya itulah
+opt-in-nya.
+
+Apakah ia tetap terbuka diputuskan di `config/openapi.ts` dan tidak di tempat
+lain. Framework tidak mematikannya untukmu berdasarkan `APP_ENV`, sama seperti
+Telescope milik Laravel yang hanya membaca `config('telescope.enabled')`. Config
+hasil scaffold mematikannya di production, pada baris yang bisa kamu baca dan
+ubah:
+
+```ts
+enabled: process.env.OPENAPI_ENABLED
+  ? process.env.OPENAPI_ENABLED === 'true'
+  : process.env.APP_ENV !== 'production',
+```
+
+Kalau diserahkan ke pengecekan environment yang tersembunyi, `config/openapi.ts`
+tidak mengatakan apa pun tentang apakah permukaan API-mu dipublikasikan —
+padahal itu satu-satunya pertanyaan yang harus dijawab file tersebut.
 
 ## Konfigurasi
 
@@ -18,7 +34,7 @@ untuk development lokal.
 import { defineOpenApiConfig } from '@elyvel/core'
 
 export default defineOpenApiConfig({
-  enabled: true, // default: aktif di luar production, mati di production
+  enabled: true, // default: aktif — file inilah yang menentukan
   path: '/openapi', // spec dilayani di `${path}/json`
   provider: 'scalar', // atau 'swagger-ui'
   title: 'My API',

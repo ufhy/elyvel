@@ -7,9 +7,24 @@ renderer.
 
 ## It's on by default
 
-Outside production, the app automatically mounts a docs UI at `/openapi`
-(spec at `/openapi/json`) with no configuration needed at all — nothing to
-opt into for local development.
+Install the optional `@elysiajs/openapi` peer and the app mounts a docs UI at
+`/openapi` (spec at `/openapi/json`) with no further configuration — installing
+it is the opt-in.
+
+Whether it stays exposed is decided in `config/openapi.ts` and nowhere else. The
+framework does not switch it off for you based on `APP_ENV`, the same way
+Laravel's Telescope reads only `config('telescope.enabled')`. The scaffolded
+config keeps it off in production, on a line you can read and change:
+
+```ts
+enabled: process.env.OPENAPI_ENABLED
+  ? process.env.OPENAPI_ENABLED === 'true'
+  : process.env.APP_ENV !== 'production',
+```
+
+Left to a hidden environment check, `config/openapi.ts` said nothing about
+whether your API surface was published — which is the one question that file
+should answer.
 
 ## Configuration
 
@@ -18,7 +33,7 @@ opt into for local development.
 import { defineOpenApiConfig } from '@elyvel/core'
 
 export default defineOpenApiConfig({
-  enabled: true, // default: on outside production, off in it
+  enabled: true, // default: on — this file is what decides
   path: '/openapi', // spec served at `${path}/json`
   provider: 'scalar', // or 'swagger-ui'
   title: 'My API',
