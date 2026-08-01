@@ -145,6 +145,48 @@ resmi `@inertiajs/vite`, bukan oleh `@elyvel/inertia` itu sendiri — package
 itu hanya menyuntikkan tag `<script>`/`<link>` yang tepat ke dalam shell
 HTML server-rendered.
 
+## Dev server vs aset hasil build
+
+Mana yang dipakai ditentukan satu hal: apakah dev server Vite sedang jalan
+*saat itu juga*. Dev server-nya sendiri yang memberi tahu, dengan menulis
+`public/hot` selama ia hidup — tambahkan plugin ke `vite.config.ts`, itu saja
+setup-nya:
+
+```ts
+// vite.config.ts
+import { elyvel } from '@elyvel/vite/plugin'
+
+export default defineConfig({
+  plugins: [elyvel(), /* ... */],
+})
+```
+
+File itu berisi URL dev server lengkap dengan `base` Vite; backend hanya
+menambahkan path aset. File-nya dihapus saat proses keluar atau menerima
+sinyal, jadi begitu `vite` dihentikan, aset hasil build kembali dipakai. File
+dan lokasinya sama persis dengan integrasi Vite milik Laravel.
+
+::: warning Dulu memakai APP_ENV — dan itu bug
+Keputusan ini dulu diambil dari `APP_ENV`/`NODE_ENV`, yang menjawab
+pertanyaan berbeda. Deploy produksi dengan `APP_ENV` tidak di-set mengirim
+URL aset `http://localhost:5173/...` ke pengunjung sungguhan: halaman
+ter-render, semua aset 404 di browser, dan server tidak mencatat apa pun.
+Sekarang, tanpa hot file dan tanpa manifest, kamu mendapat error yang keras.
+:::
+
+Di test yang me-render halaman tanpa build, panggil `withoutVite()` — helper
+dengan nama sama seperti di Laravel — dan tag-nya kembali kosong alih-alih
+melempar error:
+
+```ts
+import { withoutVite } from '@elyvel/vite'
+
+withoutVite()
+```
+
+`devUrl` tetap ada untuk memaksa tag dev pada setup yang tidak bisa
+mendeskripsikan dirinya — container dengan host berbeda, atau tunnel.
+
 ## Server-side rendering (SSR)
 
 Didukung, dan disambungkan di starter kit `vue` — bukan client-only.

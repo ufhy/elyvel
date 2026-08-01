@@ -5,11 +5,18 @@ import { stopActingAs } from '@elyvel/auth'
 import { createApp } from '@elyvel/core'
 import { migrate } from '@elyvel/database'
 import { createTestClient, refreshDatabase } from '@elyvel/testing'
+import { withoutVite } from '@elyvel/vite'
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Comment } from '../app/models/Comment'
 import { Post } from '../app/models/Post'
 
 const basePath = join(import.meta.dir, '..')
+
+// Laravel's `withoutVite()`: these tests render Inertia pages without running
+// `vite build` first, and the asset tags aren't what they assert on. Rendering
+// throws otherwise — deliberately, because the old fallback shipped dev-server
+// URLs to real visitors when no build existed.
+withoutVite()
 
 const savedAppKey = process.env.APP_KEY
 process.env.APP_KEY = 'base64:test-key'

@@ -7,61 +7,105 @@ import { Elysia } from 'elysia'
 import { spa } from '../src/spa'
 import { viteTags } from '../src/tags'
 
-describe('viteTags', () => {
-  test('emits the dev client + entry (under the vite base) when no manifest exists', () => {
-    const tags = viteTags({ entry: 'frontend/app.ts', manifest: 'does/not/exist.json' })
-    // The dev server serves under `base` (default /build/), so the injected
-    // URLs must include it — without it the module requests 404.
+let dir: string
+
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), 'elyvel-vite-'))
+})
+afterEach(() => {
+  rmSync(dir, { recursive: true, force: true })
+})
+
+/** The hot file as the `elyvel()` plugin writes it: dev URL WITH vite's base. */
+function hot(contents = 'http://localhost:5173/build'): string {
+  const path = join(dir, 'hot')
+  writeFileSync(path, contents)
+  return path
+}
+
+function manifest(): string {
+  const path = join(dir, 'manifest.json')
+  writeFileSync(
+    path,
+    JSON.stringify({ 'frontend/app.ts': { file: 'assets/app-abc123.js', css: ['assets/app-abc123.css'] } }),
+  )
+  return path
+}
+
+/**
+ * The dev-vs-build decision is the hot file's existence — never the environment.
+ * `APP_ENV` used to decide it, which is a different question: unset on a real
+ * deploy it emitted `http://localhost:5173/...` asset URLs to visitors (page
+ * renders, every asset 404s, server logs nothing), and set to production locally
+ * it served a stale `public/build/` over the running dev server.
+ */
+describe('viteTags — a running dev server is detected by the hot file', () => {
+  test('hot file present: dev client + entry, built from its contents', () => {
+    const tags = viteTags({ entry: 'frontend/app.ts', hotFile: hot(), manifest: manifest() })
     expect(tags).toContain('http://localhost:5173/build/@vite/client')
     expect(tags).toContain('http://localhost:5173/build/frontend/app.ts')
+    // Even with a manifest sitting right there — a live dev server wins.
+    expect(tags).not.toContain('app-abc123.js')
   })
 
-  test('dev tags honor a custom base', () => {
-    const tags = viteTags({ entry: 'app.ts', manifest: 'nope.json', base: '/assets/' })
+  test('the base is NOT appended twice — the hot file already carries it', () => {
+    const tags = viteTags({ entry: 'app.ts', hotFile: hot('http://localhost:5173/assets'), base: '/assets/' })
     expect(tags).toContain('http://localhost:5173/assets/@vite/client')
-    expect(tags).toContain('http://localhost:5173/assets/app.ts')
+    expect(tags).not.toContain('/assets/assets/')
   })
 
-  describe('with a manifest present', () => {
-    let dir: string
-    let manifestPath: string
-    const savedAppEnv = process.env.APP_ENV
+  test('a custom host/port in the hot file is used verbatim', () => {
+    const tags = viteTags({ entry: 'app.ts', hotFile: hot('https://vite.test:4000/build') })
+    expect(tags).toContain('https://vite.test:4000/build/app.ts')
+  })
 
-    beforeEach(() => {
-      dir = mkdtempSync(join(tmpdir(), 'elyvel-vite-'))
-      manifestPath = join(dir, 'manifest.json')
-      writeFileSync(
-        manifestPath,
-        JSON.stringify({ 'frontend/app.ts': { file: 'assets/app-abc123.js', css: ['assets/app-abc123.css'] } }),
-      )
-    })
-    afterEach(() => {
-      rmSync(dir, { recursive: true, force: true })
-      if (savedAppEnv === undefined)
+  for (const env of ['local', 'production', undefined]) {
+    test(`APP_ENV=${env ?? '(unset)'} changes nothing`, () => {
+      const saved = process.env.APP_ENV
+      if (env === undefined)
         delete process.env.APP_ENV
-      else process.env.APP_ENV = savedAppEnv
+      else process.env.APP_ENV = env
+      try {
+        expect(viteTags({ entry: 'app.ts', hotFile: hot() })).toContain('@vite/client')
+        expect(viteTags({ entry: 'frontend/app.ts', hotFile: join(dir, 'none'), manifest: manifest() }))
+          .toContain('/build/assets/app-abc123.js')
+      }
+      finally {
+        if (saved === undefined)
+          delete process.env.APP_ENV
+        else process.env.APP_ENV = saved
+      }
     })
+  }
 
-    test('is IGNORED outside production — a stale build never shadows the dev server', () => {
-      process.env.APP_ENV = 'local'
-      const tags = viteTags({ entry: 'frontend/app.ts', manifest: manifestPath })
-      expect(tags).toContain('http://localhost:5173/build/@vite/client')
-      expect(tags).not.toContain('assets/app-abc123.js')
-    })
+  test('devUrl forces dev tags even with no dev server running', () => {
+    const tags = viteTags({ entry: 'app.ts', devUrl: 'http://tunnel.test', hotFile: join(dir, 'none') })
+    expect(tags).toContain('http://tunnel.test/build/@vite/client')
+  })
+})
 
-    test('is honored when APP_ENV=production', () => {
-      process.env.APP_ENV = 'production'
-      const tags = viteTags({ entry: 'frontend/app.ts', manifest: manifestPath })
-      expect(tags).toContain('/build/assets/app-abc123.js')
-      expect(tags).toContain('/build/assets/app-abc123.css')
-      expect(tags).not.toContain('@vite/client')
-    })
+describe('viteTags — no dev server', () => {
+  test('serves the built assets from the manifest', () => {
+    const tags = viteTags({ entry: 'frontend/app.ts', manifest: manifest(), hotFile: join(dir, 'none') })
+    expect(tags).toContain('/build/assets/app-abc123.js')
+    expect(tags).toContain('/build/assets/app-abc123.css')
+    expect(tags).not.toContain('@vite/client')
+  })
+
+  test('no dev server AND no build throws, instead of shipping localhost URLs', () => {
+    expect(() => viteTags({ entry: 'app.ts', manifest: join(dir, 'none.json'), hotFile: join(dir, 'none') }))
+      .toThrow(/No Vite dev server and no build manifest/)
+  })
+
+  test('a missing entry throws instead of emitting dev-server URLs', () => {
+    expect(() => viteTags({ entry: 'frontend/missing.ts', manifest: manifest(), hotFile: join(dir, 'none') }))
+      .toThrow(/is not in the Vite manifest/)
   })
 })
 
 describe('spa()', () => {
   const app = () =>
-    new Elysia().use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard', buildDir: '.' }))
+    new Elysia().use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard', buildDir: '.', devUrl: 'http://localhost:5173' }))
 
   test('serves the SPA shell (root div + vite tags) at the prefix', async () => {
     const res = await app().handle(new Request('http://localhost/dashboard'))
@@ -91,7 +135,7 @@ describe('spa()', () => {
   test('a route OUTSIDE the prefix is not shadowed by the SPA', async () => {
     const withApi = new Elysia()
       .get('/api/health', () => ({ ok: true }))
-      .use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard', buildDir: '.' }))
+      .use(spa({ entry: 'frontend/spa.ts', prefix: '/dashboard', buildDir: '.', devUrl: 'http://localhost:5173' }))
     const res = await withApi.handle(new Request('http://localhost/api/health'))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })

@@ -1,2 +1,9 @@
 export { spa, type SpaOptions } from './spa'
-export { type ViteOptions, viteTags } from './tags'
+export {
+  clearViteManifestCache,
+  DEFAULT_HOT_FILE,
+  type ViteOptions,
+  viteTags,
+  withoutVite,
+  withVite,
+} from './tags'

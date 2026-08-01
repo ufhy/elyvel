@@ -140,6 +140,47 @@ resolved at build time by the official `@inertiajs/vite` plugin, not by
 `@elyvel/inertia` itself — that package only injects the right
 `<script>`/`<link>` tags into the server-rendered HTML shell.
 
+## Dev server vs. built assets
+
+Which of the two gets emitted is decided by one thing: whether the Vite dev
+server is running *right now*. It says so itself, by writing `public/hot`
+while it lives — add the plugin to `vite.config.ts` and that is the whole
+setup:
+
+```ts
+// vite.config.ts
+import { elyvel } from '@elyvel/vite/plugin'
+
+export default defineConfig({
+  plugins: [elyvel(), /* ... */],
+})
+```
+
+The file holds the dev server's URL including Vite's `base`; the backend
+appends only the asset path. It is removed when the process exits or is
+signalled, so the moment you stop `vite`, built assets take over again. This
+is the same file, in the same place, as Laravel's Vite integration.
+
+::: warning It used to be APP_ENV — and that was a bug
+The decision used to come from `APP_ENV`/`NODE_ENV`, which answers a
+different question. A production deploy with `APP_ENV` unset served
+`http://localhost:5173/...` asset URLs to real visitors: the page rendered,
+every asset 404'd in the browser, and the server logged nothing. With no hot
+file and no build manifest you now get a loud error instead.
+:::
+
+In tests that render pages without a build, call `withoutVite()` — Laravel's
+helper of the same name — and the tags come back empty instead of throwing:
+
+```ts
+import { withoutVite } from '@elyvel/vite'
+
+withoutVite()
+```
+
+`devUrl` still forces dev tags for setups the dev server can't describe
+itself — a container publishing a different host, a tunnel.
+
 ## Server-side rendering (SSR)
 
 Supported, and wired in the `vue` starter kit — not client-only.

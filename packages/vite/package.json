@@ -2,7 +2,7 @@
   "name": "@elyvel/vite",
   "type": "module",
   "version": "0.1.0-alpha.3",
-  "description": "Vite integration for elyvel — asset tags + serve a Vite SPA (no Inertia required)",
+  "description": "Vite integration for elyvel \u2014 asset tags + serve a Vite SPA (no Inertia required)",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",
@@ -25,12 +25,19 @@
     "tag": "alpha"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./plugin": {
+      "types": "./plugin.d.ts",
+      "default": "./plugin.mjs"
+    }
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
   "files": [
+    "plugin.d.mts",
+    "plugin.d.ts",
+    "plugin.mjs",
     "src"
   ],
   "engines": {

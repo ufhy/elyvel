@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { elyvel } from '@elyvel/vite/plugin'
 import inertia from '@inertiajs/vite'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
@@ -17,7 +18,7 @@ import { defineConfig } from 'vite'
  * is `import()`-ed directly — see `@elyvel/inertia`'s `SsrOptions.render`).
  */
 export default defineConfig(({ isSsrBuild }) => ({
-  plugins: [vue(), tailwindcss(), inertia({ ssr: false })],
+  plugins: [elyvel(), vue(), tailwindcss(), inertia({ ssr: false })],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./frontend', import.meta.url)) },
   },

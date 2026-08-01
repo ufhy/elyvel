@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { elyvel } from '@elyvel/vite/plugin'
 import inertia from '@inertiajs/vite'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
@@ -8,7 +9,9 @@ import { defineConfig } from 'vite'
  * Vite build for the Inertia client + SSR bundle.
  *   vite build          → client assets + manifest under public/build
  *   vite build --ssr    → SSR bundle under public/build/ssr (imported in-process)
- * During dev, run `vite` and the server injects the dev client instead.
+ * During dev, run `vite`: the `elyvel()` plugin writes `public/hot` while the
+ * dev server is alive, and the backend emits dev tags for exactly as long as
+ * that file exists. Delete the plugin and the backend can only serve builds.
  *
  * `inertia({ ssr: false })` — the plugin's page-resolution shorthand (`pages:
  * './Pages'` in app.ts/ssr.ts) is used, but its OWN SSR auto-bootstrap is off:
@@ -17,7 +20,7 @@ import { defineConfig } from 'vite'
  * is `import()`-ed directly — see `@elyvel/inertia`'s `SsrOptions.render`).
  */
 export default defineConfig(({ isSsrBuild }) => ({
-  plugins: [vue(), tailwindcss(), inertia({ ssr: false })],
+  plugins: [elyvel(), vue(), tailwindcss(), inertia({ ssr: false })],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./frontend', import.meta.url)) },
   },

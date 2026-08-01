@@ -42,9 +42,15 @@ export function spa(options: SpaOptions) {
   const prefix = trimTrailing(options.prefix ?? '', '/')
   const rootId = options.rootId ?? 'app'
   const base = trimTrailing(options.base ?? '/build/', '/')
-  const head = (options.head ?? '') + viteTags(options)
   const render = options.html ?? defaultShell
-  const shell = () => render({ head, rootId, title: options.title })
+  // Tags are built per request, not once at boot: starting or stopping the Vite
+  // dev server changes the answer, and a server that cached it kept serving dev
+  // tags long after the dev server was gone — every asset 404ing, no error.
+  const shell = () => render({
+    head: (options.head ?? '') + viteTags(options),
+    rootId,
+    title: options.title,
+  })
 
   const serveShell = ({ set }: any) => {
     set.headers['content-type'] = 'text/html; charset=utf-8'

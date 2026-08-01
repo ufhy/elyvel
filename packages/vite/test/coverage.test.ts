@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
 import { viteTags } from '../src/tags'
 
 /** Covers the production-manifest branch of viteTags (only the dev/no-manifest path was tested). */
@@ -15,18 +15,10 @@ function manifest(content: unknown): string {
   return path
 }
 
-describe('viteTags — production manifest', () => {
-  // The manifest is only trusted when APP_ENV=production (see vite.test.ts
-  // for the "stale build shouldn't shadow the dev server" behavior itself).
-  const savedAppEnv = process.env.APP_ENV
-  beforeEach(() => {
-    process.env.APP_ENV = 'production'
-  })
-  afterEach(() => {
-    if (savedAppEnv === undefined)
-      delete process.env.APP_ENV
-    else process.env.APP_ENV = savedAppEnv
-  })
+describe('viteTags — build manifest', () => {
+  // No hot file is written anywhere in this file, so every case here is the
+  // "no dev server running" branch. The environment plays no part — see
+  // vite.test.ts for the detection behaviour itself.
 
   test('emits hashed script + css tags from the manifest chunk', () => {
     const path = manifest({
@@ -52,7 +44,7 @@ describe('viteTags — production manifest', () => {
    */
   test('a missing entry throws instead of emitting dev-server URLs', () => {
     const path = manifest({ 'other.ts': { file: 'x.js' } })
-    expect(() => viteTags({ entry: 'missing.ts', manifest: path, devUrl: 'http://localhost:5173' }))
+    expect(() => viteTags({ entry: 'missing.ts', manifest: path }))
       .toThrow(/is not in the Vite manifest/)
   })
 
@@ -69,10 +61,15 @@ describe('viteTags — production manifest', () => {
       .toThrow(/Could not read the Vite manifest/)
   })
 
-  test('outside production a missing manifest still falls back to the dev server', () => {
-    process.env.APP_ENV = 'local'
+  /**
+   * `devUrl` is the deliberate override for setups the dev server can't describe
+   * itself (a container publishing a different host, a tunnel). It says "dev,
+   * whatever else you see", so it wins over a manifest — including a manifest
+   * that lacks the entry, which is not an error in that mode.
+   */
+  test('devUrl overrides the manifest entirely', () => {
     const path = manifest({ 'other.ts': { file: 'x.js' } })
     const html = viteTags({ entry: 'missing.ts', manifest: path, devUrl: 'http://localhost:5173' })
-    expect(html).toContain('http://localhost:5173')
+    expect(html).toContain('http://localhost:5173/build/missing.ts')
   })
 })

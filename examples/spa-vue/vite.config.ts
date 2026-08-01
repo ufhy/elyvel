@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { elyvel } from '@elyvel/vite/plugin'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
@@ -10,7 +11,7 @@ import { defineConfig } from 'vite'
  * dev client instead of the built manifest.
  */
 export default defineConfig({
-  plugins: [vue(), tailwindcss()],
+  plugins: [elyvel(), vue(), tailwindcss()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./frontend', import.meta.url)) },
   },

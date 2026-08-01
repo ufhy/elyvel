@@ -97,7 +97,10 @@ export function inertia(config: InertiaConfig = {}) {
   const resolveVersion = () =>
     typeof config.version === 'function' ? config.version() : (config.version ?? '')
   const renderHtml = config.html ?? (o => defaultHtml(o))
-  const head = (config.head ?? '') + (config.vite ? viteTags(config.vite) : '')
+  // Built per request, not once at boot — the Vite dev server can start or stop
+  // under a running server, and caching the answer left it emitting dev tags for
+  // a dev server that had exited.
+  const head = (): string => (config.head ?? '') + (config.vite ? viteTags(config.vite) : '')
 
   // Global so a single registration (config/middleware.ts `global`) transforms
   // Inertia responses across every route file — no per-file `.use` needed.
@@ -194,6 +197,6 @@ export function inertia(config: InertiaConfig = {}) {
       }
 
       ctx.set.headers['content-type'] = 'text/html; charset=utf-8'
-      return renderHtml({ pageJson: JSON.stringify(page), page, rootId, head, ssr })
+      return renderHtml({ pageJson: JSON.stringify(page), page, rootId, head: head(), ssr })
     })
 }

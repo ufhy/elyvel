@@ -37,8 +37,14 @@ describe('first (non-XHR) load', () => {
     expect(body).toContain('Sam')
   })
 
-  test('vite tags inject the dev client + entry when no manifest', async () => {
-    const res = await build({ vite: { entry: 'frontend/app.ts' } }).handle(
+  /**
+   * `devUrl` is the explicit "a dev server is there" override; without it the
+   * answer comes from the hot file. The tags are also rebuilt per render rather
+   * than cached at boot — stopping the dev server used to leave the running
+   * server emitting its URLs forever.
+   */
+  test('vite tags inject the dev client + entry', async () => {
+    const res = await build({ vite: { entry: 'frontend/app.ts', devUrl: 'http://localhost:5173' } }).handle(
       new Request('http://localhost/home'),
     )
     const body = await res.text()
