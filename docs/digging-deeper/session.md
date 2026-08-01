@@ -48,6 +48,22 @@ Other options: `secret` (defaults to `app.key`), `path`/`domain`/`secure`/
 `httpOnly`/`sameSite` (cookie attributes), `expireOnClose` (drop `maxAge` so
 the cookie dies with the browser tab).
 
+::: warning `secure` is off until you turn it on
+It comes from your config and nothing else — the framework does not infer it
+from `APP_ENV`, exactly as Laravel takes it from `env('SESSION_SECURE_COOKIE')`
+in `config/session.php`. The scaffolded config reads that variable:
+
+```ts
+// config/session.ts
+secure: process.env.SESSION_SECURE_COOKIE === 'true',
+```
+
+Turn it on wherever you serve HTTPS. Inferring it from the environment is what
+this replaced, and it failed silently in both directions: an app labelled
+production but served over plain http sets a Secure cookie the browser then
+refuses to send back, so every session reads empty with no error anywhere.
+:::
+
 ::: details Backing classes, for custom composition
 Each driver is backed by an exported `SessionStore` implementation —
 `MemorySessionStore`, `FileSessionStore`, `RedisSessionStore` (plus the

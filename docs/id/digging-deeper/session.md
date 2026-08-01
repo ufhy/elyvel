@@ -51,6 +51,24 @@ Opsi lain: `secret` (default ke `app.key`), `path`/`domain`/`secure`/
 `httpOnly`/`sameSite` (atribut cookie), `expireOnClose` (hilangkan `maxAge`
 supaya cookie mati bersama tab browser).
 
+::: warning `secure` mati sampai kamu menyalakannya
+Nilainya datang dari config saja — framework tidak menyimpulkannya dari
+`APP_ENV`, persis seperti Laravel yang mengambilnya dari
+`env('SESSION_SECURE_COOKIE')` di `config/session.php`. Config hasil scaffold
+membaca variabel itu:
+
+```ts
+// config/session.ts
+secure: process.env.SESSION_SECURE_COOKIE === 'true',
+```
+
+Nyalakan di mana pun kamu menyajikan HTTPS. Menyimpulkannya dari environment
+adalah yang digantikan ini, dan gagalnya diam-diam di dua arah: aplikasi
+berlabel production tapi disajikan lewat http polos akan menulis cookie Secure
+yang lalu ditolak dikirim balik oleh browser, sehingga setiap session terbaca
+kosong tanpa error di mana pun.
+:::
+
 ::: details Class di baliknya, untuk komposisi custom
 Setiap driver didukung implementasi `SessionStore` yang di-export —
 `MemorySessionStore`, `FileSessionStore`, `RedisSessionStore` (plus yang

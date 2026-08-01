@@ -3,9 +3,16 @@ import { defineSessionConfig } from '@elyvel/core'
 /**
  * Session config. The `cookie` driver stores the (encrypted) session in a
  * cookie — no table needed. Secret defaults to `app.key`.
+ *
+ * `secure` is decided HERE, from `SESSION_SECURE_COOKIE`, not guessed from
+ * APP_ENV by the framework — Laravel's `config/session.php` does the same. It
+ * matters because a browser refuses to send a Secure cookie over plain http,
+ * including on localhost: guess it wrong and login silently stops working with
+ * no error anywhere. Turn it on wherever you serve HTTPS.
  */
 export default defineSessionConfig({
   driver: 'cookie',
   cookie: 'elyvel_session',
   lifetime: 60 * 120, // 2 hours
+  secure: process.env.SESSION_SECURE_COOKIE === 'true',
 })

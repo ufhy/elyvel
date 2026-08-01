@@ -103,7 +103,12 @@ export interface SessionConfig {
   path?: string
   /** Cookie domain. */
   domain?: string
-  /** Send the cookie over HTTPS only. Defaults to `app.env === 'production'`; a browser will not send a Secure cookie over plain http, including on localhost. */
+  /**
+   * Send the cookie over HTTPS only. Default false, from config alone — no
+   * environment variable is consulted (Laravel: `env('SESSION_SECURE_COOKIE')`
+   * in config/session.php). Turn it on wherever you serve HTTPS; note a browser
+   * will not send a Secure cookie over plain http, including on localhost.
+   */
   secure?: boolean
   /** `HttpOnly` flag on the session cookie. Default true. */
   httpOnly?: boolean
