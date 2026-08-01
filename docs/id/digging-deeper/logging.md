@@ -23,11 +23,13 @@ export default defineLoggingConfig({
 })
 ```
 
-`pretty` mengatur **console** saja ketika dibiarkan kosong: mudah dibaca
-di luar production, JSON di dalamnya. **File** log selalu JSON kecuali
-`pretty` di-set eksplisit — file hidup lebih lama dari environment yang
-membuatnya, dan teks pretty membuang context terstruktur yang membuat
-entri bisa difilter.
+Biarkan `pretty` kosong dan console jadi mudah dibaca sementara file jadi
+JSON, di **semua** environment — logger tidak membaca `APP_ENV`. File log
+hidup lebih lama dari environment yang menulisnya, dan file yang memuat dua
+format adalah file yang salah dibaca; teks pretty juga membuang context
+terstruktur yang membuat entri bisa difilter. Kalau tetap ingin mengikuti
+environment, tulis di sini supaya terlihat:
+`pretty: process.env.APP_ENV !== 'production'` — berlaku untuk keduanya.
 
 Untuk kontrol lebih, definisikan channel bernama dan gabungkan jadi
 `stack` (konsep stacked-channel milik Laravel):

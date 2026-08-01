@@ -23,11 +23,13 @@ export default defineLoggingConfig({
 })
 ```
 
-`pretty` controls the **console** only when you leave it unset: readable
-outside production, JSON in it. The log **file** is always JSON unless you
-set `pretty` explicitly — a file outlives the environment that produced
-it, and pretty text drops the structured context that makes entries
-filterable.
+Leave `pretty` unset and the console is human-readable while the file is
+JSON, in **every** environment — the logger does not read `APP_ENV`. A log
+file outlives the environment that wrote it, and a file holding two formats
+is one a log reader gets wrong; pretty text also drops the structured
+context that makes entries filterable. To follow the environment anyway,
+write it here where you can see it:
+`pretty: process.env.APP_ENV !== 'production'` — it applies to both sinks.
 
 For more control, define named channels and combine them into a `stack`
 (Laravel's stacked-channel concept):

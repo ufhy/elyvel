@@ -1,14 +1,28 @@
 import { defineLoggingConfig } from '@elyvel/core'
 
 /**
- * Logging config. Writes to the console (pretty outside production) AND to
- * `storage/logs/app.log` (rotated at 5MB, 5 files kept) — so there's always a
- * durable record of what happened, even if nobody was watching the terminal
- * when it did. Delete `file` if you'd rather ship logs elsewhere (a `channels`
- * setup can route to multiple drivers — see `LoggingConfig`).
+ * Logging config. Writes to the console AND to `storage/logs/app.log` (rotated
+ * at 5MB, 5 files kept) — so there's always a durable record of what happened,
+ * even if nobody was watching the terminal when it did. Delete `file` if you'd
+ * rather ship logs elsewhere (a `channels` setup can route to multiple drivers
+ * — see `LoggingConfig`).
+ *
+ * Environment coupling belongs HERE, not inside the framework, and it reads
+ * `LOG_*` variables rather than `APP_ENV` — the same split Laravel's
+ * `config/logging.php` uses. The framework never inspects the environment: the
+ * console is human-readable and the file is JSON until this file says otherwise.
+ * A log file outlives the environment that wrote it, and one file holding two
+ * formats is a file a log reader gets wrong.
+ *
+ * To make the console JSON on a server (so a collector can parse stdout), add:
+ *
+ *   pretty: process.env.LOG_PRETTY !== 'false',
+ *
+ * Note `pretty` covers BOTH sinks, so the file follows it too.
  */
 export default defineLoggingConfig({
-  file: 'storage/logs/app.log',
+  level: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') ?? 'info',
+  file: process.env.LOG_FILE ?? 'storage/logs/app.log',
   maxBytes: 5 * 1024 * 1024,
   maxFiles: 5,
 })

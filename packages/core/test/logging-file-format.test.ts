@@ -33,10 +33,12 @@ function firstLine(path: string): string {
  * 2. Pretty text cannot carry structured context — `appName=My App` is a string,
  *    not a field — so entries written in dev can't be filtered on their context.
  *
- * A file outlives the environment that produced it. The console still follows the
- * environment: it's ephemeral and read by a person.
+ * The fix went further than the file: the logger no longer reads `app.env` at
+ * all. Format is a logging decision, so it comes from the logging config — a
+ * console is readable, a file is JSON, and `pretty` overrides both. An app that
+ * wants its environment to decide writes that in its own config, visibly.
  */
-describe('log file format does not depend on app.env', () => {
+describe('log format does not depend on app.env', () => {
   for (const env of ['local', 'staging', 'production']) {
     test(`app.env=${env} writes JSON to the file`, async () => {
       const base = setupApp(env, 'export default { file: \'app.log\' }\n')
@@ -49,6 +51,13 @@ describe('log file format does not depend on app.env', () => {
       expect(JSON.parse(line)).toMatchObject({ level: 'info', message: 'hello', appName: 'My App' })
     })
   }
+
+  test('the console is human-readable in production too — only `pretty` decides', async () => {
+    const base = setupApp('production', 'export default { file: \'app.log\' }\n')
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+    const [consoleTransport] = (app.logger as unknown as { transports: { pretty?: boolean }[] }).transports
+    expect(consoleTransport?.pretty).toBe(true)
+  })
 
   test('an explicit pretty: true is still honoured, in any environment', async () => {
     const base = setupApp('local', 'export default { file: \'app.log\', pretty: true }\n')

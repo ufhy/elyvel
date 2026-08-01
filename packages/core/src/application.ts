@@ -228,25 +228,21 @@ export class Application {
   }
 
   private registerLogger(): void {
-    const isProduction = this.config.get<string>('app.env') === 'production'
     /**
-     * `logging.pretty`, when set, applies everywhere. When it isn't, console and
-     * file diverge on purpose:
+     * The logger reads the LOGGING config and nothing else. It used to derive its
+     * format from `app.env`, which meant a variable with no connection to logging
+     * silently decided how log lines were written — and because files are
+     * append-only, flipping APP_ENV mid-life left one `app.log` holding two
+     * formats. The log viewer then showed 18 of its 64 entries.
      *
-     * - The console is ephemeral and read by a person, so it follows the
-     *   environment — readable outside production, JSON in it.
-     * - A log FILE keeps its format for as long as the file lives, and must not
-     *   depend on the environment. It used to: flipping `APP_ENV` to `production`
-     *   switched the writer to JSON while the existing lines stayed pretty, and one
-     *   `app.log` ended up holding both. The log viewer read 18 of its 64 entries.
-     *   Pretty also *destroys* structure — context that JSON keeps as fields
-     *   becomes unparseable text, so it can't be filtered on or displayed as data.
-     *
-     * So files default to JSON regardless of environment. Want the old look?
-     * Set `pretty: true` explicitly, on the channel or on `logging`.
+     * So: the console is human-readable and files are JSON, in every environment,
+     * until `pretty` says otherwise. An app that wants the format to follow its
+     * environment says so out loud in its own `config/logging.ts`, where that
+     * decision is visible and deletable — the scaffolded config ships exactly that
+     * line, commented, rather than hiding it in here.
      */
     const explicitPretty = this.config.get<boolean | undefined>('logging.pretty')
-    const consolePretty = explicitPretty ?? !isProduction
+    const consolePretty = explicitPretty ?? true
     const filePretty = explicitPretty ?? false
     const level = this.config.get<LogLevel>('logging.level') ?? 'info'
     const redact = this.config.get<string[] | undefined>('logging.redact')

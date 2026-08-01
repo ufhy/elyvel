@@ -8,7 +8,7 @@ import type { ServiceProviderClass } from './service-provider'
 export interface AppConfig {
   /** Human-readable application name. */
   name?: string
-  /** Environment, e.g. `local` | `production`. Drives logging defaults. */
+  /** Environment, e.g. `local` | `production`. Gates debug pages, OpenAPI, and Secure cookies — not logging. */
   env?: string
   /**
    * Show a detailed debug page (stack trace, request info) for uncaught 500s,
@@ -39,11 +39,11 @@ export interface LoggingConfig {
   /** Minimum level to emit. Default `info`. */
   level?: LogLevel
   /**
-   * Human-readable output instead of JSON. Set explicitly, it applies to the
-   * console AND to files. Left unset, the two differ: the console is pretty
-   * unless `app.env === 'production'`, while files are always JSON — a file
-   * outlives the environment that wrote it, and pretty text cannot carry
-   * structured context.
+   * Human-readable output instead of JSON, for the console AND for files.
+   * Unset, the console is human-readable and files are JSON. No environment
+   * variable participates: a file outlives the environment that wrote it, and
+   * one file holding two formats is a file that gets read wrong. To follow the
+   * environment, say so here — `pretty: process.env.APP_ENV !== 'production'`.
    */
   pretty?: boolean
   /** Log every HTTP request/response with a correlation id. Default true. */
@@ -103,7 +103,7 @@ export interface SessionConfig {
   path?: string
   /** Cookie domain. */
   domain?: string
-  /** Send the cookie over HTTPS only. Default false (set true in production). */
+  /** Send the cookie over HTTPS only. Defaults to `app.env === 'production'`; a browser will not send a Secure cookie over plain http, including on localhost. */
   secure?: boolean
   /** `HttpOnly` flag on the session cookie. Default true. */
   httpOnly?: boolean
