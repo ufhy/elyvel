@@ -18,8 +18,22 @@ route().get('/posts/:id', async ({ params }) => {
 
 The error's own message is never sent, because an internal message routinely
 contains things a client must not see — hostnames, connection strings, tokens in
-a query string. In development, `app.debug` additionally renders a stack-trace
-page for 5xx, but only on the web lane and never in production.
+a query string. `app.debug` additionally renders a stack-trace page for 5xx, on
+the web lane only.
+
+`app.debug` is **off unless you turn it on**, and it is obeyed wherever you turn
+it on — the framework does not disable it for you based on `APP_ENV`, matching
+Laravel's `(bool) env('APP_DEBUG', false)`. The scaffolded `config/app.ts` reads
+the variable and `.env` sets it for local development:
+
+```ts
+// config/app.ts
+debug: process.env.APP_DEBUG === 'true',
+```
+
+That is the whole protection: a deploy that configures nothing serves no traces.
+Setting `APP_DEBUG=true` on a public host serves them to everyone who triggers
+an error.
 
 ## Throwing a client-facing error
 

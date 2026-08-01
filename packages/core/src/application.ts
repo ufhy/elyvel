@@ -373,10 +373,20 @@ export class Application {
     this.elysia.use(httpResponses())
   }
 
-  /** Render styled HTML error pages for browsers (JSON for API) — framework default. */
+  /**
+   * Render styled HTML error pages for browsers (JSON for API) — framework default.
+   *
+   * `app.debug` is obeyed as written, and defaults to OFF. It used to default to
+   * on and then be force-disabled when `app.env === 'production'` — safe, but it
+   * meant the framework overrode a value the app had set, and the safety came
+   * from a second environment variable rather than from the setting itself.
+   * Laravel gets there without the override: `'debug' => (bool) env('APP_DEBUG',
+   * false)`, read straight from config wherever it's needed. A deploy that
+   * configures nothing therefore leaks nothing, and an app that asks for stack
+   * traces gets them wherever it asked.
+   */
   private registerErrorPages(): void {
-    const isProduction = this.config.get<string>('app.env') === 'production'
-    const debug = !isProduction && (this.config.get<boolean>('app.debug') ?? true)
+    const debug = this.config.get<boolean>('app.debug') ?? false
     this.elysia.use(errorPages({ debug }))
   }
 

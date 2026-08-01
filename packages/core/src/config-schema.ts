@@ -12,9 +12,10 @@ export interface AppConfig {
   env?: string
   /**
    * Show a detailed debug page (stack trace, request info) for uncaught 500s,
-   * instead of the generic error page. Default `true` outside production; set
-   * `false` to opt out in a non-production environment. Always off in
-   * production regardless of this setting — not an escape hatch.
+   * instead of the generic error page. **Default false**, and obeyed exactly as
+   * written — the framework does not turn it off for you based on `app.env`
+   * (Laravel: `(bool) env('APP_DEBUG', false)`). Set it to true only where you
+   * want stack traces served; the scaffolded config reads `APP_DEBUG`.
    */
   debug?: boolean
   /** App timezone for date *display* (e.g. `Asia/Makassar`). Storage stays UTC. Default `UTC`. */

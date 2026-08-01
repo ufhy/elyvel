@@ -10,6 +10,10 @@ import { AppServiceProvider } from '../app/providers/AppServiceProvider'
 export default defineAppConfig({
   name: process.env.APP_NAME ?? '{{appName}}',
   env: process.env.APP_ENV ?? 'local',
+  // Detailed error pages for uncaught 500s — Laravel's APP_DEBUG knob. Off
+  // unless the variable says otherwise, so a deploy that sets nothing cannot
+  // serve stack traces. `.env` turns it on for local development.
+  debug: process.env.APP_DEBUG === 'true',
   key: process.env.APP_KEY, // secret for `encrypted` model casts (AES-256-GCM)
   port: Number(process.env.PORT ?? 3000),
 

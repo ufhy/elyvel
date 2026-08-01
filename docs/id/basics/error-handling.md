@@ -18,8 +18,22 @@ route().get('/posts/:id', async ({ params }) => {
 
 Pesan milik error itu tidak pernah dikirim, karena pesan internal rutin memuat
 hal yang tidak boleh dilihat client — hostname, connection string, token di query
-string. Saat development, `app.debug` juga merender halaman stack-trace untuk
-5xx, tapi hanya di jalur web dan tidak pernah di production.
+string. `app.debug` juga merender halaman stack-trace untuk 5xx, hanya di jalur
+web.
+
+`app.debug` **mati kecuali kamu menyalakannya**, dan dituruti di mana pun kamu
+menyalakannya — framework tidak mematikannya untukmu berdasarkan `APP_ENV`,
+sama seperti `(bool) env('APP_DEBUG', false)` milik Laravel. Config hasil
+scaffold membaca variabel itu dan `.env` menyalakannya untuk development lokal:
+
+```ts
+// config/app.ts
+debug: process.env.APP_DEBUG === 'true',
+```
+
+Itulah seluruh proteksinya: deploy yang tidak mengatur apa pun tidak menyajikan
+stack trace. Menyetel `APP_DEBUG=true` di host publik berarti menyajikannya ke
+siapa pun yang memicu error.
 
 ## Melempar error yang client-facing
 

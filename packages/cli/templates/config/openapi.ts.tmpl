@@ -3,11 +3,16 @@ import { defineOpenApiConfig } from '@elyvel/core'
 /**
  * Interactive API docs, generated from your typed route schemas (`body`, `query`,
  * `response`, `detail`). Visit `/openapi` for the UI and `/openapi/json` for the
- * raw spec. On by default outside production — flip `enabled` to expose (or hide)
- * it anywhere. Requires the optional `@elysiajs/openapi` peer.
+ * raw spec. Requires the optional `@elysiajs/openapi` peer.
+ *
+ * Whether it's exposed is decided here, not inferred from APP_ENV by the
+ * framework. The default below keeps it off in production — your route shapes
+ * are a map of your API surface — while staying a line you can see and change.
  */
 export default defineOpenApiConfig({
-  // enabled: process.env.APP_ENV === 'production' ? false : true,
+  enabled: process.env.OPENAPI_ENABLED
+    ? process.env.OPENAPI_ENABLED === 'true'
+    : process.env.APP_ENV !== 'production',
   path: '/openapi',
   provider: 'scalar',
   description: 'Generated from typed Elysia routes.',
