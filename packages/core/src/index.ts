@@ -53,6 +53,7 @@ export { defineOpenApiConfig, type OpenApiConfig, openApiPlugin } from './http/o
 export { httpResponses } from './http/plugin'
 export { back, redirect, RedirectResponse } from './http/redirect'
 export { Resource } from './http/resource'
+export { JsonResource, ResourceCollection } from './http/resources'
 export { staticFiles, type StaticFilesOptions } from './http/static'
 export {
   BufferedFileTransport,

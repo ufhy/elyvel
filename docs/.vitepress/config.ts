@@ -60,6 +60,7 @@ export default defineConfig({
               { text: 'Migrations', link: '/database/migrations' },
               { text: 'Eloquent: Getting Started', link: '/database/eloquent' },
               { text: 'Seeding', link: '/database/seeding' },
+              { text: 'API Resources', link: '/database/api-resources' },
             ],
           },
           {
@@ -150,6 +151,7 @@ export default defineConfig({
               { text: 'Migrasi', link: '/id/database/migrations' },
               { text: 'Eloquent: Memulai', link: '/id/database/eloquent' },
               { text: 'Seeding', link: '/id/database/seeding' },
+              { text: 'API Resource', link: '/id/database/api-resources' },
             ],
           },
           {
