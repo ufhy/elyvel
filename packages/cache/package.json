@@ -2,7 +2,7 @@
   "name": "@elyvel/cache",
   "type": "module",
   "version": "0.1.0-alpha.3",
-  "description": "Laravel-style cache for elyvel — repository API, memory + file stores",
+  "description": "Laravel-style cache for elyvel \u2014 repository API, memory + file stores",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",
@@ -42,6 +42,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elyvel/core": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/support": "workspace:*"
   }
 }

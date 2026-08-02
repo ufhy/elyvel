@@ -2,7 +2,7 @@ import type { MiddlewareContext } from './middleware'
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isHttpException, trans } from '@elyvel/support'
+import { DriverRegistry, isHttpException, trans } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { Elysia } from 'elysia'
 import { expectsJson } from './http/negotiation'
@@ -494,21 +494,47 @@ export class RedisSessionStore implements SessionStore {
   async gc(): Promise<void> {}
 }
 
+/**
+ * Session drivers, built-in and registered — Laravel's `Session::extend()`.
+ *
+ * A module-level registry rather than a manager method: the store is built while
+ * the session plugin boots, before an app can reach any instance, so the door has
+ * to be open earlier than that. Register from a provider's `register()`.
+ */
+const sessionDrivers = new DriverRegistry<SessionStore | null, ResolvedSessionConfig>(
+  'Session driver',
+  'Register it with `registerSessionDriver(name, factory)` from a provider.',
+)
+  // The cookie driver keeps everything in the (encrypted) cookie — there is no
+  // server-side store to build, and `null` is how the plugin knows that.
+  .register('cookie', () => null)
+  .register('memory', () => new MemorySessionStore())
+  .register('database', () => new DatabaseSessionStore())
+  .register('file', (config: ResolvedSessionConfig) => new FileSessionStore(config.files))
+  .register('redis', (config: ResolvedSessionConfig) => new RedisSessionStore(
+    config.redisUrl ? new RedisClient(config.redisUrl) : new RedisClient(),
+  ))
+
+/**
+ * Register a session store the framework doesn't ship — DynamoDB, Memcached, a
+ * store shared with another service. `SessionStore` was always a public
+ * interface; until now there was no way to name your implementation in
+ * `config/session.ts`.
+ */
+export function registerSessionDriver(
+  name: string,
+  factory: (config: ResolvedSessionConfig, name: string) => SessionStore | null,
+): void {
+  sessionDrivers.extend(name, factory)
+}
+
+/** Every session driver name that can be configured. */
+export function sessionDriverNames(): string[] {
+  return sessionDrivers.names()
+}
+
 function makeStore(config: ResolvedSessionConfig): SessionStore | null {
-  switch (config.driver) {
-    case 'file':
-      return new FileSessionStore(config.files)
-    case 'database':
-      return new DatabaseSessionStore()
-    case 'memory':
-      return new MemorySessionStore()
-    case 'redis':
-      return new RedisSessionStore(
-        config.redisUrl ? new RedisClient(config.redisUrl) : new RedisClient(),
-      )
-    default:
-      return null // cookie driver has no server-side store
-  }
+  return sessionDrivers.resolve(config.driver, config)
 }
 
 /**

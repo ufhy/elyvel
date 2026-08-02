@@ -2,7 +2,7 @@
   "name": "@elyvel/queue",
   "type": "module",
   "version": "0.1.0-alpha.3",
-  "description": "Laravel-style queues for elyvel — jobs, workers, sync/memory/database/redis drivers",
+  "description": "Laravel-style queues for elyvel \u2014 jobs, workers, sync/memory/database/redis drivers",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",
@@ -43,7 +43,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elyvel/core": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/support": "workspace:*"
   },
   "dependencies": {
     "@elyvel/cli": "workspace:*",

@@ -24,7 +24,13 @@ export {
   notify,
   setDefaultNotifications,
 } from './manager'
-export { type Notifiable, notifiableKey, Notification, routeFor } from './notification'
+export {
+  type ChannelClass,
+  type Notifiable,
+  notifiableKey,
+  Notification,
+  routeFor,
+} from './notification'
 export { NotificationServiceProvider, NotificationToken } from './provider'
 
 /** Read by `elyvel package:discover` — see packages/core's discovery loader. */

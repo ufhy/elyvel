@@ -1,6 +1,7 @@
 import type { QueueConfig, QueueConnectionConfig } from './config-schema'
 import type { Job } from './job'
 import type { QueueStore } from './store'
+import { DriverRegistry } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { CallQueuedClosure, encodeBody, serializeJob } from './job'
 import { DatabaseQueueStore, MemoryQueueStore, RedisQueueStore } from './store'
@@ -59,6 +60,19 @@ export class QueueManager {
     return store
   }
 
+  /** Built-ins go through the same door `extend()` uses. */
+  private readonly stores = new DriverRegistry<QueueStore | 'sync', QueueConnectionConfig>(
+    'Queue driver',
+    'Register it with `QueueManager.extend(name, factory)` from a provider.',
+  )
+    .register('sync', () => 'sync')
+    .register('memory', () => new MemoryQueueStore())
+    .register('database', () => new DatabaseQueueStore())
+    .register('redis', (cfg: QueueConnectionConfig) => new RedisQueueStore(
+      cfg.url ? new RedisClient(cfg.url) : new RedisClient(),
+      cfg.queue ?? 'queues',
+    ))
+
   private build(name: string): QueueStore | 'sync' {
     const cfg: QueueConnectionConfig | undefined
       = this.config.connections?.[name] ?? (name === 'sync' ? { driver: 'sync' } : undefined)
@@ -67,19 +81,23 @@ export class QueueManager {
         `[elyvel] Queue connection "${name}" is not defined in config/queue.ts.`,
       )
     }
-    switch (cfg.driver) {
-      case 'memory':
-        return new MemoryQueueStore()
-      case 'database':
-        return new DatabaseQueueStore()
-      case 'redis':
-        return new RedisQueueStore(
-          cfg.url ? new RedisClient(cfg.url) : new RedisClient(),
-          cfg.queue ?? 'queues',
-        )
-      default:
-        return 'sync'
-    }
+    return this.stores.resolve(cfg.driver ?? 'sync', cfg)
+  }
+
+  /**
+   * Register a queue backend the framework doesn't ship — Laravel's
+   * `Queue::extend()`. SQS, Beanstalk, a hosted queue: the `QueueStore`
+   * interface was always public, but a `switch` decided which names existed.
+   */
+  extend(name: string, factory: (config: QueueConnectionConfig, name: string) => QueueStore | 'sync'): this {
+    this.stores.extend(name, factory)
+    this.resolved.delete(name)
+    return this
+  }
+
+  /** Every connection driver this manager can build. */
+  availableDrivers(): string[] {
+    return this.stores.names()
   }
 
   /** Dispatch a job (or closure): run inline on `sync`, otherwise enqueue. */

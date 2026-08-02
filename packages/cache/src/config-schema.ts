@@ -1,5 +1,10 @@
 export interface CacheStoreConfig {
-  driver: 'memory' | 'file' | 'database' | 'redis'
+  /**
+   * Built-in drivers autocomplete; `(string & {})` leaves room for one
+   * registered with `extend()`. Without it the union is closed and a custom
+   * driver can be written and registered but never named in config.
+   */
+  driver: 'memory' | 'file' | 'database' | 'redis' | (string & {})
   /** Directory for the `file` driver (relative to app root; default `storage/framework/cache`). */
   path?: string
   /** Connection URL for the `redis` driver (default: Bun's `REDIS_URL` / localhost). */

@@ -162,6 +162,7 @@
       "version": "0.1.0-alpha.3",
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/cli": {
@@ -272,6 +273,7 @@
       },
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/notifications": {
@@ -292,6 +294,7 @@
       },
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/scheduler": {

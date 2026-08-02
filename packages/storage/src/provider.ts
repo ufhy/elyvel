@@ -1,5 +1,5 @@
 import type { Token } from '@elyvel/core'
-import type { DiskConfig, StorageConfig } from './config-schema'
+import type { DiskConfig, LocalDiskConfig, StorageConfig } from './config-schema'
 import { ServiceProvider, token } from '@elyvel/core'
 import { FilesystemManager, setDefaultStorage } from './manager'
 
@@ -15,9 +15,13 @@ export class StorageServiceProvider extends ServiceProvider {
     const config = this.app.config.get<StorageConfig>('filesystems', {})
     const disks: Record<string, DiskConfig> = {}
     for (const [name, disk] of Object.entries(config.disks ?? {})) {
+      // The cast is needed because `DiskConfig` now includes a custom member
+      // with an index signature (so registered drivers can be configured), and
+      // that member also matches `driver === 'local'` as far as TS is concerned.
+      const local = disk as LocalDiskConfig
       disks[name]
         = disk.driver === 'local'
-          ? { ...disk, root: this.app.path(disk.root ?? 'storage/app') }
+          ? { ...disk, root: this.app.path(local.root ?? 'storage/app') }
           : disk
     }
     const manager = new FilesystemManager({ ...config, disks })

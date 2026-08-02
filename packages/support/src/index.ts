@@ -1,5 +1,6 @@
 export { Arr, isUnsafeKey } from './arr'
 export { Collection } from './collection'
+export { type DriverFactory, DriverRegistry } from './driver-registry'
 export { blank, dataGet, filled, retry, tap, value } from './helpers'
 export {
   HTTP_EXCEPTION,

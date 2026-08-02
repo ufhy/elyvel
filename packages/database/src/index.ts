@@ -8,6 +8,7 @@ export {
   type Connection,
   type ConnectionConfig,
   createConnection,
+  databaseDriverNames,
   hasConnection,
   type MysqlConnectionConfig,
   type MysqlHostConfig,
@@ -20,6 +21,7 @@ export {
   type QueryLogEntry,
   raw,
   rawStatement,
+  registerDatabaseDriver,
   rollBack,
   setConnection,
   type SqliteConnectionConfig,
@@ -48,6 +50,10 @@ export type {
   PrimaryKeyDefinition,
   RefAction,
 } from './grammar'
+// CLI commands (`elyvelCommands`, migrateCommand, dbShellCommand, etc.) live at
+// the `@elyvel/database/cli` subpath, not here — so a running app importing
+// this main entry never loads them.
+export { grammarDialects, registerGrammar } from './grammar'
 export {
   type ColumnInfo,
   countRows,
@@ -110,12 +116,9 @@ export {
 export { Blueprint, SchemaBuilder } from './schema'
 export { runSeeders, Seeder, type SeederClass } from './seeder'
 export { DatabaseToken } from './tokens'
+
 // Re-exported so model authors get the date type/helper alongside Model: `date`
 // casts (and created_at/updated_at) return a Dayjs — declare fields as `Dayjs`.
 export { date, type Dayjs, now } from '@elyvel/core'
 
 export { Collection, LazyCollection } from '@elyvel/support'
-
-// CLI commands (`elyvelCommands`, migrateCommand, dbShellCommand, etc.) live at
-// the `@elyvel/database/cli` subpath, not here — so a running app importing
-// this main entry never loads them.

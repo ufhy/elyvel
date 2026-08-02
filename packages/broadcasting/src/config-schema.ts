@@ -4,7 +4,12 @@ export interface BroadcastConfig {
    * (cross-process, for apps running more than one instance), `log`, or
    * `array`. Default `log`.
    */
-  driver?: 'websocket' | 'log' | 'array' | 'redis'
+  /**
+   * Built-in drivers autocomplete; `(string & {})` leaves room for one
+   * registered with `extend()`. Without it the union is closed and a custom
+   * driver can be written and registered but never named in config.
+   */
+  driver?: 'websocket' | 'log' | 'array' | 'redis' | (string & {})
   /** Redis connection URL (`redis` driver only). Defaults to Bun's `RedisClient` default (localhost). */
   url?: string
   /** Redis pub/sub channel used to relay broadcasts between instances (`redis` driver only). Default `elyvel-broadcast`. */

@@ -1,5 +1,10 @@
 export interface QueueConnectionConfig {
-  driver: 'sync' | 'memory' | 'database' | 'redis'
+  /**
+   * Built-in drivers autocomplete; `(string & {})` leaves room for one
+   * registered with `extend()`. Without it the union is closed and a custom
+   * driver can be written and registered but never named in config.
+   */
+  driver: 'sync' | 'memory' | 'database' | 'redis' | (string & {})
   /** Redis connection URL (redis driver). Falls back to Bun's default. */
   url?: string
   /** Redis key prefix (redis driver); named lanes become `<prefix>:<queue>`. Default 'queues'. */

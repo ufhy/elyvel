@@ -1,5 +1,6 @@
 import type { Dialect, Grammar } from './grammar'
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { DriverRegistry } from '@elyvel/support'
 import { Database } from 'bun:sqlite'
 import { grammarFor } from './grammar'
 
@@ -525,7 +526,40 @@ export async function closeAllConnections(): Promise<void> {
   current = null
 }
 
+/**
+ * Database drivers, built-in and registered. A `switch` here meant a new engine
+ * could implement `RawConnection` and still be unreachable — the reason
+ * community drivers (MongoDB, Oracle, SQL Server) are possible in Laravel is
+ * `DatabaseManager::extend()`.
+ */
+const drivers = new DriverRegistry<Promise<RawConnection> | RawConnection, ConnectionConfig>(
+  'Database driver',
+  'Register it with `registerDatabaseDriver(name, factory)`.',
+)
+
+/**
+ * Register a database driver the framework doesn't ship. The factory returns a
+ * {@link RawConnection}; everything above it (query builder, Eloquent,
+ * migrations) is dialect-driven and needs no further changes, provided a grammar
+ * is registered for its dialect too — see `registerGrammar`.
+ */
+export function registerDatabaseDriver(
+  name: string,
+  factory: (config: ConnectionConfig, name: string) => Promise<RawConnection> | RawConnection,
+): void {
+  drivers.extend(name, factory)
+}
+
+/** Every database driver name that can be configured. */
+export function databaseDriverNames(): string[] {
+  return [...new Set(['sqlite', 'pglite', 'pg', 'mysql', ...drivers.names()])].sort()
+}
+
 async function buildConnection(config: ConnectionConfig): Promise<RawConnection> {
+  // Registered drivers win, so an app can add an engine or replace a built-in.
+  if (drivers.has(config.driver))
+    return drivers.resolve(config.driver, config)
+
   switch (config.driver) {
     case 'sqlite': {
       const db = new Database(config.database, { create: true })

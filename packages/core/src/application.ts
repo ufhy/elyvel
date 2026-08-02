@@ -8,7 +8,7 @@ import type { ServiceProvider, ServiceProviderClass } from './service-provider'
 import type { ResolvedSessionConfig } from './session'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { trans } from '@elyvel/support'
+import { DriverRegistry, trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { ConfigRepository, ConfigToken, setConfigRepository } from './config'
 import { Container } from './container'
@@ -120,6 +120,36 @@ export function app<T>(token: Token<T>): T
 export function app<T>(token?: Token<T>): Application | T {
   const instance = application()
   return token ? instance.make(token) : instance
+}
+
+/**
+ * Context a log-channel factory needs: the channel's own config, plus the
+ * per-application bits it cannot know — how to resolve a relative path, and what
+ * `pretty` defaults to for console and file.
+ */
+export interface LogDriverContext {
+  config: LogChannelConfig
+  path(relative: string): string
+  consolePretty: boolean
+  filePretty: boolean
+}
+
+const logDrivers = new DriverRegistry<Transport[], LogDriverContext>('Log channel driver')
+
+/**
+ * Register a log channel driver the framework doesn't ship — Laravel's
+ * `Log::extend()`. Papertrail, a syslog socket, an HTTP sink: `Transport` was
+ * always public, but `config/logging.ts` could only name four drivers.
+ *
+ * ```ts
+ * registerLogDriver('http', ({ config }) => [new HttpTransport(config.url)])
+ * ```
+ */
+export function registerLogDriver(
+  name: string,
+  factory: (context: LogDriverContext, name: string) => Transport[],
+): void {
+  logDrivers.extend(name, factory)
 }
 
 export class Application {
@@ -334,6 +364,12 @@ export class Application {
   }
 
   private buildTransports(cfg: ChannelConfig, consolePretty: boolean, filePretty: boolean): Transport[] {
+    // A registered driver wins, so an app can add (or replace) one — Laravel's
+    // `Log::extend()`. The built-ins below stay a switch because they need
+    // `this.path()` and the two pretty defaults, which are per-application.
+    if (logDrivers.has(cfg.driver))
+      return logDrivers.resolve(cfg.driver, { config: cfg, path: p => this.path(p), consolePretty, filePretty })
+
     switch (cfg.driver) {
       case 'console':
         return [new ConsoleTransport(cfg.pretty ?? consolePretty)]

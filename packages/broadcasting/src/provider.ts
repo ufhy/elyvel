@@ -1,7 +1,8 @@
-import type { Token } from '@elyvel/core'
+import type { Application, Token } from '@elyvel/core'
 import type { Broadcaster } from './broadcaster'
 import type { BroadcastConfig } from './config-schema'
 import { ServiceProvider, token } from '@elyvel/core'
+import { DriverRegistry } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { ArrayBroadcaster, LogBroadcaster } from './broadcaster'
 import { BroadcastHub } from './hub'
@@ -18,10 +19,42 @@ export const BroadcasterToken: Token<Broadcaster> = token<Broadcaster>('broadcas
  * process's WebSocket clients) but wraps it in a {@link RedisBroadcaster} so
  * broadcasts relay across every instance, not just this one.
  */
+/** What a broadcaster factory needs: the application, and its own config block. */
+export interface BroadcastDriverContext {
+  app: Application
+  config: BroadcastConfig
+}
+
+const broadcastDrivers = new DriverRegistry<Promise<Broadcaster> | Broadcaster, BroadcastDriverContext>(
+  'Broadcast driver',
+)
+
+/**
+ * Register a broadcaster the framework doesn't ship — Laravel's
+ * `Broadcast::extend()`. The factory may be async, because connecting to an
+ * external gateway usually is.
+ */
+export function registerBroadcastDriver(
+  name: string,
+  factory: (context: BroadcastDriverContext, name: string) => Promise<Broadcaster> | Broadcaster,
+): void {
+  broadcastDrivers.extend(name, factory)
+}
+
 export class BroadcastServiceProvider extends ServiceProvider {
   override async register(): Promise<void> {
     const config = this.app.config.get<BroadcastConfig>('broadcasting', {})
     const driver = config.driver ?? 'log'
+
+    // A registered driver wins — Laravel's `Broadcast::extend()`. Pusher, Ably,
+    // Soketi or an in-house gateway: `Broadcaster` was always a public
+    // interface, but only four names could ever appear in config.
+    if (broadcastDrivers.has(driver)) {
+      const custom = await broadcastDrivers.resolve(driver, { app: this.app, config })
+      setDefaultBroadcaster(custom)
+      this.app.container.instance(BroadcasterToken, custom)
+      return
+    }
 
     let broadcaster: Broadcaster
     if (driver === 'websocket') {

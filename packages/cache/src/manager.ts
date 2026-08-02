@@ -1,4 +1,6 @@
 import type { CacheConfig, CacheStoreConfig } from './config-schema'
+import type { CacheStore } from './store'
+import { DriverRegistry } from '@elyvel/support'
 import { RedisClient } from 'bun'
 import { Repository } from './repository'
 import { DatabaseStore, FileStore, MemoryStore, RedisStore } from './store'
@@ -23,23 +25,44 @@ export class CacheManager {
     return repo
   }
 
+  /** Built-ins go through the same door `extend()` uses. */
+  private readonly stores = new DriverRegistry<CacheStore, CacheStoreConfig>(
+    'Cache driver',
+    'Register it with `CacheManager.extend(name, factory)` from a provider.',
+  )
+    .register('memory', () => new MemoryStore())
+    .register('database', () => new DatabaseStore())
+    .register('file', (cfg: CacheStoreConfig) => new FileStore(
+      (cfg as { path?: string }).path ?? 'storage/framework/cache',
+    ))
+    .register('redis', (cfg: CacheStoreConfig) => {
+      const url = (cfg as { url?: string }).url
+      return new RedisStore(url ? new RedisClient(url) : new RedisClient(), (cfg as { prefix?: string }).prefix ?? 'cache:')
+    })
+
   private build(name: string): Repository {
     const cfg: CacheStoreConfig | undefined
       = this.config.stores?.[name] ?? (name === 'memory' ? { driver: 'memory' } : undefined)
     if (!cfg) {
       throw new Error(`[elyvel] Cache store "${name}" is not defined in config/cache.ts.`)
     }
-    if (cfg.driver === 'file') {
-      return new Repository(new FileStore(cfg.path ?? 'storage/framework/cache'))
-    }
-    if (cfg.driver === 'database') {
-      return new Repository(new DatabaseStore())
-    }
-    if (cfg.driver === 'redis') {
-      const client = cfg.url ? new RedisClient(cfg.url) : new RedisClient()
-      return new Repository(new RedisStore(client, cfg.prefix ?? 'cache:'))
-    }
-    return new Repository(new MemoryStore())
+    return new Repository(this.stores.resolve(cfg.driver ?? 'memory', cfg))
+  }
+
+  /**
+   * Register a cache backend the framework doesn't ship — Laravel's
+   * `Cache::extend()`. Memcached, DynamoDB, a shared in-cluster store: the
+   * `CacheStore` interface was public, the list of usable names was not.
+   */
+  extend(name: string, factory: (config: CacheStoreConfig, name: string) => CacheStore): this {
+    this.stores.extend(name, factory)
+    this.repositories.delete(name)
+    return this
+  }
+
+  /** Every store driver this manager can build. */
+  availableDrivers(): string[] {
+    return this.stores.names()
   }
 }
 

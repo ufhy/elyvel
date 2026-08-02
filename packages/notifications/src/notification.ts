@@ -17,8 +17,26 @@ export interface Notifiable {
  * `to<Channel>()` shapes the payload for that channel. Only implement the
  * channels you return from `via()`.
  */
+/**
+ * A channel class, referenced directly from `via()`. Laravel's ChannelManager
+ * falls back to `class_exists($driver)` and resolves it from the container,
+ * which is what lets a third-party package ship a channel nobody registered:
+ * the class IS the identifier.
+ */
+export type ChannelClass = new () => {
+  send(notifiable: Notifiable, notification: Notification): Promise<void>
+}
+
 export abstract class Notification {
-  abstract via(notifiable: Notifiable): string[]
+  /**
+   * Which channels deliver this. A string names a registered channel; a class is
+   * instantiated directly, so a package's channel needs no registration:
+   *
+   * ```ts
+   * via() { return ['mail', WhatsAppChannel] }
+   * ```
+   */
+  abstract via(notifiable: Notifiable): (string | ChannelClass)[]
   toMail?(notifiable: Notifiable): Message
   toDatabase?(notifiable: Notifiable): Record<string, unknown>
   toArray?(notifiable: Notifiable): Record<string, unknown>

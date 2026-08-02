@@ -1,3 +1,5 @@
+import { DriverRegistry } from '@elyvel/support'
+
 export type Dialect = 'sqlite' | 'pg' | 'mysql'
 
 export type ColumnType
@@ -627,13 +629,33 @@ class MysqlGrammar extends Grammar {
   }
 }
 
+/**
+ * SQL dialects, built-in and registered. Laravel keeps a Grammar per driver and
+ * lets a package supply its own (that is how community MongoDB/Oracle drivers
+ * work); here the mapping was a `switch`, so a new database could implement
+ * `Grammar` and still never be reachable.
+ */
+const grammars = new DriverRegistry<Grammar, Dialect>(
+  'SQL dialect',
+  'Register it with `registerGrammar(dialect, factory)`.',
+)
+  .register('sqlite', () => new SqliteGrammar())
+  .register('pglite', () => new PostgresGrammar())
+  .register('pg', () => new PostgresGrammar())
+  .register('mysql', () => new MysqlGrammar())
+
+/** Register a SQL grammar for a dialect the framework doesn't ship. */
+export function registerGrammar(dialect: string, factory: (dialect: Dialect) => Grammar): void {
+  grammars.extend(dialect, factory)
+}
+
+/** Every dialect that has a grammar. */
+export function grammarDialects(): string[] {
+  return grammars.names()
+}
+
 export function grammarFor(dialect: Dialect): Grammar {
-  switch (dialect) {
-    case 'pg':
-      return new PostgresGrammar()
-    case 'mysql':
-      return new MysqlGrammar()
-    default:
-      return new SqliteGrammar()
-  }
+  // Unknown dialects fell through to SQLite, which produced SQL the target
+  // database silently mis-parsed instead of an error naming the problem.
+  return grammars.resolve(dialect, dialect)
 }

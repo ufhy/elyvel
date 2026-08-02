@@ -2,6 +2,7 @@ import type { MailConfig, MailTransportConfig } from './config-schema'
 import type { Mailable } from './mailable'
 import type { Address } from './message'
 import type { Transport } from './transports'
+import { DriverRegistry } from '@elyvel/support'
 import { failedMail } from './failed'
 import { Message } from './message'
 import { ArrayTransport, LogTransport, SmtpTransport } from './transports'
@@ -10,6 +11,15 @@ import { ArrayTransport, LogTransport, SmtpTransport } from './transports'
 export class MailManager {
   private readonly resolved = new Map<string, Transport>()
   private readonly defaultName: string
+
+  /** Built-ins register through the same door `extend()` uses — see DriverRegistry. */
+  private readonly transports = new DriverRegistry<Transport, MailTransportConfig>(
+    'Mail transport',
+    'Register it with `MailManager.extend(name, factory)` from a provider.',
+  )
+    .register('log', () => new LogTransport())
+    .register('array', () => new ArrayTransport())
+    .register('smtp', (cfg: MailTransportConfig) => new SmtpTransport(cfg as ConstructorParameters<typeof SmtpTransport>[0]))
 
   constructor(private readonly config: MailConfig = {}) {
     this.defaultName = config.default ?? 'log'
@@ -25,19 +35,39 @@ export class MailManager {
     return transport
   }
 
+  /**
+   * Register a transport the framework doesn't ship — Laravel's
+   * `Mail::extend()`. Call it from a service provider's `boot()`; transports are
+   * built lazily on first send, so anything registered before mail is used takes
+   * effect.
+   *
+   * ```ts
+   * app.make(MailToken).extend('resend', cfg => new ResendTransport(cfg.apiKey))
+   * ```
+   *
+   * This replaced a `switch` over `'smtp' | 'log' | 'array'`, which meant adding
+   * SES, Mailgun or Resend was a pull request against the framework rather than
+   * a package.
+   */
+  extend(name: string, factory: (config: MailTransportConfig, name: string) => Transport): this {
+    this.transports.extend(name, factory)
+    // A transport already built under this name would otherwise keep being
+    // served from the cache, silently ignoring the override.
+    this.resolved.delete(name)
+    return this
+  }
+
+  /** Every transport name this manager can build, built-in or extended. */
+  availableTransports(): string[] {
+    return this.transports.names()
+  }
+
   private build(name: string): Transport {
     const cfg: MailTransportConfig | undefined
       = this.config.mailers?.[name] ?? (name === 'log' ? { transport: 'log' } : undefined)
     if (!cfg)
       throw new Error(`[elyvel] Mail transport "${name}" is not defined in config/mail.ts.`)
-    switch (cfg.transport) {
-      case 'array':
-        return new ArrayTransport()
-      case 'smtp':
-        return new SmtpTransport(cfg)
-      default:
-        return new LogTransport()
-    }
+    return this.transports.resolve(cfg.transport, cfg)
   }
 
   /**

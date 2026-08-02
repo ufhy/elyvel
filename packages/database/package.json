@@ -46,7 +46,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elyvel/core": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/support": "workspace:*"
   },
   "peerDependenciesMeta": {
     "kysely": {

@@ -2,7 +2,7 @@
   "name": "@elyvel/mail",
   "type": "module",
   "version": "0.1.0-alpha.3",
-  "description": "Laravel-style mail for elyvel — Mailables, transports (log/array/smtp)",
+  "description": "Laravel-style mail for elyvel \u2014 Mailables, transports (log/array/smtp)",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",
@@ -41,7 +41,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@elyvel/core": "workspace:*"
+    "@elyvel/core": "workspace:*",
+    "@elyvel/support": "workspace:*"
   },
   "devDependencies": {
     "@types/nodemailer": "^8.0.1",

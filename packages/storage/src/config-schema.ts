@@ -47,7 +47,18 @@ export interface ScopedDiskConfig {
   prefix: string
 }
 
-export type DiskConfig = LocalDiskConfig | S3DiskConfig | ScopedDiskConfig
+/**
+ * A disk registered with `FilesystemManager.extend()` — anything the framework
+ * doesn't ship. Kept as a separate member so the built-in shapes still
+ * autocomplete and still type-check their own required fields (`root` for local,
+ * `bucket` for s3), which a widened `driver: string` on those would have lost.
+ */
+export interface CustomDiskConfig {
+  driver: string
+  [option: string]: unknown
+}
+
+export type DiskConfig = LocalDiskConfig | S3DiskConfig | ScopedDiskConfig | CustomDiskConfig
 
 /** Shape of `config/filesystems.ts`. Author it with {@link defineStorageConfig}. */
 export interface StorageConfig {

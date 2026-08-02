@@ -1,6 +1,7 @@
 export { currentActorId, runWithActor, setCurrentActor } from './actor'
 export type { CreateAppOptions } from './application'
 export { app, Application, application, createApp } from './application'
+export { type LogDriverContext, registerLogDriver } from './application'
 export type { ConfigData, ConfigSchema } from './config'
 export { config, ConfigRepository, ConfigToken, setConfigRepository } from './config'
 export {
@@ -143,9 +144,11 @@ export {
   FileSessionStore,
   MemorySessionStore,
   RedisSessionStore,
+  registerSessionDriver,
   type ResolvedSessionConfig,
   Session,
   type SessionDbAdapter,
+  sessionDriverNames,
   sessionPlugin,
   type SessionStore,
 } from './session'

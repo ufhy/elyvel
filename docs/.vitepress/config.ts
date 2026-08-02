@@ -101,6 +101,7 @@ export default defineConfig({
           {
             text: 'Packages',
             items: [
+              { text: 'Writing a Driver', link: '/packages/writing-drivers' },
               { text: 'Log Viewer', link: '/packages/log-viewer' },
               { text: 'Telegram', link: '/packages/telegram' },
             ],
@@ -188,6 +189,7 @@ export default defineConfig({
           {
             text: 'Packages',
             items: [
+              { text: 'Menulis Driver', link: '/id/packages/writing-drivers' },
               { text: 'Log Viewer', link: '/id/packages/log-viewer' },
               { text: 'Telegram', link: '/id/packages/telegram' },
             ],

@@ -1,16 +1,31 @@
 import type { Channel } from './channels'
-import type { Notifiable, Notification } from './notification'
+import type { ChannelClass, Notifiable, Notification } from './notification'
 import { failedNotifications } from './failed'
 import { notifiableKey } from './notification'
 
 /** Routes notifications to their channels (Laravel's notification dispatcher). */
 export class NotificationManager {
   private readonly channels = new Map<string, Channel>()
+  private readonly classChannels = new Map<ChannelClass, Channel>()
 
   /** Register a channel implementation under a name used by `via()`. */
   channel(name: string, channel: Channel): this {
     this.channels.set(name, channel)
     return this
+  }
+
+  /**
+   * The instance for a channel class named directly in `via()`. Cached per
+   * class: a channel that opens a connection (an HTTP client, a socket) must not
+   * be reconstructed for every notification sent.
+   */
+  private byClass(Channel: ChannelClass): Channel {
+    let instance = this.classChannels.get(Channel)
+    if (!instance) {
+      instance = new Channel() as Channel
+      this.classChannels.set(Channel, instance)
+    }
+    return instance
   }
 
   /**
@@ -25,8 +40,11 @@ export class NotificationManager {
    */
   async send(notifiable: Notifiable, notification: Notification): Promise<void> {
     const errors: unknown[] = []
-    for (const name of notification.via(notifiable)) {
-      const channel = this.channels.get(name)
+    for (const via of notification.via(notifiable)) {
+      // A class resolves to itself — one instance per class, cached, so a
+      // channel holding a connection isn't rebuilt for every notification.
+      const name = typeof via === 'string' ? via : (via.name || 'anonymous channel')
+      const channel = typeof via === 'string' ? this.channels.get(via) : this.byClass(via)
       if (!channel) {
         // A `via()` naming a channel nobody registered used to `continue`, so
         // `send()` resolved having delivered NOTHING. This is not theoretical:
