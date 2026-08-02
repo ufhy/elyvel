@@ -49,6 +49,33 @@ export default defineLoggingConfig({
 me-resolve channel tertentu. `http: false` mematikan logging otomatis
 per-request yang dijelaskan di bawah.
 
+## Channel
+
+Sink bernama, dipilih lewat `default` — bentuknya sama dengan
+`config/logging.php` milik Laravel. Framework hanya membaca config; file hasil
+scaffold-lah yang membaca environment, lewat variabel `LOG_*`:
+
+```ts
+// config/logging.ts
+export default defineLoggingConfig({
+  default: process.env.LOG_CHANNEL ?? 'stack',
+  channels: {
+    stack: { driver: 'stack', channels: (process.env.LOG_STACK ?? 'console,single').split(',') },
+    console: { driver: 'console' },
+    single: { driver: 'file', path: 'storage/logs/app.log', maxBytes: 5 * 1024 * 1024, maxFiles: 5 },
+    daily: { driver: 'daily', path: 'storage/logs/app.log', maxDays: 14 },
+    null: { driver: 'null' },
+  },
+})
+```
+
+Akses channel tertentu dengan `app.channel('daily')`; `app.logger` memakai
+`default`. Driver: `console`, `file`, `daily`, `stack`, dan `null`.
+
+`null` menerima tulisan lalu membuangnya — channel NullHandler milik Laravel.
+Itulah cara `LOG_CHANNEL=null` membungkam logging tanpa menghapus konfigurasi
+yang mencatat ke mana log seharusnya pergi, dan ia bisa diletakkan di dalam stack.
+
 ## Level log
 
 Delapan severity RFC 5424 yang didefinisikan PSR-3 — himpunan yang sama dengan

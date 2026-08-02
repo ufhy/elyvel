@@ -326,6 +326,9 @@ export class Application {
             pretty: cfg.pretty ?? filePretty,
           }),
         ]
+      // No transports: the channel exists, accepts writes, and drops them.
+      case 'null':
+        return []
       default:
         return []
     }

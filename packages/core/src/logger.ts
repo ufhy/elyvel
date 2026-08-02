@@ -662,3 +662,9 @@ export type LogChannelConfig
     }
     | { driver: 'daily', level?: LogLevel, path: string, maxDays?: number, pretty?: boolean }
     | { driver: 'stack', level?: LogLevel, channels?: string[] }
+    /**
+     * Accepts entries and discards them — Laravel's `null` channel (a Monolog
+     * NullHandler). Point `default` at it, or name it in a stack, to silence
+     * logging without deleting the configuration that describes it.
+     */
+    | { driver: 'null', level?: LogLevel }

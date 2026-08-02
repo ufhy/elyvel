@@ -1,28 +1,48 @@
 import { defineLoggingConfig } from '@elyvel/core'
 
 /**
- * Logging config. Writes to the console AND to `storage/logs/app.log` (rotated
- * at 5MB, 5 files kept) — so there's always a durable record of what happened,
- * even if nobody was watching the terminal when it did. Delete `file` if you'd
- * rather ship logs elsewhere (a `channels` setup can route to multiple drivers
- * — see `LoggingConfig`).
+ * Logging config, in the shape of Laravel's `config/logging.php`: named channels,
+ * a `default` chosen by `LOG_CHANNEL`, and a `stack` that fans out to whichever
+ * channels `LOG_STACK` lists.
  *
  * Environment coupling belongs HERE, not inside the framework, and it reads
- * `LOG_*` variables rather than `APP_ENV` — the same split Laravel's
- * `config/logging.php` uses. The framework never inspects the environment: the
- * console is human-readable and the file is JSON until this file says otherwise.
- * A log file outlives the environment that wrote it, and one file holding two
- * formats is a file a log reader gets wrong.
+ * `LOG_*` variables rather than `APP_ENV`. The framework never inspects the
+ * environment: the console is human-readable and files are JSON until this file
+ * says otherwise. A log file outlives the environment that wrote it, and one file
+ * holding two formats is a file a log reader gets wrong.
  *
- * To make the console JSON on a server (so a collector can parse stdout), add:
- *
- *   pretty: process.env.LOG_PRETTY !== 'false',
- *
- * Note `pretty` covers BOTH sinks, so the file follows it too.
+ * To make the console JSON on a server (so a collector can parse stdout), add
+ * `pretty: false` below — it covers both sinks.
  */
 export default defineLoggingConfig({
-  level: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') ?? 'info',
-  file: process.env.LOG_FILE ?? 'storage/logs/app.log',
-  maxBytes: 5 * 1024 * 1024,
-  maxFiles: 5,
+  default: process.env.LOG_CHANNEL ?? 'stack',
+  level: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warning' | 'error') ?? 'info',
+
+  channels: {
+    // Everything, everywhere: terminal while you work, file for afterwards.
+    stack: {
+      driver: 'stack',
+      channels: (process.env.LOG_STACK ?? 'console,single').split(','),
+    },
+
+    console: { driver: 'console' },
+
+    single: {
+      driver: 'file',
+      path: process.env.LOG_FILE ?? 'storage/logs/app.log',
+      maxBytes: 5 * 1024 * 1024,
+      maxFiles: 5,
+    },
+
+    // One file per day instead of one rotated by size. Swap it into LOG_STACK.
+    daily: {
+      driver: 'daily',
+      path: process.env.LOG_FILE ?? 'storage/logs/app.log',
+      maxDays: Number(process.env.LOG_DAILY_DAYS ?? 14),
+    },
+
+    // Accepts and discards. `LOG_CHANNEL=null` silences logging without
+    // deleting the configuration that describes it.
+    null: { driver: 'null' },
+  },
 })

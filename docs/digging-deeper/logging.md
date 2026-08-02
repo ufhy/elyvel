@@ -49,6 +49,33 @@ export default defineLoggingConfig({
 resolves a specific one. `http: false` disables the automatic
 per-request logging described below.
 
+## Channels
+
+Named sinks, chosen by `default` — the same shape as Laravel's
+`config/logging.php`. The framework reads only the config; the scaffolded file is
+what consults the environment, through `LOG_*` variables:
+
+```ts
+// config/logging.ts
+export default defineLoggingConfig({
+  default: process.env.LOG_CHANNEL ?? 'stack',
+  channels: {
+    stack: { driver: 'stack', channels: (process.env.LOG_STACK ?? 'console,single').split(',') },
+    console: { driver: 'console' },
+    single: { driver: 'file', path: 'storage/logs/app.log', maxBytes: 5 * 1024 * 1024, maxFiles: 5 },
+    daily: { driver: 'daily', path: 'storage/logs/app.log', maxDays: 14 },
+    null: { driver: 'null' },
+  },
+})
+```
+
+Reach a specific channel with `app.channel('daily')`; `app.logger` uses
+`default`. Drivers: `console`, `file`, `daily`, `stack`, and `null`.
+
+`null` accepts writes and discards them — Laravel's NullHandler channel. It is
+how `LOG_CHANNEL=null` silences logging without deleting the configuration that
+records where logs would otherwise go, and it can sit inside a stack.
+
 ## Log levels
 
 The eight RFC 5424 severities PSR-3 defines, which is the set Laravel exposes:
