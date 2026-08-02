@@ -40,6 +40,7 @@ export default defineConfig({
               { text: 'Directory Structure', link: '/guide/directory-structure' },
               { text: 'Configuration', link: '/guide/configuration' },
               { text: 'CLI Reference', link: '/guide/cli-reference' },
+              { text: 'Upgrade Guide', link: '/guide/upgrade' },
             ],
           },
           {
@@ -122,6 +123,7 @@ export default defineConfig({
               { text: 'Struktur Direktori', link: '/id/guide/directory-structure' },
               { text: 'Konfigurasi', link: '/id/guide/configuration' },
               { text: 'Referensi CLI', link: '/id/guide/cli-reference' },
+              { text: 'Panduan Upgrade', link: '/id/guide/upgrade' },
             ],
           },
           {
