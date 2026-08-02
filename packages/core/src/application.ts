@@ -8,7 +8,7 @@ import type { ServiceProvider, ServiceProviderClass } from './service-provider'
 import type { ResolvedSessionConfig } from './session'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { DriverRegistry, trans } from '@elyvel/support'
+import { DriverRegistry, setEncryptionKey, trans } from '@elyvel/support'
 import { Elysia } from 'elysia'
 import { ConfigRepository, ConfigToken, setConfigRepository } from './config'
 import { Container } from './container'
@@ -210,8 +210,12 @@ export class Application {
 
     await app.loadConfig()
     setAppTimezone(app.config.get<string>('app.timezone') ?? 'UTC')
-    // Signed URLs use the same secret as encryption and session cookies, so an
-    // app that has a key gets working signed links with no extra configuration.
+    // One secret, set once: signed URLs, `Crypt`, the `encrypted` cast and the
+    // session cookie all read `app.key`. Setting it here rather than in the
+    // database provider means `Crypt` works in an app that has no database.
+    const appKey = app.config.get<string | undefined>('app.key')
+    if (appKey)
+      setEncryptionKey(appKey)
     setUrlSigningKey(() => app.config.get<string | undefined>('app.key'))
     app.registerLogger()
     app.registerCoreBindings()

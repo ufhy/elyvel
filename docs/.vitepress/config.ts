@@ -95,6 +95,7 @@ export default defineConfig({
             items: [
               { text: 'Authentication', link: '/security/authentication' },
               { text: 'Authorization', link: '/security/authorization' },
+              { text: 'Encryption', link: '/security/encryption' },
             ],
           },
           // First-party packages you install alongside the framework, rather
@@ -186,6 +187,7 @@ export default defineConfig({
             items: [
               { text: 'Autentikasi', link: '/id/security/authentication' },
               { text: 'Otorisasi', link: '/id/security/authorization' },
+              { text: 'Enkripsi', link: '/id/security/encryption' },
             ],
           },
           {

@@ -178,5 +178,6 @@ export {
   type SignedUrlOptions,
   urlFor,
 } from './url'
+export { appearsEncrypted, Crypt, decrypt, decryptString, encrypt, encryptString } from '@elyvel/support'
 // Re-export Elysia's schema builder so apps have one import for env/validation.
 export { t } from 'elysia'
