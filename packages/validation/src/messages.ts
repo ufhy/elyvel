@@ -131,6 +131,18 @@ interface MessageInput {
 }
 
 /** Resolve the final human message for a failed rule, applying placeholders. */
+/**
+ * Fallback messages for rules registered with `registerRule()`. Separate from
+ * DEFAULT_MESSAGES so a custom rule can't overwrite a built-in's message, and so
+ * a translation still wins over it — see the resolution order below.
+ */
+const customMessages: Record<string, string> = Object.create(null) as Record<string, string>
+
+/** Record the fallback message for a registered rule. */
+export function registerRuleMessage(rule: string, message: string): void {
+  customMessages[rule] = message
+}
+
 export function formatMessage(input: MessageInput): string {
   const { rule, attribute, args, sizeKind, custom = {}, attributes = {} } = input
 
@@ -140,7 +152,7 @@ export function formatMessage(input: MessageInput): string {
   // auto-loaded by I18nServiceProvider, overridable via
   // `lang/vendor/validation/...`) → built-in English default. `trans` returns
   // the English fallback untranslated when i18n is absent, so nothing regresses.
-  const defaultTemplate = pickTemplate(rule, sizeKind) ?? FALLBACK
+  const defaultTemplate = pickTemplate(rule, sizeKind) ?? customMessages[rule] ?? FALLBACK
   const key = typeof DEFAULT_MESSAGES[rule] === 'object'
     ? `validation::${rule}.${sizeKind}`
     : `validation::${rule}`

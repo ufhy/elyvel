@@ -178,6 +178,41 @@ manual dengan `ClosureRule` (atau ketik object mandiri dengan `RuleObject`,
 seperti `NoSpaces` di atas).
 :::
 
+### Rule bernama
+
+Closure cukup untuk kasus sekali pakai. Rule yang dipakai di seluruh aplikasi —
+atau yang kamu kirim dalam sebuah paket — pantas punya nama sendiri seperti
+bawaan: `registerRule()`, padanan `Validator::extend()` di Laravel.
+
+```ts
+// app/providers/AppServiceProvider.ts
+import { registerRule } from '@elyvel/validation'
+
+registerRule(
+  'phone',
+  (value, [country = 'ID']) => isPhoneNumber(String(value), country),
+  'Kolom :attribute harus berupa nomor telepon yang valid.',
+)
+```
+
+Setelah itu ia bisa dipakai di mana pun rule bawaan bisa, lengkap dengan argumen:
+
+```ts
+rules(): Rules {
+  return { mobile: 'required|phone:ID' }
+}
+```
+
+Pesan yang kamu berikan hanya fallback — terjemahan di `validation::phone`
+mengalahkannya, sehingga aplikasi tetap bisa melokalkan rule yang datang dari
+sebuah paket.
+
+Rule yang didaftarkan begini **dilewati saat nilainya tidak ada**, persis seperti
+`email` atau `numeric`. Untuk menolak ketiadaan — yang dilakukan `required` —
+pakai `registerImplicitRule()`.
+
+`hasRule(name)` dan `ruleNames()` melaporkan apa saja yang terdaftar.
+
 ## Rule password
 
 Gunakan `Password` untuk rule kompleksitas yang bisa dikomposisi — dan set

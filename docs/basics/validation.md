@@ -175,6 +175,40 @@ variable and annotate it explicitly with `ClosureRule` (or type a standalone
 object with `RuleObject`, as `NoSpaces` does above).
 :::
 
+### Rules with a name
+
+A closure covers the one-off. A rule you use across an app — or ship in a package
+— wants a name of its own, like the built-ins: `registerRule()`, Laravel's
+`Validator::extend()`.
+
+```ts
+// app/providers/AppServiceProvider.ts
+import { registerRule } from '@elyvel/validation'
+
+registerRule(
+  'phone',
+  (value, [country = 'ID']) => isPhoneNumber(String(value), country),
+  'The :attribute must be a valid phone number.',
+)
+```
+
+It is then usable wherever a built-in is, arguments included:
+
+```ts
+rules(): Rules {
+  return { mobile: 'required|phone:ID' }
+}
+```
+
+The message you pass is a fallback — a translation at `validation::phone` wins
+over it, so an app can localise a rule that came from a package.
+
+A rule registered this way is **skipped when the value is absent**, exactly like
+`email` or `numeric`. To reject absence — what `required` does — use
+`registerImplicitRule()` instead.
+
+`hasRule(name)` and `ruleNames()` report what is registered.
+
 ## Password rules
 
 Use `Password` for composable complexity rules — and set an app-wide default

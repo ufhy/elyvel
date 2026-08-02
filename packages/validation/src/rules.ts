@@ -1,7 +1,9 @@
 import type { SizeKind } from './messages'
+import { isUnsafeKey } from '@elyvel/support'
 import { countWithTimeout } from './db-rules'
 import { sniffFileMime } from './file-inspect'
 import { readImageDimensions, sniffImageMime } from './image-inspect'
+import { registerRuleMessage } from './messages'
 
 export type Data = Record<string, unknown>
 export type RuleFn = (
@@ -558,4 +560,60 @@ export const RULES: Record<string, Rule> = {
       return (await countWithTimeout(table as string, column, v)) > 0
     },
   },
+}
+
+/**
+ * Register a validation rule the framework doesn't ship — Laravel's
+ * `Validator::extend()`. The rule name is then usable anywhere a built-in is:
+ * `'phone'`, `'phone:ID'`, in a FormRequest, in `validate()`.
+ *
+ * ```ts
+ * registerRule('phone', (value, [country = 'ID']) => isPhone(String(value), country),
+ *   'The :attribute must be a valid phone number.')
+ * ```
+ *
+ * `RULES` was exported and mutable, so this was *technically* possible before —
+ * by reaching into another package's internals, with no message resolution and
+ * nothing to stop two libraries from silently clobbering each other's rule.
+ *
+ * The fallback `message` is only that: a translation at `validation::<name>`
+ * wins over it, so an app can still localise a rule a package registered.
+ */
+export function registerRule(name: string, validate: RuleFn, message?: string): void {
+  assertRuleName(name)
+  RULES[name] = { validate }
+  if (message !== undefined)
+    registerRuleMessage(name, message)
+}
+
+/**
+ * Like {@link registerRule}, but the rule also runs when the value is absent or
+ * empty — what `required` and `present` do. Laravel splits these for the same
+ * reason: an ordinary rule that never sees a missing value cannot demand one.
+ */
+export function registerImplicitRule(name: string, validate: RuleFn, message?: string): void {
+  assertRuleName(name)
+  RULES[name] = { validate, implicit: true }
+  if (message !== undefined)
+    registerRuleMessage(name, message)
+}
+
+/** Is this name already taken (built-in or registered)? */
+export function hasRule(name: string): boolean {
+  return Object.hasOwn(RULES, name)
+}
+
+/** Every usable rule name, sorted. */
+export function ruleNames(): string[] {
+  return Object.keys(RULES).sort()
+}
+
+function assertRuleName(name: string): void {
+  // A rule called `__proto__` would otherwise write through RULES' prototype:
+  // the same class of hole already found (and fixed) in the wildcard rule and
+  // in model attribute filling.
+  if (isUnsafeKey(name))
+    throw new TypeError(`[elyvel] "${name}" is not a valid rule name.`)
+  if (!/^[a-z_][\w-]*$/i.test(name))
+    throw new TypeError(`[elyvel] Rule name "${name}" must be alphanumeric (letters, digits, _ or -).`)
 }
