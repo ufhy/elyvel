@@ -74,14 +74,12 @@ export default defineConfig({
               { text: 'Broadcasting', link: '/digging-deeper/broadcasting' },
               { text: 'Service Container', link: '/digging-deeper/container' },
               { text: 'Logging', link: '/digging-deeper/logging' },
-              { text: 'Log Viewer', link: '/digging-deeper/log-viewer' },
               { text: 'Rate Limiting', link: '/digging-deeper/rate-limiting' },
               { text: 'Task Scheduling', link: '/digging-deeper/scheduler' },
               { text: 'Localization', link: '/digging-deeper/localization' },
               { text: 'Views', link: '/digging-deeper/views' },
               { text: 'HTTP Tests', link: '/digging-deeper/testing' },
               { text: 'File Storage', link: '/digging-deeper/storage' },
-              { text: 'Telegram', link: '/digging-deeper/telegram' },
               { text: 'Helpers & Collections', link: '/digging-deeper/helpers' },
               { text: 'HTTP Client', link: '/digging-deeper/http-client' },
               { text: 'CORS', link: '/digging-deeper/cors' },
@@ -96,6 +94,15 @@ export default defineConfig({
             items: [
               { text: 'Authentication', link: '/security/authentication' },
               { text: 'Authorization', link: '/security/authorization' },
+            ],
+          },
+          // First-party packages you install alongside the framework, rather
+          // than framework features — the same split Laravel's sidebar makes.
+          {
+            text: 'Packages',
+            items: [
+              { text: 'Log Viewer', link: '/packages/log-viewer' },
+              { text: 'Telegram', link: '/packages/telegram' },
             ],
           },
         ],
@@ -156,14 +163,12 @@ export default defineConfig({
               { text: 'Broadcasting', link: '/id/digging-deeper/broadcasting' },
               { text: 'Service Container', link: '/id/digging-deeper/container' },
               { text: 'Logging', link: '/id/digging-deeper/logging' },
-              { text: 'Log Viewer', link: '/id/digging-deeper/log-viewer' },
               { text: 'Rate Limiting', link: '/id/digging-deeper/rate-limiting' },
               { text: 'Task Scheduling', link: '/id/digging-deeper/scheduler' },
               { text: 'Localization', link: '/id/digging-deeper/localization' },
               { text: 'View', link: '/id/digging-deeper/views' },
               { text: 'HTTP Test', link: '/id/digging-deeper/testing' },
               { text: 'File Storage', link: '/id/digging-deeper/storage' },
-              { text: 'Telegram', link: '/id/digging-deeper/telegram' },
               { text: 'Helper & Collection', link: '/id/digging-deeper/helpers' },
               { text: 'HTTP Client', link: '/id/digging-deeper/http-client' },
               { text: 'CORS', link: '/id/digging-deeper/cors' },
@@ -178,6 +183,13 @@ export default defineConfig({
             items: [
               { text: 'Autentikasi', link: '/id/security/authentication' },
               { text: 'Otorisasi', link: '/id/security/authorization' },
+            ],
+          },
+          {
+            text: 'Packages',
+            items: [
+              { text: 'Log Viewer', link: '/id/packages/log-viewer' },
+              { text: 'Telegram', link: '/id/packages/telegram' },
             ],
           },
         ],
