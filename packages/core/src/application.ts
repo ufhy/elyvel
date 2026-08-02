@@ -39,8 +39,9 @@ import {
 import { requestContext, setRequestLogger } from './request-context'
 import { loadRoutes } from './router'
 import { CsrfMiddleware, sessionPlugin } from './session'
-
 import { ThrottleMiddleware } from './throttle'
+
+import { setUrlSigningKey } from './url'
 
 type ChannelConfig = LogChannelConfig
 
@@ -209,6 +210,9 @@ export class Application {
 
     await app.loadConfig()
     setAppTimezone(app.config.get<string>('app.timezone') ?? 'UTC')
+    // Signed URLs use the same secret as encryption and session cookies, so an
+    // app that has a key gets working signed links with no extra configuration.
+    setUrlSigningKey(() => app.config.get<string | undefined>('app.key'))
     app.registerLogger()
     app.registerCoreBindings()
     // Earliest guard: a maintenance outage short-circuits every request.

@@ -377,6 +377,49 @@ resource('/photos', PhotoController, {
 })
 ```
 
+### URL bertanda tangan
+
+Tautan yang membawa bukti bahwa aplikasi inilah yang menerbitkannya — padanan
+`URL::signedRoute()` di Laravel. Yang diautentikasi adalah **aksinya**, bukan
+orangnya: tautan unsubscribe di email, unduhan sekali pakai, undangan.
+
+```ts
+import { hasValidSignature, signedUrl } from '@elyvel/core'
+
+signedUrl('unsubscribe', { user: 42 })
+// "/unsubscribe/42?signature=9f86d081…"
+
+signedUrl('download', { id: 7 }, { expiresInSeconds: 60 * 60 * 24 })
+// "/files/7?expires=1767225600&signature=…"
+```
+
+Verifikasi di handler (atau middleware):
+
+```ts
+route().get('/unsubscribe/:user', ({ request, status }) => {
+  if (!hasValidSignature(request.url))
+    return status(403, { message: 'Tautan ini tidak valid atau sudah kedaluwarsa.' })
+  // …
+})
+```
+
+Alternatif yang biasa dipakai orang adalah token acak di sebuah tabel — yang
+butuh tabelnya, lookup di tiap request, dan job untuk membersihkannya, demi hasil
+yang sama.
+
+Hal yang penting dalam praktik:
+
+- Parameter **diurutkan sebelum ditandatangani**, jadi mail client atau proxy
+  yang mengacak urutan query string tidak merusak tautannya.
+- Mengubah parameter apa pun — termasuk memundurkan `expires` — membatalkan
+  tanda tangannya.
+- `signature` dan `expires` adalah nama parameter yang dicadangkan.
+- Kunci penandatangan adalah `app.key`, secret yang sama dengan enkripsi dan
+  cookie session. Tanpa kunci, penandatanganan melempar error; **verifikasi
+  mengembalikan false**, bukan melempar, karena ia berjalan di endpoint publik
+  dengan input yang dikendalikan penyerang — dan 500 di situ adalah
+  denial-of-service yang kendalinya ada di tangan orang lain.
+
 ## Memeriksa route
 
 Daftarkan setiap route yang terdaftar dengan CLI:

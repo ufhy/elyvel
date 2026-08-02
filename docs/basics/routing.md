@@ -368,6 +368,48 @@ resource('/photos', PhotoController, {
 })
 ```
 
+### Signed URLs
+
+A link that carries proof this application issued it — Laravel's
+`URL::signedRoute()`. It authenticates the **action**, not the person: an
+unsubscribe link in an email, a one-off download, an invitation.
+
+```ts
+import { hasValidSignature, signedUrl } from '@elyvel/core'
+
+signedUrl('unsubscribe', { user: 42 })
+// "/unsubscribe/42?signature=9f86d081…"
+
+signedUrl('download', { id: 7 }, { expiresInSeconds: 60 * 60 * 24 })
+// "/files/7?expires=1767225600&signature=…"
+```
+
+Verify it in the handler (or a middleware):
+
+```ts
+route().get('/unsubscribe/:user', ({ request, status }) => {
+  if (!hasValidSignature(request.url))
+    return status(403, { message: 'This link is invalid or has expired.' })
+  // …
+})
+```
+
+The alternative most apps reach for is a random token in a table — which needs
+the table, a lookup on every request, and a job to clean it up, for the same
+result.
+
+Notes that matter in practice:
+
+- Parameters are **sorted before signing**, so a mail client or proxy that
+  reorders the query string doesn't break the link.
+- Changing any parameter — including pushing `expires` further out — invalidates
+  the signature.
+- `signature` and `expires` are reserved parameter names.
+- The signing key is `app.key`, the same secret as encryption and session
+  cookies. No key means signing throws; **verification returns false** rather
+  than throwing, because it runs on public endpoints with attacker-controlled
+  input and a 500 there is a denial of service someone else controls.
+
 ## Inspecting routes
 
 List every registered route with the CLI:
