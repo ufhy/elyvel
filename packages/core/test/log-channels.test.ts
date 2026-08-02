@@ -95,3 +95,63 @@ describe('the default channel', () => {
     expect(readFileSync(join(base, 'b.log'), 'utf8')).toContain('both')
   })
 })
+
+/**
+ * Laravel's `Log::build([...])` and `Log::stack([...])`: a logger described where
+ * it's used instead of in `config/logging.ts`. The case that wants it is the
+ * one-off sink — an import job's own audit file, a trace opened during an
+ * incident — which doesn't deserve a permanent channel, and previously had no
+ * route at all short of constructing transports by hand.
+ */
+describe('on-demand loggers', () => {
+  test('build() writes to a channel that was never configured', async () => {
+    const base = setupApp(`export default { default: 'stack', ${CHANNELS} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+
+    app.log.build({ driver: 'file', path: 'ondemand.log' }).info('one-off')
+
+    expect(readFileSync(join(base, 'ondemand.log'), 'utf8')).toContain('one-off')
+    // Not registered — asking for it by name still fails.
+    expect(() => app.channel('ondemand')).toThrow(/is not defined/)
+  })
+
+  test('build() inherits redaction from the app config, so a one-off sink can\'t leak', async () => {
+    const base = setupApp(`export default { default: 'null', redact: ['password'], ${CHANNELS} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+
+    app.log.build({ driver: 'file', path: 'ondemand.log' }).info('login', { password: 'hunter2' })
+
+    const written = readFileSync(join(base, 'ondemand.log'), 'utf8')
+    expect(written).not.toContain('hunter2')
+  })
+
+  test('build() honours its own level', async () => {
+    const base = setupApp(`export default { default: 'null', ${CHANNELS} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+
+    const audit = app.log.build({ driver: 'file', path: 'audit.log', level: 'error' })
+    audit.info('dropped')
+    audit.error('kept')
+
+    const written = readFileSync(join(base, 'audit.log'), 'utf8')
+    expect(written).toContain('kept')
+    expect(written).not.toContain('dropped')
+  })
+
+  test('stack() fans one write out to several existing channels', async () => {
+    const base = setupApp(`export default { default: 'null', ${CHANNELS} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+
+    app.log.stack(['a', 'b']).warning('both')
+
+    expect(readFileSync(join(base, 'a.log'), 'utf8')).toContain('both')
+    expect(readFileSync(join(base, 'b.log'), 'utf8')).toContain('both')
+  })
+
+  test('stack() rejects a channel that does not exist, rather than dropping it', async () => {
+    const base = setupApp(`export default { default: 'null', ${CHANNELS} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+
+    expect(() => app.log.stack(['a', 'nope'])).toThrow(/is not defined/)
+  })
+})

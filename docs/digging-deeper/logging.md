@@ -76,6 +76,23 @@ Reach a specific channel with `app.channel('daily')`; `app.logger` uses
 how `LOG_CHANNEL=null` silences logging without deleting the configuration that
 records where logs would otherwise go, and it can sit inside a stack.
 
+### On-demand loggers
+
+A logger described where it's used, rather than in `config/logging.ts` —
+Laravel's `Log::build()` and `Log::stack()`:
+
+```ts
+// A sink for one job, gone when you drop the reference. Nothing is registered.
+app.log.build({ driver: 'file', path: `storage/logs/import-${jobId}.log` })
+  .info('started', { rows })
+
+// One write, several existing channels.
+app.log.stack(['single', 'daily']).critical('provider unreachable')
+```
+
+`build()` inherits the app's level and redaction config, so a one-off file
+can't leak what a configured channel would have masked.
+
 ## Log levels
 
 The eight RFC 5424 severities PSR-3 defines, which is the set Laravel exposes:

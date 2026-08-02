@@ -488,6 +488,15 @@ export class Logger {
     }
   }
 
+  /**
+   * The sinks this logger writes to. Read-only, and exposed so {@link
+   * LogManager.stack} can assemble an aggregate from existing channels the way
+   * Laravel's `Log::stack([...])` does.
+   */
+  get sinks(): readonly Transport[] {
+    return this.transports
+  }
+
   private clone(overrides: Partial<LoggerOptions>): Logger {
     return new Logger({
       level: this.level,
@@ -622,6 +631,12 @@ export class LogManager {
   constructor(
     private readonly channels: Map<string, Logger>,
     private readonly defaultLogger: Logger,
+    /**
+     * Builds a logger from a channel config that isn't in `config/logging.ts`.
+     * Supplied by the Application, which owns transport construction; absent when
+     * a LogManager is assembled by hand in a test.
+     */
+    private readonly builder?: (config: LogChannelConfig) => Logger,
   ) {}
 
   /** The default logger (a single channel or a stack). */
@@ -638,6 +653,37 @@ export class LogManager {
       )
     }
     return logger
+  }
+
+  /**
+   * A logger from a config written at the call site rather than in
+   * `config/logging.ts` — Laravel's `Log::build([...])`. For the one-off sink
+   * that doesn't deserve a permanent channel: an import job's own audit file, a
+   * debug trace during an incident.
+   *
+   * ```ts
+   * app.log.build({ driver: 'file', path: `storage/logs/import-${jobId}.log` })
+   *   .info('started', { rows })
+   * ```
+   *
+   * Nothing is registered: the logger is yours, and disappears when you drop it.
+   */
+  build(config: LogChannelConfig): Logger {
+    if (!this.builder) {
+      throw new Error(
+        '[elyvel] This LogManager cannot build on-demand channels — it was constructed without a builder.',
+      )
+    }
+    return this.builder(config)
+  }
+
+  /**
+   * One logger writing to several existing channels at once — Laravel's
+   * `Log::stack(['single', 'slack'])`. Unlike a `stack` channel in config, this
+   * is assembled at the call site and not registered anywhere.
+   */
+  stack(names: string[]): Logger {
+    return new Logger({ transports: names.flatMap(name => [...this.channel(name).sinks]) })
   }
 }
 

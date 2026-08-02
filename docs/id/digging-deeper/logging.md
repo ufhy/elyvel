@@ -76,6 +76,23 @@ Akses channel tertentu dengan `app.channel('daily')`; `app.logger` memakai
 Itulah cara `LOG_CHANNEL=null` membungkam logging tanpa menghapus konfigurasi
 yang mencatat ke mana log seharusnya pergi, dan ia bisa diletakkan di dalam stack.
 
+### Logger dadakan
+
+Logger yang dideskripsikan di tempat ia dipakai, bukan di `config/logging.ts` —
+`Log::build()` dan `Log::stack()` milik Laravel:
+
+```ts
+// Sink untuk satu job, hilang begitu referensinya dilepas. Tidak didaftarkan.
+app.log.build({ driver: 'file', path: `storage/logs/import-${jobId}.log` })
+  .info('started', { rows })
+
+// Satu tulisan, beberapa channel yang sudah ada.
+app.log.stack(['single', 'daily']).critical('provider unreachable')
+```
+
+`build()` mewarisi level dan konfigurasi redaction milik app, jadi file dadakan
+tidak bisa membocorkan apa yang di channel biasa akan disensor.
+
 ## Level log
 
 Delapan severity RFC 5424 yang didefinisikan PSR-3 — himpunan yang sama dengan

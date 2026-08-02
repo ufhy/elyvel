@@ -155,6 +155,14 @@ export class Application {
     return this.container.make(LoggerToken)
   }
 
+  /**
+   * The log manager — named channels plus `build()`/`stack()` for loggers
+   * assembled at the call site (Laravel's `Log::build()` / `Log::stack()`).
+   */
+  get log(): LogManager {
+    return this.container.make(LogManagerToken)
+  }
+
   /** Resolve a named log channel (see `config/logging.ts`). */
   channel(name: string): Logger {
     return this.container.make(LogManagerToken).channel(name)
@@ -306,7 +314,17 @@ export class Application {
 
     setRequestLogger(defaultLogger)
     this.container.instance(LoggerToken, defaultLogger)
-    this.container.instance(LogManagerToken, new LogManager(channels, defaultLogger))
+    this.container.instance(
+      LogManagerToken,
+      // The builder closes over the same base options and transport factory the
+      // configured channels were built from, so an on-demand channel redacts and
+      // formats identically to a declared one.
+      new LogManager(channels, defaultLogger, cfg => new Logger({
+        ...base,
+        level: cfg.level ?? level,
+        transports: this.buildTransports(cfg, consolePretty, filePretty),
+      })),
+    )
   }
 
   private buildTransports(cfg: ChannelConfig, consolePretty: boolean, filePretty: boolean): Transport[] {
