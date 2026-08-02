@@ -60,7 +60,7 @@ describe('Logger', () => {
     expect(err).toHaveLength(0)
   })
 
-  test('a failing transport (disk full, permission denied, …) never throws out of .log() — falls back to stderr', () => {
+  test('with ignoreExceptions, a failing transport falls back to stderr instead of throwing', () => {
     const goodEntries: unknown[] = []
     const failing: Transport = {
       log: () => {
@@ -68,7 +68,7 @@ describe('Logger', () => {
       },
     }
     const good: Transport = { log: entry => goodEntries.push(entry) }
-    const log = new Logger({ level: 'info', transports: [failing, good] })
+    const log = new Logger({ level: 'info', transports: [failing, good], ignoreExceptions: true })
 
     const { err } = capture(() => {
       expect(() => log.error('disk is full, but the request must survive')).not.toThrow()

@@ -281,7 +281,13 @@ export class Application {
           = cfg.driver === 'stack'
             ? resolve(cfg.channels ?? [])
             : (transportsByChannel.get(name) ?? [])
-        channels.set(name, new Logger({ ...base, level: cfg.level ?? level, transports }))
+        channels.set(name, new Logger({
+          ...base,
+          level: cfg.level ?? level,
+          transports,
+          // Only a `stack` carries this, matching Laravel's config shape.
+          ignoreExceptions: cfg.driver === 'stack' ? cfg.ignoreExceptions : undefined,
+        }))
       }
 
       const def = this.config.get<string | string[]>('logging.default', 'stack')

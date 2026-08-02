@@ -76,6 +76,23 @@ Akses channel tertentu dengan `app.channel('daily')`; `app.logger` memakai
 Itulah cara `LOG_CHANNEL=null` membungkam logging tanpa menghapus konfigurasi
 yang mencatat ke mana log seharusnya pergi, dan ia bisa diletakkan di dalam stack.
 
+### Saat penulisan log gagal
+
+Transport bisa gagal: disk penuh, permission berubah, sink remote hilang. Secara
+default kegagalan itu diteruskan ke pemanggil — sama dengan default Laravel
+(`ignore_exceptions`). Itu default yang tepat untuk sink yang tidak boleh hilang:
+request yang tidak bisa dicatat di audit trail biasanya request yang tidak
+seharusnya diam-diam berhasil.
+
+Setel di stack untuk menelan kegagalan dan melaporkannya ke stderr:
+
+```ts
+stack: { driver: 'stack', channels: ['console', 'single'], ignoreExceptions: true },
+```
+
+Logger turunan (`log.child('http')`, `withContext(...)`) mewarisi setelan ini,
+jadi logger per-request tidak pernah berperilaku beda dari induknya.
+
 ### Logger dadakan
 
 Logger yang dideskripsikan di tempat ia dipakai, bukan di `config/logging.ts` —

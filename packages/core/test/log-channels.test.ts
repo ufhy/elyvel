@@ -155,3 +155,43 @@ describe('on-demand loggers', () => {
     expect(() => app.log.stack(['a', 'nope'])).toThrow(/is not defined/)
   })
 })
+
+/**
+ * Laravel's `ignore_exceptions`, and its default: a handler that throws
+ * propagates. `true` wraps the handlers in a WhatFailureGroupHandler so failures
+ * are swallowed.
+ *
+ * This logger used to swallow unconditionally, which sounds kind until the sink
+ * is an audit trail: "we could not record this" silently became "carry on", and
+ * the request that should have failed returned 200. Which of the two is right is
+ * the app's call, so it is a setting — on the stack channel, as in Laravel.
+ */
+describe('ignoreExceptions', () => {
+  const FAILING = `
+    channels: {
+      quiet: { driver: 'stack', channels: ['bad'], ignoreExceptions: true },
+      loud: { driver: 'stack', channels: ['bad'] },
+      // config/ is a real directory, so the transport constructs fine and the
+      // failure happens where it matters: at write time (EISDIR).
+      bad: { driver: 'file', path: 'config' },
+    },
+  `
+
+  test('by default a transport failure reaches the caller', async () => {
+    const base = setupApp(`export default { default: 'loud', ${FAILING} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+    expect(() => app.logger.error('audit')).toThrow()
+  })
+
+  test('ignoreExceptions: true swallows it', async () => {
+    const base = setupApp(`export default { default: 'quiet', ${FAILING} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+    expect(() => app.logger.error('audit')).not.toThrow()
+  })
+
+  test('a child logger keeps the setting — a request-scoped logger must not differ', async () => {
+    const base = setupApp(`export default { default: 'quiet', ${FAILING} }\n`)
+    const app = await createApp({ basePath: base, autoloadRoutes: false })
+    expect(() => app.logger.child('http').withContext({ requestId: 'r1' }).error('audit')).not.toThrow()
+  })
+})

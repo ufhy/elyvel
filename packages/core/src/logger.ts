@@ -462,6 +462,14 @@ export interface LoggerOptions {
   redactPatterns?: RegExp[]
   /** Also redact inside stringified-JSON string values. Default false. */
   redactJson?: boolean
+  /**
+   * Swallow a transport failure (and report it on stderr) instead of letting it
+   * propagate to the caller. Laravel's `ignore_exceptions`, and false by default
+   * as it is there: a log write that fails is not automatically unimportant. An
+   * audit trail is the clear case — a request that could not be recorded is
+   * usually a request that should not have succeeded quietly.
+   */
+  ignoreExceptions?: boolean
 }
 
 /**
@@ -475,8 +483,10 @@ export class Logger {
   private readonly transports: Transport[]
   private readonly bindings: Record<string, unknown>
   private readonly redactCfg: RedactConfig
+  private readonly ignoreExceptions: boolean
 
   constructor(options: LoggerOptions = {}) {
+    this.ignoreExceptions = options.ignoreExceptions ?? false
     this.level = options.level ?? 'info'
     this.name = options.name
     this.transports = options.transports ?? [new ConsoleTransport(true)]
@@ -506,6 +516,9 @@ export class Logger {
       redact: [...this.redactCfg.keys],
       redactPatterns: this.redactCfg.patterns,
       redactJson: this.redactCfg.json,
+      // Without this, `child()`/`withContext()` silently reverted to the default
+      // — a request-scoped logger would propagate failures its parent swallowed.
+      ignoreExceptions: this.ignoreExceptions,
       ...overrides,
     })
   }
@@ -590,11 +603,16 @@ export class Logger {
         transport.log(entry)
       }
       catch (error) {
-        // A transport failing (disk full, permission denied, network down for a
-        // remote sink…) must never crash the request it's trying to observe —
-        // including when this write is itself happening inside an onError
-        // handler. Fall back to stderr so the entry (and the failure) still
-        // surface somewhere, à la Laravel's last-resort `emergency` channel.
+        // A transport failed: disk full, permission denied, a remote sink down.
+        // Whether that is fatal is the app's call, not the framework's — the same
+        // question Laravel answers with `ignore_exceptions`, and with the same
+        // default (it propagates). Swallowing unconditionally, which this used to
+        // do, quietly turns "we could not record this" into "carry on".
+        if (!this.ignoreExceptions)
+          throw error
+
+        // Opted in: report the failure on stderr so the entry still surfaces
+        // somewhere, à la Laravel's last-resort `emergency` channel.
         console.error('[elyvel] log transport failed:', error)
         console.error(JSON.stringify(entry))
       }
@@ -707,7 +725,7 @@ export type LogChannelConfig
       pretty?: boolean
     }
     | { driver: 'daily', level?: LogLevel, path: string, maxDays?: number, pretty?: boolean }
-    | { driver: 'stack', level?: LogLevel, channels?: string[] }
+    | { driver: 'stack', level?: LogLevel, channels?: string[], ignoreExceptions?: boolean }
     /**
      * Accepts entries and discards them — Laravel's `null` channel (a Monolog
      * NullHandler). Point `default` at it, or name it in a stack, to silence

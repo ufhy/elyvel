@@ -76,6 +76,23 @@ Reach a specific channel with `app.channel('daily')`; `app.logger` uses
 how `LOG_CHANNEL=null` silences logging without deleting the configuration that
 records where logs would otherwise go, and it can sit inside a stack.
 
+### When a log write fails
+
+A transport can fail: the disk fills, a permission changes, a remote sink goes
+away. By default that failure reaches the caller, which is Laravel's default too
+(`ignore_exceptions`). It is the right default for a sink you cannot afford to
+lose — a request that could not be recorded in an audit trail is usually a
+request that should not have quietly succeeded.
+
+Set it on the stack to swallow failures instead, reporting them on stderr:
+
+```ts
+stack: { driver: 'stack', channels: ['console', 'single'], ignoreExceptions: true },
+```
+
+Child loggers (`log.child('http')`, `withContext(...)`) inherit the setting, so a
+request-scoped logger never behaves differently from the one it came from.
+
 ### On-demand loggers
 
 A logger described where it's used, rather than in `config/logging.ts` —

@@ -23,6 +23,9 @@ export default defineLoggingConfig({
     stack: {
       driver: 'stack',
       channels: (process.env.LOG_STACK ?? 'console,single').split(','),
+      // A failed write reaches the caller. Set true to swallow it (reported on
+      // stderr) if you'd rather a full disk never turn into a failed request.
+      ignoreExceptions: false,
     },
 
     console: { driver: 'console' },
