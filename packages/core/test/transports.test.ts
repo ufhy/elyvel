@@ -41,7 +41,8 @@ describe('transports', () => {
 
     expect(lines).toHaveLength(2)
     expect(JSON.parse(lines[0] as string)).toMatchObject({ message: 'first', level: 'info', x: 1 })
-    expect(JSON.parse(lines[1] as string)).toMatchObject({ message: 'second', level: 'warn' })
+    // `warn()` is kept as a spelling of `warning`, but only one name is stored.
+    expect(JSON.parse(lines[1] as string)).toMatchObject({ message: 'second', level: 'warning' })
   })
 
   test('a logger fans out to all transports', () => {

@@ -51,10 +51,21 @@ per-request yang dijelaskan di bawah.
 
 ## Level log
 
-Skala 4-tier bergaya pino yang sengaja dibuat kecil — `debug` < `info` <
-`warn` < `error` — plus `silent` sebagai floor khusus config yang
-membungkam semuanya. Ini sengaja lebih sederhana dari 8 level milik
-Monolog; tidak ada pembedaan `emergency`/`alert`/`critical`/`notice`.
+Delapan severity RFC 5424 yang didefinisikan PSR-3 — himpunan yang sama dengan
+Laravel:
+
+`debug` < `info` < `notice` < `warning` < `error` < `critical` < `alert` <
+`emergency`
+
+plus `silent` sebagai floor khusus config yang membungkam semuanya. Masing-masing
+punya method — `log.critical(...)`, `log.emergency(...)` — dan `level` di config
+adalah ambang, jadi `level: 'warning'` menyimpan semua dari `warning` ke atas.
+
+`warn()` tetap ada sebagai ejaan lain dari `warning()`: dulu itu satu-satunya
+ejaan di framework ini. Entri selalu **disimpan** sebagai `warning`, sehingga
+filter dan log viewer tidak perlu mencocokkan dua nama untuk satu level.
+
+Semua yang `warning` ke atas ditulis ke stderr, sisanya ke stdout.
 
 ## Menulis log
 
@@ -65,8 +76,10 @@ const log = createLogger({ level: 'info' })
 
 log.debug('cache miss', { key })
 log.info('user signed up', { userId: user.id })
-log.warn('slow query', { ms: 480 })
+log.warning('slow query', { ms: 480 })
 log.error('payment failed', { orderId, error })
+log.critical('payment provider unreachable', { provider })
+log.emergency('no database connection available')
 
 // level dipilih saat runtime
 log.log('info', 'checkout started', { cartId })

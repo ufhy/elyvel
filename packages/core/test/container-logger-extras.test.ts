@@ -30,7 +30,7 @@ describe('Logger extras', () => {
     logger.log('warn', 'hey', { a: 1 })
     logger.withContext({ requestId: 'r1' }).info('scoped')
 
-    expect(entries[0]).toMatchObject({ level: 'warn', message: 'hey' })
+    expect(entries[0]).toMatchObject({ level: 'warning', message: 'hey' })
     expect(entries[1]?.context).toMatchObject({ requestId: 'r1' })
   })
 })

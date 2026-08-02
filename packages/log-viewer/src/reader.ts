@@ -101,7 +101,9 @@ function parseJsonLine(line: string): LogEntry | undefined {
  * how opcodesio/log-viewer reads Laravel's own (Monolog) text format: detect
  * a new entry by its header, greedily absorb everything until the next one.
  */
-const HEADER_RE = /^(\S+) (DEBUG|INFO|WARN|ERROR) (?:\(([^)]*)\) )?(.*)$/
+// All eight PSR-3 severities, plus the legacy `WARN` spelling so files written
+// before `warning` existed keep parsing.
+const HEADER_RE = /^(\S+) (DEBUG|INFO|NOTICE|WARNING|WARN|ERROR|CRITICAL|ALERT|EMERGENCY) (?:\(([^)]*)\) )?(.*)$/
 
 /**
  * Classifies every line on its own, rather than picking one mode for the whole

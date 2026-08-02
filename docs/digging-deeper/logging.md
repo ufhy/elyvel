@@ -51,10 +51,20 @@ per-request logging described below.
 
 ## Log levels
 
-A deliberately small, pino-style 4-tier scale — `debug` < `info` < `warn` <
-`error` — plus `silent` as a config-only floor that suppresses everything.
-This is simpler than Monolog's 8 levels by design; there's no
-`emergency`/`alert`/`critical`/`notice` distinction to make.
+The eight RFC 5424 severities PSR-3 defines, which is the set Laravel exposes:
+
+`debug` < `info` < `notice` < `warning` < `error` < `critical` < `alert` <
+`emergency`
+
+plus `silent` as a config-only floor that suppresses everything. Each is a
+method — `log.critical(...)`, `log.emergency(...)` — and `level` in config is a
+threshold, so `level: 'warning'` keeps everything from `warning` upwards.
+
+`warn()` is kept as a spelling of `warning()`: it was the only spelling this
+framework had. Entries are always **stored** as `warning`, so filters and the log
+viewer never have to match two names for one level.
+
+Everything at `warning` or above is written to stderr, the rest to stdout.
 
 ## Writing log messages
 
@@ -65,8 +75,10 @@ const log = createLogger({ level: 'info' })
 
 log.debug('cache miss', { key })
 log.info('user signed up', { userId: user.id })
-log.warn('slow query', { ms: 480 })
+log.warning('slow query', { ms: 480 })
 log.error('payment failed', { orderId, error })
+log.critical('payment provider unreachable', { provider })
+log.emergency('no database connection available')
 
 // runtime-chosen level
 log.log('info', 'checkout started', { cartId })

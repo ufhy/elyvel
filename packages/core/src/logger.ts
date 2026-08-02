@@ -13,17 +13,45 @@ import { basename, dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { token } from './container'
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent'
+/**
+ * The eight RFC 5424 severities PSR-3 defines, which is what Laravel exposes
+ * (`Log::critical()`, `Log::emergency()`, …), plus `silent` to turn a logger off.
+ *
+ * `warn` is kept as an accepted spelling of `warning`: it was the only spelling
+ * this framework had, so removing it would break existing apps for no gain. It is
+ * normalised to `warning` on write, so log files and filters see one name.
+ */
+export type LogLevel
+  = | 'debug'
+    | 'info'
+    | 'notice'
+    | 'warning'
+    | 'warn'
+    | 'error'
+    | 'critical'
+    | 'alert'
+    | 'emergency'
+    | 'silent'
 
 const WEIGHT: Record<LogLevel, number> = {
   debug: 10,
   info: 20,
+  notice: 25,
+  warning: 30,
   warn: 30,
   error: 40,
-  silent: 100,
+  critical: 50,
+  alert: 60,
+  emergency: 70,
+  silent: 1000,
 }
 
 export type LeveledLevel = Exclude<LogLevel, 'silent'>
+
+/** The stored spelling of a level — `warn` is recorded as `warning`. */
+function normalizeLevel(level: LeveledLevel): Exclude<LeveledLevel, 'warn'> {
+  return level === 'warn' ? 'warning' : level
+}
 
 export interface LogEntry {
   time: string
@@ -132,8 +160,15 @@ function flatten(entry: LogEntry): Record<string, unknown> {
 const COLORS: Record<LeveledLevel, string> = {
   debug: '\x1B[90m',
   info: '\x1B[36m',
+  notice: '\x1B[36m',
+  warning: '\x1B[33m',
   warn: '\x1B[33m',
   error: '\x1B[31m',
+  // Above `error` the point is that it should be impossible to scroll past:
+  // bright red, then red on white, then white on red.
+  critical: '\x1B[91m',
+  alert: '\x1B[1;91m',
+  emergency: '\x1B[1;97;41m',
 }
 const RESET = '\x1B[0m'
 
@@ -171,7 +206,11 @@ export class ConsoleTransport implements Transport {
 
   log(entry: LogEntry): void {
     const line = this.pretty ? formatEntry(entry, true) : JSON.stringify(flatten(entry))
-    if (entry.level === 'error' || entry.level === 'warn')
+    // Anything at `warning` or above goes to stderr. Comparing against the level
+    // NAMES missed `critical`/`alert`/`emergency` the moment they existed — the
+    // most severe entries the framework can produce were the ones landing on
+    // stdout, where a process supervisor separating the two streams loses them.
+    if (WEIGHT[entry.level] >= WEIGHT.warning)
       console.error(line)
     else console.log(line)
   }
@@ -485,12 +524,37 @@ export class Logger {
     this.write('info', message, context)
   }
 
+  /** Normal but significant — PSR-3's level between `info` and `warning`. */
+  notice(message: string, context?: Record<string, unknown>): void {
+    this.write('notice', message, context)
+  }
+
+  warning(message: string, context?: Record<string, unknown>): void {
+    this.write('warning', message, context)
+  }
+
+  /** The original spelling of {@link warning}; recorded as `warning`. */
   warn(message: string, context?: Record<string, unknown>): void {
-    this.write('warn', message, context)
+    this.write('warning', message, context)
   }
 
   error(message: string, context?: Record<string, unknown>): void {
     this.write('error', message, context)
+  }
+
+  /** A component is unavailable, or an unexpected exception escaped. */
+  critical(message: string, context?: Record<string, unknown>): void {
+    this.write('critical', message, context)
+  }
+
+  /** Someone must be woken up. */
+  alert(message: string, context?: Record<string, unknown>): void {
+    this.write('alert', message, context)
+  }
+
+  /** The system is unusable. */
+  emergency(message: string, context?: Record<string, unknown>): void {
+    this.write('emergency', message, context)
   }
 
   /** Log at a level chosen at runtime. */
@@ -498,9 +562,10 @@ export class Logger {
     this.write(level, message, context)
   }
 
-  private write(level: LeveledLevel, message: string, context?: Record<string, unknown>): void {
-    if (WEIGHT[level] < WEIGHT[this.level])
+  private write(rawLevel: LeveledLevel, message: string, context?: Record<string, unknown>): void {
+    if (WEIGHT[rawLevel] < WEIGHT[this.level])
       return
+    const level = normalizeLevel(rawLevel)
 
     const merged = { ...this.bindings, ...context }
     const safe = redact(merged, this.redactCfg) as Record<string, unknown>
