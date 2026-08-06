@@ -12,6 +12,7 @@ import {
 import { basename, dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { token } from './container'
+import { visibleContext } from './context'
 
 /**
  * The eight RFC 5424 severities PSR-3 defines, which is what Laravel exposes
@@ -589,7 +590,10 @@ export class Logger {
       return
     const level = normalizeLevel(rawLevel)
 
-    const merged = { ...this.bindings, ...context }
+    // Request context first, then this logger's bindings, then the call site —
+    // the more specific always wins on a key collision. This is what makes a
+    // trace_id set in middleware appear on a log line written four modules away.
+    const merged = { ...visibleContext(), ...this.bindings, ...context }
     const safe = redact(merged, this.redactCfg) as Record<string, unknown>
     const entry: LogEntry = {
       time: new Date().toISOString(),

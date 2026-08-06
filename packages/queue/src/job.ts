@@ -1,3 +1,5 @@
+import type { DehydratedContext } from '@elyvel/core'
+import { Context } from '@elyvel/core'
 import { decryptString, encryptString, isEncrypted } from './encryption'
 import { dehydrateData } from './serializes-models'
 
@@ -65,6 +67,12 @@ export interface SerializedJob {
   config: JobConfig
   /** Remaining jobs to dispatch after this one succeeds. */
   chain?: SerializedJob[]
+  /**
+   * The request Context captured at dispatch — Laravel dehydrates it the same
+   * way. Hydrated back around `handle()`, so a `trace_id` set in middleware is
+   * on the log lines a worker writes minutes later in another process.
+   */
+  context?: DehydratedContext
 }
 
 /** Fields that are job configuration/plumbing, not user payload. */
@@ -114,6 +122,9 @@ export function serializeJob(job: Job): SerializedJob {
   const result: SerializedJob = { job: job.constructor.name, data: serializedData, config }
   if (job.chainedJobs && job.chainedJobs.length > 0)
     result.chain = job.chainedJobs.map(serializeJob)
+  const context = Context.dehydrate()
+  if (Object.keys(context.data).length > 0 || Object.keys(context.hidden).length > 0)
+    result.context = context
   return result
 }
 

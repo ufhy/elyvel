@@ -1,5 +1,6 @@
 export { Arr, isUnsafeKey } from './arr'
 export { Collection } from './collection'
+export { Concurrency, ConcurrencyTimedOutError, runConcurrently } from './concurrency'
 export {
   appearsEncrypted,
   clearEncryptionKey,
@@ -20,6 +21,8 @@ export {
   isHttpException,
 } from './http-exception'
 export { LazyCollection } from './lazy-collection'
+export { type Pipe, Pipeline } from './pipeline'
+export { PendingProcess, Process, ProcessFailedError, ProcessResult, ProcessTimedOutError } from './process'
 export { Str, trimTrailing } from './str'
 export {
   hasMessageTranslator,

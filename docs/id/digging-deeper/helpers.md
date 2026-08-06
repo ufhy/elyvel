@@ -217,3 +217,72 @@ await retry(3, async (attempt) => {   // retry sampai 3 kali, dengan delay opsio
 
 await retry(5, fetchThing, 0, error => error.message !== 'fatal') // `when` menentukan error mana yang layak di-retry sama sekali
 ```
+
+## Proses (`Process`)
+
+Menjalankan perintah eksternal tanpa tarian stream/exit-code yang dituntut
+`Bun.spawn` — facade `Process` milik Laravel:
+
+```ts
+import { Process } from '@elyvel/support'
+
+const result = await Process.run(['git', 'status', '--porcelain'])
+result.successful() // exit code 0
+result.output()     // stdout; errorOutput() untuk stderr
+
+await Process.path('/repo').timeout(60).env({ CI: 'true' })
+  .run('bun run build')
+  .then(r => r.throw()) // ProcessFailedError dengan output di pesannya
+```
+
+Perintah berupa string dipecah di spasi dan **tidak** melewati shell — argumen
+tidak bisa di-inject ke sana. Untuk pipe atau glob, panggil shell eksplisit:
+`['sh', '-c', '…']`. `timeout(s)` mengirim SIGKILL ke child (child yang
+mengabaikan SIGTERM akan membuat await menggantung selamanya) dan reject dengan
+`ProcessTimedOutError`. `input(text)` mengisi stdin.
+
+## Concurrency
+
+Menjalankan task async independen bersamaan — `Concurrency::run` milik Laravel,
+tanpa driver proses yang Laravel butuhkan karena PHP sinkron:
+
+```ts
+import { Concurrency } from '@elyvel/support'
+
+const [users, orders] = await Concurrency.run([
+  () => db.table('users').count(),
+  () => db.table('orders').count(),
+])
+
+// Bentuk bernama:
+const { fast, slow } = await Concurrency.run({
+  fast: () => fetchSummary(),
+  slow: () => fetchHistory(),
+})
+
+// Lima puluh task, enam sekaligus, masing-masing dibunuh setelah 30 detik:
+await Concurrency.run(tasks, { limit: 6, timeoutSeconds: 30 })
+```
+
+Satu kegagalan me-reject seluruh run — tapi baru setelah semua task yang sudah
+mulai selesai, jadi tidak ada yang tertinggal jalan di belakang pemanggil. Timer
+timeout dibersihkan (kebocoran klasik `Promise.race`).
+
+## Pipeline
+
+Melewatkan nilai melalui rantai tahapan, masing-masing memutuskan lanjut atau
+tidak — bawang yang menyusun HTTP middleware, dalam bentuk mandiri:
+
+```ts
+import { Pipeline } from '@elyvel/support'
+
+const order = await Pipeline.send(draft)
+  .through([validate, reserveStock, charge])
+  .then(finalize)
+```
+
+Tahapan berupa `(value, next) => …` atau objek dengan `handle` — instance kelas
+bisa. Tahapan pertama paling luar: melihat nilai pertama saat masuk dan terakhir
+saat keluar, boleh memutus rantai dengan tidak memanggil `next`, atau
+try/finally di sekeliling sisa rantainya. `thenReturn()` mengakhiri rantai dengan
+nilainya sendiri.

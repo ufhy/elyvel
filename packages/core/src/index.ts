@@ -15,6 +15,13 @@ export {
 export type { ConsoleCommand } from './console-command'
 export type { Token } from './container'
 export { Container, token } from './container'
+export {
+  beginContextScope,
+  Context,
+  type DehydratedContext,
+  visibleContext,
+  withContextScope,
+} from './context'
 export { cors, type CorsOptions } from './cors'
 export { date, type DateInput, dayjs, type Dayjs, isDate, now, today } from './date'
 export {

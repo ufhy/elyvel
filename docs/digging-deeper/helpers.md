@@ -212,3 +212,72 @@ await retry(3, async (attempt) => {   // retry up to 3 times, with an optional d
 
 await retry(5, fetchThing, 0, error => error.message !== 'fatal') // `when` gates which errors are worth retrying at all
 ```
+
+## Processes (`Process`)
+
+Run external commands without the stream/exit-code dance `Bun.spawn` demands —
+Laravel's `Process` facade:
+
+```ts
+import { Process } from '@elyvel/support'
+
+const result = await Process.run(['git', 'status', '--porcelain'])
+result.successful() // exit code 0
+result.output()     // stdout; errorOutput() is stderr
+
+await Process.path('/repo').timeout(60).env({ CI: 'true' })
+  .run('bun run build')
+  .then(r => r.throw()) // ProcessFailedError with the output in the message
+```
+
+A string command is split on whitespace and does **not** pass through a shell —
+arguments can't be injected into one. For pipes or globs, spawn a shell
+explicitly: `['sh', '-c', '…']`. `timeout(s)` SIGKILLs the child (a child that
+ignores SIGTERM would hang the await forever) and rejects with
+`ProcessTimedOutError`. `input(text)` feeds stdin.
+
+## Concurrency
+
+Run independent async tasks together — Laravel's `Concurrency::run`, minus the
+process driver Laravel needs because PHP is synchronous:
+
+```ts
+import { Concurrency } from '@elyvel/support'
+
+const [users, orders] = await Concurrency.run([
+  () => db.table('users').count(),
+  () => db.table('orders').count(),
+])
+
+// Named form:
+const { fast, slow } = await Concurrency.run({
+  fast: () => fetchSummary(),
+  slow: () => fetchHistory(),
+})
+
+// Fifty tasks, six at a time, each killed after 30s:
+await Concurrency.run(tasks, { limit: 6, timeoutSeconds: 30 })
+```
+
+One failure rejects the run — but only after every started task settled, so
+nothing is left running behind the caller's back. Timeout timers are cleaned up
+(the classic `Promise.race` leak).
+
+## Pipeline
+
+Pass a value through a chain of stages, each deciding whether to continue — the
+onion HTTP middleware is made of, standalone:
+
+```ts
+import { Pipeline } from '@elyvel/support'
+
+const order = await Pipeline.send(draft)
+  .through([validate, reserveStock, charge])
+  .then(finalize)
+```
+
+A stage is `(value, next) => …` or an object with `handle` — a class instance
+works. The first stage is outermost: it sees the value first on the way in and
+last on the way out, may short-circuit by not calling `next`, or try/finally
+around the whole rest of the chain. `thenReturn()` ends the chain with the value
+itself.

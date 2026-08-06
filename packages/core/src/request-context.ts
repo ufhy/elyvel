@@ -1,6 +1,7 @@
 import type { Logger } from './logger'
 import { Elysia } from 'elysia'
 import { beginActorScope } from './actor'
+import { beginContextScope } from './context'
 import { shouldReportError } from './exception-handling'
 import { createLogger } from './logger'
 
@@ -50,6 +51,7 @@ export function requestContext(logger: Logger = currentLogger ?? createLogger())
       // Opened here (synchronous, before any await in the request) so a later
       // async auth derive can fill in the actor id — see actor.ts.
       beginActorScope()
+      beginContextScope()
     })
     .derive({ as: 'global' }, ({ request }) => {
       const id = meta.get(request)?.id

@@ -1,6 +1,7 @@
 import type { FailedJobRepository } from './failed'
 import type { SerializedJob } from './job'
 import type { QueueStore } from './store'
+import { Context, withContextScope } from '@elyvel/core'
 import { isBatchCancelled, recordBatchedJob } from './batch'
 import { fireAfter, fireBefore, fireFailing } from './events'
 import { backoffFor, decodeBody, encodeBody, reconstructJob } from './job'
@@ -82,7 +83,14 @@ export class Worker {
       this.options.onBeforeJob?.(name)
       await fireBefore(name)
       await hydrateModels(job as unknown as Record<string, unknown>) // re-fetch fresh models
-      await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
+      // The job runs inside its own Context scope, hydrated with whatever the
+      // dispatching request captured — so its log lines carry the same trace_id
+      // as the request that queued it, across processes.
+      await withContextScope(async () => {
+        if (serialized.context)
+          Context.hydrate(serialized.context)
+        await runThroughMiddleware(job, () => withTimeout(Promise.resolve(job.handle()), job.timeout))
+      })
       await willReleaseLock()
       await this.dispatchChain(serialized, record.queue)
       if (job.batchId)
