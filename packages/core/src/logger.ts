@@ -1,9 +1,6 @@
 import {
   appendFileSync,
-  closeSync,
-  existsSync,
   mkdirSync,
-  openSync,
   readdirSync,
   readFileSync,
   renameSync,
@@ -230,9 +227,20 @@ function rotateBySize(
   maxFiles: number,
   compress: boolean,
 ): void {
-  if (!existsSync(path))
-    return
-  if (statSync(path).size + incoming < maxBytes)
+  // Ask the filesystem once: `statSync` both proves the file is there and gives
+  // the size. An `existsSync` first would be a second, separate decision about
+  // a path that can change between the two — the race this whole function
+  // already avoids for its renames.
+  let size: number
+  try {
+    size = statSync(path).size
+  }
+  catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT')
+      return
+    throw error
+  }
+  if (size + incoming < maxBytes)
     return
 
   const ext = compress ? '.gz' : ''
@@ -252,17 +260,9 @@ function rotateBySize(
   }
 
   if (compress) {
-    // Read through a descriptor and let `wx` refuse an existing `.1.gz`: two
-    // processes rotating the same volume must not have one silently overwrite
-    // the other's archive, and the read must not follow a path that was
-    // swapped after the loop above.
-    const handle = openSync(path, 'r')
-    try {
-      writeFileSync(`${path}.1.gz`, gzipSync(readFileSync(handle)), { flag: 'wx' })
-    }
-    finally {
-      closeSync(handle)
-    }
+    // `wx` refuses an existing `.1.gz`: two processes rotating a shared volume
+    // must not have one silently overwrite the other's archive.
+    writeFileSync(`${path}.1.gz`, gzipSync(readFileSync(path)), { flag: 'wx' })
     rmSync(path)
   }
   else {

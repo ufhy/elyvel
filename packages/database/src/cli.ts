@@ -552,12 +552,12 @@ export async function modelSyncCommand(
 
   const { app, conn } = await boot()
   const file = app.path(`app/models/${name}.ts`)
-  if (!existsSync(file)) {
+
+  const module = (await import(file).catch(() => null)) as { default?: typeof Model } | null
+  if (!module) {
     error(`No model found at app/models/${name}.ts`)
     return 1
   }
-
-  const module = (await import(file)) as { default?: typeof Model }
   const cls = module.default
   if (!cls) {
     error(`${name}.ts must default-export a Model class.`)
@@ -567,8 +567,9 @@ export async function modelSyncCommand(
   const table = cls.getTableName()
   const columns = await tableColumns(conn, table)
   // Read and (below) write through ONE descriptor, so both halves address the
-  // same inode. Reading by path and writing by path later is a race: the file
-  // can be replaced in between and the write lands somewhere else entirely.
+  // same inode. Checking the path first and acting on it later is the race:
+  // the file can be replaced in between, and the write lands somewhere else.
+  // Opening is the check — a missing file simply throws here.
   const handle = openSync(file, 'r+')
   const source = readFileSync(handle, 'utf8')
   const meta: ModelMeta = {
