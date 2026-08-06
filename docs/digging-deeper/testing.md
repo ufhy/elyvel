@@ -187,6 +187,29 @@ every default manager here. The lower-level pieces (`ArrayTransport`,
 `MemoryQueueStore`, `ArrayChannel`, `ArrayBroadcaster`) still exist for tests
 that want the real pipeline to run.
 
+## Testing console commands
+
+Run a command in-process and assert on its output and exit code — Laravel's
+`$this->artisan(...)`:
+
+```ts
+import { runCommand } from '@elyvel/testing'
+import { elyvelCommands } from '../app/commands'
+
+const result = await runCommand(myCommand, 'route:list --json')
+result.assertSuccessful().expectsOutput('/users/:id')
+
+const failed = await runCommand(myCommand, '')
+failed.assertFailed().expectsOutput('Who am I greeting?')
+```
+
+A string argv is parsed exactly as the CLI parses `process.argv`, so
+`'ada --shout'` behaves like typing it after `elyvel greet`. In-process matters:
+fixtures the test set up — a fake queue, an in-memory SQLite — are visible to the
+command, which a spawned child process would never see. A command that throws
+comes back as exit 1 with the error text as output; ANSI colors are stripped
+before matching, so you assert on what a human reads.
+
 ## Full example
 
 Putting the pieces together — a real app, an isolated database, an

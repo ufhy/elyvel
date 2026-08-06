@@ -9,5 +9,6 @@
  * makes the app resolve that user instead of a session cookie.
  */
 export { createTestClient, type Handleable, type RequestOptions, TestClient } from './client'
+export { ConsoleResult, runCommand } from './console'
 export { refreshDatabase, type RefreshOptions } from './database'
 export { TestResponse } from './response'

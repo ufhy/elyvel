@@ -226,6 +226,7 @@
       },
       "peerDependencies": {
         "@elyvel/core": "workspace:*",
+        "@elyvel/support": "workspace:*",
       },
     },
     "packages/events": {
@@ -335,6 +336,8 @@
       },
       "peerDependencies": {
         "@elyvel/auth": "workspace:*",
+        "@elyvel/cli": "workspace:*",
+        "@elyvel/core": "workspace:*",
         "@elyvel/database": "workspace:*",
         "elysia": ">=1.4.0",
       },

@@ -191,6 +191,29 @@ manager default di sini. Komponen tingkat bawah (`ArrayTransport`,
 `MemoryQueueStore`, `ArrayChannel`, `ArrayBroadcaster`) tetap ada untuk test yang
 ingin pipeline aslinya berjalan.
 
+## Menguji console command
+
+Jalankan command in-process dan assert output serta exit code-nya — padanan
+`$this->artisan(...)` di Laravel:
+
+```ts
+import { runCommand } from '@elyvel/testing'
+
+const result = await runCommand(myCommand, 'route:list --json')
+result.assertSuccessful().expectsOutput('/users/:id')
+
+const failed = await runCommand(myCommand, '')
+failed.assertFailed().expectsOutput('Who am I greeting?')
+```
+
+String argv di-parse persis seperti CLI mem-parse `process.argv`, jadi
+`'ada --shout'` berperilaku seperti mengetiknya setelah `elyvel greet`.
+In-process itu penting: fixture yang disiapkan test — fake queue, SQLite
+in-memory — terlihat oleh command, yang tidak akan pernah terlihat oleh child
+process. Command yang melempar error kembali sebagai exit 1 dengan teks
+error-nya sebagai output; warna ANSI dibuang sebelum pencocokan, jadi kamu
+meng-assert apa yang dibaca manusia.
+
 ## Contoh lengkap
 
 Menyatukan semua bagian — aplikasi sungguhan, database terisolasi, request
