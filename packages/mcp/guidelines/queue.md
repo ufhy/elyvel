@@ -9,3 +9,7 @@
   don't pass them by hand.
 - In tests, use the queue fake and its `assertPushed` family instead of
   running a worker.
+- `dispatch(() => …)` queues a CLOSURE, whose source is signed with `app.key`
+  and verified on the worker. It therefore needs `APP_KEY` set, and the
+  closure must be self-contained — nothing captured from the enclosing scope
+  survives. When in doubt prefer a Job class: it carries data, not code.
