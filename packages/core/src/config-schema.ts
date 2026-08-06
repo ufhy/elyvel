@@ -24,6 +24,12 @@ export interface AppConfig {
   key?: string
   /** Port to listen on (overridable by `PORT` env or `listen(port)`). */
   port?: number
+  /**
+   * The application's public base URL (Laravel's `APP_URL`) — what absolute
+   * URLs should be built against when the request itself isn't available
+   * (CLI tools, emails). Defaults to `http://localhost:<port>` where needed.
+   */
+  url?: string
   /** Service providers to register at boot, in order. */
   providers?: ServiceProviderClass[]
   /**

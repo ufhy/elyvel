@@ -230,6 +230,16 @@ export {
   withProgressBar,
 } from './io'
 
+// The tinker evaluator + seeding, for tools that run code in app context
+// without a TTY (e.g. `@elyvel/boost`'s MCP `tinker` tool) — one tinker, not two.
+export { buildTinkerSeed, type TinkerSeed } from './tinker-context'
+export {
+  contextNames,
+  createReplContext,
+  evaluateLine,
+  IncompleteInputError,
+} from './tinker-eval'
+
 // Only run the CLI when executed as the entry point — importing this module
 // (for the exports above) must not run `main()` / exit the process.
 if (import.meta.main)

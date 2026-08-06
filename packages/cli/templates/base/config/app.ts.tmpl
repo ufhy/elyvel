@@ -16,6 +16,8 @@ export default defineAppConfig({
   debug: process.env.APP_DEBUG === 'true',
   key: process.env.APP_KEY, // secret for `encrypted` model casts (AES-256-GCM)
   port: Number(process.env.PORT ?? 3000),
+  // Public base URL for absolute links built outside a request (CLI, emails).
+  url: process.env.APP_URL,
 
   providers: [EloquentServiceProvider, I18nServiceProvider, AppServiceProvider],
 })

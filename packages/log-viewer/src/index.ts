@@ -4,6 +4,9 @@ import { renderLogViewerPage } from './page'
 import { deleteLogFile, listLogFiles, readEntries, resolveLogFile } from './reader'
 
 export type { EntryPage, EntryQuery, LogEntry, LogFileInfo } from './reader'
+// The parser itself, for other tools that read the same files (e.g.
+// `@elyvel/boost`'s read-log-entries / last-error MCP tools).
+export { listLogFiles, readEntries } from './reader'
 
 /** Anything with the bits the log viewer's guard/handlers need — Elysia's context satisfies this. */
 interface Ctx {

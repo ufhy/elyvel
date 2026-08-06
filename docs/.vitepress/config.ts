@@ -108,6 +108,7 @@ export default defineConfig({
             items: [
               { text: 'Package Development', link: '/packages/package-development' },
               { text: 'Writing a Driver', link: '/packages/writing-drivers' },
+              { text: 'Boost (AI)', link: '/packages/boost' },
               { text: 'Log Viewer', link: '/packages/log-viewer' },
               { text: 'Telegram', link: '/packages/telegram' },
             ],
@@ -202,6 +203,7 @@ export default defineConfig({
             items: [
               { text: 'Pengembangan Paket', link: '/id/packages/package-development' },
               { text: 'Menulis Driver', link: '/id/packages/writing-drivers' },
+              { text: 'Boost (AI)', link: '/id/packages/boost' },
               { text: 'Log Viewer', link: '/id/packages/log-viewer' },
               { text: 'Telegram', link: '/id/packages/telegram' },
             ],
