@@ -93,6 +93,23 @@ outside):
 await dispatch(() => console.log('ran on the worker'))
 ```
 
+::: warning Queued closures are signed, and need `APP_KEY`
+A closure travels as its own source text and is rebuilt on the worker with
+`new Function`. Anyone able to write a row into the queue store — a
+compromised database account, an unauthenticated Redis, an injection
+elsewhere — would otherwise be running code inside your worker.
+
+So the source is signed with an HMAC keyed by `app.key` at dispatch and
+verified before it is rebuilt, the same protection Laravel gives serialized
+closures. Every failure path refuses: no key, no signature, or a signature
+that doesn't match. Batch callbacks are signed the same way.
+
+Two consequences: dispatching a closure without `APP_KEY` set now throws
+(run `elyvel key:generate`), and closures queued before this existed, or
+signed under a different key, will not run — drain them before rotating
+`APP_KEY`. A normal `Job` class is unaffected; it carries data, not code.
+:::
+
 ### Job chaining
 
 Chain jobs so the next one only runs after the previous succeeds:

@@ -1,6 +1,7 @@
 import type { Job } from './job'
 import type { RedisLike } from './store'
 import { randomUUID } from 'node:crypto'
+import { packSignedClosure, unpackSignedClosure } from './closure-signing'
 import { dispatch } from './manager'
 
 /**
@@ -307,9 +308,9 @@ export class PendingBatch {
       cancelledAt: null,
       finishedAt: null,
       createdAt: Date.now(),
-      onThen: this.thenCb?.toString(),
-      onCatch: this.catchCb?.toString(),
-      onFinally: this.finallyCb?.toString(),
+      onThen: this.thenCb && packSignedClosure(this.thenCb.toString()),
+      onCatch: this.catchCb && packSignedClosure(this.catchCb.toString()),
+      onFinally: this.finallyCb && packSignedClosure(this.finallyCb.toString()),
     }
     await requireAdapter().create(record)
     for (const job of this.jobs) {
@@ -335,7 +336,9 @@ async function runCallback(
 ): Promise<void> {
   if (!source)
     return
-  const fn = new Function(`return (${source})`)() as BatchCallback
+  // Signed at dispatch; the store is not a trust boundary. See closure-signing.ts.
+  const verified = unpackSignedClosure(source)
+  const fn = new Function(`return (${verified})`)() as BatchCallback
   await fn(batch, error)
 }
 

@@ -2,6 +2,8 @@ import type { Token } from '@elyvel/core'
 import type { QueueConfig } from './config-schema'
 import { ServiceProvider, token } from '@elyvel/core'
 import { configureListenerQueuer } from '@elyvel/events'
+import { setClosureSigningKey } from './closure-signing'
+import { configureJobEncryption } from './encryption'
 import { queueListener } from './listener-job'
 import { QueueManager, setDefaultQueue } from './manager'
 
@@ -21,5 +23,15 @@ export class QueueServiceProvider extends ServiceProvider {
     setDefaultQueue(manager)
     this.app.container.instance(QueueToken, manager)
     configureListenerQueuer(queueListener)
+
+    // `app.key` drives both payload encryption and closure signing, the way
+    // Laravel's EncryptionServiceProvider seeds the encrypter AND
+    // `SerializableClosure::setSecretKey`. Nothing wired these before, so
+    // `encrypt: true` on a job threw at runtime and closures went unsigned.
+    const key = this.app.config.get<string | undefined>('app.key')
+    if (key) {
+      configureJobEncryption(key)
+      setClosureSigningKey(key)
+    }
   }
 }

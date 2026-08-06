@@ -54,6 +54,19 @@ const manifestCache = new Map<string, Record<string, ManifestChunk>>()
  * sending `http://localhost:5173/...` asset URLs to real visitors — page renders,
  * every asset 404s, server logs nothing.
  */
+/**
+ * Trailing slashes off, without a regex. `/\/+$/` is a polynomial-ReDoS shape
+ * (`(a+)$`): on a long run of slashes the engine backtracks quadratically.
+ * Neither input here is attacker-controlled, but a loop is both cheaper and
+ * one less thing to reason about.
+ */
+function trimTrailingSlashes(value: string): string {
+  let end = value.length
+  while (end > 0 && value[end - 1] === '/')
+    end--
+  return value.slice(0, end)
+}
+
 export function viteTags(options: ViteOptions): string {
   if (viteDisabled)
     return ''
@@ -66,8 +79,8 @@ export function viteTags(options: ViteOptions): string {
   // it, Laravel-compatible), so only the asset path is appended here.
   if (options.devUrl !== undefined || existsSync(hotFile)) {
     const origin = options.devUrl !== undefined
-      ? `${options.devUrl.replace(/\/+$/, '')}${base.replace(/\/$/, '')}`
-      : readFileSync(hotFile, 'utf8').trim().replace(/\/+$/, '')
+      ? `${trimTrailingSlashes(options.devUrl)}${base.replace(/\/$/, '')}`
+      : trimTrailingSlashes(readFileSync(hotFile, 'utf8').trim())
     return (
       `<script type="module" src="${origin}/@vite/client"></script>`
       + `<script type="module" src="${origin}/${options.entry}"></script>`

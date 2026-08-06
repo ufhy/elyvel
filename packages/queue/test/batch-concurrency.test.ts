@@ -1,6 +1,10 @@
 import type { RedisLike } from '../src/store'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { configureBatches, recordBatchedJob, RedisBatchStore } from '../src/batch'
+import { packSignedClosure, setClosureSigningKey } from '../src/closure-signing'
+
+// Batch callbacks are signed with the app key and verified before they run.
+setClosureSigningKey('test-signing-key')
 
 /** Logic-only fake, faithful on what matters: SET NX refuses, DECRBY/INCR reply with the new value. */
 class FakeRedis implements RedisLike {
@@ -50,9 +54,9 @@ async function seed(allowFailures: boolean, pending = 2) {
     allowFailures,
     cancelledAt: null,
     finishedAt: null,
-    onThen: '() => globalThis.__batchCalls.push("then")',
-    onCatch: '() => globalThis.__batchCalls.push("catch")',
-    onFinally: '() => globalThis.__batchCalls.push("finally")',
+    onThen: packSignedClosure('() => globalThis.__batchCalls.push("then")'),
+    onCatch: packSignedClosure('() => globalThis.__batchCalls.push("catch")'),
+    onFinally: packSignedClosure('() => globalThis.__batchCalls.push("finally")'),
   } as never)
   return store
 }

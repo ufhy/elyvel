@@ -1,5 +1,6 @@
 import type { DehydratedContext } from '@elyvel/core'
 import { Context } from '@elyvel/core'
+import { verifyClosure } from './closure-signing'
 import { decryptString, encryptString, isEncrypted } from './encryption'
 import { dehydrateData } from './serializes-models'
 
@@ -164,13 +165,19 @@ export function decodeBody(body: string): SerializedJob {
  * Wraps a plain closure so it can be queued (Laravel's queued closures).
  * The function is serialized via `toString()`, so it must be self-contained —
  * variables captured from the enclosing scope are NOT preserved.
+ *
+ * The source is HMAC-signed at dispatch and verified here before it is
+ * rebuilt: the queue store is not a trust boundary, and `new Function` over
+ * an unverified string is arbitrary code execution. See `closure-signing.ts`.
  */
 export class CallQueuedClosure extends Job {
-  constructor(public source = '') {
+  constructor(public source = '', public signature = '') {
     super()
   }
 
   handle(): void | Promise<void> {
+    // Throws unless the source still matches the signature made at dispatch.
+    verifyClosure(this.source, this.signature)
     const fn = new Function(`return (${this.source})`)() as () => void | Promise<void>
     return fn()
   }

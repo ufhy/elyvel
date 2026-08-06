@@ -2,6 +2,7 @@ import type { JobMiddleware } from '../src/middleware'
 import type { QueueDbAdapter, RedisLike } from '../src/store'
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Bus, configureBatches, findBatch, MemoryBatchStore } from '../src/batch'
+import { setClosureSigningKey } from '../src/closure-signing'
 import { configureJobEncryption } from '../src/encryption'
 import { configureQueueEventDispatcher, Queue } from '../src/events'
 import { FailedJobRepository, MemoryFailedJobStore } from '../src/failed'
@@ -32,6 +33,9 @@ import {
 } from '../src/store'
 import { configureUniqueJobs, MemoryUniqueLock } from '../src/unique'
 import { Worker } from '../src/worker'
+
+// Queued closures are signed with the app key and verified on the worker.
+setClosureSigningKey('test-signing-key')
 
 // ── test jobs ───────────────────────────────────────────────────────────────
 const ran: string[] = []

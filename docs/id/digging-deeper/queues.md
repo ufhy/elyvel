@@ -96,6 +96,26 @@ luar):
 await dispatch(() => console.log('jalan di worker'))
 ```
 
+::: warning Closure yang di-queue ditandatangani, dan butuh `APP_KEY`
+Closure berjalan sebagai teks source-nya sendiri dan dibangun ulang di worker
+dengan `new Function`. Siapa pun yang bisa menulis baris ke penyimpanan
+antrean — akun database yang bocor, Redis tanpa autentikasi, injeksi di
+tempat lain — kalau tidak dijaga berarti bisa menjalankan kode di dalam
+worker-mu.
+
+Karena itu source-nya ditandatangani HMAC berkunci `app.key` saat dispatch
+dan diverifikasi sebelum dibangun ulang — perlindungan yang sama yang
+diberikan Laravel untuk closure terserialisasi. Semua jalur kegagalan
+menolak: tanpa kunci, tanpa tanda tangan, atau tanda tangan yang tidak cocok.
+Callback batch ditandatangani dengan cara yang sama.
+
+Dua konsekuensinya: men-dispatch closure tanpa `APP_KEY` sekarang melempar
+error (jalankan `elyvel key:generate`), dan closure yang sudah diantrekan
+sebelum fitur ini ada — atau ditandatangani dengan kunci berbeda — tidak akan
+jalan; habiskan dulu antreannya sebelum merotasi `APP_KEY`. Class `Job` biasa
+tidak terpengaruh: ia membawa data, bukan kode.
+:::
+
 ### Chaining job
 
 Rangkai job supaya job berikutnya hanya jalan setelah job sebelumnya sukses:

@@ -3,6 +3,7 @@ import type { Job } from './job'
 import type { QueueStore } from './store'
 import { DriverRegistry } from '@elyvel/support'
 import { RedisClient } from 'bun'
+import { signClosure } from './closure-signing'
 import { CallQueuedClosure, encodeBody, serializeJob } from './job'
 import { DatabaseQueueStore, MemoryQueueStore, RedisQueueStore } from './store'
 import { uniqueKeyFor, uniqueLock } from './unique'
@@ -10,11 +11,16 @@ import { uniqueKeyFor, uniqueLock } from './unique'
 /** A job instance or a self-contained closure to queue. */
 export type Dispatchable = Job | (() => void | Promise<void>)
 
-/** Normalize a dispatchable into a Job (wrapping closures). */
+/**
+ * Normalize a dispatchable into a Job (wrapping closures). A closure is signed
+ * here, at the last point the source is still known to come from this
+ * application's own code.
+ */
 function toJob(dispatchable: Dispatchable): Job {
-  return typeof dispatchable === 'function'
-    ? new CallQueuedClosure(dispatchable.toString())
-    : dispatchable
+  if (typeof dispatchable !== 'function')
+    return dispatchable
+  const source = dispatchable.toString()
+  return new CallQueuedClosure(source, signClosure(source))
 }
 
 export interface DispatchOptions {

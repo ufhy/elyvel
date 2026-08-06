@@ -7,23 +7,42 @@
  *   Claude Code, Cursor, and friends read), merged into whatever servers the
  *   file already lists.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const START_MARKER = '<!-- elyvel-mcp:guidelines:start — managed by `elyvel mcp:install`, edits inside are overwritten -->'
 const END_MARKER = '<!-- elyvel-mcp:guidelines:end -->'
+
+/**
+ * Read a file, or `null` when it isn't there.
+ *
+ * Deliberately not `existsSync` then `readFileSync`: that is two decisions
+ * about a file that can change between them, and the second one throws when it
+ * loses the race. Ask once and handle the "not there" answer — the same shape
+ * the log rotator uses.
+ */
+function readIfPresent(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8')
+  }
+  catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT')
+      return null
+    throw error
+  }
+}
 
 /** Write/refresh the guidelines block in AGENTS.md. Returns 'created' | 'updated' | 'appended'. */
 export function writeAgentsFile(cwd: string, guidelines: string): 'created' | 'updated' | 'appended' {
   const path = join(cwd, 'AGENTS.md')
   const block = `${START_MARKER}\n\n${guidelines.trim()}\n\n${END_MARKER}`
 
-  if (!existsSync(path)) {
+  const existing = readIfPresent(path)
+  if (existing === null) {
     writeFileSync(path, `${block}\n`)
     return 'created'
   }
 
-  const existing = readFileSync(path, 'utf8')
   const start = existing.indexOf(START_MARKER)
   const end = existing.indexOf(END_MARKER)
   if (start !== -1 && end !== -1 && end > start) {
@@ -51,12 +70,12 @@ export const MCP_SERVER_ENTRY = {
 export function writeMcpConfig(cwd: string): 'created' | 'updated' | 'unchanged' {
   const path = join(cwd, '.mcp.json')
   let config: { mcpServers?: Record<string, unknown> } = {}
-  let existed = false
 
-  if (existsSync(path)) {
-    existed = true
+  const raw = readIfPresent(path)
+  const existed = raw !== null
+  if (raw !== null) {
     try {
-      config = JSON.parse(readFileSync(path, 'utf8')) as typeof config
+      config = JSON.parse(raw) as typeof config
     }
     catch {
       throw new Error(`.mcp.json exists but is not valid JSON — fix or remove it, then re-run mcp:install.`)
