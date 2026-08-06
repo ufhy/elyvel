@@ -9,6 +9,12 @@ export interface Attachment {
 
 /** A mutable email being composed (Laravel's `Message`). */
 export class Message {
+  /**
+   * The Mailable that configured this message, when one did. Recorded so
+   * `MailFake.assertSent(WelcomeMail)` can match by class — the fake only ever
+   * sees the built Message, and without this the class is gone by then.
+   */
+  mailable?: object
   fromAddress?: Address
   readonly toAddresses: Address[] = []
   readonly ccAddresses: Address[] = []

@@ -10,6 +10,7 @@ export {
   type StoredNotification,
   TelegramChannel,
 } from './channels'
+
 export {
   configureFailedNotifications,
   type FailedNotificationAdapter,
@@ -18,6 +19,7 @@ export {
   failedNotifications,
   MemoryFailedNotificationStore,
 } from './failed'
+export { fakeNotifications, NotificationFake, restoreNotifications } from './fake'
 export {
   NotificationManager,
   notifications,

@@ -150,8 +150,10 @@ export class PendingMail {
 
   /** Send now. Pass a Mailable to let it configure the message first. */
   async send(mailable?: Mailable): Promise<void> {
-    if (mailable)
+    if (mailable) {
       await mailable.build(this.message)
+      this.message.mailable = mailable
+    }
     await this.manager.deliver(this.message, this.transportName)
   }
 }

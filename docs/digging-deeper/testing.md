@@ -139,16 +139,53 @@ up. Pass a different `connection` config to test against Postgres/MySQL
 instead; `seed` is where you run migrations (and any fixture data) against
 the fresh connection.
 
-## Faking mail, events, notifications, broadcasts
+## Faking mail, queues, notifications, events
 
-There's no unified "fakes" facade here — each subsystem's fake is
-independent and documented on its own page: Mail's `ArrayTransport` (see
-[Mail](/digging-deeper/mail#testing)), Events' `fakeEvents()` (see
-[Events](/digging-deeper/events#testing)), Notifications' `ArrayChannel`
-(see [Notifications](/digging-deeper/notifications#testing)),
-Broadcasting's `ArrayBroadcaster` (see
-[Broadcasting](/digging-deeper/broadcasting#testing)). Mix and match
-whichever ones a given test needs alongside `createTestClient`.
+Each subsystem has a recording fake with assertions — Laravel's `Mail::fake()`
+family. A fake replaces the default manager, so every path in is captured, and
+**nothing runs**: no SMTP, no job `handle()`, no Telegram HTTP call.
+
+```ts
+import { fakeMail } from '@elyvel/mail'
+import { fakeQueue } from '@elyvel/queue'
+import { fakeNotifications } from '@elyvel/notifications'
+import { fakeEvents } from '@elyvel/events'
+
+test('placing an order notifies and queues', async () => {
+  const mail = fakeMail()
+  const queue = fakeQueue()
+  const notifications = fakeNotifications()
+
+  await client.post('/orders', { body: cart })
+
+  mail.assertSent(OrderReceipt, m => m.toAddresses.some(a => a.email === 'ada@example.com'))
+  queue.assertPushed(SyncInventory, job => job.orderId === 42)
+  queue.assertPushedOn('emails', SendFollowUp)
+  notifications.assertSentTo(user, OrderShipped)
+})
+```
+
+The assertions and what they check:
+
+| | |
+|---|---|
+| `assertSent` / `assertPushed` / `assertSentTo` | at least one match — by class, by predicate, or both |
+| `assertNotSent` / `assertNotPushed` / `assertNotSentTo` | zero matches |
+| `assertNothingSent` / `assertNothingPushed` | the fake saw nothing at all |
+| `…Times(x, n)` / `assertCount(n)` | exact counts |
+| `assertPushedOn(queue, Job)` | the named queue lane |
+| `assertClosurePushed()` | a closure job — they have no class to name |
+
+A failed assertion names what **did** happen (`Dispatched: GenerateReport`), so
+the diagnosis is in the failure instead of a debugger session. Matching a
+notifiable works across instances: the user your test created matches the one
+the handler re-fetched, by model key.
+
+Restore the real manager with `restoreMail(new MailManager())` (and the queue /
+notification equivalents) in `afterEach` — the defaults are process-wide, like
+every default manager here. The lower-level pieces (`ArrayTransport`,
+`MemoryQueueStore`, `ArrayChannel`, `ArrayBroadcaster`) still exist for tests
+that want the real pipeline to run.
 
 ## Full example
 

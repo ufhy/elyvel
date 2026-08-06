@@ -1,6 +1,7 @@
 import { MailServiceProvider } from './provider'
 
 export { defineMailConfig, type MailConfig, type MailTransportConfig } from './config-schema'
+
 export {
   configureFailedMail,
   failedMail,
@@ -9,6 +10,7 @@ export {
   FailedMailRepository,
   MemoryFailedMailStore,
 } from './failed'
+export { currentMailManager, fakeMail, MailFake, restoreMail } from './fake'
 export { Mailable } from './mailable'
 export { Mail, mail, MailManager, mailManager, PendingMail, setDefaultMailer } from './manager'
 export { type Address, type Attachment, formatAddress, Message } from './message'

@@ -142,17 +142,54 @@ berbeda untuk test terhadap Postgres/MySQL sebagai gantinya; `seed`
 adalah tempat kamu menjalankan migrasi (dan data fixture apa pun)
 terhadap koneksi barunya.
 
-## Fake mail, event, notifikasi, broadcast
+## Fake mail, queue, notifikasi, event
 
-Tidak ada facade "fakes" terpadu di sini — fake milik setiap subsistem
-independen dan didokumentasikan di halamannya masing-masing:
-`ArrayTransport` milik Mail (lihat [Mail](/id/digging-deeper/mail#testing)),
-`fakeEvents()` milik Event (lihat [Event](/id/digging-deeper/events#testing)),
-`ArrayChannel` milik Notifikasi (lihat
-[Notifikasi](/id/digging-deeper/notifications#testing)),
-`ArrayBroadcaster` milik Broadcasting (lihat
-[Broadcasting](/id/digging-deeper/broadcasting#testing)). Campur dan
-padukan mana pun yang dibutuhkan sebuah test bersama `createTestClient`.
+Tiap subsistem punya fake perekam dengan assertion — keluarga `Mail::fake()`
+milik Laravel. Fake menggantikan manager default, jadi semua jalur masuk
+tertangkap, dan **tidak ada yang berjalan**: tanpa SMTP, tanpa `handle()` job,
+tanpa panggilan HTTP Telegram.
+
+```ts
+import { fakeEvents } from '@elyvel/events'
+import { fakeMail } from '@elyvel/mail'
+import { fakeNotifications } from '@elyvel/notifications'
+import { fakeQueue } from '@elyvel/queue'
+
+test('membuat order mengirim notifikasi dan meng-queue job', async () => {
+  const mail = fakeMail()
+  const queue = fakeQueue()
+  const notifications = fakeNotifications()
+
+  await client.post('/orders', { body: cart })
+
+  mail.assertSent(OrderReceipt, m => m.toAddresses.some(a => a.email === 'ada@example.com'))
+  queue.assertPushed(SyncInventory, job => job.orderId === 42)
+  queue.assertPushedOn('emails', SendFollowUp)
+  notifications.assertSentTo(user, OrderShipped)
+})
+```
+
+Assertion dan apa yang diperiksanya:
+
+| | |
+|---|---|
+| `assertSent` / `assertPushed` / `assertSentTo` | minimal satu yang cocok — per kelas, per predikat, atau keduanya |
+| `assertNotSent` / `assertNotPushed` / `assertNotSentTo` | nol yang cocok |
+| `assertNothingSent` / `assertNothingPushed` | fake tidak melihat apa pun |
+| `…Times(x, n)` / `assertCount(n)` | jumlah persis |
+| `assertPushedOn(queue, Job)` | lane queue bernama |
+| `assertClosurePushed()` | job closure — tidak punya kelas untuk disebut |
+
+Assertion yang gagal menyebut apa yang **memang** terjadi (`Dispatched:
+GenerateReport`), jadi diagnosisnya ada di pesan kegagalan, bukan di sesi
+debugger. Pencocokan notifiable bekerja lintas instance: user yang dibuat test
+cocok dengan yang di-fetch ulang handler, lewat key model.
+
+Kembalikan manager asli dengan `restoreMail(new MailManager())` (dan padanan
+queue/notification) di `afterEach` — default-nya process-wide, seperti semua
+manager default di sini. Komponen tingkat bawah (`ArrayTransport`,
+`MemoryQueueStore`, `ArrayChannel`, `ArrayBroadcaster`) tetap ada untuk test yang
+ingin pipeline aslinya berjalan.
 
 ## Contoh lengkap
 

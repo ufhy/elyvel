@@ -12,6 +12,7 @@ export {
   PendingBatch,
   RedisBatchStore,
 } from './batch'
+
 export { defineQueueConfig, type QueueConfig, type QueueConnectionConfig } from './config-schema'
 export { configureJobEncryption } from './encryption'
 export { configureQueueEventDispatcher, Queue } from './events'
@@ -23,6 +24,7 @@ export {
   failedJobs,
   MemoryFailedJobStore,
 } from './failed'
+export { fakeQueue, QueueFake, restoreQueue } from './fake'
 export {
   backoffFor,
   CallQueuedClosure,
