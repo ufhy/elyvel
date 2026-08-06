@@ -1,11 +1,13 @@
 import {
   appendFileSync,
+  closeSync,
+  fstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
@@ -227,21 +229,33 @@ function rotateBySize(
   maxFiles: number,
   compress: boolean,
 ): void {
-  // Ask the filesystem once: `statSync` both proves the file is there and gives
-  // the size. An `existsSync` first would be a second, separate decision about
-  // a path that can change between the two — the race this whole function
-  // already avoids for its renames.
-  let size: number
+  // Open once and learn everything from that descriptor: whether the file is
+  // there (the open itself), how big it is, and — when compressing — its
+  // contents. Any variant that asks about the PATH and then acts on the path
+  // is two decisions about something that can change in between; that is the
+  // race this function already avoids for its renames.
+  let handle: number
   try {
-    size = statSync(path).size
+    handle = openSync(path, 'r')
   }
   catch (error) {
     if ((error as { code?: string }).code === 'ENOENT')
-      return
+      return // nothing to rotate
     throw error
   }
-  if (size + incoming < maxBytes)
-    return
+
+  let contents: Buffer | null = null
+  try {
+    if (fstatSync(handle).size + incoming < maxBytes)
+      return
+    if (compress)
+      contents = readFileSync(handle)
+  }
+  finally {
+    // Closed before any rename/unlink below: Windows refuses to move or delete
+    // a file that still has an open handle.
+    closeSync(handle)
+  }
 
   const ext = compress ? '.gz' : ''
   for (let i = maxFiles - 1; i >= 1; i--) {
@@ -262,7 +276,7 @@ function rotateBySize(
   if (compress) {
     // `wx` refuses an existing `.1.gz`: two processes rotating a shared volume
     // must not have one silently overwrite the other's archive.
-    writeFileSync(`${path}.1.gz`, gzipSync(readFileSync(path)), { flag: 'wx' })
+    writeFileSync(`${path}.1.gz`, gzipSync(contents!), { flag: 'wx' })
     rmSync(path)
   }
   else {
