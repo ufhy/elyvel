@@ -304,6 +304,21 @@
         "@elyvel/telegram": "workspace:*",
       },
     },
+    "packages/permission": {
+      "name": "@elyvel/permission",
+      "version": "0.1.0-alpha.4",
+      "devDependencies": {
+        "@elyvel/cli": "workspace:*",
+        "elysia": "^1.4.0",
+      },
+      "peerDependencies": {
+        "@elyvel/auth": "workspace:*",
+        "@elyvel/cache": "workspace:*",
+        "@elyvel/core": "workspace:*",
+        "@elyvel/database": "workspace:*",
+        "elysia": ">=1.4.0",
+      },
+    },
     "packages/queue": {
       "name": "@elyvel/queue",
       "version": "0.1.0-alpha.4",
@@ -393,11 +408,13 @@
       "version": "0.0.0",
       "dependencies": {
         "@elyvel/auth": "workspace:*",
+        "@elyvel/cache": "workspace:*",
         "@elyvel/core": "workspace:*",
         "@elyvel/database": "workspace:*",
         "@elyvel/i18n": "0.1.0-alpha.4",
         "@elyvel/inertia": "workspace:*",
         "@elyvel/mail": "workspace:*",
+        "@elyvel/permission": "workspace:*",
         "@elyvel/validation": "workspace:*",
         "@elyvel/view": "workspace:*",
         "@elyvel/vite": "workspace:*",
@@ -549,6 +566,8 @@
     "@elyvel/mcp": ["@elyvel/mcp@workspace:packages/mcp"],
 
     "@elyvel/notifications": ["@elyvel/notifications@workspace:packages/notifications"],
+
+    "@elyvel/permission": ["@elyvel/permission@workspace:packages/permission"],
 
     "@elyvel/queue": ["@elyvel/queue@workspace:packages/queue"],
 

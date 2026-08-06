@@ -50,6 +50,36 @@ for (const d of dialects) {
       expect(row?.qty).toBe(5)
     })
 
+    /**
+     * Index names are database-global on SQLite and Postgres, so two tables
+     * declaring an index over the same column names must not collide. They did:
+     * the default name was `name_guard_unique` regardless of table, and the
+     * second `create` failed outright. Defaults are `{table}_{columns}_{type}`
+     * now, as in Laravel.
+     */
+    test('two tables can index the same column names', async () => {
+      const schema = new SchemaBuilder(conn)
+      await schema.create('alpha', (t) => {
+        t.id()
+        t.string('name')
+        t.string('guard')
+        t.unique(['name', 'guard'])
+        t.index('name')
+      })
+      await schema.create('beta', (t) => {
+        t.id()
+        t.string('name')
+        t.string('guard')
+        t.unique(['name', 'guard'])
+        t.index('name')
+      })
+
+      // Both really are unique, not merely created.
+      await new QueryBuilder(conn, 'alpha').insert({ name: 'x', guard: 'web' })
+      await new QueryBuilder(conn, 'beta').insert({ name: 'x', guard: 'web' })
+      expect(new QueryBuilder(conn, 'alpha').insert({ name: 'x', guard: 'web' })).rejects.toThrow()
+    })
+
     test('migrate:status + migrate:rollback', async () => {
       expect((await status(conn, migrationsDir)).every(s => !s.ran)).toBe(true)
       await migrate(conn, migrationsDir)

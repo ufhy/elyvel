@@ -1,0 +1,55 @@
+{
+  "name": "@elyvel/permission",
+  "type": "module",
+  "version": "0.1.0-alpha.4",
+  "description": "Roles and permissions stored in the database, in the spirit of spatie/laravel-permission",
+  "author": "ufhy",
+  "license": "MIT",
+  "homepage": "https://github.com/ufhy/elyvel#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ufhy/elyvel.git",
+    "directory": "packages/permission"
+  },
+  "bugs": {
+    "url": "https://github.com/ufhy/elyvel/issues"
+  },
+  "keywords": [
+    "acl",
+    "bun",
+    "elyvel",
+    "permissions",
+    "roles"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@elyvel/auth": "workspace:*",
+    "@elyvel/cache": "workspace:*",
+    "@elyvel/core": "workspace:*",
+    "@elyvel/database": "workspace:*",
+    "elysia": ">=1.4.0"
+  },
+  "devDependencies": {
+    "@elyvel/cli": "workspace:*",
+    "elysia": "^1.4.0"
+  }
+}

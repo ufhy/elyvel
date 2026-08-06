@@ -103,7 +103,9 @@ declaration (TypeScript combines the two):
 import { Model, withConcerns } from '@elyvel/database'
 import { HasStatus, type HasStatusFields } from '../concerns/HasStatus'
 
+// eslint-disable-next-line ts/no-unsafe-declaration-merging -- fields only
 export interface Post extends HasStatusFields {}
+// eslint-disable-next-line ts/no-unsafe-declaration-merging
 export class Post extends Model {
   static override table = 'posts'
 }
@@ -112,6 +114,11 @@ withConcerns(Post, HasStatus)
 await Post.query().scope('active').get()   // local scope from the concern
 new Post().isActive()                       // method from the concern
 ```
+
+The two `eslint-disable` lines are needed because the lint preset flags every
+class/interface merge. Here the interface only *adds* column types and never
+conflicts with `Model`'s own members, which is exactly the safe case the rule
+can't distinguish.
 
 `fillable`/`casts` from every applied concern merge into the model's own;
 `scopes` are opt-in (call `.scope('name')`), `globalScopes` auto-apply to

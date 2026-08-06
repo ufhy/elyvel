@@ -202,6 +202,19 @@ class ForeignKeyBuilder {
  * grammar turns these into dialect-correct DDL.
  */
 export class Blueprint {
+  /**
+   * The table being built. Only used to name indexes: index names are
+   * database-global on SQLite and Postgres, so an unprefixed default like
+   * `name_guard_unique` makes the SECOND table declaring the same columns fail
+   * to create. Laravel prefixes for exactly this reason, and so do we.
+   */
+  constructor(private readonly tableName = '') {}
+
+  /** `users_email_unique` — Laravel's `{table}_{columns}_{type}` convention. */
+  private indexName(columns: string[], type: string): string {
+    return [this.tableName, ...columns, type].filter(Boolean).join('_')
+  }
+
   readonly columns: ColumnDefinition[] = []
   readonly indexes: IndexDefinition[] = []
   readonly dropColumns: string[] = []
@@ -543,13 +556,13 @@ export class Blueprint {
   /** A standalone (optionally composite) index. */
   index(columns: string | string[], name?: string): void {
     const cols = Array.isArray(columns) ? columns : [columns]
-    this.indexes.push({ columns: cols, unique: false, name: name ?? `idx_${cols.join('_')}` })
+    this.indexes.push({ columns: cols, unique: false, name: name ?? this.indexName(cols, 'index') })
   }
 
   /** A standalone (optionally composite) unique index. */
   unique(columns: string | string[], name?: string): void {
     const cols = Array.isArray(columns) ? columns : [columns]
-    this.indexes.push({ columns: cols, unique: true, name: name ?? `${cols.join('_')}_unique` })
+    this.indexes.push({ columns: cols, unique: true, name: name ?? this.indexName(cols, 'unique') })
   }
 
   /**
@@ -560,7 +573,7 @@ export class Blueprint {
    */
   fullText(columns: string | string[], name?: string): void {
     const cols = Array.isArray(columns) ? columns : [columns]
-    this.indexes.push({ columns: cols, unique: false, name: name ?? `${cols.join('_')}_fulltext`, fullText: true })
+    this.indexes.push({ columns: cols, unique: false, name: name ?? this.indexName(cols, 'fulltext'), fullText: true })
   }
 
   /**
@@ -569,7 +582,7 @@ export class Blueprint {
    */
   spatialIndex(columns: string | string[], name?: string): void {
     const cols = Array.isArray(columns) ? columns : [columns]
-    this.indexes.push({ columns: cols, unique: false, name: name ?? `${cols.join('_')}_spatial`, spatial: true })
+    this.indexes.push({ columns: cols, unique: false, name: name ?? this.indexName(cols, 'spatial'), spatial: true })
   }
 
   /** A single or composite primary key. */
@@ -725,7 +738,7 @@ export class SchemaBuilder {
   }
 
   async create(table: string, build: (table: Blueprint) => void): Promise<void> {
-    const blueprint = new Blueprint()
+    const blueprint = new Blueprint(table)
     build(blueprint)
     const g = this.connection.grammar
     const run = (sql: string) => this.run(sql)
@@ -753,7 +766,7 @@ export class SchemaBuilder {
    * `dropPrimary()`, and standalone `foreign()` are unsupported on SQLite.
    */
   async table(table: string, build: (table: Blueprint) => void): Promise<void> {
-    const blueprint = new Blueprint()
+    const blueprint = new Blueprint(table)
     build(blueprint)
     const g = this.connection.grammar
     const run = (sql: string) => this.run(sql)

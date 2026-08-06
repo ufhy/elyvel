@@ -105,7 +105,9 @@ gabungkan field bertipe ke model dengan deklarasi `interface` bernama sama
 import { Model, withConcerns } from '@elyvel/database'
 import { HasStatus, type HasStatusFields } from '../concerns/HasStatus'
 
+// eslint-disable-next-line ts/no-unsafe-declaration-merging -- field saja
 export interface Post extends HasStatusFields {}
+// eslint-disable-next-line ts/no-unsafe-declaration-merging
 export class Post extends Model {
   static override table = 'posts'
 }
@@ -114,6 +116,11 @@ withConcerns(Post, HasStatus)
 await Post.query().scope('active').get()   // local scope dari concern
 new Post().isActive()                       // method dari concern
 ```
+
+Dua baris `eslint-disable` itu diperlukan karena preset lint menandai setiap
+penggabungan class/interface. Di sini interface-nya hanya *menambah* tipe
+kolom dan tidak pernah bentrok dengan anggota `Model` sendiri — persis kasus
+aman yang tidak bisa dibedakan oleh aturan itu.
 
 `fillable`/`casts` dari setiap concern yang diterapkan digabung ke milik
 model sendiri; `scopes` adalah opt-in (panggil `.scope('name')`),
