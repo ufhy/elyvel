@@ -1,8 +1,8 @@
 {
   "name": "@elyvel/support",
   "type": "module",
-  "version": "0.1.0-alpha.3",
-  "description": "Foundational utilities (Collection, …) shared across elyvel — mirrors Illuminate\\Support",
+  "version": "0.1.0-alpha.4",
+  "description": "Foundational utilities (Collection, \u2026) shared across elyvel \u2014 mirrors Illuminate\\Support",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",

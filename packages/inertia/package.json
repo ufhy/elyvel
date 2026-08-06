@@ -1,8 +1,8 @@
 {
   "name": "@elyvel/inertia",
   "type": "module",
-  "version": "0.1.0-alpha.3",
-  "description": "Inertia.js server-side adapter for elyvel — full-stack SPA (Vue/React/Svelte) without an API",
+  "version": "0.1.0-alpha.4",
+  "description": "Inertia.js server-side adapter for elyvel \u2014 full-stack SPA (Vue/React/Svelte) without an API",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",

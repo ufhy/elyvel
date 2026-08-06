@@ -1,8 +1,8 @@
 {
   "name": "@elyvel/log-viewer",
   "type": "module",
-  "version": "0.1.0-alpha.3",
-  "description": "A web UI for browsing storage/logs/*.log — install and gate it yourself, no environment magic",
+  "version": "0.1.0-alpha.4",
+  "description": "A web UI for browsing storage/logs/*.log \u2014 install and gate it yourself, no environment magic",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",

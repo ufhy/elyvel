@@ -1,8 +1,8 @@
 {
   "name": "@elyvel/view",
   "type": "module",
-  "version": "0.1.0-alpha.3",
-  "description": "Server-side HTML views for elyvel — safe html template tag + view() responses",
+  "version": "0.1.0-alpha.4",
+  "description": "Server-side HTML views for elyvel \u2014 safe html template tag + view() responses",
   "author": "ufhy",
   "license": "MIT",
   "homepage": "https://github.com/ufhy/elyvel#readme",
