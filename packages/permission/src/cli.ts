@@ -10,7 +10,7 @@ import { createApp } from '@elyvel/core'
 import { DatabaseToken, table } from '@elyvel/database'
 import { DEFAULT_GUARD, tableNames } from './config'
 import { Permission, Role } from './models'
-import { configurePermissions, forgetPermissionCache, permissionCatalogue } from './registrar'
+import { configurePermissions, forgetPermissionCache, permissionCatalogue, permissionConfig } from './registrar'
 
 const MIGRATION = `import type { Migration } from '@elyvel/database'
 import { config } from '@elyvel/core'
@@ -77,7 +77,7 @@ async function createRole(flags: Record<string, string | boolean>, args: string[
       for (const permissionName of wanted) {
         const permission = await Permission.query().where('name', permissionName).where('guard', guard).first()
           ?? await Permission.create({ name: permissionName, guard })
-        const t = tableNames(undefined)
+        const t = tableNames(permissionConfig())
         const already = await table(t.roleHasPermissions)
           .where('role_id', role.id)
           .where('permission_id', permission.id)

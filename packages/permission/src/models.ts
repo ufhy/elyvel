@@ -8,7 +8,13 @@
  */
 import type { BelongsToMany } from '@elyvel/database'
 import { Model } from '@elyvel/database'
-import { DEFAULT_TABLES } from './config'
+import { DEFAULT_TABLES, tableNames } from './config'
+import { permissionConfig } from './registrar'
+
+/** Resolved at call time, not at class definition — config isn't loaded yet then. */
+function pivotTable(): string {
+  return tableNames(permissionConfig()).roleHasPermissions
+}
 
 export interface RoleFields {
   id: number
@@ -31,12 +37,14 @@ export interface Permission extends PermissionFields {}
 
 // eslint-disable-next-line ts/no-unsafe-declaration-merging
 export class Permission extends Model {
-  static override table = DEFAULT_TABLES.permissions
+  // Overwritten by `configurePermissions()` when the app renames tables —
+  // annotated `string` so that assignment isn't narrowed to the literal.
+  static override table: string = DEFAULT_TABLES.permissions
   static override fillable = ['name', 'guard']
 
   /** Roles that grant this permission. */
   roles(): BelongsToMany<Role> {
-    return this.belongsToMany(Role, DEFAULT_TABLES.roleHasPermissions, 'permission_id', 'role_id')
+    return this.belongsToMany(Role, pivotTable(), 'permission_id', 'role_id')
   }
 }
 
@@ -45,11 +53,11 @@ export interface Role extends RoleFields {}
 
 // eslint-disable-next-line ts/no-unsafe-declaration-merging
 export class Role extends Model {
-  static override table = DEFAULT_TABLES.roles
+  static override table: string = DEFAULT_TABLES.roles
   static override fillable = ['name', 'guard']
 
   /** Permissions this role grants. */
   permissions(): BelongsToMany<Permission> {
-    return this.belongsToMany(Permission, DEFAULT_TABLES.roleHasPermissions, 'role_id', 'permission_id')
+    return this.belongsToMany(Permission, pivotTable(), 'role_id', 'permission_id')
   }
 }

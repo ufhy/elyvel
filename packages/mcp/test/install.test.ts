@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'bun:test'
@@ -34,6 +34,21 @@ describe('composeGuidelines', () => {
     expect(content).toContain('# elyvel Agent Guidelines')
     expect(content).toContain('## Database (@elyvel/database)')
     expect(content).not.toContain('## Queue')
+  })
+
+  /**
+   * A section file that exists but was never registered in SECTIONS is dead
+   * weight: the package ships it and no app ever sees it. Assert the wiring,
+   * not just the file — this is how @elyvel/permission shipped with nothing
+   * to tell an agent about it.
+   */
+  test('every guidelines file is registered, and each is emitted when its package is installed', () => {
+    const files = readdirSync(new URL('../guidelines', import.meta.url).pathname).sort()
+    const everything = composeGuidelines(tempApp(files.map(f => `@elyvel/${f.replace(/\.md$/, '')}`)))
+
+    // The section files whose name is not a package (foundation, mcp, core)
+    // are always on, so composing with every package installed must use them all.
+    expect(everything.used.sort()).toEqual(files)
   })
 
   test('the installed versions are stamped in', () => {

@@ -14,3 +14,9 @@
   --factory` so the migration and factory match the model from the start.
 - Eager-load relations you will iterate (`.with('posts')`) — N+1s are as real
   here as in Laravel.
+- Concerns are the trait equivalent: `withConcerns(Post, HasStatus)` AFTER the
+  class declaration — it mutates the class, it is not a base class to extend.
+  Typed fields come from a same-named interface (`interface Post extends
+  HasStatusFields {}`), and both that line and the class need
+  `// eslint-disable-next-line ts/no-unsafe-declaration-merging` or the lint
+  preset rejects the file.

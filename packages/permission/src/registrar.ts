@@ -15,6 +15,7 @@ import type { PermissionConfig } from './config'
 import { cache } from '@elyvel/cache'
 import { table } from '@elyvel/database'
 import { DEFAULT_CACHE_KEY, DEFAULT_CACHE_SECONDS, tableNames } from './config'
+import { Permission, Role } from './models'
 
 /** One role, with the ids of the permissions it grants. */
 export interface CachedRole {
@@ -38,9 +39,21 @@ export interface PermissionCatalogue {
 
 let config: PermissionConfig | undefined
 
-/** Called by the service provider once `config/permission.ts` is loaded. */
+/**
+ * Called by the service provider (and the CLI, and tests) once
+ * `config/permission.ts` is known.
+ *
+ * This is also where the models learn their table names. They can't read the
+ * config at class-definition time — it isn't loaded yet — so a `tables`
+ * override would otherwise apply to the migration and the pivot queries but
+ * NOT to `Role.query()`, leaving the models pointed at tables that were never
+ * created. One choke point keeps every path in agreement.
+ */
 export function configurePermissions(next: PermissionConfig | undefined): void {
   config = next
+  const t = tableNames(next)
+  Role.table = t.roles
+  Permission.table = t.permissions
 }
 
 export function permissionConfig(): PermissionConfig | undefined {

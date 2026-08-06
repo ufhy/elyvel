@@ -23,6 +23,7 @@ const SECTIONS: Section[] = [
   { file: 'core.md' },
   { file: 'database.md', requires: '@elyvel/database' },
   { file: 'validation.md', requires: '@elyvel/validation' },
+  { file: 'permission.md', requires: '@elyvel/permission' },
   { file: 'queue.md', requires: '@elyvel/queue' },
   { file: 'inertia.md', requires: '@elyvel/inertia' },
   { file: 'vite.md', requires: '@elyvel/vite' },
