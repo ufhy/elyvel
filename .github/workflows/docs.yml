@@ -58,3 +58,11 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        with:
+          # 30 minutes instead of the default 10. Pages has taken longer than
+          # that to publish, and the default doesn't just give up quietly — it
+          # CANCELS the deployment, and the deployment id is the commit SHA, so
+          # every retry on that commit is refused ("Deployment cancelled") and
+          # only a new commit can publish. Waiting longer is far cheaper than
+          # burning a SHA per attempt.
+          timeout: 1800000
