@@ -39,6 +39,7 @@ yang ditemukan, bersama `app/commands/` milik aplikasimu sendiri, di bawah
 | --- | --- | --- |
 | `elyvel new <name>` | Scaffold aplikasi baru | `--kit=vue\|spa\|none` (default `vue`) — menulis `.env` dengan `APP_KEY` baru |
 | `elyvel serve` | Jalankan dev server | `--entry=<path>` (auto-deteksi `server.ts`), `--no-watch`, `--no-vite` (Vite otomatis jalan jika ada `vite.config.*`) |
+| `elyvel tinker` | REPL dengan app ter-boot | — |
 | `elyvel key:generate` | Set `APP_KEY` di `.env` | `--show` (cetak saja, tidak menulis), `--force` (izinkan overwrite di production) |
 | `elyvel down` | Aktifkan maintenance mode (503) | `--secret[=value]` (bentuk polos generate dan cetak satu, dipakai untuk bypass lewat `?secret=`), `--retry=<seconds>`, `--message=<text>`, `--status=<code>` |
 | `elyvel up` | Matikan maintenance mode | tidak ada |
@@ -168,3 +169,32 @@ Lihat [Task Scheduling](/id/digging-deeper/scheduler) untuk detailnya.
 | `elyvel route:list` | Daftar semua route terdaftar, dengan kolom Middleware/Authorize untuk route yang didaftarkan lewat `resource()` |
 
 Lihat [Routing](/id/basics/routing#memeriksa-route).
+
+## Tinker
+
+`elyvel tinker` membuka REPL dengan aplikasi ter-boot — `artisan tinker` milik
+Laravel. Config termuat, provider sudah berjalan, database tersambung, dan sesi
+sudah di-seed dengan:
+
+- `app` dan helper `config()`
+- semua ekspor dari setiap file di `app/models/`, plus `AuthUser`/`AuthAccount`
+- helper harian, jika paketnya terpasang: `Str`, `Arr`, `Collection`, `Crypt`,
+  `Context`, `dispatch`, `Mail`, `notify`, `Gate`, `Hash`, `Pipeline`,
+  `Process`, `Concurrency`
+
+```
+> await AuthUser.query().count()
+3
+> const user = await AuthUser.find(1)
+> user.email
+"ada@example.com"
+> Crypt.encryptString('rahasia')
+"kD1…"
+```
+
+`await` bekerja di baris mana pun, variabel bertahan antar baris (termasuk
+`const { X } = await import(…)` yang di-destructure), blok yang belum selesai
+berpindah ke prompt lanjutan `...`, dan `_` menyimpan hasil terakhir. `.vars`
+menampilkan apa saja yang terdefinisi; `.exit` (atau Ctrl+D) keluar. Error di
+sebuah baris dicetak dan sesi berlanjut — typo tidak pernah menghilangkan
+variabelmu.

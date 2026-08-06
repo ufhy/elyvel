@@ -50,6 +50,7 @@ Usage:
   elyvel new <name>                            Scaffold a new elyvel app
   elyvel key:generate [--show] [--force]       Set APP_KEY in .env (--show prints; --force overwrites in prod)
   elyvel serve [--entry <path>] [--no-watch]   Start the dev server
+  elyvel tinker                                REPL with the app booted (models, helpers preloaded)
   elyvel lang:publish [locale] [--force]       Publish default messages to lang/<locale> (default en)
   elyvel lang:publish --package=<name> [--force]  Copy an installed package's lang/ to lang/vendor/<name>
 
@@ -140,6 +141,11 @@ async function main(): Promise<number> {
 
   if (command === 'serve') {
     return serve(flags)
+  }
+
+  if (command === 'tinker') {
+    const { tinker } = await import('./commands/tinker')
+    return tinker()
   }
 
   if (command === 'down') {

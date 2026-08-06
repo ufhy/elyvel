@@ -35,6 +35,7 @@ alongside your app's own `app/commands/`, under "App + package commands".
 | --- | --- | --- |
 | `elyvel new <name>` | Scaffold a new app | `--kit=vue\|spa\|none` (default `vue`) — writes `.env` with a fresh `APP_KEY` |
 | `elyvel serve` | Start the dev server | `--entry=<path>` (auto-detects `server.ts`), `--no-watch`, `--no-vite` (Vite auto-spawns if a `vite.config.*` exists) |
+| `elyvel tinker` | REPL with the app booted | — |
 | `elyvel key:generate` | Set `APP_KEY` in `.env` | `--show` (print only, don't write), `--force` (allow overwrite in production) |
 | `elyvel down` | Enable maintenance mode (503) | `--secret[=value]` (bare form generates and prints one, used to bypass via `?secret=`), `--retry=<seconds>`, `--message=<text>`, `--status=<code>` |
 | `elyvel up` | Disable maintenance mode | none |
@@ -160,3 +161,31 @@ See [Task Scheduling](/digging-deeper/scheduler) for details.
 | `elyvel route:list` | List every registered route, with Middleware/Authorize columns for `resource()`-registered routes |
 
 See [Routing](/basics/routing#inspecting-routes).
+
+## Tinker
+
+`elyvel tinker` opens a REPL with the application booted — Laravel's
+`artisan tinker`. Config is loaded, providers have run, the database is
+connected, and the session is pre-seeded with:
+
+- `app` and a `config()` helper
+- every export of every file in `app/models/`, plus `AuthUser`/`AuthAccount`
+- the everyday helpers, when their package is installed: `Str`, `Arr`,
+  `Collection`, `Crypt`, `Context`, `dispatch`, `Mail`, `notify`, `Gate`,
+  `Hash`, `Pipeline`, `Process`, `Concurrency`
+
+```
+> await AuthUser.query().count()
+3
+> const user = await AuthUser.find(1)
+> user.email
+"ada@example.com"
+> Crypt.encryptString('rahasia')
+"kD1…"
+```
+
+`await` works on any line, variables persist between lines (including
+destructured `const { X } = await import(…)`), an unfinished block switches to a
+`...` continuation prompt, and `_` holds the last result. `.vars` lists what is
+defined; `.exit` (or Ctrl+D) leaves. An error in a line is printed and the
+session continues — a typo never costs you your variables.
