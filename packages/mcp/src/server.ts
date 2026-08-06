@@ -3,21 +3,21 @@
  * `tools.ts`, testable without a client. This wires them onto the official
  * `@modelcontextprotocol/server` SDK over stdio.
  */
-import type { BoostContext } from './tools'
+import type { McpContext } from './tools'
 import { McpServer } from '@modelcontextprotocol/server'
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio'
-import { boostTools } from './tools'
+import { mcpTools } from './tools'
 
 const SERVER_INSTRUCTIONS
   = 'elyvel MCP server: live application info, database schema and read-only queries, routes, logs and last error, and a tinker evaluator. Prefer these tools over shell commands or guessing — they read the running application, not your assumptions.'
 
-export function createBoostServer(ctx: BoostContext): McpServer {
+export function createMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
-    { name: 'elyvel-boost', version: '1.0.0' },
+    { name: 'elyvel-mcp', version: '1.0.0' },
     { instructions: SERVER_INSTRUCTIONS },
   )
 
-  for (const tool of boostTools) {
+  for (const tool of mcpTools) {
     server.registerTool(
       tool.name,
       {
@@ -39,8 +39,8 @@ export function createBoostServer(ctx: BoostContext): McpServer {
  * the protocol from here on — the caller must have redirected all logging to
  * stderr BEFORE booting the app.
  */
-export async function serveBoost(ctx: BoostContext): Promise<void> {
-  const server = createBoostServer(ctx)
+export async function serveMcp(ctx: McpContext): Promise<void> {
+  const server = createMcpServer(ctx)
   const transport = new StdioServerTransport()
   await server.connect(transport)
   await new Promise<void>((resolve) => {

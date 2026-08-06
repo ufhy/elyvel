@@ -8,7 +8,7 @@ import { MCP_SERVER_ENTRY, writeAgentsFile, writeMcpConfig } from '../src/instal
 const dirs: string[] = []
 
 function tempApp(installed: string[] = []): string {
-  const dir = mkdtempSync(join(tmpdir(), 'boost-install-'))
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-install-'))
   dirs.push(dir)
   for (const name of installed) {
     const pkgDir = join(dir, 'node_modules', name)
@@ -27,11 +27,11 @@ describe('composeGuidelines', () => {
   test('always-on sections are present, package sections follow installation', () => {
     const { content, used } = composeGuidelines(tempApp(['@elyvel/core', '@elyvel/database']))
     expect(used).toContain('foundation.md')
-    expect(used).toContain('boost.md')
+    expect(used).toContain('mcp.md')
     expect(used).toContain('core.md')
     expect(used).toContain('database.md')
     expect(used).not.toContain('queue.md')
-    expect(content).toContain('# elyvel Boost Guidelines')
+    expect(content).toContain('# elyvel Agent Guidelines')
     expect(content).toContain('## Database (@elyvel/database)')
     expect(content).not.toContain('## Queue')
   })
@@ -77,16 +77,16 @@ describe('writeMcpConfig', () => {
 
     const path = join(dir, '.mcp.json')
     const config = JSON.parse(readFileSync(path, 'utf8')) as { mcpServers: Record<string, unknown> }
-    expect(config.mcpServers['elyvel-boost']).toEqual(MCP_SERVER_ENTRY)
+    expect(config.mcpServers['elyvel-mcp']).toEqual(MCP_SERVER_ENTRY)
 
     // Another server already registered must survive.
     config.mcpServers.other = { command: 'other-server' }
-    delete config.mcpServers['elyvel-boost']
+    delete config.mcpServers['elyvel-mcp']
     writeFileSync(path, JSON.stringify(config))
     expect(writeMcpConfig(dir)).toBe('updated')
     const merged = JSON.parse(readFileSync(path, 'utf8')) as { mcpServers: Record<string, unknown> }
     expect(merged.mcpServers.other).toEqual({ command: 'other-server' })
-    expect(merged.mcpServers['elyvel-boost']).toEqual(MCP_SERVER_ENTRY)
+    expect(merged.mcpServers['elyvel-mcp']).toEqual(MCP_SERVER_ENTRY)
   })
 
   test('refuses to clobber an unparseable .mcp.json', () => {

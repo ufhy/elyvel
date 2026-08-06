@@ -1,6 +1,6 @@
-# Boost
+# MCP
 
-`@elyvel/boost` adalah pengembangan berbantuan AI untuk aplikasi elyvel — ide
+`@elyvel/mcp` adalah pengembangan berbantuan AI untuk aplikasi elyvel — ide
 yang sama dengan [Laravel Boost](https://github.com/laravel/boost): memberi
 coding agent (Claude Code, Cursor, apa pun yang bicara MCP) konteks yang
 dibutuhkan untuk menulis kode yang benar bagi aplikasi **ini**, bukan menebak.
@@ -13,30 +13,30 @@ Isinya dua bagian:
 
 ## Instalasi
 
-Boost adalah dev tooling, persis seperti `@elyvel/cli`: pasang sebagai
+`@elyvel/mcp` adalah dev tooling, persis seperti `@elyvel/cli`: pasang sebagai
 dependensi **dev**, dan tidak ada bagiannya yang ikut ke produksi — ia tidak
 meng-export service provider, dan command-nya hidup di balik subpath `/cli`
 yang hanya dibaca CLI.
 
 ```sh
-bun add -d @elyvel/boost
-bun elyvel boost:install
+bun add -d @elyvel/mcp
+bun elyvel mcp:install
 ```
 
-`boost:install` melakukan dua hal yang idempoten:
+`mcp:install` melakukan dua hal yang idempoten:
 
 1. **`AGENTS.md`** — menulis guidelines terkomposisi di antara penanda
-   `<!-- elyvel-boost:guidelines:start/end -->`. Konten milikmu di file itu
+   `<!-- elyvel-mcp:guidelines:start/end -->`. Konten milikmu di file itu
    tidak pernah disentuh; menjalankan ulang hanya menyegarkan blok yang
    dikelola. Bagian-bagiannya dipilih berdasarkan paket terpasang — aplikasi
    tanpa `@elyvel/queue` tidak mendapat panduan queue — dan dicap dengan versi
    terpasang yang persis.
-2. **`.mcp.json`** — mendaftarkan server `elyvel-boost` (file standar yang
+2. **`.mcp.json`** — mendaftarkan server `elyvel-mcp` (file standar yang
    dibaca Claude Code, Cursor, dan kawan-kawan), digabung dengan server lain
    yang sudah terdaftar.
 
 Jalankan ulang setelah menambah atau menghapus paket `@elyvel/*` agar
-guidelines mengikuti. Kalau Boost terpasang di `dependencies` alih-alih
+guidelines mengikuti. Kalau paket ini terpasang di `dependencies` alih-alih
 `devDependencies`, installer akan menegur.
 
 ## Tools MCP-nya
@@ -56,20 +56,20 @@ tools ini membaca aplikasimu, bukan asumsinya.
 | `tinker` | Menjalankan TypeScript di aplikasi yang sudah boot, memakai evaluator [`elyvel tinker`](/id/guide/cli-reference#tinker) yang sama: model dan `config()` dalam scope, `await` jalan, variabel bertahan antar-panggilan. |
 | `get-absolute-url` | Path yang diresolusi terhadap base URL aplikasi (`app.url`, atau `http://localhost:<port>`). |
 
-`boost:mcp` menjalankan server lewat stdio; kamu tidak pernah menjalankannya
+`mcp:serve` menjalankan server lewat stdio; kamu tidak pernah menjalankannya
 manual — klien MCP yang men-spawn-nya dari `.mcp.json`. Lewat stdio, stdout
-milik protokol, jadi Boost mengalihkan semua logging aplikasi ke stderr
+milik protokol, jadi ia mengalihkan semua logging aplikasi ke stderr
 sebelum boot.
 
 ## `app.url`
 
 URL absolut yang dibangun di luar request (di sini, dan di mana pun yang
 membutuhkannya) berasal dari kunci `url` di `config/app.ts` — config hasil
-scaffold membacanya dari `APP_URL`. Kalau tidak diset, Boost jatuh ke
+scaffold membacanya dari `APP_URL`. Kalau tidak diset, ia jatuh ke
 `http://localhost:<port>`.
 
 ## Cakupan
 
-Boost sengaja belum menyertakan pencarian dokumentasi hosted milik Laravel
+Paket ini sengaja belum menyertakan pencarian dokumentasi hosted milik Laravel
 Boost, penangkapan log browser, maupun sistem skills/rules. Blok guidelines
 plus tools aplikasi-hidup adalah bagian yang paling menanggung beban.

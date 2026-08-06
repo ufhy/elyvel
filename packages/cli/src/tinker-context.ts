@@ -1,6 +1,6 @@
 /**
  * The seeding half of tinker, shared between `elyvel tinker` (the TTY REPL)
- * and `@elyvel/boost`'s MCP `tinker` tool — one definition of "what's in
+ * and `@elyvel/mcp`'s MCP `tinker` tool — one definition of "what's in
  * scope in a tinker session", not two drifting ones.
  *
  * Everything is best-effort: an app without the queue package simply doesn't

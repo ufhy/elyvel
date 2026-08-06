@@ -1,9 +1,9 @@
 /**
- * The Boost MCP tools — each one a plain object with a zod schema and a
+ * The elyvel MCP tools — each one a plain object with a zod schema and a
  * `handle` that returns text, so every tool is testable as a function without
  * an MCP client in sight. `server.ts` is the only file that knows the SDK.
  *
- * All tools run against ONE booted application (`BoostContext.app`), the same
+ * All tools run against ONE booted application (`McpContext.app`), the same
  * process the MCP server lives in — a tool never spawns `elyvel` again.
  */
 import type { Application } from '@elyvel/core'
@@ -13,29 +13,29 @@ import { buildTinkerSeed, createReplContext, evaluateLine } from '@elyvel/cli'
 import { routeMetaEntries } from '@elyvel/core'
 import { listLogFiles, readEntries } from '@elyvel/log-viewer'
 import * as z from 'zod'
-import { installedElyvelPackages } from '../packages'
+import { installedElyvelPackages } from './packages'
 
-export interface BoostContext {
+export interface McpContext {
   /** The booted application (routes loaded). */
   app: Application
   /** The app's root directory. */
   cwd: string
 }
 
-export interface BoostTool {
+export interface McpTool {
   name: string
   description: string
   inputSchema: z.ZodObject<z.ZodRawShape>
   /** True when the tool cannot change anything — surfaced as `readOnlyHint`. */
   readOnly: boolean
-  handle(args: Record<string, unknown>, ctx: BoostContext): Promise<string>
+  handle(args: Record<string, unknown>, ctx: McpContext): Promise<string>
 }
 
 /* -------------------------------------------------------------------------- */
 /* application-info                                                           */
 /* -------------------------------------------------------------------------- */
 
-const applicationInfo: BoostTool = {
+const applicationInfo: McpTool = {
   name: 'application-info',
   description:
     'Read the elyvel application\'s state: name/environment, Bun version, every installed @elyvel package with its exact version, the database connection in use, and the models in app/models. Call this before writing code that depends on package APIs or versions.',
@@ -84,10 +84,10 @@ function modelNames(cwd: string): string[] {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Resolve `@elyvel/database` from the app (not from boost's own dependency
- * graph — boost deliberately doesn't depend on it, an app without a database
- * simply doesn't get these tools' data). Tokens are string-keyed, so the app's
- * copy and any other copy agree on `DatabaseToken`.
+ * Resolve `@elyvel/database` from the app, not from this package's own
+ * dependency graph — we deliberately don't depend on it, so an app without a
+ * database simply doesn't get these tools' data. Tokens are string-keyed, so
+ * the app's copy and any other copy agree on `DatabaseToken`.
  */
 async function databaseModule(cwd: string): Promise<Record<string, unknown> | null> {
   try {
@@ -98,7 +98,7 @@ async function databaseModule(cwd: string): Promise<Record<string, unknown> | nu
   }
 }
 
-async function databaseConnection(ctx: BoostContext): Promise<
+async function databaseConnection(ctx: McpContext): Promise<
   { db: Record<string, unknown>, conn: { select<T>(sql: string, params?: unknown): Promise<T[]>, dialect: string } } | string
 > {
   const db = await databaseModule(ctx.cwd)
@@ -116,7 +116,7 @@ async function databaseConnection(ctx: BoostContext): Promise<
   }
 }
 
-const databaseConnections: BoostTool = {
+const databaseConnections: McpTool = {
   name: 'database-connections',
   description: 'List the database connections defined in config/database.ts and which one is the default.',
   inputSchema: z.object({}),
@@ -134,7 +134,7 @@ const databaseConnections: BoostTool = {
   },
 }
 
-const databaseSchema: BoostTool = {
+const databaseSchema: McpTool = {
   name: 'database-schema',
   description:
     'Read the real database schema (tables and their columns) from the live connection. Use this before writing migrations, models, or queries — do not guess column names.',
@@ -198,7 +198,7 @@ export function assertReadOnlyQuery(query: string): string | null {
 
 const MAX_QUERY_ROWS = 200
 
-const databaseQuery: BoostTool = {
+const databaseQuery: McpTool = {
   name: 'database-query',
   description:
     `Run one read-only SQL statement (SELECT / WITH / EXPLAIN / SHOW / DESCRIBE / PRAGMA) against the app's database and get the rows back as JSON. Writes are rejected.`,
@@ -232,7 +232,7 @@ const databaseQuery: BoostTool = {
 /* list-routes                                                                */
 /* -------------------------------------------------------------------------- */
 
-const listRoutes: BoostTool = {
+const listRoutes: McpTool = {
   name: 'list-routes',
   description: 'List every registered HTTP route (method, path, and — where recorded — middleware and authorize policy).',
   inputSchema: z.object({}),
@@ -262,7 +262,7 @@ const listRoutes: BoostTool = {
 /* -------------------------------------------------------------------------- */
 
 /** The directory the file log channel writes to, from config — not a guess. */
-export function logDirectory(ctx: BoostContext): string {
+export function logDirectory(ctx: McpContext): string {
   const channels = ctx.app.config.get<Record<string, { path?: string }>>('logging.channels', {}) ?? {}
   for (const channel of Object.values(channels)) {
     if (typeof channel?.path === 'string')
@@ -280,7 +280,7 @@ function formatEntry(entry: Record<string, unknown>): string {
   return `[${String(time ?? '?')}] ${String(level ?? '?')}: ${String(message ?? '')}${context}`
 }
 
-const readLogEntries: BoostTool = {
+const readLogEntries: McpTool = {
   name: 'read-log-entries',
   description: 'Read the newest entries from the application log (storage/logs). Newest first. Filter by level or a search string.',
   inputSchema: z.object({
@@ -307,7 +307,7 @@ const readLogEntries: BoostTool = {
   },
 }
 
-const lastError: BoostTool = {
+const lastError: McpTool = {
   name: 'last-error',
   description: 'The most recent error-level entry in the application log, with its full context (stack trace, request id). Check this first when the user reports something broke.',
   inputSchema: z.object({}),
@@ -336,7 +336,7 @@ const lastError: BoostTool = {
  */
 const replContexts = new WeakMap<Application, Record<string, unknown>>()
 
-async function replContextFor(ctx: BoostContext): Promise<Record<string, unknown>> {
+async function replContextFor(ctx: McpContext): Promise<Record<string, unknown>> {
   const existing = replContexts.get(ctx.app)
   if (existing)
     return existing
@@ -349,7 +349,7 @@ async function replContextFor(ctx: BoostContext): Promise<Record<string, unknown
   return context
 }
 
-const tinker: BoostTool = {
+const tinker: McpTool = {
   name: 'tinker',
   description:
     'Run TypeScript in the booted application context (like `elyvel tinker`): models from app/models, `app`, and `config()` are in scope, `await` works, variables persist between calls. Use for debugging and inspection; do not create or mutate records without explicit user approval — prefer tests with factories.',
@@ -388,7 +388,7 @@ const tinker: BoostTool = {
 /* get-absolute-url                                                           */
 /* -------------------------------------------------------------------------- */
 
-const getAbsoluteUrl: BoostTool = {
+const getAbsoluteUrl: McpTool = {
   name: 'get-absolute-url',
   description: 'Resolve a path to the application\'s absolute URL (correct scheme, host, and port). Use this before sharing any project URL with the user.',
   inputSchema: z.object({
@@ -405,8 +405,8 @@ const getAbsoluteUrl: BoostTool = {
   },
 }
 
-/** Every tool the Boost MCP server exposes. */
-export const boostTools: BoostTool[] = [
+/** Every tool the elyvel MCP server exposes. */
+export const mcpTools: McpTool[] = [
   applicationInfo,
   databaseConnections,
   databaseSchema,

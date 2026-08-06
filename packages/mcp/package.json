@@ -1,5 +1,5 @@
 {
-  "name": "@elyvel/boost",
+  "name": "@elyvel/mcp",
   "type": "module",
   "version": "0.1.0-alpha.4",
   "description": "AI-assisted development for elyvel apps — an MCP server plus composed agent guidelines, like Laravel Boost",
@@ -9,14 +9,14 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ufhy/elyvel.git",
-    "directory": "packages/boost"
+    "directory": "packages/mcp"
   },
   "bugs": {
     "url": "https://github.com/ufhy/elyvel/issues"
   },
   "keywords": [
+    "agents",
     "ai",
-    "boost",
     "bun",
     "elyvel",
     "mcp"

@@ -1,6 +1,6 @@
-## elyvel Boost MCP tools
+## elyvel MCP tools
 
-This project runs the `elyvel-boost` MCP server (registered in `.mcp.json`).
+This project runs the `elyvel-mcp` MCP server (registered in `.mcp.json`).
 Prefer its tools over shell commands and over guessing — they read the live
 application:
 

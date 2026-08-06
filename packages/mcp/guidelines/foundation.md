@@ -1,4 +1,4 @@
-# elyvel Boost Guidelines
+# elyvel Agent Guidelines
 
 Curated guidance for AI-assisted work on this application. Follow it closely —
 it reflects how this framework actually works, not how similar frameworks work.

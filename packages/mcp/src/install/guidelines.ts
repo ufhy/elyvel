@@ -19,7 +19,7 @@ interface Section {
 /** Order matters — this is reading order for the agent. */
 const SECTIONS: Section[] = [
   { file: 'foundation.md' },
-  { file: 'boost.md' },
+  { file: 'mcp.md' },
   { file: 'core.md' },
   { file: 'database.md', requires: '@elyvel/database' },
   { file: 'validation.md', requires: '@elyvel/validation' },

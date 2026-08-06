@@ -1,6 +1,6 @@
-# Boost
+# MCP
 
-`@elyvel/boost` is AI-assisted development for elyvel apps — the
+`@elyvel/mcp` is AI-assisted development for elyvel apps — the
 [Laravel Boost](https://github.com/laravel/boost) idea: give a coding agent
 (Claude Code, Cursor, anything that speaks MCP) the context it needs to write
 correct code for **this** application instead of guessing. It has two halves:
@@ -12,28 +12,28 @@ correct code for **this** application instead of guessing. It has two halves:
 
 ## Installation
 
-Boost is dev tooling, exactly like `@elyvel/cli`: install it as a **dev**
+`@elyvel/mcp` is dev tooling, exactly like `@elyvel/cli`: install it as a **dev**
 dependency, and nothing of it ever ships to production — it exports no service
 provider, and its commands live behind the CLI-only `/cli` subpath.
 
 ```sh
-bun add -d @elyvel/boost
-bun elyvel boost:install
+bun add -d @elyvel/mcp
+bun elyvel mcp:install
 ```
 
-`boost:install` does two idempotent things:
+`mcp:install` does two idempotent things:
 
 1. **`AGENTS.md`** — writes the composed guidelines between
-   `<!-- elyvel-boost:guidelines:start/end -->` markers. Your own content in
+   `<!-- elyvel-mcp:guidelines:start/end -->` markers. Your own content in
    the file is never touched; re-running refreshes only the managed block.
    Sections are selected by what's installed — an app without `@elyvel/queue`
    gets no queue guidance — and stamped with the exact installed versions.
-2. **`.mcp.json`** — registers the `elyvel-boost` server (the standard file
+2. **`.mcp.json`** — registers the `elyvel-mcp` server (the standard file
    Claude Code, Cursor, and friends read), merging with any servers already
    listed.
 
 Re-run it after adding or removing `@elyvel/*` packages so the guidelines
-follow. If Boost ends up in `dependencies` instead of `devDependencies`, the
+follow. If it ends up in `dependencies` instead of `devDependencies`, the
 installer warns you.
 
 ## The MCP tools
@@ -53,18 +53,18 @@ these tools is reading your app, not its assumptions.
 | `tinker` | Run TypeScript in the booted app, exactly [`elyvel tinker`](/guide/cli-reference#tinker)'s evaluator: models and `config()` in scope, `await` works, variables persist between calls. |
 | `get-absolute-url` | A path resolved against the app's base URL (`app.url`, or `http://localhost:<port>`). |
 
-`boost:mcp` starts the server over stdio; you never run it by hand — the MCP
+`mcp:serve` starts the server over stdio; you never run it by hand — the MCP
 client spawns it from `.mcp.json`. Over stdio, stdout belongs to the protocol,
-so Boost redirects all application logging to stderr before booting.
+so it redirects all application logging to stderr before booting.
 
 ## `app.url`
 
 Absolute URLs built outside a request (here, and anywhere else that needs
 one) come from the `url` key in `config/app.ts` — the scaffolded config reads
-`APP_URL`. Unset, Boost falls back to `http://localhost:<port>`.
+`APP_URL`. Unset, it falls back to `http://localhost:<port>`.
 
 ## Scope
 
-Boost deliberately does not (yet) include Laravel Boost's hosted
+This package deliberately does not (yet) include Laravel Boost's hosted
 documentation search, browser log capture, or the skills/rules system. The
 guidelines block plus the live-application tools are the load-bearing parts.

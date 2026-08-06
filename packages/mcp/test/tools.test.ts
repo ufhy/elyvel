@@ -1,22 +1,22 @@
-import type { BoostContext } from '../src/mcp/tools'
+import type { McpContext } from '../src/tools'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createApp } from '@elyvel/core'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
-import { assertReadOnlyQuery, boostTools, logDirectory } from '../src/mcp/tools'
+import { assertReadOnlyQuery, logDirectory, mcpTools } from '../src/tools'
 
 const fixtures = new URL('./fixtures', import.meta.url).pathname
 
 function tool(name: string) {
-  const found = boostTools.find(t => t.name === name)
+  const found = mcpTools.find(t => t.name === name)
   if (!found)
     throw new Error(`no such tool: ${name}`)
   return found
 }
 
 /** A ctx for tools that only read config — no app boot needed. */
-function fakeCtx(config: Record<string, unknown>, cwd = fixtures): BoostContext {
+function fakeCtx(config: Record<string, unknown>, cwd = fixtures): McpContext {
   return {
     cwd,
     app: {
@@ -79,10 +79,10 @@ describe('config-only tools', () => {
 
 describe('log tools', () => {
   let dir: string
-  let ctx: BoostContext
+  let ctx: McpContext
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'boost-logs-'))
+    dir = mkdtempSync(join(tmpdir(), 'mcp-logs-'))
     mkdirSync(join(dir, 'storage', 'logs'), { recursive: true })
     const lines = [
       { time: '2026-08-06T01:00:00.000Z', level: 'info', name: 'app', message: 'server started' },
@@ -117,22 +117,22 @@ describe('log tools', () => {
   })
 
   test('a directory with no logs says so instead of erroring', async () => {
-    const empty = fakeCtx({}, mkdtempSync(join(tmpdir(), 'boost-empty-')))
+    const empty = fakeCtx({}, mkdtempSync(join(tmpdir(), 'mcp-empty-')))
     expect(await tool('read-log-entries').handle({}, empty)).toContain('No log files')
     expect(await tool('last-error').handle({}, empty)).toContain('No error entries')
   })
 })
 
 describe('booted-app tools', () => {
-  let ctx: BoostContext
+  let ctx: McpContext
   let dbDir: string
 
   // The repo-wide test preload (bunfig.toml → database/test/setup.ts) closes
   // every DB connection after EACH test — so the app boots per test, against
   // a file-backed sqlite database that survives the reconnects.
   beforeAll(() => {
-    dbDir = mkdtempSync(join(tmpdir(), 'boost-db-'))
-    process.env.BOOST_TEST_DB = join(dbDir, 'test.sqlite')
+    dbDir = mkdtempSync(join(tmpdir(), 'mcp-db-'))
+    process.env.ELYVEL_MCP_TEST_DB = join(dbDir, 'test.sqlite')
   })
 
   afterAll(() => rmSync(dbDir, { recursive: true, force: true }))
@@ -144,7 +144,7 @@ describe('booted-app tools', () => {
 
   test('application-info reports name, packages, database, and models', async () => {
     const out = await tool('application-info').handle({}, ctx)
-    expect(out).toContain('Boost Fixture')
+    expect(out).toContain('MCP Fixture')
     expect(out).toContain(`Bun: ${Bun.version}`)
     expect(out).toContain('connection "sqlite" (sqlite)')
     expect(out).toContain('Widget')
@@ -152,7 +152,7 @@ describe('booted-app tools', () => {
 
   test('list-routes shows the fixture route', async () => {
     const out = await tool('list-routes').handle({}, ctx)
-    expect(out).toContain('/boost-fixture')
+    expect(out).toContain('/mcp-fixture')
     expect(out).toContain('GET')
   })
 
@@ -184,7 +184,7 @@ describe('booted-app tools', () => {
   })
 
   test('tinker evaluates code with app, config, and models in scope — and variables persist', async () => {
-    expect(await tool('tinker').handle({ code: 'config("app.name")' }, ctx)).toContain('Boost Fixture')
+    expect(await tool('tinker').handle({ code: 'config("app.name")' }, ctx)).toContain('MCP Fixture')
     expect(await tool('tinker').handle({ code: 'typeof Widget' }, ctx)).toContain('function')
 
     await tool('tinker').handle({ code: 'x = 6 * 7' }, ctx)

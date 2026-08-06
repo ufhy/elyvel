@@ -18,7 +18,7 @@
   `bun install`). Never edit `bootstrap/*.generated.ts` by hand.
 - Errors: uncaught errors are logged with the request's correlation id, then
   rendered honouring `Accept` (JSON for API clients, error pages for
-  browsers) and `app.debug` for traces. Look in the log (see the Boost
+  browsers) and `app.debug` for traces. Look in the log (see the MCP
   tools), not stdout, for what happened.
 - Helpers you should reach for before writing your own: `Str`, `Arr`,
   `Collection`, `Pipeline`, `Process`, `Crypt`, `Context` (request-scoped

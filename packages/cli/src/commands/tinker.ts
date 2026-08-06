@@ -11,7 +11,7 @@ import { contextNames, createReplContext, evaluateLine, IncompleteInputError } f
  * config loaded, providers booted, and the database connected, so
  * `await User.find(1)` works the moment the prompt appears.
  *
- * What's in scope comes from `buildTinkerSeed` (shared with `@elyvel/boost`'s
+ * What's in scope comes from `buildTinkerSeed` (shared with `@elyvel/mcp`'s
  * MCP tinker tool): `app`, `config()`, every export of every file in
  * `app/models/`, and the everyday helpers of whichever packages the app
  * installed.

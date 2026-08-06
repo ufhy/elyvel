@@ -6,6 +6,6 @@ export default defineDatabaseConfig({
     // File-backed when the test provides a path: the repo-wide test preload
     // closes every DB connection after EACH test, so a :memory: database
     // would lose its tables between tests. A file survives reconnects.
-    sqlite: { driver: 'sqlite', database: process.env.BOOST_TEST_DB ?? ':memory:' },
+    sqlite: { driver: 'sqlite', database: process.env.ELYVEL_MCP_TEST_DB ?? ':memory:' },
   },
 })

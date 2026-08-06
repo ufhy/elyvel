@@ -148,24 +148,6 @@
         "elysia": ">=1.4.0",
       },
     },
-    "packages/boost": {
-      "name": "@elyvel/boost",
-      "version": "0.1.0-alpha.4",
-      "dependencies": {
-        "@elyvel/cli": "workspace:*",
-        "@elyvel/log-viewer": "workspace:*",
-        "@modelcontextprotocol/server": "^2.0.0",
-        "zod": "^4.0.0",
-      },
-      "devDependencies": {
-        "@elyvel/database": "workspace:*",
-        "elysia": "^1.4.0",
-      },
-      "peerDependencies": {
-        "@elyvel/core": "workspace:*",
-        "elysia": ">=1.4.0",
-      },
-    },
     "packages/broadcasting": {
       "name": "@elyvel/broadcasting",
       "version": "0.1.0-alpha.4",
@@ -295,6 +277,24 @@
         "@elyvel/support": "workspace:*",
       },
     },
+    "packages/mcp": {
+      "name": "@elyvel/mcp",
+      "version": "0.1.0-alpha.4",
+      "dependencies": {
+        "@elyvel/cli": "workspace:*",
+        "@elyvel/log-viewer": "workspace:*",
+        "@modelcontextprotocol/server": "^2.0.0",
+        "zod": "^4.0.0",
+      },
+      "devDependencies": {
+        "@elyvel/database": "workspace:*",
+        "elysia": "^1.4.0",
+      },
+      "peerDependencies": {
+        "@elyvel/core": "workspace:*",
+        "elysia": ">=1.4.0",
+      },
+    },
     "packages/notifications": {
       "name": "@elyvel/notifications",
       "version": "0.1.0-alpha.4",
@@ -388,14 +388,14 @@
         "elysia": ">=1.4.0",
       },
     },
-    "playground/boost-app": {
-      "name": "boost-app",
+    "playground/mcp-app": {
+      "name": "mcp-app",
       "version": "0.0.0",
       "dependencies": {
         "@elyvel/auth": "workspace:*",
         "@elyvel/core": "workspace:*",
         "@elyvel/database": "workspace:*",
-        "@elyvel/i18n": "workspace:*",
+        "@elyvel/i18n": "0.1.0-alpha.4",
         "@elyvel/inertia": "workspace:*",
         "@elyvel/mail": "workspace:*",
         "@elyvel/validation": "workspace:*",
@@ -418,8 +418,8 @@
       },
       "devDependencies": {
         "@antfu/eslint-config": "^9.1.0",
-        "@elyvel/boost": "workspace:*",
         "@elyvel/cli": "workspace:*",
+        "@elyvel/mcp": "workspace:*",
         "@faker-js/faker": "^10.5.0",
         "@tailwindcss/vite": "^4.0.0",
         "@types/bun": "^1.3.14",
@@ -522,8 +522,6 @@
 
     "@elyvel/auth": ["@elyvel/auth@workspace:packages/auth"],
 
-    "@elyvel/boost": ["@elyvel/boost@workspace:packages/boost"],
-
     "@elyvel/broadcasting": ["@elyvel/broadcasting@workspace:packages/broadcasting"],
 
     "@elyvel/cache": ["@elyvel/cache@workspace:packages/cache"],
@@ -547,6 +545,8 @@
     "@elyvel/log-viewer": ["@elyvel/log-viewer@workspace:packages/log-viewer"],
 
     "@elyvel/mail": ["@elyvel/mail@workspace:packages/mail"],
+
+    "@elyvel/mcp": ["@elyvel/mcp@workspace:packages/mcp"],
 
     "@elyvel/notifications": ["@elyvel/notifications@workspace:packages/notifications"],
 
@@ -990,8 +990,6 @@
 
     "boolbase": ["boolbase@1.0.0", "", {}, "sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww=="],
 
-    "boost-app": ["boost-app@workspace:playground/boost-app"],
-
     "brace-expansion": ["brace-expansion@5.0.7", "", { "dependencies": { "balanced-match": "^4.0.2" } }, "sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA=="],
 
     "browserslist": ["browserslist@4.28.6", "", { "dependencies": { "baseline-browser-mapping": "^2.10.42", "caniuse-lite": "^1.0.30001803", "electron-to-chromium": "^1.5.389", "node-releases": "^2.0.51", "update-browserslist-db": "^1.2.3" }, "bin": { "browserslist": "cli.js" } }, "sha512-FQBYNK15VMslhLHpA7+n+n1GOlF1kId2xcCg7/j95f24AOF6VDYMNH4mFxF7KuaTdv627faazpOAjFzMrfJOUw=="],
@@ -1317,6 +1315,8 @@
     "mark.js": ["mark.js@8.11.1", "", {}, "sha512-1I+1qpDt4idfgLQG+BNWmrqku+7/2bi5nLf4YwF8y8zXvmfiTBY3PV3ZibfrjBueCByROpuBjLLFCajqkgYoLQ=="],
 
     "markdown-table": ["markdown-table@3.0.4", "", {}, "sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw=="],
+
+    "mcp-app": ["mcp-app@workspace:playground/mcp-app"],
 
     "mdast-util-find-and-replace": ["mdast-util-find-and-replace@3.0.2", "", { "dependencies": { "@types/mdast": "^4.0.0", "escape-string-regexp": "^5.0.0", "unist-util-is": "^6.0.0", "unist-util-visit-parents": "^6.0.0" } }, "sha512-Tmd1Vg/m3Xz43afeNxDIhWRtFZgM2VLyaf4vSTYwudTyeuTneoL3qtWMA5jeLyz/O1vDJmmV4QuScFCA2tBPwg=="],
 

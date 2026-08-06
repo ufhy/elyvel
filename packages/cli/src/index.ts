@@ -231,7 +231,7 @@ export {
 } from './io'
 
 // The tinker evaluator + seeding, for tools that run code in app context
-// without a TTY (e.g. `@elyvel/boost`'s MCP `tinker` tool) — one tinker, not two.
+// without a TTY (e.g. `@elyvel/mcp`'s MCP `tinker` tool) — one tinker, not two.
 export { buildTinkerSeed, type TinkerSeed } from './tinker-context'
 export {
   contextNames,
