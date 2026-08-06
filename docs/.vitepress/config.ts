@@ -39,6 +39,7 @@ export default defineConfig({
               { text: 'Installation', link: '/guide/installation' },
               { text: 'Directory Structure', link: '/guide/directory-structure' },
               { text: 'Configuration', link: '/guide/configuration' },
+              { text: 'Request Lifecycle', link: '/guide/lifecycle' },
               { text: 'CLI Reference', link: '/guide/cli-reference' },
             ],
           },
@@ -49,6 +50,7 @@ export default defineConfig({
               { text: 'Middleware', link: '/basics/middleware' },
               { text: 'Controllers', link: '/basics/controllers' },
               { text: 'Validation', link: '/basics/validation' },
+              { text: 'Responses', link: '/basics/responses' },
               { text: 'Error Handling', link: '/basics/error-handling' },
               { text: 'Inertia & Vue', link: '/basics/inertia' },
               { text: 'Standalone SPA', link: '/basics/spa' },
@@ -104,6 +106,7 @@ export default defineConfig({
           {
             text: 'Packages',
             items: [
+              { text: 'Package Development', link: '/packages/package-development' },
               { text: 'Writing a Driver', link: '/packages/writing-drivers' },
               { text: 'Log Viewer', link: '/packages/log-viewer' },
               { text: 'Telegram', link: '/packages/telegram' },
@@ -132,6 +135,7 @@ export default defineConfig({
               { text: 'Instalasi', link: '/id/guide/installation' },
               { text: 'Struktur Direktori', link: '/id/guide/directory-structure' },
               { text: 'Konfigurasi', link: '/id/guide/configuration' },
+              { text: 'Siklus Hidup Request', link: '/id/guide/lifecycle' },
               { text: 'Referensi CLI', link: '/id/guide/cli-reference' },
             ],
           },
@@ -142,6 +146,7 @@ export default defineConfig({
               { text: 'Middleware', link: '/id/basics/middleware' },
               { text: 'Controller', link: '/id/basics/controllers' },
               { text: 'Validasi', link: '/id/basics/validation' },
+              { text: 'Response', link: '/id/basics/responses' },
               { text: 'Penanganan Error', link: '/id/basics/error-handling' },
               { text: 'Inertia & Vue', link: '/id/basics/inertia' },
               { text: 'SPA Standalone', link: '/id/basics/spa' },
@@ -195,6 +200,7 @@ export default defineConfig({
           {
             text: 'Packages',
             items: [
+              { text: 'Pengembangan Paket', link: '/id/packages/package-development' },
               { text: 'Menulis Driver', link: '/id/packages/writing-drivers' },
               { text: 'Log Viewer', link: '/id/packages/log-viewer' },
               { text: 'Telegram', link: '/id/packages/telegram' },
