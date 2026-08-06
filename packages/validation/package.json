@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/validation",
   "type": "module",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Laravel-style validation for elyvel \u2014 rule DSL, message bag, FormRequest",
   "author": "ufhy",
   "license": "MIT",

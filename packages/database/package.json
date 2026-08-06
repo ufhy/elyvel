@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/database",
   "type": "module",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "A Laravel Eloquent-style Active Record ORM for Bun (SQLite + Postgres + MySQL)",
   "author": "ufhy",
   "license": "MIT",
