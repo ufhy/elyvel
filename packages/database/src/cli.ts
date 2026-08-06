@@ -3,7 +3,7 @@ import type { Connection } from './connection'
 import type { ColumnInfo } from './inspect'
 import type { Cast, Model } from './model'
 import type { SeederClass } from './seeder'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, ftruncateSync, openSync, readdirSync, readFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
 import { comment, error, info, table, warn } from '@elyvel/cli'
 import { createApp } from '@elyvel/core'
@@ -566,7 +566,11 @@ export async function modelSyncCommand(
 
   const table = cls.getTableName()
   const columns = await tableColumns(conn, table)
-  const source = readFileSync(file, 'utf8')
+  // Read and (below) write through ONE descriptor, so both halves address the
+  // same inode. Reading by path and writing by path later is a race: the file
+  // can be replaced in between and the write lands somewhere else entirely.
+  const handle = openSync(file, 'r+')
+  const source = readFileSync(handle, 'utf8')
   const meta: ModelMeta = {
     primaryKey: cls.primaryKey,
     createdAtColumn: cls.createdAtColumn,
@@ -591,11 +595,14 @@ export async function modelSyncCommand(
 
   const updated = applyModelSync(source, lines)
   if (updated === null) {
+    closeSync(handle)
     error(`Could not locate the class body in ${name}.ts — add manually:\n${lines.join('\n')}`)
     return 1
   }
 
-  writeFileSync(file, updated)
+  ftruncateSync(handle, 0)
+  writeSync(handle, updated, 0, 'utf8')
+  closeSync(handle)
   info(`✓ Added ${missing.length} field${missing.length === 1 ? '' : 's'} to ${name}.ts:\n${lines.join('\n')}`)
   return 0
 }

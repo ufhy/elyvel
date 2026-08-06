@@ -23,14 +23,24 @@ function toTsLiteral(value: unknown, indent = 0): string {
 function writeGroup(dir: string, name: string, data: unknown, force: boolean): boolean {
   const file = join(dir, `${name}.ts`)
   const rel = relative(process.cwd(), file)
-  if (existsSync(file) && !force) {
-    comment(`  • skipped ${rel} (exists — use --force)`)
-    return false
-  }
   mkdirSync(dir, { recursive: true })
   const banner = `// Published by \`elyvel lang:publish\`. Edit freely — restyle the wording or\n`
     + `// translate the values; keys are matched by the framework.\n\n`
-  writeFileSync(file, `${banner}export default ${toTsLiteral(data)}\n`, 'utf8')
+  const contents = `${banner}export default ${toTsLiteral(data)}\n`
+
+  // `wx` fails when the file already exists, so "don't clobber" is one atomic
+  // decision by the filesystem rather than an existsSync the write can lose a
+  // race with. Without --force, a file that appeared in between is still safe.
+  try {
+    writeFileSync(file, contents, { encoding: 'utf8', flag: force ? 'w' : 'wx' })
+  }
+  catch (error) {
+    if ((error as { code?: string }).code === 'EEXIST') {
+      comment(`  • skipped ${rel} (exists — use --force)`)
+      return false
+    }
+    throw error
+  }
   info(`  ✓ ${rel}`)
   return true
 }

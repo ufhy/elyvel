@@ -1,7 +1,9 @@
 import {
   appendFileSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
@@ -250,7 +252,17 @@ function rotateBySize(
   }
 
   if (compress) {
-    writeFileSync(`${path}.1.gz`, gzipSync(readFileSync(path)))
+    // Read through a descriptor and let `wx` refuse an existing `.1.gz`: two
+    // processes rotating the same volume must not have one silently overwrite
+    // the other's archive, and the read must not follow a path that was
+    // swapped after the loop above.
+    const handle = openSync(path, 'r')
+    try {
+      writeFileSync(`${path}.1.gz`, gzipSync(readFileSync(handle)), { flag: 'wx' })
+    }
+    finally {
+      closeSync(handle)
+    }
     rmSync(path)
   }
   else {
