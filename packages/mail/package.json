@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/mail",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Laravel-style mail for elyvel \u2014 Mailables, transports (log/array/smtp)",
   "author": "ufhy",
   "license": "MIT",

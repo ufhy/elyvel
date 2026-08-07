@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/mcp",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "AI-assisted development for elyvel apps — an MCP server plus composed agent guidelines, like Laravel Boost",
   "author": "ufhy",
   "license": "MIT",

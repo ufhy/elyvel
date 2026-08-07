@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/auth",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Authentication for elyvel \u2014 token guard, gate, and Better Auth (Eloquent adapter)",
   "author": "ufhy",
   "license": "MIT",

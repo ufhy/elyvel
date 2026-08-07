@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/permission",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Roles and permissions stored in the database, in the spirit of spatie/laravel-permission",
   "author": "ufhy",
   "license": "MIT",

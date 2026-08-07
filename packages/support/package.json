@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/support",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Foundational utilities (Collection, \u2026) shared across elyvel \u2014 mirrors Illuminate\\Support",
   "author": "ufhy",
   "license": "MIT",

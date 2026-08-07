@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/view",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Server-side HTML views for elyvel \u2014 safe html template tag + view() responses",
   "author": "ufhy",
   "license": "MIT",

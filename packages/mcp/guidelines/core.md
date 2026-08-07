@@ -10,6 +10,9 @@
   helper so typos fail the type-check. Read values with
   `config('app.name', fallback)` or `app.config.get(...)` — never
   `process.env` outside `config/`.
+- Absolute URLs built OUTSIDE a request (a mail, a CLI command, a job) come
+  from `config('app.url')` — Laravel's `APP_URL`. Don't hard-code a host or
+  assume localhost.
 - Routes live in `routes/*.ts` and are auto-mounted. Middleware groups
   (`web` = session + CSRF, `api`) and aliases come from
   `config/middleware.ts`; session state exists only inside the `web` group.

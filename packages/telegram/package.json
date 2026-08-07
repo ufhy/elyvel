@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/telegram",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Telegram Bot API client for elyvel \u2014 send messages (and a notifications channel)",
   "author": "ufhy",
   "license": "MIT",

@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/events",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Laravel-style event dispatcher for elyvel",
   "author": "ufhy",
   "license": "MIT",

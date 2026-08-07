@@ -1,7 +1,7 @@
 {
   "name": "@elyvel/cli",
   "type": "module",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "The `elyvel` command-line generator and dev server",
   "author": "ufhy",
   "license": "MIT",
